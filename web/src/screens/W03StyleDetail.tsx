@@ -1,0 +1,244 @@
+/**
+ * W-03 · 스타일 상세 (docs/wireframe-spec-v0.5.html#p03)
+ *
+ * 노트1 때문에 이 화면은 라우트상 **W-02 의 자식**입니다. 전체 화면으로 갈아끼우면
+ * 그리드의 스크롤 위치와 앵커 상태가 사라져 "여러 스타일을 비교한다"는 이 화면의
+ * 존재 이유가 없어집니다. `/styles/:styleId` 로 직접 들어와도 뒤에 카탈로그가 함께
+ * 렌더되므로, 시트를 닫으면 탐색이 그대로 이어집니다.
+ *
+ * 반영한 노트:
+ *   1. 전체 화면이 아니라 시트 — 그리드 탐색 맥락 유지
+ *   2. 적용 예시 6장 캐러셀 (장수는 서버 `examples[]` 를 따릅니다)
+ *   3. 적합도 태그(견종·털색) — 기대치를 미리 낮추는 장치
+ *   4. 소요 시간·산출 장수는 버튼 **아래**
+ *   숨기는 것: 프롬프트 원문 — API(§3 GET /v1/styles/{id})가 애초에 내려주지 않습니다.
+ */
+
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router'
+import { isApiError } from '../api/client'
+import { useStyleDetail } from '../api/queries'
+import type { FitTag, StyleDetail } from '../api/types'
+
+/**
+ * 와이어프레임 표기(소형견 ◎ / 검은 털 △).
+ * §3 에 `score` 의 전체 값 도메인이 명세돼 있지 않으므로(api/types.ts FitTag 주석)
+ * 모르는 등급은 기호 없이 라벨만 보여 줍니다 — 임의 기호를 붙이면 뜻을 지어내는 셈입니다.
+ */
+const FIT_MARK: Record<string, string> = { good: '◎', caution: '△' }
+
+export default function W03StyleDetail() {
+  const { styleId } = useParams()
+  const navigate = useNavigate()
+
+  const parsed = Number(styleId)
+  const id = Number.isInteger(parsed) && parsed > 0 ? parsed : null
+
+  const { data: style, isPending, error } = useStyleDetail(id)
+  const sheetRef = useRef<HTMLDivElement>(null)
+
+  const close = useCallback(() => navigate('/styles'), [navigate])
+
+  useEffect(() => {
+    sheetRef.current?.focus()
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') close()
+    }
+    document.addEventListener('keydown', onKeyDown)
+
+    // 시트가 떠 있는 동안 뒤 그리드가 같이 스크롤되면 안 됩니다.
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      document.removeEventListener('keydown', onKeyDown)
+      document.body.style.overflow = previousOverflow
+    }
+  }, [close])
+
+  return (
+    <div className="fixed inset-0 z-30 flex flex-col justify-end desktop:items-center desktop:justify-center">
+      {/* 스크림 — 시트 밖을 누르면 닫힙니다. */}
+      <button
+        type="button"
+        aria-label="닫기"
+        onClick={close}
+        className="absolute inset-0 cursor-default bg-ink/40"
+      />
+
+      <div
+        ref={sheetRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="style-sheet-title"
+        tabIndex={-1}
+        className="relative max-h-[85vh] w-full overflow-y-auto rounded-t-2xl bg-surface px-4 pt-2 pb-6 outline-none desktop:max-w-lg desktop:rounded-2xl desktop:pt-3"
+      >
+        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-rule" aria-hidden />
+
+        {isPending ? (
+          <SheetSkeleton />
+        ) : error ? (
+          <SheetError
+            message={
+              isApiError(error, 'NOT_FOUND')
+                ? '지금은 고를 수 없는 스타일이에요.'
+                : '스타일 정보를 불러오지 못했습니다.'
+            }
+            onClose={close}
+          />
+        ) : (
+          <SheetBody style={style} />
+        )}
+      </div>
+    </div>
+  )
+}
+
+function SheetBody({ style }: { style: StyleDetail }) {
+  return (
+    <>
+      {/* 노트2 — 예시는 서로 다른 견종으로 채워집니다(어떤 사진을 넣을지는 운영이 W-11 에서 정함). */}
+      <ExampleCarousel images={style.examples} styleName={style.name} />
+
+      <div className="mt-3 flex items-baseline justify-between gap-2">
+        <h2 id="style-sheet-title" className="text-lg font-bold">
+          {style.name}
+        </h2>
+        <span className="shrink-0 rounded-full border border-rule bg-surface-2 px-2 py-0.5 font-mono text-xs tabular-nums">
+          {style.credit_cost} 크레딧
+        </span>
+      </div>
+
+      {/* 노트3 — 적합도 태그. */}
+      {style.fit_tags.length > 0 && (
+        <ul className="mt-3 flex flex-wrap gap-1.5">
+          {style.fit_tags.map((tag) => (
+            <li key={tag.label}>
+              <FitChip tag={tag} />
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <Link
+        to={`/upload?style_id=${style.id}`}
+        className="mt-5 block rounded-xl bg-ink px-4 py-3 text-center text-sm font-semibold text-paper"
+      >
+        이 스타일로 만들기
+      </Link>
+
+      {/* 노트4 — 대기 이탈의 절반은 "얼마나 걸리는지 몰라서". 버튼 바로 아래에 둡니다. */}
+      <p className="mt-2 text-center text-sm text-ink-3">
+        평균 {style.avg_duration_seconds}초 · {style.output_count}장 생성
+      </p>
+    </>
+  )
+}
+
+function FitChip({ tag }: { tag: FitTag }) {
+  const mark = FIT_MARK[tag.score]
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs ${
+        tag.score === 'caution'
+          ? 'border-warn/30 bg-warn-soft text-warn'
+          : 'border-rule bg-surface-2 text-ink-2'
+      }`}
+    >
+      {tag.label}
+      {mark && <span aria-hidden>{mark}</span>}
+      {mark && <span className="sr-only">{tag.score === 'caution' ? '주의' : '적합'}</span>}
+    </span>
+  )
+}
+
+/**
+ * 스크롤 스냅 캐러셀. 라이브러리를 붙이지 않은 이유는 이 화면이 요구하는 게
+ * "가로로 넘기고 현재 위치를 점으로 표시" 하나뿐이고, 그건 브라우저 네이티브
+ * 스크롤이 이미 더 잘 하기 때문입니다(관성·터치·키보드 전부 공짜).
+ */
+function ExampleCarousel({ images, styleName }: { images: string[]; styleName: string }) {
+  const trackRef = useRef<HTMLUListElement>(null)
+  const [active, setActive] = useState(0)
+
+  return (
+    <div>
+      <ul
+        ref={trackRef}
+        onScroll={(event) => {
+          const track = event.currentTarget
+          setActive(Math.round(track.scrollLeft / track.clientWidth))
+        }}
+        className="flex snap-x snap-mandatory overflow-x-auto rounded-xl"
+      >
+        {images.map((src, index) => (
+          <li key={index} className="w-full shrink-0 snap-center">
+            <img
+              src={src}
+              alt={`${styleName} 적용 예시 ${index + 1}`}
+              loading={index === 0 ? 'eager' : 'lazy'}
+              decoding="async"
+              className="aspect-square w-full bg-surface-2 object-cover"
+            />
+          </li>
+        ))}
+      </ul>
+
+      <div className="mt-2 flex justify-center gap-1.5">
+        {images.map((_, index) => (
+          <button
+            key={index}
+            type="button"
+            aria-label={`예시 ${index + 1}`}
+            aria-current={active === index ? 'true' : undefined}
+            onClick={() => {
+              const track = trackRef.current
+              track?.scrollTo({ left: index * track.clientWidth, behavior: 'smooth' })
+            }}
+            className={`size-1.5 rounded-full transition-colors ${
+              active === index ? 'bg-ink' : 'bg-rule-strong'
+            }`}
+          />
+        ))}
+      </div>
+
+      <p className="sr-only" aria-live="polite">
+        적용 예시 {active + 1} / {images.length}
+      </p>
+    </div>
+  )
+}
+
+function SheetError({ message, onClose }: { message: string; onClose: () => void }) {
+  return (
+    <div className="py-8 text-center">
+      <h2 id="style-sheet-title" className="text-base font-semibold">
+        {message}
+      </h2>
+      <button
+        type="button"
+        onClick={onClose}
+        className="mt-4 rounded-full border border-rule-strong px-4 py-2 text-sm"
+      >
+        다른 스타일 보기
+      </button>
+    </div>
+  )
+}
+
+function SheetSkeleton() {
+  return (
+    <div className="animate-pulse">
+      <div className="aspect-square w-full rounded-xl bg-rule/60" />
+      <div className="mt-4 h-5 w-32 rounded bg-rule/60" />
+      <div className="mt-3 h-7 w-48 rounded-full bg-rule/60" />
+      <div className="mt-5 h-11 w-full rounded-xl bg-rule/60" />
+      {/* 스켈레톤에도 라벨 대상이 필요합니다 — aria-labelledby 가 가리키는 노드. */}
+      <span id="style-sheet-title" className="sr-only">
+        스타일 정보를 불러오는 중
+      </span>
+    </div>
+  )
+}

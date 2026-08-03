@@ -44,42 +44,6 @@ export const W01Landing = () => (
   />
 )
 
-export const W03StyleDetail = () => (
-  <Stub id="W-03" title="스타일 상세 (바텀시트)" phase="Phase 2" endpoints={['GET /v1/styles/{id}']} />
-)
-
-export const W04Upload = () => (
-  <Stub
-    id="W-04"
-    title="사진 업로드 · 품질 체크"
-    phase="Phase 2"
-    endpoints={['GET /v1/pets', 'POST /v1/uploads', 'POST /v1/jobs']}
-  />
-)
-
-export const W05Waiting = () => (
-  <Stub
-    id="W-05"
-    title="생성 대기"
-    phase="Phase 2"
-    endpoints={['GET /v1/jobs/{id} (2s 지수 백오프 폴링)', 'GET /v1/styles?section=popular&limit=3']}
-  />
-)
-
-export const W06Result = () => (
-  <Stub
-    id="W-06"
-    title="결과"
-    phase="Phase 2"
-    endpoints={[
-      'GET /v1/jobs/{id}',
-      'POST /v1/jobs/{id}/select',
-      'POST /v1/jobs/{id}/share',
-      'GET /v1/calculator-link',
-    ]}
-  />
-)
-
 export const W07Calculator = () => (
   <Stub id="W-07" title="계산기로 넘기기" phase="Phase 3" endpoints={['GET /v1/calculator-link']} />
 )

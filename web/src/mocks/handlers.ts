@@ -7,7 +7,7 @@
  * 같은 Idempotency-Key 가 같은 job 을 돌려줍니다.
  *
  * 시나리오 강제: localStorage 에 `nutti.mock.scenario` 를 넣으면 해당 케이스로 고정됩니다.
- *   upload:warn | upload:block | job:fail | job:safety | credit:empty
+ *   upload:warn | upload:block | job:fail | job:safety | credit:empty | session:expired
  */
 
 import { HttpResponse, http, delay } from 'msw'
@@ -51,6 +51,8 @@ const state = {
   jobs: new Map<string, MockJob>(),
   /** Idempotency-Key → job_id. 같은 키 재요청 시 새 job 을 만들지 않습니다(§1). */
   idempotency: new Map<string, string>(),
+  /** session:expired 시나리오에서 "만료된 것으로 칠" Authorization 헤더 값. */
+  expiredToken: null as string | null,
 }
 
 /** 생성에 걸리는 시간. W-03 "평균 24초"보다 짧게 잡아 개발 반복을 빠르게 합니다. */
@@ -223,10 +225,13 @@ export const handlers = [
     const body = (await request.json()) as { custom_prompt: string | null }
     const cost = body.custom_prompt ? 2 : 1
 
-    if (scenario() === 'credit:empty' || state.credits.balance < cost) {
+    const forcedEmpty = scenario() === 'credit:empty'
+    if (forcedEmpty || state.credits.balance < cost) {
       return apiError(402, 'INSUFFICIENT_CREDIT', '크레딧이 부족합니다', {
         required: cost,
-        balance: Math.max(0, state.credits.balance),
+        // 강제 시나리오에서 실제 잔액을 그대로 실어 보내면 "1 크레딧이 필요한데
+        // 11 크레딧이 있어요" 같은 자기모순 화면이 나옵니다.
+        balance: forcedEmpty ? 0 : Math.max(0, state.credits.balance),
       })
     }
 
@@ -246,7 +251,22 @@ export const handlers = [
     return HttpResponse.json({ job_id: job.id, status: 'queued' }, { status: 202 })
   }),
 
-  http.get(`${BASE}/jobs/:jobId`, ({ params }) => {
+  http.get(`${BASE}/jobs/:jobId`, ({ params, request }) => {
+    // 게스트 토큰 만료 → 재발급 → **다른 member_id** 라 원래 job 이 사라지는 경로.
+    // 이슈 #5 의 복원 실패 안내를 실제로 밟아 보려면 이 시나리오가 필요합니다.
+    //
+    // "몇 번째 요청이냐"가 아니라 **어떤 토큰이냐**로 판정합니다. 회차로 세면
+    // StrictMode 이중 마운트나 재시도 한 번에 만료가 소진돼 재발급 경로를 못 밟습니다.
+    if (scenario() === 'session:expired') {
+      const token = request.headers.get('Authorization') ?? ''
+      state.expiredToken ??= token
+      if (token === state.expiredToken) {
+        return apiError(401, 'TOKEN_EXPIRED', '토큰이 만료되었습니다')
+      }
+      // 재발급된 토큰 = 다른 게스트. 이전 job 은 남의 것이라 404 입니다(§3).
+      return apiError(404, 'NOT_FOUND', '작업을 찾을 수 없습니다')
+    }
+
     const job = state.jobs.get(String(params.jobId))
     if (!job) return apiError(404, 'NOT_FOUND', '작업을 찾을 수 없습니다')
 

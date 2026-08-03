@@ -28,6 +28,7 @@ localStorage.setItem('nutti.mock.scenario', 'upload:block') // 고양이 감지(
 localStorage.setItem('nutti.mock.scenario', 'job:fail')     // GENERATION_FAILED + 크레딧 반환
 localStorage.setItem('nutti.mock.scenario', 'job:safety')   // SAFETY_BLOCKED
 localStorage.setItem('nutti.mock.scenario', 'credit:empty') // 402 INSUFFICIENT_CREDIT
+localStorage.setItem('nutti.mock.scenario', 'session:expired') // 게스트 토큰 만료 → 재발급 → 404 (복원 실패 안내)
 localStorage.removeItem('nutti.mock.scenario')              // 정상
 ```
 
@@ -41,9 +42,13 @@ src/
     endpoints.ts    엔드포인트별 얇은 래퍼
     queries.ts      TanStack Query — 캐시 키·폴링 정책·무효화 지점
     idempotency.ts  Idempotency-Key 수명 (규칙이 두 방향으로 갈리는 지점)
+    uploadDraft.ts  402 후 돌아왔을 때 업로드 결과 이어받기 (sessionStorage)
+    jobContext.ts   job_id → {style_id, upload_id} 로컬 색인. 응답에 없어서 필요 (이슈 #9)
   mocks/            MSW — 프로덕션 번들에서 완전히 제외됨
   screens/          화면. 구현된 것만 개별 파일, 나머지는 placeholders.tsx
-  app/routes.tsx    11개 화면 라우트 테이블
+  app/
+    routes.tsx      11개 화면 라우트 테이블 (W-03 은 W-02 의 자식 = 시트)
+    guestSession.ts 게스트 세션 초기화 감지 → 복원 실패 안내 분기 (이슈 #5)
 ```
 
 ## 진행 상황
@@ -52,19 +57,21 @@ src/
 |---|---|---|
 | Phase 0 | 스택 확정 · `web/` 배치 · 백엔드 차단 이슈 등록 | 완료 |
 | Phase 1 | 목 서버 · API 클라이언트 · 라우팅 골격 | 완료 |
-| Phase 2 | 핵심 플로우 W-01→W-02→W-03→W-04→W-05→W-06 | W-02만 완료 |
-| Phase 3 | 출구 3갈래 + 크레딧 (W-06 공유/쇼핑몰, W-07, W-10, 402 흐름) | 미착수 |
-| Phase 4 | 계정·보관함 (W-06 B 로그인 시트, 콜백, W-09) | 미착수 |
+| Phase 2 | 핵심 플로우 W-01→W-02→W-03→W-04→W-05→W-06 | W-02~W-06 완료 · **W-01 랜딩 남음** |
+| Phase 3 | 출구 3갈래 + 크레딧 (W-06 공유/쇼핑몰, W-07, W-10, 402 흐름) | W-06 출구 3갈래·402 오버레이 완료 · W-07/W-10 미착수 |
+| Phase 4 | 계정·보관함 (W-06 B 로그인 시트, 콜백, W-09) | W-06 B 시트(카페24만) · 콜백/W-09 미착수 |
 | Phase 5 | W-08 크리에이티브 · W-11 운영 콘솔(번들 분리) | 미착수 |
 | Phase 6 | GA4 크로스도메인 · UTM · 이벤트 비콘 | 미착수 |
 
 ## 백엔드 대기 중 (이슈)
 
-| # | 내용 | 막히는 시점 |
-|---|---|---|
-| [#3](https://github.com/N-utti/nutti-photo-playground/issues/3) | `CORSMiddleware` 미배선 | 실서버 연결 시작 즉시 |
-| [#4](https://github.com/N-utti/nutti-photo-playground/issues/4) | `response_model` 없이 §3 삭제 금지 | 타입 생성으로 전환할 때 |
-| [#5](https://github.com/N-utti/nutti-photo-playground/issues/5) | Q7 게스트 결과 복원이 성립하지 않음 | Phase 2 (W-05/W-06) |
+| # | 내용 | 막히는 시점 | 상태 |
+|---|---|---|---|
+| [#3](https://github.com/N-utti/nutti-photo-playground/issues/3) | `CORSMiddleware` 미배선 | 실서버 연결 시작 즉시 | 해결 (PR #6) |
+| [#4](https://github.com/N-utti/nutti-photo-playground/issues/4) | `response_model` 없이 §3 삭제 금지 | 타입 생성으로 전환할 때 | 해결 (PR #6) |
+| [#5](https://github.com/N-utti/nutti-photo-playground/issues/5) | Q7 게스트 결과 복원 한계 | Phase 2 (W-05/W-06) | 결정 B+A · 프론트 반영 완료 |
+| [#9](https://github.com/N-utti/nutti-photo-playground/issues/9) | job/펫 응답에 `style_id`·`upload_id` 참조 없음 | W-06 다시 만들기·다른 스타일, W-04 펫 스킵 | 대기 (localStorage 색인으로 우회 중) |
+| [#10](https://github.com/N-utti/nutti-photo-playground/issues/10) | 카카오 `kakao_token` 획득 경로 미정 | W-06 B 계정 연동 | 대기 (카페24만 배선) |
 
 ## 미확정
 
@@ -84,3 +91,9 @@ src/
    `invalidateAfterJobSettled`를 job이 종료 상태에 닿는 곳에서 반드시 호출하세요.
 4. **W-02는 68개를 한 페이지에** 받습니다(카탈로그 페이지네이션 없음). 썸네일
    `loading="lazy"`는 옵션이 아니라 필수입니다.
+5. **완료 알림을 약속하지 마세요.** W-05 문구에서 와이어프레임의 "알림 받고 나가기 /
+   완성되면 알려드릴게요"를 뺐습니다 — 알림은 MVP 제외(FR-W05-04)이고, 지킬 수 없는
+   약속이 이슈 #5의 출발점이었습니다. 지금 말할 수 있는 건 "같은 브라우저에서 이 주소로
+   다시 오면 결과가 남아 있다"까지입니다.
+6. **job 폴링은 에러에서 멈춰야 합니다.** TanStack Query는 에러 상태여도 `refetchInterval`을
+   멈추지 않아, 404인 job 주소에서 폴링이 영원히 돕니다(`useJobPolling` 주석 참고).

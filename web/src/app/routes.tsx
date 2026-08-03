@@ -9,13 +9,13 @@
 
 import { createBrowserRouter } from 'react-router'
 import W02StyleCatalog from '../screens/W02StyleCatalog'
+import W03StyleDetail from '../screens/W03StyleDetail'
+import W04Upload from '../screens/W04Upload'
+import W05Waiting from '../screens/W05Waiting'
+import W06Result from '../screens/W06Result'
 import {
   NotFound,
   W01Landing,
-  W03StyleDetail,
-  W04Upload,
-  W05Waiting,
-  W06Result,
   W07Calculator,
   W08Creative,
   W09Library,
@@ -25,8 +25,14 @@ import {
 
 export const router = createBrowserRouter([
   { path: '/', element: <W01Landing /> },
-  { path: '/styles', element: <W02StyleCatalog /> },
-  { path: '/styles/:styleId', element: <W03StyleDetail /> },
+  // W-03 은 W-02 의 **자식**입니다 — 시트가 떠도 뒤 그리드가 살아 있어야 하고
+  // (#p03 노트1), /styles/101 로 직접 들어와도 닫으면 탐색이 이어져야 합니다.
+  {
+    path: '/styles',
+    element: <W02StyleCatalog />,
+    children: [{ path: ':styleId', element: <W03StyleDetail /> }],
+  },
+  // 스타일 맥락은 `?style_id=`. W-08(커스텀 프롬프트)도 스타일 없이 이 화면에 옵니다.
   { path: '/upload', element: <W04Upload /> },
   // job_id 가 경로에 있어야 재방문 시 복원됩니다(Q7).
   { path: '/jobs/:jobId/waiting', element: <W05Waiting /> },

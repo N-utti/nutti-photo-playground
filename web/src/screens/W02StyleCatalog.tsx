@@ -14,14 +14,18 @@
  *   7. 크레딧 비용은 카드에 유지
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Link, Outlet, useMatch } from 'react-router'
 import { useCredits, useStyles } from '../api/queries'
 import type { StyleCard } from '../api/types'
 
 export default function W02StyleCatalog() {
   const { data: catalog, isPending, isError, error, refetch } = useStyles()
   const { data: credits } = useCredits()
+
+  // W-03 시트가 이 화면 위에 렌더됩니다(routes.tsx). 시트가 떠 있는 동안
+  // 뒤 그리드는 탭 이동·스크린리더 대상에서 빠져야 모달로서 성립합니다.
+  const sheetOpen = useMatch('/styles/:styleId') !== null
 
   const sectionRefs = useRef(new Map<string, HTMLElement>())
   const [activeSection, setActiveSection] = useState<string | null>(null)
@@ -48,87 +52,107 @@ export default function W02StyleCatalog() {
     return () => observer.disconnect()
   }, [sectionNames])
 
-  if (isPending) return <CatalogSkeleton />
+  if (isPending) {
+    return (
+      <Shell sheetOpen={sheetOpen}>
+        <CatalogSkeleton />
+      </Shell>
+    )
+  }
 
   if (isError) {
     return (
-      <div className="mx-auto max-w-md px-5 py-16 text-center">
-        <p className="text-ink-2">스타일을 불러오지 못했습니다.</p>
-        <p className="mt-1 font-mono text-xs text-ink-3">{error.message}</p>
-        <button
-          type="button"
-          onClick={() => refetch()}
-          className="mt-4 rounded-full border border-rule-strong px-4 py-2 text-sm"
-        >
-          다시 시도
-        </button>
-      </div>
+      <Shell sheetOpen={sheetOpen}>
+        <div className="mx-auto max-w-md px-5 py-16 text-center">
+          <p className="text-ink-2">스타일을 불러오지 못했습니다.</p>
+          <p className="mt-1 font-mono text-xs text-ink-3">{error.message}</p>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="mt-4 rounded-full border border-rule-strong px-4 py-2 text-sm"
+          >
+            다시 시도
+          </button>
+        </div>
+      </Shell>
     )
   }
 
   return (
-    <div className="min-h-full bg-paper pb-24">
-      {/* 앱바 — 크레딧 배지는 GET /v1/credits 의 balance. ADR-02 로 음수가 될 수 있어 표시는 max(0, …). */}
-      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
-        <span className="size-6 rounded-full bg-rule-strong" aria-hidden />
-        <h1 className="text-base font-bold">스타일</h1>
-        <span className="ml-auto rounded-full border border-rule bg-surface-2 px-3 py-1 font-mono text-sm tabular-nums">
-          ◆ {Math.max(0, credits?.balance ?? 0)} 크레딧
-        </span>
-      </header>
+    <Shell sheetOpen={sheetOpen}>
+      <div className="min-h-full bg-paper pb-24">
+        {/* 앱바 — 크레딧 배지는 GET /v1/credits 의 balance. ADR-02 로 음수가 될 수 있어 표시는 max(0, …). */}
+        <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
+          <span className="size-6 rounded-full bg-rule-strong" aria-hidden />
+          <h1 className="text-base font-bold">스타일</h1>
+          <span className="ml-auto rounded-full border border-rule bg-surface-2 px-3 py-1 font-mono text-sm tabular-nums">
+            ◆ {Math.max(0, credits?.balance ?? 0)} 크레딧
+          </span>
+        </header>
 
-      {/* 앵커바 — 점프 전용(노트2). 눌러도 다른 섹션을 숨기지 않습니다. */}
-      <nav
-        aria-label="섹션 바로가기"
-        className="sticky top-[57px] z-10 flex gap-2 overflow-x-auto border-b border-rule bg-paper/95 px-4 py-2 backdrop-blur"
-      >
-        {sectionNames.map((name) => (
-          <a
-            key={name}
-            href={`#section-${name}`}
-            aria-current={activeSection === name ? 'true' : undefined}
-            className={`shrink-0 rounded-full border px-3 py-1 text-sm transition-colors ${
-              activeSection === name
-                ? 'border-ink bg-ink text-paper'
-                : 'border-rule bg-surface text-ink-2'
-            }`}
-          >
-            {name}
-          </a>
-        ))}
-      </nav>
+        {/* 앵커바 — 점프 전용(노트2). 눌러도 다른 섹션을 숨기지 않습니다. */}
+        <nav
+          aria-label="섹션 바로가기"
+          className="sticky top-[57px] z-10 flex gap-2 overflow-x-auto border-b border-rule bg-paper/95 px-4 py-2 backdrop-blur"
+        >
+          {sectionNames.map((name) => (
+            <a
+              key={name}
+              href={`#section-${name}`}
+              aria-current={activeSection === name ? 'true' : undefined}
+              className={`shrink-0 rounded-full border px-3 py-1 text-sm transition-colors ${
+                activeSection === name
+                  ? 'border-ink bg-ink text-paper'
+                  : 'border-rule bg-surface text-ink-2'
+              }`}
+            >
+              {name}
+            </a>
+          ))}
+        </nav>
 
-      <main className="mx-auto w-full max-w-(--container-canvas) px-4">
-        {catalog.sections.map((section) => (
-          <section
-            key={section.name}
-            id={`section-${section.name}`}
-            data-section={section.name}
-            ref={(element) => {
-              if (element) sectionRefs.current.set(section.name, element)
-              else sectionRefs.current.delete(section.name)
-            }}
-            className="scroll-mt-28 pt-6"
-          >
-            <div className="flex items-baseline gap-2">
-              <h2 className="text-lg font-bold">{section.name}</h2>
-              <span className="font-mono text-xs text-ink-3">{section.count}</span>
-            </div>
+        <main className="mx-auto w-full max-w-(--container-canvas) px-4">
+          {catalog.sections.map((section) => (
+            <section
+              key={section.name}
+              id={`section-${section.name}`}
+              data-section={section.name}
+              ref={(element) => {
+                if (element) sectionRefs.current.set(section.name, element)
+                else sectionRefs.current.delete(section.name)
+              }}
+              className="scroll-mt-28 pt-6"
+            >
+              <div className="flex items-baseline gap-2">
+                <h2 className="text-lg font-bold">{section.name}</h2>
+                <span className="font-mono text-xs text-ink-3">{section.count}</span>
+              </div>
 
-            {/* 노트5 — 모바일 2열, 데스크톱 4열. */}
-            <ul className="mt-3 grid grid-cols-2 gap-3 desktop:grid-cols-4">
-              {section.styles.map((style) => (
-                <li key={style.id}>
-                  <StyleCardItem style={style} />
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
+              {/* 노트5 — 모바일 2열, 데스크톱 4열. */}
+              <ul className="mt-3 grid grid-cols-2 gap-3 desktop:grid-cols-4">
+                {section.styles.map((style) => (
+                  <li key={style.id}>
+                    <StyleCardItem style={style} />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
 
-        <p className="py-8 text-center text-sm text-ink-3">전체 {catalog.total_count}개</p>
-      </main>
-    </div>
+          <p className="py-8 text-center text-sm text-ink-3">전체 {catalog.total_count}개</p>
+        </main>
+      </div>
+    </Shell>
+  )
+}
+
+/** 카탈로그 본문 + 그 위에 뜨는 W-03 시트(Outlet). 로딩·에러 상태도 시트를 받습니다. */
+function Shell({ sheetOpen, children }: { sheetOpen: boolean; children: ReactNode }) {
+  return (
+    <>
+      <div inert={sheetOpen}>{children}</div>
+      <Outlet />
+    </>
   )
 }
 
