@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     database_url: str = "postgres://nutti:nutti@localhost:5432/nutti"
     jwt_signing_key: str = "dev-secret-change-me"
     jwt_expires_in: int = 3600
+    # ponytail: 게스트 JWT는 30일 — 게스트 자산 보존(guest_expires_at)과 정렬 (07-decisions#Q7, 이슈 #5)
+    jwt_guest_expires_in: int = 2592000
 
     openai_api_key: str = ""
     openai_base_url: str | None = None
