@@ -33,7 +33,7 @@
 
 ## 참조 규약
 
-모든 스펙 참조는 앵커 형식을 사용합니다: `wireframe-spec-v0.5.html#p01` ~ `#p11`, `#goal`, `#arch`, `#flow`, `#states`, `#open`.
+모든 스펙 참조는 앵커 형식을 사용합니다: `wireframe-spec-v0.5.html#p00` ~ `#p11`(`#p00` = 리서치 근거 섹션), `#goal`, `#arch`, `#flow`, `#states`, `#open`.
 
 ## 버전 고정 규칙
 

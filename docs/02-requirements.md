@@ -160,20 +160,20 @@
 | FR-EDGE-10 | 견종 추정 실패(믹스견) | 계산기 URL 파라미터를 비우고 1단계부터 시작 | — | P1 | `#states`, `#p07` |
 | FR-EDGE-11 | 추정 견종이 계산기 목록(42종)에 없음 | "믹스견"으로 폴백 | — | P1 | `#states`, `#p07`, `07-decisions.md#Q9` |
 | FR-EDGE-12 | 비로그인 상태에서 이탈 | 세션 토큰으로 결과 24시간 보존, 재방문 시 복원(FR-W05-04 대체 근거) | — | P1 | `#states` |
-| FR-EDGE-13 | 부적절한 커스텀 프롬프트 | 입력 단계 필터 + 생성 후 안전 필터 2중, 차단 시 미차감(`dedupe_key=refund:<job_uuid>`, reason=`safety_block_refund`) | 차단 시 미차감 | P0 | `#states`, `.omc/plans/ralplan-final.md` |
+| FR-EDGE-13 | 부적절한 커스텀 프롬프트 | 입력 단계 필터 + 생성 후 안전 필터 2중, 차단 시 미차감(`dedupe_key=refund:<job_uuid>`, reason=`safety_block_refund`) | 차단 시 미차감 | P0 | `#states`, [04-erd.md](04-erd.md) §3.2 |
 
 ## 3. 비기능 요구사항 (NFR)
 
 | NFR | 내용 | 출처 |
 |---|---|---|
 | NFR-PERF-01 | 생성 처리 목표 20–40초, 60초 초과 시 타임아웃 정책(FR-EDGE-02) 적용 | `#p05`, `#states` |
-| NFR-PERF-02 | 생성 상태 조회는 HTTP 폴링(2초 지수 백오프), `eta_seconds`/`progress`는 서버가 계산해 반환 | `.omc/plans/ralplan-final.md` |
+| NFR-PERF-02 | 생성 상태 조회는 HTTP 폴링(2초 지수 백오프), `eta_seconds`/`progress`는 서버가 계산해 반환 | [07-decisions.md](07-decisions.md) ADR-04 |
 | NFR-AVAIL-01 | 카페24 토큰 갱신 실패가 전체 장애로 번지지 않도록 격리 — 크레딧 지급만 보류, 생성 기능은 정상 유지 | `#arch`, `#states` |
-| NFR-AVAIL-02 | 생성 작업 큐는 `attempt_count`·`lease_expires_at`으로 워커 장애 시 자동 회수 | `.omc/plans/ralplan-final.md` |
+| NFR-AVAIL-02 | 생성 작업 큐는 `attempt_count`·`lease_expires_at`으로 워커 장애 시 자동 회수 | [07-decisions.md](07-decisions.md) ADR-05 |
 | NFR-SEC-01 | AI 프로바이더 API 키는 서버 측에만 보관(카페24 스마트디자인에 노출 금지) | `#arch` |
-| NFR-SEC-02 | 업로드/결과 이미지 저장 키(`storage_key`)는 추측 불가능한 UUID | `.omc/plans/ralplan-final.md` |
+| NFR-SEC-02 | 업로드/결과 이미지 저장 키(`storage_key`)는 추측 불가능한 UUID | [06-architecture-deployment.md](06-architecture-deployment.md) §4 |
 | NFR-PRIV-01 | 업로드 사진·생성 결과는 회원 본인만 접근 가능(직접 URL 추측 방지, NFR-SEC-02와 연계) | `#p09` |
-| NFR-PRIV-02 | `metric_event`는 90일 보존 후 삭제 배치 | `.omc/plans/ralplan-final.md` |
+| NFR-PRIV-02 | `metric_event`는 90일 보존 후 삭제 배치 | [04-erd.md](04-erd.md) §4 |
 | NFR-LEGAL-01 | 놀이터 내 모든 문구(특히 W-06 계산기 배너)에서 간식 효능(관절/면역/시력보호 등) 단정 표현 금지 | `#p06`, `07-decisions.md#Q2` |
 | NFR-LEGAL-02 | 사람 얼굴 포함 사진 처리 정책은 `human_face_policy` 설정값을 따르며 초상권 리스크는 정책 결정 대기 | `07-decisions.md#Q6` |
 
@@ -183,4 +183,4 @@
 
 전역 컴포넌트(크레딧 배지, 하단 탭바)는 각 화면에 반복 등장하지만 FR-W02-07/08에서 1회만 정의하고 다른 화면에서는 참조로 표기해 중복 없이 빈칸도 없게 했다(예: W-09 탭바 행).
 
-출처가 없는 FR/NFR은 0건이다(`.omc/plans/ralplan-final.md` 인용 항목은 스펙 공백을 메우는 합의된 설계 결정이며, 07-decisions.md의 ADR-lite로 이관 예정).
+출처가 없는 FR/NFR은 0건이다. 스펙 공백을 메우는 설계 결정은 전부 [07-decisions.md](07-decisions.md)의 ADR-lite 또는 관련 문서 절(04-erd·06-architecture)을 출처로 가리킨다.

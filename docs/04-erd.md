@@ -2,7 +2,7 @@
 
 > 기준: wireframe-spec v0.5 / cebb865
 
-13개 테이블(MVP 기준). 근거: `.omc/plans/ralplan-final.md` §2, `.omc/plans/ralplan-draft-v1.md` §2, [03-usecases.md](03-usecases.md).
+13개 테이블(MVP 기준). 근거: [03-usecases.md](03-usecases.md), [07-decisions.md](07-decisions.md) ADR-01·02·03·09.
 
 ---
 
@@ -98,7 +98,7 @@ erDiagram
         text status "queued/processing/succeeded/failed"
         int credit_cost
         text provider_job_id "NULL"
-        text error_code "NULL, safety_blocked 포함"
+        text error_code "NULL, SAFETY_BLOCKED 포함"
         timestamptz lease_expires_at "NULL"
         int attempt_count
         timestamptz queued_at
@@ -268,7 +268,7 @@ erDiagram
 | `status` | TEXT | NOT NULL, CHECK IN (`queued`,`processing`,`succeeded`,`failed`) | |
 | `credit_cost` | INT | NOT NULL | 프리셋 1(또는 스타일별 값), 커스텀 2 |
 | `provider_job_id` | TEXT | NULL | 비동기 프로바이더 응답 ID(06-architecture §3 중복 과금 방지) |
-| `error_code` | TEXT | NULL | 실패 사유. `safety_blocked`, `model_error`, `max_retries_exceeded` 등 |
+| `error_code` | TEXT | NULL | 실패 사유. `SAFETY_BLOCKED`, `GENERATION_FAILED`, `MAX_RETRIES_EXCEEDED` (05-api-spec §1 대문자 상수와 동일 표기) |
 | `lease_expires_at` | TIMESTAMPTZ | NULL | 워커 큐 회수용(06-architecture §2.2) |
 | `attempt_count` | INT | NOT NULL DEFAULT 0 | |
 | `queued_at` / `started_at` / `finished_at` | TIMESTAMPTZ | NULL 허용(started/finished) | |
@@ -276,7 +276,7 @@ erDiagram
 제약: **`UNIQUE(member_id, idempotency_key)`** — 전역 유니크가 아니라 회원 단위(§1 공통규약, 05-api-spec §1과 정합).
 인덱스: **`(status, lease_expires_at)`** — 06-architecture-deployment.md §2.1 `FOR UPDATE SKIP LOCKED` 폴링 쿼리가 이 인덱스를 스캔.
 
-> **상태 모델링 노트(03-usecases.md와의 정합)**: [03-usecases.md §2](03-usecases.md)의 상태머신은 `queued/running/succeeded/failed/safety_blocked`를 개념적으로 구분된 결과로 그립니다. DB 컬럼 레벨에서는 `status`가 `queued/processing/succeeded/failed` 4값만 가지고, **`safety_blocked`는 `status='failed'` + `error_code='safety_blocked'`로 표현**됩니다(별도 status 값이 아님) — 개념 모델과 구현 모델의 압축 차이이며 모순이 아닙니다. "타임아웃 → 백그라운드 전환"도 마찬가지로 별도 status 값 없이 `status='processing'`이 60초를 넘겨 유지되는 것으로 표현됩니다.
+> **상태 모델링 노트(03-usecases.md와의 정합)**: [03-usecases.md §2](03-usecases.md)의 상태머신은 `queued/running/succeeded/failed/safety_blocked`를 개념적으로 구분된 결과로 그립니다. DB 컬럼 레벨에서는 `status`가 `queued/processing/succeeded/failed` 4값만 가지고, **`safety_blocked`는 `status='failed'` + `error_code='SAFETY_BLOCKED'`로 표현**됩니다(별도 status 값이 아님) — 개념 모델과 구현 모델의 압축 차이이며 모순이 아닙니다. "타임아웃 → 백그라운드 전환"도 마찬가지로 별도 status 값 없이 `status='processing'`이 60초를 넘겨 유지되는 것으로 표현됩니다.
 
 ### 2.7 `generation_result` — 결과 이미지 N장
 
@@ -295,7 +295,7 @@ erDiagram
 
 ### 2.8 `credit_ledger` — 크레딧 원장(append-only)
 
-**원장이 진실**. `member.credit_balance`는 같은 트랜잭션에서 갱신되는 파생 캐시(§3 크레딧 트랜잭션 4단계).
+**원장이 진실**. `member.credit_balance`는 같은 트랜잭션에서 갱신되는 파생 캐시([03-usecases.md](03-usecases.md) §3 크레딧 트랜잭션 4단계: 락 → 검사 → 원장 INSERT → 캐시 UPDATE).
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|

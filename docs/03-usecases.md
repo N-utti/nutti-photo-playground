@@ -123,7 +123,7 @@ stateDiagram-v2
 - **queued → running**: 워커가 Postgres `FOR UPDATE SKIP LOCKED` 큐에서 job을 집어 `lease_expires_at`을 설정.
 - **running → queued (lease 회수)**: 워커가 죽거나 `lease_expires_at`을 넘기면 다른 워커가 같은 job을 재시도(`attempt_count` 증가). 무한 재시도 방지 임계는 구현 시 결정.
 - **background 전환(FR-EDGE-02)**: 60초를 넘겨도 실패가 아니라 "진행 중"이 이어지는 것 — 클라이언트 UX만 백그라운드 모드로 바뀌고 서버 상태값은 `running`을 유지. 완료되면 `succeeded`/`failed`로 정상 전이.
-- **failed(FR-EDGE-01) / safety_blocked(FR-EDGE-13)**: 둘 다 크레딧을 즉시 자동 반환. `dedupe_key`가 다르면 (`job:<uuid>` 최초 차감과 `refund:<uuid>` 반환) 별개 원장 행이므로 중복 반환은 발생하지 않음.
+- **failed(FR-EDGE-01) / safety_blocked(FR-EDGE-13)**: 둘 다 크레딧을 즉시 자동 반환. `dedupe_key`가 다르면 (`job:<uuid>` 최초 차감과 `refund:<uuid>` 반환) 별개 원장 행이므로 중복 반환은 발생하지 않음. 위 상태머신은 개념 모델이며, DB 저장값은 `status='failed'` + `error_code='SAFETY_BLOCKED'`로 압축 표현됨([04-erd.md](04-erd.md) §2.6 상태 모델링 노트).
 
 ---
 
@@ -158,7 +158,7 @@ sequenceDiagram
 > 재방문 로그인이 **기본 경로**입니다 — 신규 가입이 예외가 아니라 "기존 회원 행이 없을 때"로 처리됩니다.
 
 - **액터**: 게스트, 회원, 시스템
-- **출처**: [#arch](wireframe-spec-v0.5.html#arch), `.omc/plans/ralplan-final.md` §2
+- **출처**: [#arch](wireframe-spec-v0.5.html#arch), [07-decisions.md](07-decisions.md) ADR-03
 - **사전조건**: 게스트 세션 존재, 사용자가 로그인 액션 트리거(주로 W-06 B 계정 연동 바텀시트)
 - **사후조건**: 게스트 자산이 회원 계정에 귀속, 게스트 토큰은 더 이상 유효하지 않음
 - **주 흐름**
@@ -188,7 +188,7 @@ sequenceDiagram
 - **대안 흐름**
   - **A1 = FR-EDGE-13 (부적절한 커스텀 프롬프트, P0)**: 2중 방어.
     - (a) **입력 단계 필터가 선차단**하면 생성 자체가 시작되지 않음 — 크레딧 미차감.
-    - (b) 입력 단계는 통과했으나 **생성 후 안전 필터가 차단**하면 `generation_job.status = safety_blocked`, 크레딧 자동 반환(`dedupe_key = refund:<job_uuid>`, `reason = safety_block_refund`) — §2 상태머신 참고.
+    - (b) 입력 단계는 통과했으나 **생성 후 안전 필터가 차단**하면 safety_blocked 상태(DB: `status='failed'` + `error_code='SAFETY_BLOCKED'`), 크레딧 자동 반환(`dedupe_key = refund:<job_uuid>`, `reason = safety_block_refund`) — §2 상태머신 참고.
 
 ---
 

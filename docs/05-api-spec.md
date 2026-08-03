@@ -705,22 +705,36 @@ W-11 프롬프트 운영 콘솔 전용. 별도 인증 경계(`admin_user` 세션
 | `GET /v1/admin/cafe24/status` | `cafe24_oauth_token`의 `last_synced_at`(워터마크)·`expires_at`·`last_refresh_error` 노출 |
 | `GET /v1/admin/settings` / `PATCH /v1/admin/settings` | `app_setting` key-value 조회·수정(`human_face_policy` 등) |
 
+#### `GET /v1/admin/styles`
+
 ```json
-// GET /v1/admin/styles → 200 (W-11 스타일 테이블)
+// 200 (W-11 스타일 테이블)
 {
   "items": [
     {
       "id": 101,
+      "code": "lego-minifig",
       "name": "레고 미니피겨",
+      "section": "인기",
       "status": "public",
+      "sort_order": 1,
+      "credit_cost": 1,
+      "output_count": 4,
+      "avg_seconds": 24,
       "selection_rate": 0.184,
       "share_rate": 0.41,
       "shop_click_rate": 0.12
     },
     {
       "id": 108,
+      "code": "ghibli-watercolor",
       "name": "지브리 수채",
+      "section": "인기",
       "status": "public",
+      "sort_order": 4,
+      "credit_cost": 2,
+      "output_count": 4,
+      "avg_seconds": 24,
       "selection_rate": 0.097,
       "share_rate": 0.08,
       "shop_click_rate": 0.02
@@ -728,10 +742,225 @@ W-11 프롬프트 운영 콘솔 전용. 별도 인증 경계(`admin_user` 세션
   ]
 }
 ```
-`selection_rate`/`share_rate`/`shop_click_rate`는 `metric_event`를 `style_id`로 집계한 파생값(저장 컬럼 아님).
+`selection_rate`/`share_rate`/`shop_click_rate`는 `metric_event`를 `style_id`로 집계한 파생값(저장 컬럼 아님). 나머지 필드는 [04-erd.md §2.3](04-erd.md) `style` 컬럼과 동일.
+
+#### `POST /v1/admin/styles`
 
 ```json
-// GET /v1/admin/cafe24/status → 200
+// 요청
+{
+  "code": "pilot",
+  "name": "파일럿",
+  "section": "직업",
+  "credit_cost": 1,
+  "output_count": 4,
+  "avg_seconds": 24,
+  "progress_message": null,
+  "fit_tags": [],
+  "example_keys": []
+}
+```
+```json
+// 201
+{
+  "id": 130,
+  "code": "pilot",
+  "name": "파일럿",
+  "section": "직업",
+  "status": "draft",
+  "sort_order": 0,
+  "credit_cost": 1,
+  "output_count": 4,
+  "avg_seconds": 24,
+  "progress_message": null,
+  "fit_tags": [],
+  "example_keys": [],
+  "created_at": "2026-08-03T10:00:00+09:00",
+  "updated_at": "2026-08-03T10:00:00+09:00"
+}
+```
+`400 VALIDATION_ERROR`: `code` 중복(UNIQUE 위반) 또는 필수 필드 누락.
+
+#### `PATCH /v1/admin/styles/{id}`
+
+```json
+// 요청 — 공개 전환
+{ "status": "public" }
+```
+```json
+// 200
+{
+  "id": 130,
+  "code": "pilot",
+  "name": "파일럿",
+  "section": "직업",
+  "status": "public",
+  "sort_order": 0,
+  "credit_cost": 1,
+  "output_count": 4,
+  "avg_seconds": 24,
+  "progress_message": null,
+  "fit_tags": [],
+  "example_keys": [],
+  "created_at": "2026-08-03T10:00:00+09:00",
+  "updated_at": "2026-08-03T10:05:00+09:00"
+}
+```
+`404 NOT_FOUND`: 존재하지 않는 `id`.
+
+#### `DELETE /v1/admin/styles/{id}`
+
+물리 삭제가 아니라 `status: retired` 전환이므로 갱신된 객체를 반환합니다.
+
+```json
+// 200
+{
+  "id": 130,
+  "code": "pilot",
+  "name": "파일럿",
+  "status": "retired",
+  "sort_order": 0,
+  "credit_cost": 1,
+  "output_count": 4,
+  "avg_seconds": 24,
+  "updated_at": "2026-08-03T11:00:00+09:00"
+}
+```
+`404 NOT_FOUND`: 존재하지 않는 `id`.
+
+#### `GET /v1/admin/styles/{id}/prompt-versions`
+
+```json
+// 200
+{
+  "items": [
+    {
+      "id": 501,
+      "style_id": 101,
+      "version": 2,
+      "prompt_text": "레고 미니피겨 스타일로 변환. 배경은 스튜디오 화이트...",
+      "model_config": { "provider": "gemini", "model": "gemini-2.5-flash-image" },
+      "traffic_weight": 100,
+      "status": "active",
+      "created_at": "2026-07-20T09:00:00+09:00"
+    },
+    {
+      "id": 498,
+      "style_id": 101,
+      "version": 1,
+      "prompt_text": "레고 미니피겨 스타일로 변환(구버전)...",
+      "model_config": { "provider": "gemini", "model": "gemini-2.5-flash-image" },
+      "traffic_weight": 0,
+      "status": "retired",
+      "created_at": "2026-06-01T09:00:00+09:00"
+    }
+  ]
+}
+```
+필드는 [04-erd.md §2.4](04-erd.md) `style_prompt_version` 컬럼과 동일. `prompt_text`는 사용자 대면 API(§3 `GET /v1/styles/{style_id}`)에서는 비노출되지만 관리자 API에서는 편집 대상이라 노출됩니다.
+
+#### `POST /v1/admin/styles/{id}/prompt-versions`
+
+```json
+// 요청 — 신규 A/B 버전
+{
+  "prompt_text": "레고 미니피겨 스타일로 변환, 조명을 더 밝게...",
+  "model_config": { "provider": "gemini", "model": "gemini-2.5-flash-image" },
+  "traffic_weight": 20
+}
+```
+```json
+// 201
+{
+  "id": 512,
+  "style_id": 101,
+  "version": 3,
+  "prompt_text": "레고 미니피겨 스타일로 변환, 조명을 더 밝게...",
+  "model_config": { "provider": "gemini", "model": "gemini-2.5-flash-image" },
+  "traffic_weight": 20,
+  "status": "draft",
+  "created_at": "2026-08-03T10:00:00+09:00"
+}
+```
+`400 VALIDATION_ERROR`: `(style_id, version)` UNIQUE 위반 등.
+
+#### `PATCH /v1/admin/styles/{id}/prompt-versions/{version_id}`
+
+```json
+// 요청 — 롤백(이전 버전 재활성화)
+{ "status": "active", "traffic_weight": 100 }
+```
+```json
+// 200
+{
+  "id": 498,
+  "style_id": 101,
+  "version": 1,
+  "traffic_weight": 100,
+  "status": "active"
+}
+```
+`404 NOT_FOUND`: 존재하지 않는 `version_id`.
+
+#### `GET /v1/admin/custom-prompts/top`
+
+```json
+// 200
+{
+  "items": [
+    { "normalized_text": "눈 오는 날 산책", "frequency": 412, "promotable": true },
+    { "normalized_text": "한복 입은", "frequency": 287, "promotable": true },
+    { "normalized_text": "파일럿", "frequency": 190, "promotable": false }
+  ]
+}
+```
+`normalized_text`/`frequency`는 [04-erd.md §2.9](04-erd.md) `custom_prompt_log.normalized_text` GROUP BY 집계. `promotable: false`는 이미 `promoted_style_id`가 채워진 문구(중복 승격 방지).
+
+#### `POST /v1/admin/custom-prompts/{id}/promote`
+
+`{id}`는 승격 대상 `normalized_text` 그룹의 대표 `custom_prompt_log.id`입니다.
+
+```json
+// 요청
+{ "section": "겨울", "credit_cost": 1 }
+```
+```json
+// 201
+{
+  "id": 131,
+  "code": "snowy-walk",
+  "name": "눈 오는 날 산책",
+  "section": "겨울",
+  "status": "draft",
+  "credit_cost": 1,
+  "output_count": 4
+}
+```
+응답은 새로 생성된 `style` 객체(다른 `POST /v1/admin/styles`와 동일 스키마). 서버는 이 `normalized_text`를 가진 모든 `custom_prompt_log` 행의 `promoted_style_id`를 이 신규 `style.id`로 채웁니다. `409 ALREADY_CLAIMED`: 이미 승격된 문구 재요청.
+
+#### `POST /v1/admin/credits/adjust`
+
+CS 대응 등 수동 조정. `dedupe_key`는 관리자가 사유별로 직접 지정해 중복 조정을 방지합니다([04-erd.md §2.8](04-erd.md)와 동일 제약).
+
+```json
+// 요청
+{
+  "member_id": "9a11e2b0-...",
+  "amount": 5,
+  "dedupe_key": "cs:2026-08-03-001",
+  "reason": "cs_adjustment"
+}
+```
+```json
+// 200
+{ "member_id": "9a11e2b0-...", "balance": 16, "amount_granted": 5 }
+```
+`409 ALREADY_CLAIMED`: 동일 `dedupe_key` 재요청(`credit_ledger` UNIQUE 충돌).
+
+#### `GET /v1/admin/cafe24/status`
+
+```json
+// 200
 {
   "mall_id": "nutti",
   "expires_at": "2026-08-03T12:00:00+09:00",
@@ -739,6 +968,28 @@ W-11 프롬프트 운영 콘솔 전용. 별도 인증 경계(`admin_user` 세션
   "last_refresh_error": null
 }
 ```
+`last_refresh_error`가 `null`이 아니면 토큰 갱신 실패 상태(FR-EDGE-04의 관측 지점).
+
+#### `GET /v1/admin/settings` / `PATCH /v1/admin/settings/{key}`
+
+```json
+// GET 200
+{
+  "items": [
+    { "key": "human_face_policy", "value": "warn", "updated_at": "2026-07-01T00:00:00+09:00" },
+    { "key": "order_reward_amount", "value": 20, "updated_at": "2026-07-01T00:00:00+09:00" }
+  ]
+}
+```
+```json
+// PATCH /v1/admin/settings/human_face_policy — 요청
+{ "value": "block" }
+```
+```json
+// 200
+{ "key": "human_face_policy", "value": "block", "updated_at": "2026-08-03T10:00:00+09:00" }
+```
+필드는 [04-erd.md §2.13](04-erd.md) `app_setting` 컬럼과 동일. `404 NOT_FOUND`: 존재하지 않는 `key`.
 
 ---
 
