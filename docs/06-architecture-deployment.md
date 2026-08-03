@@ -92,7 +92,7 @@ Q4("1회 생성 4장이 원가상 가능한가")의 판단 근거입니다. "내
 
 **Q4 원가 계산 예시**(4장/job, Nano Banana 기준): $0.039 × 4 ≈ $0.156/job(약 220원, 2026-08-03 환율 개산). Flux Kontext Pro 기준: $0.04 × 4 + 입력 이미지 비용 ≈ $0.18~0.20/job. 무료 체험 1장 남용 제한 강도(§3.4, 03-usecases 참고)는 이 단가에 연동해 결정합니다.
 
-**권고**: 정체성 보존이 핵심 요구사항이므로 Gemini 2.5 Flash Image(또는 단종 시 그 후속 모델) 또는 Flux Kontext Pro를 1차 후보로 두고, 스캐폴딩 착수 직전 실제 누띠 반려견 사진으로 소규모 파일럿(각 후보 10~20장)을 돌려 품질·지연을 실측한 뒤 최종 확정합니다. 프로바이더 추상화 레이어는 만들지 않되(원칙4), `style_prompt_version.model_config`에 `provider` 필드를 남겨 두 번째 프로바이더가 실제로 필요해질 때 그 필드로 분기합니다(04-erd 참고).
+**확정(2026-08-03, PO)**: **OpenAI GPT Image API로 확정**([07-decisions.md](07-decisions.md) ADR-10). 위 비교표는 선정 당시의 참고 데이터로 유지합니다. 비교표가 지적한 품질 리스크("얼굴 세부(무늬·표정) 변형이 상대적으로 큰 사례 보고")가 있으므로, 스캐폴딩 착수 직전 실제 누띠 반려견 사진 10~20장 파일럿으로 품질·지연을 실측해 **모델 티어(GPT Image 1.5 vs mini)와 품질 옵션**을 확정합니다 — 파일럿은 "어느 프로바이더냐"가 아니라 "GPT Image 안에서 어떤 설정이냐"를 정하는 단계로 축소됨. 프로바이더 추상화 레이어는 만들지 않되(원칙4), `style_prompt_version.model_config`에 `provider` 필드를 남겨 교체가 실제로 필요해질 때 그 필드로 분기합니다(04-erd 참고).
 
 **AI 재시도 중복 과금 방지**: 프로바이더 API 호출 직후, 응답에서 `provider_job_id`(비동기 프로바이더, 예: Flux Kontext의 request id)를 받으면 **트랜잭션 커밋 전에 즉시** `generation_job.provider_job_id`에 저장합니다. 재시도 시에는 새 요청을 보내기 전에 `provider_job_id`가 이미 있으면 먼저 프로바이더에 해당 job 상태를 조회 — 완료/진행 중이면 결과를 그대로 사용하고, 실패로 확인된 경우에만 새로 요청합니다. **동기 응답형 프로바이더(예: Gemini/GPT Image처럼 한 번의 HTTP 응답에 이미지가 바로 오는 경우)는 `provider_job_id`가 없으므로**, 요청 발행 직전에 `attempt_count` 증가와 `status='processing'` 커밋을 먼저 확정해 "요청을 보냈는지 여부"만이라도 추적하고, 타임아웃 시 재시도 전 결과 수신 여부를 앱 로그로 먼저 확인하는 수동 절차를 운영 문서(비범위, 후속)에 남깁니다.
 
@@ -184,8 +184,8 @@ AWS 표준 아웃바운드 요율(프리티어 소진 후 일반적으로 알려
 | `DATABASE_URL` | Postgres 접속 문자열 | |
 | `JWT_SIGNING_KEY` | 게스트/회원 공용 JWT 서명 키 | 게스트·회원 동일 포맷(05-api-spec §1) |
 | `JWT_EXPIRES_IN` | JWT 만료 시간 | |
-| `AI_PROVIDER_API_KEY` | §3에서 선정한 AI 이미지 생성 API 키 | 파일럿 후 최종 프로바이더 확정 |
-| `AI_PROVIDER_BASE_URL` | 프로바이더 API 엔드포인트(선택) | |
+| `OPENAI_API_KEY` | OpenAI GPT Image API 키(§3 확정, ADR-10) | |
+| `OPENAI_BASE_URL` | OpenAI API 엔드포인트 오버라이드(선택, 기본값 사용 시 생략) | |
 | `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | Cloudflare R2 접근 키 | S3 호환 API 사용 |
 | `R2_BUCKET_NAME` | R2 버킷명 | |
 | `R2_ENDPOINT_URL` | R2 S3 호환 엔드포인트 | |

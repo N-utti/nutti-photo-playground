@@ -21,7 +21,7 @@
 | [04-erd.md](04-erd.md) | 13테이블 ERD, dedupe_key 규약, 화면→테이블 커버리지 표 |
 | [05-api-spec.md](05-api-spec.md) | 공통규약·화면-API 매핑·엔드포인트 스키마·시나리오·관리자 API |
 | [06-architecture-deployment.md](06-architecture-deployment.md) | 구성도·비동기 파이프라인·배포 추천(VPS+R2)·카페24 연동·백업·모니터링 |
-| [07-decisions.md](07-decisions.md) | ADR-lite 9건, 결정 카드 Q1~Q9, 스펙 정오표 4건 |
+| [07-decisions.md](07-decisions.md) | ADR-lite 10건, 결정 카드 Q1~Q9, 스펙 정오표 4건 |
 
 01~07 전건 작성 완료(`docs/foundation` 브랜치). 결정 대기 항목(Q3·Q6·Q9)은 [07-decisions.md](07-decisions.md) §2 참고.
 
