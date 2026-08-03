@@ -13,7 +13,11 @@ from app.settings import settings
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await Tortoise.init(db_url=settings.database_url, modules={"models": ["app.models"]})
+    await Tortoise.init(
+        db_url=settings.database_url,
+        modules={"models": ["app.models"]},
+        _enable_global_fallback=True,
+    )
     yield
     await Tortoise.close_connections()
 
