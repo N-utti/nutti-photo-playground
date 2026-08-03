@@ -1,0 +1,2303 @@
+<!doctype html><html><head><meta charset="utf-8">
+<title>반려동물 AI 사진 변환 — 와이어프레임 스펙</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}</style></head><body>
+
+<style>
+  :root {
+    --paper: #ECEDE8;
+    --surface: #FFFFFF;
+    --surface-2: #F6F7F2;
+    --ink: #1A1C19;
+    --ink-2: #4C5049;
+    --ink-3: #7D8179;
+    --rule: #D4D6CE;
+    --rule-strong: #B3B7AD;
+    --wire-fill: #E1E2DC;
+    --wire-line: #A9ADA3;
+    --wire-solid: #C7C9C1;
+    --accent: #A81D4E;
+    --accent-soft: #F9E5EC;
+    --tech: #2C6280;
+    --tech-soft: #E2ECF1;
+    --good: #2C6742;
+    --good-soft: #E3EFE7;
+    --warn: #855610;
+    --warn-soft: #F6ECDB;
+
+    --font-mono: ui-monospace, "Cascadia Mono", SFMono-Regular, Consolas, "Liberation Mono", monospace;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+
+    --maxw: 1180px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #141619;
+      --surface: #1C1F23;
+      --surface-2: #22262B;
+      --ink: #E7E9E4;
+      --ink-2: #AFB4AC;
+      --ink-3: #838980;
+      --rule: #31363B;
+      --rule-strong: #474D53;
+      --wire-fill: #292E33;
+      --wire-line: #515861;
+      --wire-solid: #3A4046;
+      --accent: #FF6E96;
+      --accent-soft: #3B1B27;
+      --tech: #7FB6D4;
+      --tech-soft: #1A2B35;
+      --good: #74CC97;
+      --good-soft: #172C20;
+      --warn: #E2B462;
+      --warn-soft: #2E2412;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper: #141619;
+    --surface: #1C1F23;
+    --surface-2: #22262B;
+    --ink: #E7E9E4;
+    --ink-2: #AFB4AC;
+    --ink-3: #838980;
+    --rule: #31363B;
+    --rule-strong: #474D53;
+    --wire-fill: #292E33;
+    --wire-line: #515861;
+    --wire-solid: #3A4046;
+    --accent: #FF6E96;
+    --accent-soft: #3B1B27;
+    --tech: #7FB6D4;
+    --tech-soft: #1A2B35;
+    --good: #74CC97;
+    --good-soft: #172C20;
+    --warn: #E2B462;
+    --warn-soft: #2E2412;
+  }
+
+  :root[data-theme="light"] {
+    --paper: #ECEDE8;
+    --surface: #FFFFFF;
+    --surface-2: #F6F7F2;
+    --ink: #1A1C19;
+    --ink-2: #4C5049;
+    --ink-3: #7D8179;
+    --rule: #D4D6CE;
+    --rule-strong: #B3B7AD;
+    --wire-fill: #E1E2DC;
+    --wire-line: #A9ADA3;
+    --wire-solid: #C7C9C1;
+    --accent: #A81D4E;
+    --accent-soft: #F9E5EC;
+    --tech: #2C6280;
+    --tech-soft: #E2ECF1;
+    --good: #2C6742;
+    --good-soft: #E3EFE7;
+    --warn: #855610;
+    --warn-soft: #F6ECDB;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  .mono {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------- document shell ---------- */
+
+  .shell {
+    max-width: var(--maxw);
+    margin: 0 auto;
+    padding: 0 20px 96px;
+  }
+
+  .masthead {
+    border-bottom: 2px solid var(--ink);
+    padding: 44px 0 22px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+
+  .masthead h1 {
+    font-size: clamp(26px, 4.2vw, 40px);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    margin: 6px 0 0;
+    text-wrap: balance;
+    max-width: 16ch;
+  }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0;
+  }
+
+  .masthead-meta {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-3);
+    display: grid;
+    gap: 3px;
+    text-align: right;
+  }
+
+  .masthead-meta b { color: var(--ink-2); font-weight: 500; }
+
+  /* ---------- scope chips ---------- */
+
+  .scope {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 20px 0 0;
+  }
+
+  .chip {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    letter-spacing: 0.03em;
+    border: 1px solid var(--rule-strong);
+    border-radius: 2px;
+    padding: 4px 9px;
+    color: var(--ink-2);
+    background: var(--surface);
+  }
+
+  .chip.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+  .chip.off { color: var(--ink-3); text-decoration: line-through; text-decoration-color: var(--rule-strong); }
+
+  /* ---------- layout with index rail ---------- */
+
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 40px;
+    padding-top: 40px;
+  }
+
+  @media (min-width: 1000px) {
+    .layout { grid-template-columns: 176px 1fr; gap: 56px; }
+    .rail { position: sticky; top: 24px; align-self: start; max-height: calc(100vh - 48px); overflow-y: auto; }
+  }
+
+  .rail-title {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 10px;
+  }
+
+  .rail ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 1px;
+  }
+
+  .rail a {
+    display: grid;
+    grid-template-columns: 32px 1fr;
+    gap: 6px;
+    align-items: baseline;
+    text-decoration: none;
+    color: var(--ink-2);
+    font-size: 13px;
+    padding: 4px 6px 4px 0;
+    border-radius: 2px;
+  }
+
+  .rail a span:first-child {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--ink-3);
+  }
+
+  .rail a:hover { color: var(--accent); background: var(--accent-soft); }
+  .rail a:hover span:first-child { color: var(--accent); }
+
+  /* ---------- generic sections ---------- */
+
+  .band { padding-bottom: 52px; }
+
+  .band-head {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 8px;
+    margin-bottom: 20px;
+  }
+
+  .band-head h2 {
+    font-size: 19px;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+
+  .band-head .tag {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-left: auto;
+  }
+
+  p { margin: 0 0 14px; max-width: 68ch; color: var(--ink-2); }
+  p strong { color: var(--ink); font-weight: 600; }
+
+  /* ---------- insight list ---------- */
+
+  .insights {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  }
+
+  .insight {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--tech);
+    border-radius: 2px;
+    padding: 12px 14px;
+  }
+
+  .insight h3 {
+    font-size: 13.5px;
+    margin: 0 0 4px;
+    letter-spacing: -0.005em;
+  }
+
+  .insight p { font-size: 13px; margin: 0; line-height: 1.55; }
+
+  .insight.risk { border-left-color: var(--accent); }
+
+  /* ---------- flow strip ---------- */
+
+  .flow-wrap { overflow-x: auto; padding-bottom: 8px; }
+
+  .flow {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    min-width: max-content;
+  }
+
+  .flow-step {
+    background: var(--surface);
+    border: 1px solid var(--rule-strong);
+    border-radius: 2px;
+    padding: 9px 13px;
+    min-width: 116px;
+  }
+
+  .flow-step .n {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-3);
+    letter-spacing: 0.1em;
+    display: block;
+  }
+
+  .flow-step .l { font-size: 13px; font-weight: 600; }
+  .flow-step .s { font-size: 11.5px; color: var(--ink-3); line-height: 1.4; }
+
+  .flow-step.pay { border-color: var(--accent); background: var(--accent-soft); }
+  .flow-step.pay .l { color: var(--accent); }
+
+  .flow-arrow {
+    align-self: center;
+    font-family: var(--font-mono);
+    color: var(--rule-strong);
+    padding: 0 7px;
+    font-size: 13px;
+  }
+
+  /* ---------- plate ---------- */
+
+  .plate {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    margin-bottom: 26px;
+    overflow: hidden;
+  }
+
+  .plate-head {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--rule);
+    background: var(--surface-2);
+  }
+
+  .plate-id {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--surface);
+    background: var(--ink);
+    padding: 2px 7px;
+    border-radius: 2px;
+  }
+
+  .plate-head h3 { font-size: 16px; margin: 0; letter-spacing: -0.01em; }
+
+  .plate-head .device {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .plate-body {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  @media (min-width: 760px) {
+    .plate-body { grid-template-columns: minmax(300px, 400px) 1fr; }
+    .plate-body.wide { grid-template-columns: minmax(320px, 1fr) 300px; }
+  }
+
+  .canvas {
+    padding: 24px 20px;
+    background-color: var(--surface-2);
+    background-image: radial-gradient(var(--rule) 1px, transparent 1px);
+    background-size: 12px 12px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 20px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  @media (min-width: 760px) {
+    .canvas { border-bottom: 0; border-right: 1px solid var(--rule); }
+    .plate-body.wide .canvas { border-right: 0; border-left: 1px solid var(--rule); order: 2; }
+  }
+
+  .notes { padding: 18px 20px; }
+
+  .notes ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 11px; }
+
+  .notes li {
+    display: grid;
+    grid-template-columns: 20px 1fr;
+    gap: 10px;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--ink-2);
+  }
+
+  .pin {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 600;
+    width: 20px;
+    height: 20px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    line-height: 1;
+  }
+
+  :root[data-theme="dark"] .pin, :root:not([data-theme="light"]) .pin { color: var(--paper); }
+  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .pin { color: #fff; } }
+  :root[data-theme="light"] .pin { color: #fff; }
+
+  .notes li b { color: var(--ink); font-weight: 600; }
+
+  code {
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+    background: var(--tech-soft);
+    color: var(--tech);
+    border-radius: 2px;
+    padding: 1px 4px;
+    word-break: break-all;
+  }
+
+  .callout {
+    margin-top: 16px;
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--warn);
+    background: var(--warn-soft);
+    border-radius: 2px;
+    padding: 9px 12px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--ink-2);
+  }
+
+  .callout .lbl {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--warn);
+    display: block;
+  }
+
+  /* ---------- wireframe primitives ---------- */
+
+  .frame {
+    width: 100%;
+    max-width: 288px;
+    background: var(--surface);
+    border: 1px solid var(--rule-strong);
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 1px 0 var(--rule);
+  }
+
+  .frame.desk { max-width: 460px; border-radius: 5px; }
+
+  .frame-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    text-align: center;
+    padding-top: 7px;
+  }
+
+  .frame-unit { display: grid; gap: 0; justify-items: center; }
+
+  .statusbar {
+    height: 15px;
+    background: var(--wire-solid);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 9px;
+  }
+
+  .statusbar i {
+    display: block;
+    height: 4px;
+    width: 18px;
+    background: var(--surface);
+    border-radius: 1px;
+    opacity: 0.85;
+  }
+
+  .appbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .logo-mark {
+    width: 18px; height: 18px;
+    border-radius: 5px;
+    background: var(--wire-solid);
+    flex: none;
+  }
+
+  .wf-txt {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.02em;
+    color: var(--ink-2);
+    line-height: 1.35;
+  }
+
+  .wf-txt.k { font-family: var(--font-sans); font-size: 10px; }
+  .wf-txt.dim { color: var(--ink-3); }
+
+  .credit-pill {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-radius: 20px;
+    padding: 1px 7px;
+    white-space: nowrap;
+  }
+
+  .stack { display: grid; gap: 7px; padding: 10px; }
+
+  .bar {
+    height: 6px;
+    background: var(--wire-fill);
+    border-radius: 2px;
+  }
+  .bar.w80 { width: 80%; }
+  .bar.w60 { width: 60%; }
+  .bar.w40 { width: 40%; }
+  .bar.tall { height: 9px; }
+
+  .img {
+    background-color: var(--wire-fill);
+    background-image: repeating-linear-gradient(45deg, transparent 0 5px, var(--wire-line) 5px 6px);
+    border: 1px solid var(--wire-line);
+    border-radius: 3px;
+    display: grid;
+    place-items: center;
+    min-height: 54px;
+    position: relative;
+  }
+
+  .img span {
+    font-family: var(--font-mono);
+    font-size: 8.5px;
+    letter-spacing: 0.06em;
+    color: var(--ink-2);
+    background: var(--surface);
+    padding: 1px 5px;
+    border-radius: 2px;
+    border: 1px solid var(--rule);
+  }
+
+  .btn {
+    border-radius: 4px;
+    padding: 7px 8px;
+    text-align: center;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .btn.pri { background: var(--accent); color: #fff; }
+  :root[data-theme="dark"] .btn.pri { color: var(--paper); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.pri { color: var(--paper); } }
+
+  .btn.sec { border: 1px solid var(--rule-strong); color: var(--ink-2); background: var(--surface); }
+  .btn.ghost { border: 1px dashed var(--rule-strong); color: var(--ink-3); background: transparent; }
+
+  .chips-row { display: flex; gap: 4px; overflow: hidden; }
+
+  .anchorbar {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    overflow: hidden;
+    padding: 6px 10px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--rule-strong);
+    box-shadow: 0 3px 0 -1px var(--rule);
+    position: relative;
+  }
+
+  .sticky-tag {
+    position: absolute;
+    right: 4px;
+    top: -7px;
+    font-family: var(--font-mono);
+    font-size: 7px;
+    letter-spacing: 0.08em;
+    color: var(--tech);
+    background: var(--tech-soft);
+    border: 1px solid var(--tech);
+    border-radius: 2px;
+    padding: 0 3px;
+  }
+
+  .sec-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px;
+    padding-top: 3px;
+  }
+
+  .sec-head .cnt {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: var(--ink-3);
+  }
+
+  /* ---------- hub diagram ---------- */
+
+  .hub-assets {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 10px;
+  }
+
+  .hub-asset {
+    border: 1px solid var(--rule-strong);
+    border-radius: 3px;
+    padding: 10px 12px;
+    background: var(--surface);
+    display: grid;
+    gap: 3px;
+    align-content: start;
+  }
+
+  .hub-asset .k {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .hub-asset .n { font-size: 14px; font-weight: 700; letter-spacing: -0.01em; }
+  .hub-asset .d { font-size: 12.5px; color: var(--ink-2); line-height: 1.45; }
+
+  .hub-asset.new { border-color: var(--accent); }
+  .hub-asset.new .k { color: var(--accent); }
+
+  .hub-down {
+    display: flex;
+    justify-content: center;
+    gap: 60px;
+    font-family: var(--font-mono);
+    color: var(--rule-strong);
+    padding: 6px 0;
+    font-size: 14px;
+  }
+
+  .hub-core {
+    border: 2px solid var(--ink);
+    border-radius: 3px;
+    padding: 14px;
+    background: var(--surface);
+    text-align: center;
+    display: grid;
+    gap: 3px;
+  }
+
+  .hub-core .n { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+  .hub-core .d { font-size: 12.5px; color: var(--ink-2); }
+
+  .hub-note {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-3);
+    text-align: center;
+    padding-top: 8px;
+  }
+
+  .mini-chip {
+    font-size: 8.5px;
+    font-family: var(--font-mono);
+    border: 1px solid var(--rule-strong);
+    border-radius: 20px;
+    padding: 2px 6px;
+    color: var(--ink-3);
+    white-space: nowrap;
+  }
+
+  .mini-chip.on { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+
+  .style-card {
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    overflow: hidden;
+    display: grid;
+    gap: 0;
+  }
+
+  .style-card .img { border: 0; border-radius: 0; min-height: 52px; }
+  .style-card .cap {
+    padding: 4px 5px 5px;
+    display: grid;
+    gap: 3px;
+    background: var(--surface);
+  }
+
+  .cost {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: var(--tech);
+    background: var(--tech-soft);
+    border-radius: 2px;
+    padding: 0 3px;
+    justify-self: start;
+  }
+
+  .tabbar {
+    margin-top: auto;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border-top: 1px solid var(--rule);
+    background: var(--surface-2);
+  }
+
+  .tabbar div {
+    display: grid;
+    justify-items: center;
+    gap: 3px;
+    padding: 6px 0 8px;
+    font-family: var(--font-mono);
+    font-size: 7.5px;
+    color: var(--ink-3);
+  }
+
+  .tabbar div i {
+    width: 13px; height: 13px;
+    border-radius: 3px;
+    background: var(--wire-solid);
+    display: block;
+  }
+
+  .tabbar div.on { color: var(--accent); }
+  .tabbar div.on i { background: var(--accent); }
+
+  .sheet {
+    border-top: 2px solid var(--ink);
+    border-radius: 12px 12px 0 0;
+    margin-top: 8px;
+    background: var(--surface);
+    box-shadow: 0 -3px 0 var(--rule);
+  }
+
+  .handle {
+    width: 30px; height: 3px;
+    background: var(--rule-strong);
+    border-radius: 3px;
+    margin: 6px auto 0;
+  }
+
+  .scrim { background: var(--wire-fill); opacity: 0.55; height: 40px; }
+
+  .split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    position: relative;
+    border: 1px solid var(--wire-line);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .split .half {
+    min-height: 78px;
+    display: grid;
+    place-items: center;
+    background-color: var(--wire-fill);
+  }
+
+  .split .half.b {
+    background-image: repeating-linear-gradient(45deg, transparent 0 5px, var(--wire-line) 5px 6px);
+  }
+
+  .split .divider {
+    position: absolute;
+    left: 50%;
+    top: 0; bottom: 0;
+    width: 2px;
+    background: var(--accent);
+    transform: translateX(-1px);
+  }
+
+  .split .knob {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    transform: translate(-50%, -50%);
+  }
+
+  .half span {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    letter-spacing: 0.08em;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    padding: 1px 4px;
+    color: var(--ink-2);
+  }
+
+  .progress {
+    height: 5px;
+    background: var(--wire-fill);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .progress i { display: block; height: 100%; width: 62%; background: var(--accent); }
+
+  .row-between { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+
+  .price-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 6px;
+    align-items: center;
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 6px 8px;
+  }
+
+  .price-row.best { border-color: var(--accent); background: var(--accent-soft); }
+
+  .badge-best {
+    font-family: var(--font-mono);
+    font-size: 7.5px;
+    letter-spacing: 0.08em;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 2px;
+    padding: 1px 4px;
+  }
+  :root[data-theme="dark"] .badge-best { color: var(--paper); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .badge-best { color: var(--paper); } }
+
+  .alert-inline {
+    border: 1px solid var(--warn);
+    background: var(--warn-soft);
+    border-radius: 3px;
+    padding: 5px 7px;
+    display: grid;
+    gap: 3px;
+  }
+
+  .alert-inline .wf-txt { color: var(--warn); }
+
+  .sidebar-wf {
+    display: grid;
+    grid-template-columns: 74px 1fr;
+    min-height: 200px;
+  }
+
+  .sidebar-wf .side {
+    background: var(--surface-2);
+    border-right: 1px solid var(--rule);
+    padding: 8px 6px;
+    display: grid;
+    gap: 5px;
+    align-content: start;
+  }
+
+  .side-item {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: var(--ink-3);
+    padding: 3px 4px;
+    border-radius: 2px;
+  }
+
+  .side-item.on { background: var(--accent-soft); color: var(--accent); }
+
+  .table-wf { display: grid; gap: 3px; }
+
+  .trow {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr 1fr 0.8fr;
+    gap: 5px;
+    align-items: center;
+    padding: 4px 5px;
+    border-bottom: 1px solid var(--rule);
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: var(--ink-2);
+  }
+
+  .trow.head { color: var(--ink-3); letter-spacing: 0.06em; border-bottom: 1px solid var(--rule-strong); }
+  .trow .ok { color: var(--good); }
+  .trow .bad { color: var(--accent); }
+
+  /* ---------- data table ---------- */
+
+  .table-scroll { overflow-x: auto; border: 1px solid var(--rule); border-radius: 3px; background: var(--surface); }
+
+  table { border-collapse: collapse; width: 100%; min-width: 620px; font-size: 13.5px; }
+
+  th, td { text-align: left; padding: 9px 13px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+
+  th {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    background: var(--surface-2);
+    white-space: nowrap;
+  }
+
+  tbody tr:last-child td { border-bottom: 0; }
+  td { color: var(--ink-2); }
+  td b { color: var(--ink); font-weight: 600; }
+
+  .st {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    padding: 1px 6px;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+
+  .st.a { background: var(--good-soft); color: var(--good); }
+  .st.b { background: var(--warn-soft); color: var(--warn); }
+  .st.c { background: var(--accent-soft); color: var(--accent); }
+
+  /* ---------- open questions ---------- */
+
+  .q-list { display: grid; gap: 0; border-top: 1px solid var(--rule); }
+
+  .q-item {
+    display: grid;
+    grid-template-columns: 26px 1fr;
+    gap: 12px;
+    padding: 13px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .q-item .qn {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--accent);
+    padding-top: 3px;
+  }
+
+  .q-item h4 { margin: 0 0 3px; font-size: 14.5px; letter-spacing: -0.005em; }
+  .q-item p { margin: 0; font-size: 13.5px; }
+
+  .q-item.done .qn { color: var(--good); }
+  .q-item.done h4 { color: var(--ink-2); font-weight: 600; }
+
+  footer {
+    border-top: 2px solid var(--ink);
+    margin-top: 20px;
+    padding-top: 16px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--ink-3);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: space-between;
+  }
+
+  a:focus-visible, .rail a:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+</style>
+
+<div class="shell">
+
+  <header class="masthead">
+    <div>
+      <p class="eyebrow">Wireframe Spec · v0.5 · NUTTI 홍보 자산</p>
+      <h1>누띠 강아지 사진 놀이터</h1>
+    </div>
+    <div class="masthead-meta">
+      <div><b>본체</b> nutti.co.kr 쇼핑몰</div>
+      <div><b>이 문서</b> 홍보 자산 3개 중 하나</div>
+      <div><b>위치</b> 서브도메인 (카페24 API 연동)</div>
+      <div><b>화면</b> 11 plates · 사용자 10 / 운영 1</div>
+      <div><b>기준</b> 2026-08-03 · 사이트 실측</div>
+    </div>
+  </header>
+
+  <div class="scope">
+    <span class="chip on">강아지 전용</span>
+    <span class="chip on">크레딧 무상 · 행동 보상형</span>
+    <span class="chip on">결과물 누띠 서명</span>
+    <span class="chip on">기존 계산기 연결</span>
+    <span class="chip on">단일 페이지 카탈로그</span>
+    <span class="chip on">무료 체험 1장</span>
+    <span class="chip off">크레딧 판매</span>
+    <span class="chip off">고양이</span>
+    <span class="chip off">스타일 검색</span>
+    <span class="chip off">굿즈 커머스</span>
+  </div>
+
+  <div class="layout">
+
+    <nav class="rail" aria-label="화면 목차">
+      <div class="rail-title">Plates</div>
+      <ol>
+        <li><a href="#goal"><span>—</span><span>목적과 지표</span></a></li>
+        <li><a href="#p00"><span>—</span><span>리서치 근거</span></a></li>
+        <li><a href="#arch"><span>—</span><span>자산 구성 · 연동</span></a></li>
+        <li><a href="#flow"><span>—</span><span>핵심 플로우</span></a></li>
+        <li><a href="#p01"><span>W-01</span><span>랜딩</span></a></li>
+        <li><a href="#p02"><span>W-02</span><span>홈 카탈로그</span></a></li>
+        <li><a href="#p03"><span>W-03</span><span>스타일 상세</span></a></li>
+        <li><a href="#p04"><span>W-04</span><span>업로드</span></a></li>
+        <li><a href="#p05"><span>W-05</span><span>생성 대기</span></a></li>
+        <li><a href="#p06"><span>W-06</span><span>결과</span></a></li>
+        <li><a href="#p07"><span>W-07</span><span>계산기 연결</span></a></li>
+        <li><a href="#p08"><span>W-08</span><span>크리에이티브</span></a></li>
+        <li><a href="#p09"><span>W-09</span><span>보관함</span></a></li>
+        <li><a href="#p10"><span>W-10</span><span>크레딧 받기</span></a></li>
+        <li><a href="#p11"><span>W-11</span><span>프롬프트 운영</span></a></li>
+        <li><a href="#states"><span>—</span><span>상태 · 엣지</span></a></li>
+        <li><a href="#open"><span>—</span><span>열린 질문</span></a></li>
+      </ol>
+    </nav>
+
+    <main>
+
+      <!-- ================= 목적 ================= -->
+      <section class="band" id="goal">
+        <div class="band-head">
+          <h2>목적과 지표</h2>
+          <span class="tag">v0.3에서 뒤바뀐 전제</span>
+        </div>
+
+        <p>본체는 <strong>누띠 쇼핑몰</strong>이고, 이 서비스는 그것을 가리키는 <strong>홍보 자산 중 하나</strong>입니다(SNS·계산기와 병렬). 수익 사업이 아니므로 생성 원가는 매출로 회수할 대상이 아니라 광고비입니다. 성과는 <strong>쇼핑몰 유입 기여</strong>로 측정하되, 이 자산이 다른 둘과 구별되는 지점은 <strong>결과물이 사용자 손으로 퍼진다</strong>는 것이라 <strong>공유율</strong>을 함께 봅니다.</p>
+
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr><th>항목</th><th>v0.2 (수익 사업)</th><th>v0.3 (마케팅 채널)</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><b>크레딧</b></td><td>선불 판매 (5,900–39,000원)</td><td>무상 배포. 누띠 행동으로만 획득</td></tr>
+              <tr><td><b>결제 화면</b></td><td>W-09 크레딧 구매</td><td>제거 → W-10 «크레딧 받기»로 대체</td></tr>
+              <tr><td><b>결과물 표식</b></td><td>워터마크 없음을 강점으로 홍보</td><td>누띠 서명 삽입 (제거 불가)</td></tr>
+              <tr><td><b>북극성 지표</b></td><td>업로드 완료율 · ARPU</td><td>쇼핑몰 유입 기여 + <b>공유율</b></td></tr>
+              <tr><td><b>결과 화면의 역할</b></td><td>저장·공유 후 재생성 유도</td><td>공유·쇼핑몰·계산기 세 갈래 출구</td></tr>
+              <tr><td><b>대상 동물</b></td><td>강아지 + 고양이</td><td><b>강아지 전용</b> — 누띠는 견용 간식만 취급</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout" style="max-width:68ch">
+          <span class="lbl">브랜드 팩트 · llms.txt 기준</span>
+          NUTTI(누띠) · 부산 · 국내 자체 제조 프리미엄 <b>강아지</b> 수제간식. 슬로건 «내 강아지에게 맞는 간식 루틴». 합성 보존제·유해 첨가물 무첨가. 카테고리 6종 — 원물 육포, 오래먹는 껌, 뼈·연골 간식, 건강 토핑 분말, 비건 칩, 노즈워크. 배송 2,500원 / 5만원 이상 무료. 인스타 <b>@nutti_official</b>.
+        </div>
+
+        <p style="padding-top:14px"><strong>간식 추천은 새로 만들지 않습니다.</strong> <code>nutti.co.kr/calculator.html</code>에 5단계 계산기가 이미 라이브입니다 — 견종 42종, BCS 체형 점수, 중성화·활동량 보정, 성분 추천까지. 놀이터가 할 일은 여기로 사람을 보내면서 <b>이미 아는 값(이름·견종)을 파라미터로 넘겨 1단계를 건너뛰게</b> 하는 것입니다. W-07이 그 배선을 그립니다.</p>
+
+        <div class="callout" style="max-width:68ch;border-left-color:var(--tech);background:var(--tech-soft)">
+          <span class="lbl" style="color:var(--tech)">기존 자산 · 계산기</span>
+          SNS에서 홍보 중인 <b>독립 홍보 자산</b>입니다. 사이트 내부에 링크가 없는 것은 SNS 전용 랜딩이기 때문 — 결함이 아닙니다. 다만 쇼핑몰 방문자에게도 노출하면 추가 비용 없이 활용도가 올라갑니다(선택 사항).
+        </div>
+      </section>
+
+      <!-- ================= 리서치 ================= -->
+      <section class="band" id="p00">
+        <div class="band-head">
+          <h2>리서치에서 가져온 설계 근거</h2>
+          <span class="tag">Evidence</span>
+        </div>
+
+        <p>Pawtograph · PixPawAI · Pawcaso · DreamPets · EaseMate 5개 서비스를 훑어 얻은 결론. 아래 와이어프레임의 모든 구조적 선택은 이 다섯 가지 중 하나에서 나왔습니다.</p>
+
+        <div class="insights">
+          <div class="insight">
+            <h3>3단계에서 벗어나지 않는다</h3>
+            <p>업로드 → 스타일 → 결과. 조사한 어느 서비스도 편집 툴바를 노출하지 않음. 크롭·밝기 같은 조작은 전부 제거 대상.</p>
+          </div>
+          <div class="insight">
+            <h3>스타일 카드 = 결과물 이미지</h3>
+            <p>이름만 있는 카드는 선택률이 떨어짐. 카드 면적의 80% 이상을 적용 예시가 차지해야 함.</p>
+          </div>
+          <div class="insight">
+            <h3>개수 경쟁에서 빠진다</h3>
+            <p>Pawtograph 250개와 겨룰 이유가 없음 — 우리는 이 시장의 플레이어가 아니라 누띠의 채널. 200 미만으로 «잘 되는 것만» 두고 실패율을 낮추는 편이 유입에 유리.</p>
+          </div>
+          <div class="insight risk">
+            <h3>커스텀 프롬프트는 숨긴다</h3>
+            <p>PixPawAI만 전면 노출했고 "학습곡선"이 약점으로 지적됨. 별도 진입점(W-07)으로 분리.</p>
+          </div>
+          <div class="insight">
+            <h3>워터마크 불만에는 조건이 있다</h3>
+            <p>반발의 핵심은 표식 자체가 아니라 «돈 내야 지워준다»는 구조. 전부 무료로 주는 우리는 이 조건에 해당하지 않아 작은 브랜드 서명은 통과함.</p>
+          </div>
+          <div class="insight risk">
+            <h3>"내 강아지"가 핵심 가치</h3>
+            <p>일반 AI 강아지가 아니라 우리 애의 무늬·표정 보존. 결과 화면의 before/after 비교가 이 약속을 증명하는 유일한 장치.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 아키텍처 ================= -->
+      <section class="band" id="arch">
+        <div class="band-head">
+          <h2>홍보 자산 구성과 카페24 제약</h2>
+          <span class="tag">병렬 · 서브도메인</span>
+        </div>
+
+        <p><strong>같은 도메인 안에 넣는 건 안 됩니다 — 짐작하신 게 맞습니다.</strong> 카페24 스마트디자인은 HTML·CSS·JS 편집만 허용하고 서버 코드를 올릴 수 없습니다. AI 이미지 생성은 API 키를 감춰야 하고 작업 큐·과금·저장소가 필요하므로 반드시 별도 백엔드가 있어야 합니다.</p>
+
+        <p>다만 <strong>«별도 서비스»가 «단절»을 뜻하지는 않습니다.</strong> 서브도메인에 두고 카페24 API로 묶으면 사용자에겐 하나의 브랜드로 읽히면서 유입 손실은 최소가 됩니다.</p>
+
+        <p style="padding-top:4px"><strong>본체는 쇼핑몰이고, 나머지는 그걸 가리키는 병렬 자산입니다.</strong> 순서가 정해진 깔때기가 아니라 각자 독립적으로 쇼핑몰로 보내는 채널들이고, 자산끼리 링크를 거는 것은 자유입니다.</p>
+
+        <div class="hub-assets">
+          <div class="hub-asset">
+            <span class="k">운영 중</span>
+            <span class="n">SNS · @nutti_official</span>
+            <span class="d">직접 홍보. 계산기·놀이터 어느 쪽이든 링크할 수 있고 쇼핑몰로 바로 보낼 수도 있음.</span>
+          </div>
+          <div class="hub-asset">
+            <span class="k">배포됨</span>
+            <span class="n">간식 계산기</span>
+            <span class="d">5단계 · 견종 42종 · BCS. 결과에서 상품으로 연결. 정적 페이지라 유지비 거의 없음.</span>
+          </div>
+          <div class="hub-asset new">
+            <span class="k">신규 · 이 문서</span>
+            <span class="n">사진 놀이터</span>
+            <span class="d">별도 백엔드 필요. 결과물이 공유되면서 서명이 함께 퍼지는 것이 고유 강점.</span>
+          </div>
+        </div>
+
+        <div class="hub-down mono">↓ &nbsp; ↓ &nbsp; ↓</div>
+
+        <div class="hub-core">
+          <span class="n">nutti.co.kr · 카페24 쇼핑몰</span>
+          <span class="d">본체. 세 자산 모두 여기로 보내는 것이 목적이고, 성과도 여기서 측정합니다.</span>
+        </div>
+
+        <div class="hub-note">자산 간 링크는 자유 — SNS→계산기, SNS→놀이터, 쇼핑몰→계산기, 놀이터→계산기 모두 가능</div>
+
+        <div class="callout" style="max-width:68ch;margin-top:18px">
+          <span class="lbl">자산별로 잘하는 일이 다름</span>
+          계산기의 결과(«콩이는 하루 45g»)는 개인적이라 공유 유인이 약하고, 놀이터의 결과(레고가 된 콩이)는 원래 올리고 싶은 사진입니다. <b>놀이터가 추가로 가져오는 것은 «사용자가 대신 홍보한다»는 성질</b>이지, 계산기가 못 하는 전환이 아닙니다. 셋 다 각자 쇼핑몰로 보내면 됩니다.
+        </div>
+
+        <div class="insights" style="padding-top:18px">
+          <div class="insight">
+            <h3>Admin API · 주문 조회</h3>
+            <p>OAuth 2.0 인증 후 주문·회원 정보 조회 가능. <b>구매 인증 → 크레딧 자동 지급</b>이 수동 확인 없이 구현됩니다. W-10의 핵심 배선.</p>
+          </div>
+          <div class="insight">
+            <h3>계산기는 손대지 않음</h3>
+            <p>정적 HTML/CSS/JS라 빌드가 없고 이미 배포돼 있습니다. 필요한 변경은 <b>URL 파라미터를 읽어 프리필하는 코드 한 조각</b>뿐 — 나머지 5단계는 그대로 재사용.</p>
+          </div>
+          <div class="insight">
+            <h3>회원 연동</h3>
+            <p>쇼핑몰 계정으로 로그인시키면 별도 회원 DB가 필요 없고, 놀이터 이용자가 곧 쇼핑몰 회원이 됩니다 — 이게 이 구조의 최대 이득.</p>
+          </div>
+          <div class="insight risk">
+            <h3>토큰 갱신 주의</h3>
+            <p>카페24 인증 토큰은 짧은 주기로 만료되어 갱신 로직이 필수. 이게 끊기면 크레딧 지급이 조용히 멈추므로 실패 알림을 걸어둘 것.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 플로우 ================= -->
+      <section class="band" id="flow">
+        <div class="band-head">
+          <h2>핵심 플로우</h2>
+          <span class="tag">Happy path · 4 taps</span>
+        </div>
+
+        <p>랜딩에서 첫 결과까지 <strong>탭 4번</strong>. 결제 단계가 사라진 자리에 <strong>세 갈래 출구</strong>가 들어옵니다 — 공유, 쇼핑몰, 계산기. 어느 쪽으로 나가든 누띠로 가므로 우열이 아니라 병렬이고, 화면상 위계만 공유 쪽에 둡니다(이 자산의 고유 강점이라서).</p>
+
+        <div class="flow-wrap">
+          <div class="flow">
+            <div class="flow-step"><span class="n">01</span><span class="l">랜딩</span><span class="s">before/after 히어로</span></div>
+            <div class="flow-arrow mono">→</div>
+            <div class="flow-step"><span class="n">02</span><span class="l">스타일 선택</span><span class="s">전체 펼침 카탈로그</span></div>
+            <div class="flow-arrow mono">→</div>
+            <div class="flow-step"><span class="n">03</span><span class="l">사진 업로드</span><span class="s">품질 자동 체크</span></div>
+            <div class="flow-arrow mono">→</div>
+            <div class="flow-step"><span class="n">04</span><span class="l">생성</span><span class="s">20–40초 대기</span></div>
+            <div class="flow-arrow mono">→</div>
+            <div class="flow-step"><span class="n">05</span><span class="l">결과</span><span class="s">변형 4장 · 누띠 서명</span></div>
+            <div class="flow-arrow mono">→</div>
+            <div class="flow-step pay"><span class="n">06</span><span class="l">공유</span><span class="s">서명이 붙은 채 확산</span></div>
+            <div class="flow-arrow mono">/</div>
+            <div class="flow-step pay"><span class="n">06</span><span class="l">쇼핑몰</span><span class="s">탭바 · 배너로 직행</span></div>
+            <div class="flow-arrow mono">/</div>
+            <div class="flow-step pay"><span class="n">06</span><span class="l">계산기</span><span class="s">견종 프리필로 넘김</span></div>
+          </div>
+        </div>
+
+        <div class="callout" style="max-width:68ch">
+          <span class="lbl">설계 판단</span>
+          업로드를 스타일 선택 <em>뒤에</em> 둡니다. 반대 순서(사진 먼저)는 카탈로그를 첫 화면에서 보여줄 기회를 잃습니다. 그리고 <b>같은 업로드 사진 하나로 05와 06을 모두 만듭니다</b> — 추천을 위해 사진을 다시 올리게 하면 그 지점에서 대부분 이탈합니다.
+        </div>
+      </section>
+
+      <!-- ================= W-01 ================= -->
+      <section id="p01">
+        <div class="plate">
+          <div class="plate-head">
+            <span class="plate-id">W-01</span>
+            <h3>랜딩 (비로그인)</h3>
+            <span class="device">Mobile 375 / Desktop 1280</span>
+          </div>
+          <div class="plate-body">
+            <div class="canvas">
+
+              <div class="frame-unit">
+                <div class="frame">
+                  <div class="statusbar"><i></i><i style="width:10px"></i></div>
+                  <div class="appbar">
+                    <div class="logo-mark"></div>
+                    <span class="wf-txt k">누띠 놀이터</span>
+                    <span class="mini-chip" style="margin-left:auto">로그인</span>
+                  </div>
+                  <div class="stack">
+                    <div class="wf-txt k" style="font-size:12px;font-weight:700;line-height:1.3">우리 애를 레고로,<br>초상화로, 우주비행사로</div>
+                    <div class="split">
+                      <div class="half"><span>원본</span></div>
+                      <div class="half b"><span>변환</span></div>
+                      <div class="divider"></div>
+                      <div class="knob"></div>
+                    </div>
+                    <div class="btn pri">사진 올리고 무료로 1장 만들기</div>
+                    <div class="wf-txt dim" style="text-align:center">가입 없이 · 전부 무료 · 강아지 전용</div>
+                    <div class="row-between" style="padding-top:4px">
+                      <span class="wf-txt k" style="font-weight:600">지금 인기 스타일</span>
+                      <span class="wf-txt dim">전체 →</span>
+                    </div>
+                    <div class="grid3">
+                      <div class="style-card"><div class="img"></div><div class="cap"><div class="bar w80"></div></div></div>
+                      <div class="style-card"><div class="img"></div><div class="cap"><div class="bar w80"></div></div></div>
+                      <div class="style-card"><div class="img"></div><div class="cap"><div class="bar w60"></div></div></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="frame-label">A · 모바일</div>
+              </div>
+
+              <div class="frame-unit">
+                <div class="frame desk">
+                  <div class="appbar">
+                    <div class="logo-mark"></div>
+                    <span class="wf-txt k">누띠 놀이터</span>
+                    <span class="wf-txt dim" style="margin-left:14px">스타일</span>
+                    <span class="wf-txt dim">요금</span>
+                    <span class="mini-chip" style="margin-left:auto">로그인</span>
+                  </div>
+                  <div class="stack" style="gap:9px">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:center">
+                      <div style="display:grid;gap:7px">
+                        <div class="wf-txt k" style="font-size:13px;font-weight:700;line-height:1.25">우리 애를 레고로,<br>초상화로, 우주비행사로</div>
+                        <div class="bar w80"></div>
+                        <div class="bar w60"></div>
+                        <div class="btn pri" style="justify-self:start;padding:7px 14px">무료로 1장 만들기</div>
+                      </div>
+                      <div class="split">
+                        <div class="half"><span>원본</span></div>
+                        <div class="half b"><span>변환</span></div>
+                        <div class="divider"></div>
+                        <div class="knob"></div>
+                      </div>
+                    </div>
+                    <div class="grid3" style="grid-template-columns:repeat(5,1fr)">
+                      <div class="style-card"><div class="img"></div><div class="cap"><div class="bar w80"></div></div></div>
+                      <div class="style-card"><div class="img"></div><div class="cap"><div class="bar w80"></div></div></div>
+                      <div class="style-card"><div class="img"></div><div class="cap"><div class="bar w60"></div></div></div>
+                      <div class="style-card"><div class="img"></div><div class="cap"><div class="bar w80"></div></div></div>
+                      <div class="style-card"><div class="img"></div><div class="cap"><div class="bar w60"></div></div></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="frame-label">B · 데스크톱</div>
+              </div>
+
+            </div>
+            <div class="notes">
+              <ol>
+                <li><span class="pin">1</span><span><b>비교 슬라이더가 히어로.</b> 정적 결과 이미지가 아니라 드래그되는 before/after. "내 애가 유지된다"는 약속을 첫 3초에 증명하는 장치.</span></li>
+                <li><span class="pin">2</span><span><b>가입 없이 1장.</b> 조사한 모든 서비스가 앱 설치 또는 가입을 먼저 요구했음. 웹의 유일한 구조적 우위를 여기서 씀.</span></li>
+                <li><span class="pin">3</span><span><b>누띠 브랜드를 헤더에 노출.</b> 이 사이트가 누띠의 것임을 처음부터 밝힘. 나중에 쇼핑몰로 보낼 때 «갑자기 광고»가 아니라 «원래 누띠였다»가 됨.</span></li>
+                <li><span class="pin">4</span><span><b>"강아지 전용"을 명시.</b> 누띠는 견용 간식만 취급. 고양이 보호자가 업로드했다가 실망하면 브랜드 인상만 나빠짐.</span></li>
+                <li><span class="pin">5</span><span><b>인기 스타일 3–5장 프리뷰.</b> 카탈로그를 암시하되 스크롤을 잡아먹지 않게 한 줄로 제한.</span></li>
+              </ol>
+              <div class="callout">
+                <span class="lbl">측정</span>
+                이 화면의 지표는 <b>업로드 완료율</b>입니다. 다만 최종 성패는 여기가 아니라 W-06→W-07의 <b>쇼핑몰 클릭률</b>에서 갈립니다 — 랜딩은 사람을 거기까지 데려오는 역할일 뿐.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= W-02 ================= -->
+      <section id="p02">
+        <div class="plate">
+          <div class="plate-head">
+            <span class="plate-id">W-02</span>
+            <h3>홈 · 스타일 카탈로그 (전체 펼침)</h3>
+            <span class="device">Mobile + Desktop · 검색 없음</span>
+          </div>
+          <div class="plate-body">
+            <div class="canvas">
+
+              <div class="frame-unit">
+                <div class="frame">
+                  <div class="statusbar"><i></i><i style="width:10px"></i></div>
+                  <div class="appbar">
+                    <div class="logo-mark"></div>
+                    <span class="wf-txt k">스타일</span>
+                    <span class="credit-pill">◆ 12 크레딧</span>
+                  </div>
+                  <div class="anchorbar">
+                    <span class="sticky-tag">STICKY</span>
+                    <span class="mini-chip on">인기</span>
+                    <span class="mini-chip">여름</span>
+                    <span class="mini-chip">직업</span>
+                    <span class="mini-chip">영화</span>
+                    <span class="mini-chip">아트</span>
+                  </div>
+                  <div class="stack" style="gap:7px">
+                    <div class="sec-head">
+                      <span class="wf-txt k" style="font-weight:700">이번 주 인기</span>
+                      <span class="cnt">8</span>
+                    </div>
+                    <div class="grid2">
+                      <div class="style-card">
+                        <div class="img"><span>결과 예시</span></div>
+                        <div class="cap"><span class="wf-txt k" style="font-weight:600">레고 미니피겨</span><span class="cost">1 크레딧</span></div>
+                      </div>
+                      <div class="style-card">
+                        <div class="img"><span>결과 예시</span></div>
+                        <div class="cap"><span class="wf-txt k" style="font-weight:600">르네상스 초상</span><span class="cost">1 크레딧</span></div>
+                      </div>
+                      <div class="style-card">
+                        <div class="img"></div>
+                        <div class="cap"><span class="wf-txt k" style="font-weight:600">우주비행사</span><span class="cost">1 크레딧</span></div>
+                      </div>
+                      <div class="style-card">
+                        <div class="img"></div>
+                        <div class="cap"><span class="wf-txt k" style="font-weight:600">지브리 수채</span><span class="cost">2 크레딧</span></div>
+                      </div>
+                    </div>
+                    <div class="sec-head">
+                      <span class="wf-txt k" style="font-weight:700">여름</span>
+                      <span class="cnt">12</span>
+                    </div>
+                    <div class="grid2">
+                      <div class="style-card"><div class="img"></div><div class="cap"><span class="wf-txt k" style="font-weight:600">바닷가 산책</span><span class="cost">1 크레딧</span></div></div>
+                      <div class="style-card"><div class="img"></div><div class="cap"><span class="wf-txt k" style="font-weight:600">서핑보드</span><span class="cost">1 크레딧</span></div></div>
+                    </div>
+                    <div class="wf-txt dim" style="text-align:center">↓ 계속 스크롤 · 전체 68개</div>
+                  </div>
+                  <div class="tabbar">
+                    <div class="on"><i></i>스타일</div>
+                    <div><i></i>만들기</div>
+                    <div><i></i>보관함</div>
+                    <div><i></i>누띠샵</div>
+                  </div>
+                </div>
+                <div class="frame-label">A · 모바일 2열</div>
+              </div>
+
+              <div class="frame-unit">
+                <div class="frame desk">
+                  <div class="appbar">
+                    <div class="logo-mark"></div>
+                    <span class="wf-txt k">스타일</span>
+                    <span class="credit-pill" style="margin-left:auto">◆ 12 크레딧</span>
+                  </div>
+                  <div class="anchorbar">
+                    <span class="sticky-tag">STICKY</span>
+                    <span class="mini-chip on">인기</span>
+                    <span class="mini-chip">여름</span>
+                    <span class="mini-chip">직업</span>
+                    <span class="mini-chip">영화</span>
+                    <span class="mini-chip">아트</span>
+                    <span class="mini-chip">시즌</span>
+                    <span class="mini-chip">동화</span>
+                  </div>
+                  <div class="stack" style="gap:7px">
+                    <div class="sec-head">
+                      <span class="wf-txt k" style="font-weight:700">이번 주 인기</span>
+                      <span class="cnt">8</span>
+                    </div>
+                    <div class="grid3" style="grid-template-columns:repeat(4,1fr)">
+                      <div class="style-card"><div class="img"><span>예시</span></div><div class="cap"><div class="bar w80"></div><span class="cost">1</span></div></div>
+                      <div class="style-card"><div class="img"><span>예시</span></div><div class="cap"><div class="bar w80"></div><span class="cost">1</span></div></div>
+                      <div class="style-card"><div class="img"></div><div class="cap"><div class="bar w60"></div><span class="cost">1</span></div></div>
+                      <div class="style-card"><div class="img"></div><div class="cap"><div class="bar w80"></div><span class="cost">2</span></div></div>
+                      <div class="style-card"><div class="img"></div><div class="cap"><div class="bar w60"></div><span class="cost">1</span></div></div>
+                      <div class="style-card"><div class="img"></div><div class="cap"><div class="bar w80"></div><span class="cost">1</span></div></div>
+                      <div class="style-card"><div class="img"></div><div class="cap"><div class="bar w40"></div><span class="cost">1</span></div></div>
+                      <div class="style-card"><div class="img"></div><div class="cap"><div class="bar w60"></div><span class="cost">2</span></div></div>
+                    </div>
+                    <div class="sec-head">
+                      <span class="wf-txt k" style="font-weight:700">여름</span>
+                      <span class="cnt">12</span>
+                    </div>
+                    <div class="grid3" style="grid-template-columns:repeat(4,1fr)">
+                      <div class="style-card"><div class="img"></div><div class="cap"><div class="bar w80"></div><span class="cost">1</span></div></div>
+                      <div class="style-card"><div class="img"></div><div class="cap"><div class="bar w60"></div><span class="cost">1</span></div></div>
+                      <div class="style-card"><div class="img"></div><div class="cap"><div class="bar w80"></div><span class="cost">1</span></div></div>
+                      <div class="style-card"><div class="img"></div><div class="cap"><div class="bar w40"></div><span class="cost">1</span></div></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="frame-label">B · 데스크톱 4열</div>
+              </div>
+
+            </div>
+            <div class="notes">
+              <ol>
+                <li><span class="pin">1</span><span><b>검색 제거.</b> 100개 미만에서 검색은 오타·동의어·빈 결과 처리 비용만 남기고 탐색을 느리게 만듦. 전부 보이는 쪽이 빠름.</span></li>
+                <li><span class="pin">2</span><span><b>앵커 칩은 필터가 아니라 점프.</b> 탭하면 해당 섹션으로 스크롤할 뿐, 나머지를 숨기지 않음. 필터로 만들면 화면이 다시 비어 "펼침"의 의미가 사라짐.</span></li>
+                <li><span class="pin">3</span><span><b>앵커바는 sticky.</b> 검색을 뺀 이상 긴 스크롤에서 유일한 내비게이션. 스크롤 위치에 따라 현재 섹션 칩이 활성화됨.</span></li>
+                <li><span class="pin">4</span><span><b>섹션 헤더 + 개수 표기.</b> 구분선 없는 그리드는 60개만 넘어도 벽처럼 읽힘. 개수를 적어 끝이 보이게 함.</span></li>
+                <li><span class="pin">5</span><span><b>데스크톱은 4열.</b> 68개면 세로 17행 — 열 수를 늘리는 것이 "한 화면"에 가까워지는 유일한 방법. 모바일 2열은 유지(카드 이미지가 판단 근거라 작아지면 안 됨).</span></li>
+                <li><span class="pin">6</span><span><b>시즌 섹션을 최상단에 꽂을 수 있게.</b> 설날·크리스마스가 조사한 서비스들의 최대 트래픽 스파이크. 순서는 W-10에서 운영이 조정.</span></li>
+                <li><span class="pin">7</span><span><b>크레딧 비용은 카드에 유지.</b> 고비용 스타일을 나중이 아니라 여기서 밝힘.</span></li>
+                <li><span class="pin">8</span><span><b>탭바 4번째를 «누띠샵»으로.</b> v0.2의 «내정보»를 밀어냄 — 어느 화면에서든 쇼핑몰로 갈 수 있는 상시 진입점이 목적상 개인 설정보다 우선합니다. 크레딧 잔량은 헤더 배지가 이미 담당하므로 «내정보»는 그 배지 안으로 접습니다.</span></li>
+              </ol>
+              <div class="callout">
+                <span class="lbl">이 구조의 상한</span>
+                섹션 구획 + 앵커 점프로 버틸 수 있는 한계는 대략 <b>100개</b>입니다. 그 이상으로 늘면 앵커바 칩이 넘치고 스크롤이 무너지므로 검색을 되살려야 합니다. 카탈로그가 100개를 넘는 시점을 W-10에서 모니터링하세요.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= W-03 ================= -->
+      <section id="p03">
+        <div class="plate">
+          <div class="plate-head">
+            <span class="plate-id">W-03</span>
+            <h3>스타일 상세 (바텀시트)</h3>
+            <span class="device">Mobile · 그리드 위 오버레이</span>
+          </div>
+          <div class="plate-body">
+            <div class="canvas">
+              <div class="frame-unit">
+                <div class="frame">
+                  <div class="statusbar"><i></i><i style="width:10px"></i></div>
+                  <div class="scrim"></div>
+                  <div class="sheet">
+                    <div class="handle"></div>
+                    <div class="stack" style="gap:8px">
+                      <div class="img" style="min-height:88px"><span>적용 예시 캐러셀 1/6</span></div>
+                      <div class="chips-row" style="justify-content:center">
+                        <span class="mini-chip on" style="padding:2px 4px">●</span>
+                        <span class="mini-chip" style="padding:2px 4px">●</span>
+                        <span class="mini-chip" style="padding:2px 4px">●</span>
+                        <span class="mini-chip" style="padding:2px 4px">●</span>
+                      </div>
+                      <div class="row-between">
+                        <span class="wf-txt k" style="font-size:12px;font-weight:700">레고 미니피겨</span>
+                        <span class="cost" style="font-size:9px">1 크레딧</span>
+                      </div>
+                      <div class="bar w80"></div>
+                      <div class="chips-row">
+                        <span class="mini-chip">소형견 ◎</span>
+                        <span class="mini-chip">대형견 ◎</span>
+                        <span class="mini-chip">검은 털 △</span>
+                      </div>
+                      <div class="btn pri">이 스타일로 만들기</div>
+                      <div class="wf-txt dim" style="text-align:center">평균 24초 · 4장 생성</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="frame-label">바텀시트</div>
+              </div>
+            </div>
+            <div class="notes">
+              <ol>
+                <li><span class="pin">1</span><span><b>전체 화면이 아니라 시트.</b> 그리드 탐색 맥락을 유지해야 여러 스타일을 비교하고 이탈이 줄어듦.</span></li>
+                <li><span class="pin">2</span><span><b>예시 6장은 서로 다른 견종으로.</b> 조사에서 반복된 불신이 "우리 애한테도 될까". 진돗개·푸들·검은 털 믹스견처럼 난도 높은 케이스를 일부러 포함.</span></li>
+                <li><span class="pin">3</span><span><b>적합도 태그는 견종·털색 기준.</b> 프롬프트마다 잘 되는 대상이 다름. 특히 검은 털은 어느 서비스나 실패율이 높으므로 미리 기대치를 낮춤.</span></li>
+                <li><span class="pin">4</span><span><b>소요 시간과 산출 장수를 버튼 아래 명시.</b> 대기 이탈의 절반은 "얼마나 걸리는지 몰라서".</span></li>
+              </ol>
+              <div class="callout">
+                <span class="lbl">숨기는 것</span>
+                프롬프트 원문은 노출하지 않습니다. 프롬프트가 자산인 이상 이건 영업기밀이고, 사용자도 보고 싶어 하지 않습니다.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= W-04 ================= -->
+      <section id="p04">
+        <div class="plate">
+          <div class="plate-head">
+            <span class="plate-id">W-04</span>
+            <h3>사진 업로드 · 품질 체크</h3>
+            <span class="device">Mobile · 가장 이탈이 큰 구간</span>
+          </div>
+          <div class="plate-body">
+            <div class="canvas">
+
+              <div class="frame-unit">
+                <div class="frame">
+                  <div class="statusbar"><i></i><i style="width:10px"></i></div>
+                  <div class="appbar">
+                    <span class="wf-txt dim">←</span>
+                    <span class="wf-txt k">사진 선택</span>
+                    <span class="credit-pill">◆ 12</span>
+                  </div>
+                  <div class="stack" style="gap:8px">
+                    <div class="wf-txt dim">선택한 스타일 · 레고 미니피겨</div>
+                    <div class="img" style="min-height:76px"><span>탭해서 사진 올리기</span></div>
+                    <div class="row-between">
+                      <span class="wf-txt k" style="font-weight:600">저장된 강아지</span>
+                      <span class="wf-txt dim">관리</span>
+                    </div>
+                    <div class="grid3">
+                      <div class="img" style="min-height:40px;border-radius:50%"></div>
+                      <div class="img" style="min-height:40px;border-radius:50%"></div>
+                      <div class="btn ghost" style="display:grid;place-items:center;min-height:40px;border-radius:50%">+</div>
+                    </div>
+                    <div class="btn ghost" style="text-align:left">✓ 정면 · 밝은 곳 · 얼굴이 큰 사진일수록 잘 나와요</div>
+                  </div>
+                </div>
+                <div class="frame-label">A · 선택</div>
+              </div>
+
+              <div class="frame-unit">
+                <div class="frame">
+                  <div class="statusbar"><i></i><i style="width:10px"></i></div>
+                  <div class="appbar">
+                    <span class="wf-txt dim">←</span>
+                    <span class="wf-txt k">확인</span>
+                    <span class="credit-pill">◆ 12</span>
+                  </div>
+                  <div class="stack" style="gap:8px">
+                    <div class="img" style="min-height:82px"><span>업로드된 사진</span></div>
+                    <div class="alert-inline">
+                      <span class="wf-txt" style="font-weight:700">얼굴이 조금 어두워요</span>
+                      <span class="wf-txt">그대로 진행해도 되지만, 밝은 사진이 결과가 더 좋습니다.</span>
+                    </div>
+                    <div class="btn sec">다른 사진 고르기</div>
+                    <div class="btn pri">이대로 만들기 · 1 크레딧</div>
+                    <div class="wf-txt dim" style="text-align:center">실패하면 크레딧은 자동 반환됩니다</div>
+                  </div>
+                </div>
+                <div class="frame-label">B · 품질 경고</div>
+              </div>
+
+            </div>
+            <div class="notes">
+              <ol>
+                <li><span class="pin">1</span><span><b>업로드 전에 조건을 알려준다.</b> 결과가 나쁜 원인 대부분이 입력 사진. 사후 환불보다 사전 안내가 싸게 먹힘.</span></li>
+                <li><span class="pin">2</span><span><b>펫 프로필 저장.</b> 재방문 시 업로드 단계를 통째로 건너뜀 — 반복 사용률을 좌우하는 단일 기능.</span></li>
+                <li><span class="pin">3</span><span><b>품질 경고는 차단이 아니라 조언.</b> 흐림·저조도·다중 피사체를 감지하되 진행 버튼은 항상 열어둠. 강제 차단은 이탈로 직결.</span></li>
+                <li><span class="pin">4</span><span><b>차감 금액을 버튼에 박는다.</b> "만들기"가 아니라 "만들기 · 1 크레딧". 선불제에서 예상치 못한 차감은 환불 문의 1순위.</span></li>
+                <li><span class="pin">5</span><span><b>실패 시 자동 반환을 사전 고지.</b> 결제 후가 아니라 결제 전에 말해야 안심 효과가 있음.</span></li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= W-05 ================= -->
+      <section id="p05">
+        <div class="plate">
+          <div class="plate-head">
+            <span class="plate-id">W-05</span>
+            <h3>생성 대기</h3>
+            <span class="device">Mobile · 20–40초</span>
+          </div>
+          <div class="plate-body">
+            <div class="canvas">
+              <div class="frame-unit">
+                <div class="frame">
+                  <div class="statusbar"><i></i><i style="width:10px"></i></div>
+                  <div class="appbar"><span class="wf-txt k">만드는 중</span></div>
+                  <div class="stack" style="gap:9px">
+                    <div class="img" style="min-height:70px"><span>원본 (흐리게 처리)</span></div>
+                    <div class="progress"><i></i></div>
+                    <div class="row-between">
+                      <span class="wf-txt k">레고 블록을 쌓는 중…</span>
+                      <span class="wf-txt dim">약 14초</span>
+                    </div>
+                    <div class="btn sec">알림 받고 나가기</div>
+                    <div class="wf-txt dim" style="text-align:center">완성되면 알려드릴게요. 창을 닫아도 됩니다.</div>
+                    <div class="row-between" style="padding-top:5px">
+                      <span class="wf-txt k" style="font-weight:600">기다리는 동안</span>
+                    </div>
+                    <div class="grid3">
+                      <div class="style-card"><div class="img" style="min-height:42px"></div></div>
+                      <div class="style-card"><div class="img" style="min-height:42px"></div></div>
+                      <div class="style-card"><div class="img" style="min-height:42px"></div></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="frame-label">대기</div>
+              </div>
+            </div>
+            <div class="notes">
+              <ol>
+                <li><span class="pin">1</span><span><b>남은 초를 숫자로.</b> 무한 스피너는 체감 시간을 배로 늘림. 서버 큐 길이 기반으로 실제 추정치를 내려줄 것.</span></li>
+                <li><span class="pin">2</span><span><b>진행 문구를 스타일별로.</b> "생성 중"이 아니라 "레고 블록을 쌓는 중". 프롬프트마다 문구를 운영 데이터로 관리(W-10).</span></li>
+                <li><span class="pin">3</span><span><b>이탈 허용.</b> 창을 닫아도 작업은 서버에서 계속되고 완료 시 알림. 대기 강제는 모바일 웹에서 특히 취약.</span></li>
+                <li><span class="pin">4</span><span><b>대기 20–40초는 가장 값싼 광고 지면.</b> 다음 스타일 대신 누띠 인스타 피드나 인기 간식을 넣을 수도 있습니다 — 다만 결과를 보기 <em>전</em>이라 아직 호감이 형성되지 않은 시점이므로, 광고 밀도를 W-06보다 낮게 잡아야 합니다.</span></li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= W-06 ================= -->
+      <section id="p06">
+        <div class="plate">
+          <div class="plate-head">
+            <span class="plate-id">W-06</span>
+            <h3>결과</h3>
+            <span class="device">Mobile · 누띠로 보내는 순간</span>
+          </div>
+          <div class="plate-body">
+            <div class="canvas">
+
+              <div class="frame-unit">
+                <div class="frame">
+                  <div class="statusbar"><i></i><i style="width:10px"></i></div>
+                  <div class="appbar">
+                    <span class="wf-txt dim">←</span>
+                    <span class="wf-txt k">완성</span>
+                    <span class="credit-pill">◆ 11</span>
+                  </div>
+                  <div class="stack" style="gap:8px">
+                    <div class="split" style="min-height:96px">
+                      <div class="half"><span>원본</span></div>
+                      <div class="half b"><span>레고</span></div>
+                      <div class="divider"></div>
+                      <div class="knob"></div>
+                      <div style="position:absolute;right:4px;bottom:4px;font-family:var(--font-mono);font-size:7px;color:var(--ink-2);background:var(--surface);border:1px solid var(--rule);border-radius:2px;padding:0 3px">NUTTI @nutti_official</div>
+                    </div>
+                    <div class="grid2" style="grid-template-columns:repeat(4,1fr)">
+                      <div class="img" style="min-height:34px;border-color:var(--accent);border-width:2px"></div>
+                      <div class="img" style="min-height:34px"></div>
+                      <div class="img" style="min-height:34px"></div>
+                      <div class="img" style="min-height:34px"></div>
+                    </div>
+                    <div class="wf-txt dim" style="text-align:center">4장 중 1번</div>
+                    <div class="grid2">
+                      <div class="btn sec">저장</div>
+                      <div class="btn pri">인스타 공유</div>
+                    </div>
+                    <div class="btn ghost">다시 만들기 · 1 크레딧</div>
+                    <div class="alert-inline" style="border-color:var(--tech);background:var(--tech-soft)">
+                      <span class="wf-txt" style="color:var(--tech);font-weight:700">콩이는 하루 몇 g까지 괜찮을까?</span>
+                      <span class="wf-txt dim">사진에서 푸들로 봤어요 · 2단계부터 시작</span>
+                      <div class="btn sec" style="margin-top:3px">간식량 계산하기 →</div>
+                    </div>
+                    <div class="price-row" style="border-color:var(--rule-strong)">
+                      <div style="display:flex;gap:6px;align-items:center">
+                        <div class="img" style="width:26px;min-height:26px;flex:none"></div>
+                        <div>
+                          <div class="wf-txt k" style="font-weight:600">누띠 수제간식 보러가기</div>
+                          <div class="wf-txt dim">5만원 이상 무료배송</div>
+                        </div>
+                      </div>
+                      <span class="wf-txt dim">→</span>
+                    </div>
+                    <div class="row-between" style="padding-top:4px">
+                      <span class="wf-txt k" style="font-weight:600">이 사진으로 다른 스타일</span>
+                    </div>
+                    <div class="grid3">
+                      <div class="style-card"><div class="img" style="min-height:40px"></div></div>
+                      <div class="style-card"><div class="img" style="min-height:40px"></div></div>
+                      <div class="style-card"><div class="img" style="min-height:40px"></div></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="frame-label">A · 결과</div>
+              </div>
+
+              <div class="frame-unit">
+                <div class="frame">
+                  <div class="statusbar"><i></i><i style="width:10px"></i></div>
+                  <div class="scrim"></div>
+                  <div class="sheet">
+                    <div class="handle"></div>
+                    <div class="stack" style="gap:8px">
+                      <div class="wf-txt k" style="font-size:12px;font-weight:700">누띠 계정으로 이어서</div>
+                      <div class="wf-txt dim">보관함에 저장하고 크레딧을 받으세요.</div>
+                      <div class="btn pri">누띠 쇼핑몰 계정으로 로그인</div>
+                      <div class="btn sec">카카오로 계속하기</div>
+                      <div class="wf-txt dim" style="text-align:center">연동하면 크레딧 3개 · 쇼핑몰 회원 자동 가입</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="frame-label">B · 저장 시 계정 연동</div>
+              </div>
+
+            </div>
+            <div class="notes">
+              <ol>
+                <li><span class="pin">1</span><span><b>결과도 비교 슬라이더.</b> 변환본만 보여주면 "우리 애가 맞나" 판단이 안 됨. 원본 대조가 만족도의 근거.</span></li>
+                <li><span class="pin">2</span><span><b>1회 생성 = 4장.</b> 한 장은 실패 확률이 그대로 이탈이 됨. 4장 중 고르게 하면 체감 성공률이 급등.</span></li>
+                <li><span class="pin">3</span><span><b>공유가 주 버튼으로 뒤집힘.</b> v0.2에서는 저장이 주 버튼이었음. 목적이 홍보로 바뀐 이상 인스타 공유가 유입의 출발점이므로 위계를 반대로.</span></li>
+                <li><span class="pin">4</span><span><b>결과물 우하단에 누띠 서명 — 이 제품 전체에서 가장 중요한 요소.</b> 놀이터의 존재 이유가 확산이고, 퍼진 이미지에서 누띠로 돌아오는 경로는 이 서명뿐입니다. 작게, 품질 훼손 없이, 제거 옵션 없이 — 유료 제거를 유도하지 않으므로 반발이 생기지 않음.</span></li>
+                <li><span class="pin">5</span><span><b>계정은 카페24 쇼핑몰 계정으로.</b> 별도 회원 DB가 불필요하고, 놀이터 이용자가 그대로 쇼핑몰 회원이 됨 — 이 구조의 최대 이득.</span></li>
+                <li><span class="pin">6</span><span><b>출구가 셋 — 공유 · 계산기 · 쇼핑몰.</b> 결과를 본 직후가 감정 최고점이라 여기에 모든 출구를 모읍니다. 세 갈래 모두 누띠로 가므로 우열이 아니라 취향의 문제이고, 화면 위계만 공유 쪽에 둡니다. 계산기 배선은 W-07.</span></li>
+                <li><span class="pin">7</span><span><b>"이 사진으로 다른 스타일".</b> 업로드를 재사용하는 2회차 유도 — 체류를 늘려 추천 배너 노출 기회를 확보.</span></li>
+              </ol>
+              <div class="callout">
+                <span class="lbl">순서를 지킬 것</span>
+                출구들을 결과 이미지보다 <b>위</b>에 두면 광고로 읽혀 공유가 끊깁니다. 결과 → 공유 → 그 다음 계산기·쇼핑몰 순서를 지켜야 합니다. 홍보 목적이라고 홍보를 앞세우면 홍보가 안 됩니다.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= W-07 (신규) ================= -->
+      <section id="p07">
+        <div class="plate">
+          <div class="plate-head">
+            <span class="plate-id">W-07</span>
+            <h3>계산기로 넘기기 <span style="color:var(--tech);font-size:12px">기존 자산 연결</span></h3>
+            <span class="device">놀이터 → nutti.co.kr/calculator.html</span>
+          </div>
+          <div class="plate-body">
+            <div class="canvas">
+
+              <div class="frame-unit">
+                <div class="frame">
+                  <div class="statusbar"><i></i><i style="width:10px"></i></div>
+                  <div class="appbar">
+                    <span class="wf-txt dim">←</span>
+                    <span class="wf-txt k">완성</span>
+                    <span class="credit-pill">◆ 11</span>
+                  </div>
+                  <div class="stack" style="gap:8px">
+                    <div class="img" style="min-height:70px"><span>결과 이미지</span></div>
+                    <div class="alert-inline" style="border-color:var(--tech);background:var(--tech-soft)">
+                      <span class="wf-txt" style="color:var(--tech);font-weight:700">콩이는 하루 몇 g까지 괜찮을까?</span>
+                      <span class="wf-txt dim">사진에서 푸들 · 소형견으로 봤어요.<br>2단계부터 바로 시작할 수 있어요.</span>
+                      <div class="btn pri" style="margin-top:3px">간식량 계산하기 →</div>
+                    </div>
+                    <div class="wf-txt dim" style="text-align:center">누띠 간식 계산기로 이동합니다</div>
+                    <div style="border-top:1px dashed var(--rule);padding-top:6px">
+                      <div class="wf-txt dim" style="font-size:8px;line-height:1.5">
+                        calculator.html<b style="color:var(--accent)">?name=콩이<br>&amp;breed=토이푸들&amp;size=소형</b>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="frame-label">A · 놀이터 결과에서 넘기기</div>
+              </div>
+
+              <div class="frame-unit">
+                <div class="frame">
+                  <div class="statusbar"><i></i><i style="width:10px"></i></div>
+                  <div class="appbar">
+                    <span class="wf-txt k">간식 계산기</span>
+                    <span class="mini-chip on" style="margin-left:auto">누띠에서 옴</span>
+                  </div>
+                  <div class="stack" style="gap:7px">
+                    <div class="chips-row" style="justify-content:center;gap:3px">
+                      <span class="mini-chip on" style="padding:2px 5px">1 ✓</span>
+                      <span class="mini-chip on" style="padding:2px 5px">2</span>
+                      <span class="mini-chip" style="padding:2px 5px">3</span>
+                      <span class="mini-chip" style="padding:2px 5px">4</span>
+                      <span class="mini-chip" style="padding:2px 5px">5</span>
+                    </div>
+                    <div class="alert-inline" style="border-color:var(--good);background:var(--good-soft)">
+                      <span class="wf-txt" style="color:var(--good)">토이푸들 · 소형 — 사진에서 가져왔어요</span>
+                      <span class="wf-txt dim">다르면 1단계에서 바꿀 수 있어요</span>
+                    </div>
+                    <div class="wf-txt k" style="font-size:11px;font-weight:700">기본 정보를 알려주세요</div>
+                    <div class="price-row">
+                      <span class="wf-txt k">강아지 이름</span>
+                      <span class="wf-txt k" style="font-weight:700">콩이</span>
+                    </div>
+                    <div class="price-row">
+                      <span class="wf-txt k">체중</span>
+                      <div class="bar w60" style="height:5px"></div>
+                    </div>
+                    <div class="price-row">
+                      <span class="wf-txt k">나이</span>
+                      <div class="chips-row">
+                        <span class="mini-chip">퍼피</span>
+                        <span class="mini-chip on">성견</span>
+                        <span class="mini-chip">노령</span>
+                      </div>
+                    </div>
+                    <div class="wf-txt dim">체형 점수 (BCS)</div>
+                    <div class="grid3" style="grid-template-columns:repeat(5,1fr);gap:3px">
+                      <div class="img" style="min-height:22px"></div>
+                      <div class="img" style="min-height:22px"></div>
+                      <div class="img" style="min-height:22px;border-color:var(--accent);border-width:2px"></div>
+                      <div class="img" style="min-height:22px"></div>
+                      <div class="img" style="min-height:22px"></div>
+                    </div>
+                    <div class="btn pri">다음 →</div>
+                  </div>
+                </div>
+                <div class="frame-label">B · 계산기 2단계부터 시작 (기존 화면)</div>
+              </div>
+
+            </div>
+            <div class="notes">
+              <ol>
+                <li><span class="pin">1</span><span><b>새로 만들지 않습니다.</b> <code>nutti.co.kr/calculator.html</code>이 이미 라이브이고 5단계(견종·기본정보·생활패턴·성분·결과)로 훨씬 정교합니다. 놀이터가 할 일은 <b>거기로 사람을 보내는 것</b>뿐입니다.</span></li>
+                <li><span class="pin">2</span><span><b>아는 값을 URL 파라미터로 넘김.</b> 계산기는 이미 <code>routinebite-products.html?name=…&breed=…&size=…</code> 형태로 상태를 넘기고 있으므로 <b>같은 규약을 역방향으로</b> 쓰면 됩니다. 계산기에 파라미터 읽는 코드만 추가하면 끝.</span></li>
+                <li><span class="pin">3</span><span><b>5단계 중 1단계를 건너뜀.</b> 견종 선택은 42종 그리드라 이탈이 가장 큰 구간입니다. 사진에서 추정해 프리필하면 사용자는 2단계부터 시작합니다.</span></li>
+                <li><span class="pin">4</span><span><b>추정값은 «사진에서 가져왔어요»로 표시하고 수정 가능하게.</b> 믹스견은 견종 판별이 부정확합니다. 단정하면 신뢰를 잃으므로 출처를 밝히고 1단계로 되돌아갈 길을 열어둡니다.</span></li>
+                <li><span class="pin">5</span><span><b>«누띠에서 옴» 표식.</b> 도메인이 바뀌지 않으므로(둘 다 nutti.co.kr) 이질감은 없지만, 유입 출처를 GA로 추적하려면 UTM이 필요합니다. 계산기에 이미 <code>js/ga.js</code>가 붙어 있어 배선만 하면 됩니다.</span></li>
+                <li><span class="pin">6</span><span><b>세 출구 중 하나.</b> 결과 화면에서 나가는 길은 공유·쇼핑몰·계산기 셋이고 전부 누띠로 갑니다. 계산기 연결은 «강아지 정보를 이미 알고 있을 때 특히 자연스러운» 출구이지 필수 경유지가 아닙니다.</span></li>
+              </ol>
+              <div class="callout">
+                <span class="lbl">배치 원칙</span>
+                <b>공유가 위, 계산기가 아래.</b> 쇼핑몰 유입은 SNS와 계산기도 이미 하고 있지만 «사용자가 대신 퍼뜨리는 것»은 이 자산만 할 수 있습니다. 고유 강점을 화면 위계로 표현하는 것일 뿐, 다른 출구를 막자는 뜻은 아닙니다.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= W-08 ================= -->
+      <section id="p08">
+        <div class="plate">
+          <div class="plate-head">
+            <span class="plate-id">W-08</span>
+            <h3>크리에이티브 모드 (커스텀 프롬프트)</h3>
+            <span class="device">Mobile · 별도 진입 · 기본 숨김</span>
+          </div>
+          <div class="plate-body">
+            <div class="canvas">
+              <div class="frame-unit">
+                <div class="frame">
+                  <div class="statusbar"><i></i><i style="width:10px"></i></div>
+                  <div class="appbar">
+                    <span class="wf-txt dim">←</span>
+                    <span class="wf-txt k">직접 만들기</span>
+                    <span class="credit-pill">◆ 11</span>
+                  </div>
+                  <div class="stack" style="gap:8px">
+                    <div class="img" style="min-height:56px"><span>사진</span></div>
+                    <div class="btn ghost" style="text-align:left;min-height:44px;padding:8px">우리 애를 __ 로 만들어줘</div>
+                    <div class="wf-txt dim">예시를 눌러 채워보세요</div>
+                    <div class="chips-row" style="flex-wrap:wrap;overflow:visible;gap:4px">
+                      <span class="mini-chip">눈 오는 날 산책</span>
+                      <span class="mini-chip">80년대 앨범 커버</span>
+                      <span class="mini-chip">도자기 인형</span>
+                      <span class="mini-chip">파일럿</span>
+                    </div>
+                    <div class="alert-inline" style="border-color:var(--rule);background:var(--surface-2)">
+                      <span class="wf-txt dim">배경·의상·분위기는 바꿀 수 있어요. 품종이나 털색을 바꾸는 요청은 거절됩니다.</span>
+                    </div>
+                    <div class="btn pri">만들기 · 2 크레딧</div>
+                  </div>
+                </div>
+                <div class="frame-label">크리에이티브 모드</div>
+              </div>
+            </div>
+            <div class="notes">
+              <ol>
+                <li><span class="pin">1</span><span><b>기본 그리드에서 분리.</b> PixPawAI가 커스텀 프롬프트를 전면에 놓았다가 "학습곡선"으로 지적받음. 탭바 "만들기" 안쪽 보조 진입점으로만 노출.</span></li>
+                <li><span class="pin">2</span><span><b>빈 입력창을 주지 않는다.</b> "우리 애를 __ 로" 문장 틀 + 예시 칩. 백지 프롬프트는 초보자 이탈의 전형.</span></li>
+                <li><span class="pin">3</span><span><b>할 수 있는 것과 없는 것을 미리 못박음.</b> 품종·털색 변경 요청은 결과 불만의 주된 원인이므로 입력 단계에서 차단.</span></li>
+                <li><span class="pin">4</span><span><b>비용을 2배로.</b> 커스텀은 실패율이 높아 재생성이 잦음. 가격으로 프리셋 쪽에 유인을 걸어 품질 편차를 줄임.</span></li>
+              </ol>
+              <div class="callout">
+                <span class="lbl">자산 관점</span>
+                여기서 들어온 사용자 문장은 <b>다음 프리셋 스타일의 원천</b>입니다. 입력 로그를 빈도순으로 모아 상위 항목을 정식 스타일로 승격하는 루프를 W-11에 연결하세요.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= W-09 ================= -->
+      <section id="p09">
+        <div class="plate">
+          <div class="plate-head">
+            <span class="plate-id">W-09</span>
+            <h3>보관함</h3>
+            <span class="device">Mobile · 탭 3</span>
+          </div>
+          <div class="plate-body">
+            <div class="canvas">
+              <div class="frame-unit">
+                <div class="frame">
+                  <div class="statusbar"><i></i><i style="width:10px"></i></div>
+                  <div class="appbar">
+                    <span class="wf-txt k">보관함</span>
+                    <span class="credit-pill">◆ 11</span>
+                  </div>
+                  <div class="stack" style="gap:8px">
+                    <div class="chips-row">
+                      <span class="mini-chip on">전체</span>
+                      <span class="mini-chip">콩이</span>
+                      <span class="mini-chip">두부</span>
+                    </div>
+                    <div class="wf-txt dim">2026년 8월</div>
+                    <div class="grid3">
+                      <div class="img" style="min-height:52px"></div>
+                      <div class="img" style="min-height:52px"></div>
+                      <div class="img" style="min-height:52px"></div>
+                      <div class="img" style="min-height:52px"></div>
+                      <div class="img" style="min-height:52px"></div>
+                      <div class="img" style="min-height:52px"></div>
+                    </div>
+                    <div class="wf-txt dim">2026년 7월</div>
+                    <div class="grid3">
+                      <div class="img" style="min-height:52px"></div>
+                      <div class="img" style="min-height:52px"></div>
+                      <div class="img" style="min-height:52px"></div>
+                    </div>
+                  </div>
+                  <div class="tabbar">
+                    <div><i></i>스타일</div>
+                    <div><i></i>만들기</div>
+                    <div class="on"><i></i>보관함</div>
+                    <div><i></i>누띠샵</div>
+                  </div>
+                </div>
+                <div class="frame-label">보관함</div>
+              </div>
+            </div>
+            <div class="notes">
+              <ol>
+                <li><span class="pin">1</span><span><b>강아지 단위 필터.</b> 다견 가정이 흔함. 날짜보다 "누구" 축이 먼저. 저장된 프로필은 W-07의 추천 정확도로도 이어짐.</span></li>
+                <li><span class="pin">2</span><span><b>월 단위 섹션.</b> 무한 그리드는 재방문 시 자기 결과를 못 찾게 만듦.</span></li>
+                <li><span class="pin">3</span><span><b>원본을 함께 보관.</b> 상세에서 다시 비교하거나 다른 스타일로 재생성하는 경로가 여기서 열림.</span></li>
+                <li><span class="pin">4</span><span><b>삭제·일괄 저장은 롱프레스 선택 모드.</b> 기본 화면에 관리 버튼을 두지 않음.</span></li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= W-10 ================= -->
+      <section id="p10">
+        <div class="plate">
+          <div class="plate-head">
+            <span class="plate-id">W-10</span>
+            <h3>크레딧 받기 <span style="color:var(--accent);font-size:12px">전면 개편</span></h3>
+            <span class="device">Mobile · 결제 없음 · 누띠 행동으로만 획득</span>
+          </div>
+          <div class="plate-body">
+            <div class="canvas">
+
+              <div class="frame-unit">
+                <div class="frame">
+                  <div class="statusbar"><i></i><i style="width:10px"></i></div>
+                  <div class="appbar">
+                    <span class="wf-txt dim">←</span>
+                    <span class="wf-txt k">크레딧 받기</span>
+                  </div>
+                  <div class="stack" style="gap:8px">
+                    <div class="row-between" style="border:1px solid var(--rule);border-radius:4px;padding:8px">
+                      <span class="wf-txt k">보유 크레딧</span>
+                      <span class="wf-txt k" style="font-size:14px;font-weight:700">11</span>
+                    </div>
+                    <div class="wf-txt dim">크레딧은 판매하지 않아요. 아래로 받으세요.</div>
+
+                    <div class="price-row best">
+                      <div>
+                        <div class="wf-txt k" style="font-weight:600">누띠 주문하기 <span class="badge-best">+20</span></div>
+                        <div class="wf-txt dim">주문 1건당 · 자동 확인</div>
+                      </div>
+                      <div class="btn pri" style="padding:5px 9px">쇼핑몰 →</div>
+                    </div>
+                    <div class="price-row">
+                      <div>
+                        <div class="wf-txt k" style="font-weight:600">쇼핑몰 계정 연동 <span class="cost">+3</span></div>
+                        <div class="wf-txt dim">최초 1회</div>
+                      </div>
+                      <div class="btn sec" style="padding:5px 9px">연동 완료</div>
+                    </div>
+                    <div class="price-row">
+                      <div>
+                        <div class="wf-txt k" style="font-weight:600">인스타 팔로우 <span class="cost">+2</span></div>
+                        <div class="wf-txt dim">@nutti_official</div>
+                      </div>
+                      <div class="btn sec" style="padding:5px 9px">받기</div>
+                    </div>
+                    <div class="price-row">
+                      <div>
+                        <div class="wf-txt k" style="font-weight:600">오늘의 무료 <span class="cost">+1</span></div>
+                        <div class="wf-txt dim">매일 자정 충전</div>
+                      </div>
+                      <div class="btn ghost" style="padding:5px 9px">내일 다시</div>
+                    </div>
+                    <div class="btn ghost" style="text-align:left">받은 내역 보기</div>
+                  </div>
+                </div>
+                <div class="frame-label">A · 획득 경로</div>
+              </div>
+
+              <div class="frame-unit">
+                <div class="frame">
+                  <div class="statusbar"><i></i><i style="width:10px"></i></div>
+                  <div class="appbar">
+                    <span class="wf-txt dim">←</span>
+                    <span class="wf-txt k">받은 내역</span>
+                  </div>
+                  <div class="stack" style="gap:0;padding:10px">
+                    <div class="table-wf">
+                      <div class="trow head"><span>내역</span><span>구분</span><span>일시</span><span>증감</span></div>
+                      <div class="trow"><span>생성</span><span>레고</span><span>08-03</span><span class="bad">−1</span></div>
+                      <div class="trow"><span>주문 확인</span><span>#20260802</span><span>08-02</span><span class="ok">+20</span></div>
+                      <div class="trow"><span>실패 반환</span><span>지브리</span><span>08-02</span><span class="ok">+2</span></div>
+                      <div class="trow"><span>계정 연동</span><span>—</span><span>07-28</span><span class="ok">+3</span></div>
+                      <div class="trow"><span>매일 무료</span><span>—</span><span>07-28</span><span class="ok">+1</span></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="frame-label">B · 받은 내역</div>
+              </div>
+
+            </div>
+            <div class="notes">
+              <ol>
+                <li><span class="pin">1</span><span><b>결제창을 통째로 제거.</b> 홍보가 목적인 서비스에서 결제는 유입을 막는 장벽일 뿐입니다. 생성 원가는 광고비로 처리.</span></li>
+                <li><span class="pin">2</span><span><b>주문 보상을 최상단·최대치로.</b> +20은 다른 경로의 10배. 카페24 Admin API로 주문을 조회해 <b>자동 지급</b>되므로 수동 인증이 불필요합니다. 이 화면에서 유일하게 매출로 직결되는 줄.</span></li>
+                <li><span class="pin">3</span><span><b>인스타 팔로우는 검증하지 않음.</b> API가 팔로우 여부를 알려주지 않으므로 자율 지급(1회 한정). 어뷰징이 가능하지만 목적이 팔로우 유도이므로 손해가 아님 — 검증 비용을 쓸 이유가 없습니다.</span></li>
+                <li><span class="pin">4</span><span><b>매일 +1로 재방문을 만듦.</b> 크레딧을 팔지 않으므로 소진이 곧 이탈. 매일 소량 충전이 재방문의 유일한 장치입니다.</span></li>
+                <li><span class="pin">5</span><span><b>내역에 주문번호를 남김.</b> 어떤 주문으로 받았는지 보여야 자동 지급이 신뢰를 얻고, CS 문의도 줄어듭니다.</span></li>
+                <li><span class="pin">6</span><span><b>실패 반환은 그대로 유지.</b> 무료라도 «날렸다»는 감각은 동일하게 나쁩니다.</span></li>
+              </ol>
+              <div class="callout">
+                <span class="lbl">설계 반전</span>
+                v0.2에서 크레딧은 <b>수익원</b>이었고 결제 장벽이었습니다. v0.3에서 크레딧은 <b>미끼</b>입니다 — 사용자가 크레딧을 원할수록 누띠 쇼핑몰과 인스타로 갑니다. 같은 UI 요소의 역할이 정반대로 뒤집혔습니다.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= W-11 ================= -->
+      <section id="p11">
+        <div class="plate">
+          <div class="plate-head">
+            <span class="plate-id">W-11</span>
+            <h3>프롬프트 운영 콘솔 (내부)</h3>
+            <span class="device">Desktop · 관리자 전용</span>
+          </div>
+          <div class="plate-body wide">
+            <div class="canvas">
+              <div class="frame-unit">
+                <div class="frame desk">
+                  <div class="appbar">
+                    <div class="logo-mark"></div>
+                    <span class="wf-txt k">프롬프트 콘솔</span>
+                    <span class="mini-chip" style="margin-left:auto">admin</span>
+                  </div>
+                  <div class="sidebar-wf">
+                    <div class="side">
+                      <div class="side-item on">스타일</div>
+                      <div class="side-item">프롬프트 버전</div>
+                      <div class="side-item">유입 지표</div>
+                      <div class="side-item">커스텀 입력</div>
+                      <div class="side-item">크레딧 지급</div>
+                      <div class="side-item">모델 설정</div>
+                    </div>
+                    <div class="stack" style="gap:7px">
+                      <div class="row-between">
+                        <span class="wf-txt k" style="font-weight:600">스타일 카탈로그 · 214</span>
+                        <span class="btn pri" style="padding:3px 8px;font-size:9px">새 스타일</span>
+                      </div>
+                      <div class="chips-row">
+                        <span class="mini-chip on">공개</span>
+                        <span class="mini-chip">초안</span>
+                        <span class="mini-chip">A/B 중</span>
+                      </div>
+                      <div class="table-wf">
+                        <div class="trow head"><span>스타일</span><span>선택률</span><span>공유율</span><span>쇼핑몰</span></div>
+                        <div class="trow"><span>레고 미니피겨</span><span>18.4%</span><span class="ok">41%</span><span class="ok">12%</span></div>
+                        <div class="trow"><span>르네상스 초상</span><span>12.1%</span><span class="ok">38%</span><span class="ok">9%</span></div>
+                        <div class="trow"><span>지브리 수채</span><span>9.7%</span><span class="bad">8%</span><span class="bad">2%</span></div>
+                        <div class="trow"><span>우주비행사 v3</span><span>4.2%</span><span>22%</span><span>6%</span></div>
+                        <div class="trow"><span>도자기 인형</span><span>—</span><span>—</span><span>초안</span></div>
+                      </div>
+                      <div class="row-between" style="padding-top:4px">
+                        <span class="wf-txt k" style="font-weight:600">커스텀 입력 상위</span>
+                        <span class="wf-txt dim">→ 스타일로 승격</span>
+                      </div>
+                      <div class="table-wf">
+                        <div class="trow head" style="grid-template-columns:2fr 1fr 1fr"><span>문구</span><span>빈도</span><span>승격</span></div>
+                        <div class="trow" style="grid-template-columns:2fr 1fr 1fr"><span>"눈 오는 날 산책"</span><span>412</span><span class="ok">가능</span></div>
+                        <div class="trow" style="grid-template-columns:2fr 1fr 1fr"><span>"한복 입은"</span><span>287</span><span class="ok">가능</span></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="frame-label">운영 콘솔</div>
+              </div>
+            </div>
+            <div class="notes">
+              <ol>
+                <li><span class="pin">1</span><span><b>프롬프트가 자산이면 관리 화면이 제품의 일부.</b> 코드 배포 없이 스타일을 추가·수정·회수할 수 있어야 시즌 대응이 가능.</span></li>
+                <li><span class="pin">2</span><span><b>지표를 선택률이 아니라 «공유율 × 쇼핑몰 클릭률»로.</b> 많이 고르는 스타일이 아니라 <b>누띠로 사람을 보내는 스타일</b>이 좋은 스타일입니다. 지브리 수채는 선택률 9.7%로 3위지만 공유율 8%라 원가만 태우는 중 — v0.2의 «성공률» 지표로는 절대 안 보이던 문제.</span></li>
+                <li><span class="pin">3</span><span><b>프롬프트 버전 관리와 A/B.</b> 같은 스타일의 v2/v3를 트래픽 분할해 비교. 되돌리기가 가능해야 실험을 걸 수 있음.</span></li>
+                <li><span class="pin">4</span><span><b>커스텀 입력 → 프리셋 승격 루프.</b> 사용자가 카탈로그의 다음 항목을 알려주는 구조. 이게 개수 경쟁에서 이기는 방법입니다.</span></li>
+                <li><span class="pin">5</span><span><b>모델 설정을 분리.</b> 스타일별로 다른 모델·해상도·시드 정책. 원가와 품질을 스타일 단위로 조율.</span></li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 상태 ================= -->
+      <section class="band" id="states">
+        <div class="band-head">
+          <h2>상태 · 엣지 케이스</h2>
+          <span class="tag">Must-handle</span>
+        </div>
+
+        <p>와이어프레임에 그리지 않았지만 구현 전 반드시 정의해야 하는 화면들입니다. 크레딧이 무상이 되면서 «환불»은 사라졌지만, 대신 <strong>카페24 연동의 실패 처리</strong>가 새로운 급소가 됐습니다 — 토큰이 만료되면 크레딧 지급이 조용히 멈추고, 사용자는 이유를 모른 채 이탈합니다.</p>
+
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr><th>상황</th><th>화면 처리</th><th>크레딧</th><th>우선순위</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><b>생성 실패 (모델 오류)</b></td><td>실패 안내 + 재시도 버튼. 원본은 유지</td><td>자동 반환</td><td><span class="st a">P0</span></td></tr>
+              <tr><td><b>타임아웃 (60초 초과)</b></td><td>백그라운드 전환 + 완료 알림</td><td>정상 차감</td><td><span class="st a">P0</span></td></tr>
+              <tr><td><b>크레딧 부족</b></td><td>«크레딧 받기» 시트를 인라인 오버레이로. 주문 보상이 최상단</td><td>차감 없음</td><td><span class="st a">P0</span></td></tr>
+              <tr><td><b>카페24 토큰 만료</b></td><td>갱신 실패 시 크레딧 지급이 조용히 멈춤 — 관리자 알림 필수</td><td>지급 보류 후 소급</td><td><span class="st a">P0</span></td></tr>
+              <tr><td><b>주문 보상 후 주문 취소</b></td><td>회수 여부 정책 결정 필요. 미정 시 +20 반복 어뷰징이 가능</td><td>정책 결정 필요</td><td><span class="st a">P0</span></td></tr>
+              <tr><td><b>사람 얼굴이 포함된 사진</b></td><td>안내 후 진행 허용 여부 결정 필요 — 초상권·정책 검토 대상</td><td>정책 의존</td><td><span class="st a">P0</span></td></tr>
+              <tr><td><b>고양이 사진 업로드</b></td><td>강아지 전용임을 안내. 차단하되 문구는 부드럽게 — 브랜드 첫인상</td><td>차단 시 미차감</td><td><span class="st b">P1</span></td></tr>
+              <tr><td><b>강아지가 없는 사진</b></td><td>업로드 단계에서 감지·경고, 진행은 허용</td><td>진행 시 차감</td><td><span class="st b">P1</span></td></tr>
+              <tr><td><b>여러 마리가 찍힌 사진</b></td><td>대상 선택 UI 또는 "함께 변환" 안내</td><td>정상 차감</td><td><span class="st b">P1</span></td></tr>
+              <tr><td><b>견종 추정 실패 (믹스견)</b></td><td>파라미터를 비우고 계산기 1단계부터 시작시킴. 틀린 견종 프리필이 더 나쁨</td><td>—</td><td><span class="st b">P1</span></td></tr>
+              <tr><td><b>추정 견종이 계산기 목록에 없음</b></td><td>계산기는 42종 + 믹스견. 매칭 실패 시 «믹스견»으로 폴백</td><td>—</td><td><span class="st b">P1</span></td></tr>
+              <tr><td><b>비로그인 상태에서 이탈</b></td><td>세션 토큰으로 결과 24시간 보존, 재방문 시 복원</td><td>—</td><td><span class="st b">P1</span></td></tr>
+              <tr><td><b>부적절한 커스텀 프롬프트</b></td><td>입력 단계 필터 + 생성 후 안전 필터 2중. 브랜드 서명이 붙으므로 더 엄격히</td><td>차단 시 미차감</td><td><span class="st a">P0</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ================= 열린 질문 ================= -->
+      <section class="band" id="open">
+        <div class="band-head">
+          <h2>결정 로그 · 남은 질문</h2>
+          <span class="tag">8 decided · 6 open</span>
+        </div>
+
+        <div class="q-list">
+          <div class="q-item done">
+            <span class="qn">✓</span>
+            <div>
+              <h4>카탈로그 규모 — 200 미만, 검색 없이 전체 펼침</h4>
+              <p>W-02를 단일 페이지 카탈로그로 개정(v0.2). 검색을 빼고 섹션 구획 + sticky 앵커 점프로 대체. 상한은 100개.</p>
+            </div>
+          </div>
+          <div class="q-item done">
+            <span class="qn">✓</span>
+            <div>
+              <h4>무료 체험 1장 — 유지</h4>
+              <p>비로그인 1장 무료. 콜드 트래픽 전환 경로를 유지. 단, 남용 제한 강도는 아래 Q1의 원가 확인에 연동됩니다.</p>
+            </div>
+          </div>
+          <div class="q-item done">
+            <span class="qn">✓</span>
+            <div>
+              <h4>목적 — 누띠 마케팅 채널</h4>
+              <p>자체 수익 없음. 크레딧 판매 중단, 결제 화면 제거, 결과물에 누띠 서명 삽입, 북극성 지표를 쇼핑몰 클릭·인스타 팔로우로 교체.</p>
+            </div>
+          </div>
+          <div class="q-item done">
+            <span class="qn">✓</span>
+            <div>
+              <h4>위치 — 서브도메인 + 카페24 API</h4>
+              <p>카페24 스마트디자인에 백엔드를 올릴 수 없어 같은 도메인은 불가. play.nutti.co.kr 형태로 두고 Admin API(주문·회원)와 Front API(상품)로 연결.</p>
+            </div>
+          </div>
+          <div class="q-item done">
+            <span class="qn">✓</span>
+            <div>
+              <h4>대상 — 강아지 전용</h4>
+              <p>누띠가 견용 간식만 취급하므로 고양이는 범위에서 제외. 랜딩에 명시하고 업로드 단계에서 감지.</p>
+            </div>
+          </div>
+          <div class="q-item done">
+            <span class="qn">✓</span>
+            <div>
+              <h4>간식 추천 — 기존 계산기 재사용</h4>
+              <p>새로 만들지 않음. <code>nutti.co.kr/calculator.html</code>이 5단계로 이미 라이브이므로 URL 파라미터로 이름·견종을 넘겨 1단계를 건너뛰게 함. W-07이 그 배선.</p>
+            </div>
+          </div>
+          <div class="q-item done">
+            <span class="qn">✓</span>
+            <div>
+              <h4>구조 — 쇼핑몰이 본체, 자산은 병렬</h4>
+              <p>SNS·계산기·놀이터는 순서가 있는 깔때기가 아니라 각자 쇼핑몰로 보내는 병렬 채널. 자산 간 링크는 자유. 놀이터의 고유 강점은 <b>결과물이 사용자 손으로 퍼진다</b>는 것이므로 공유율을 함께 측정.</p>
+            </div>
+          </div>
+          <div class="q-item">
+            <span class="qn">Q1</span>
+            <div>
+              <h4>계산기의 현재 성과가 얼마인가</h4>
+              <p>새 자산을 만들 가치는 <b>기존 자산의 기준선</b>과 비교해야 알 수 있습니다. 계산기의 월 유입과 쇼핑몰 전환율이 그 기준선이고, GA가 이미 붙어 있으니 숫자가 있을 겁니다. 계산기가 잘 되고 있다면 «같은 SNS 노력으로 놀이터도 띄울 수 있는가»가 판단 근거가 되고, 유입 자체가 적다면 새 자산보다 <b>SNS 노출을 늘리는 게 먼저</b>입니다.</p>
+            </div>
+          </div>
+          <div class="q-item">
+            <span class="qn">Q2</span>
+            <div>
+              <h4>간식 효능 표현의 법적 경계</h4>
+              <p>표시광고법상 «관절에 좋다»류 효능 표현은 위험합니다. 계산기의 <code>products-data.js</code>에 이미 <code>functions:['관절','면역','시력보호']</code> 같은 태그가 들어 있고, 파일 주석도 «운영자 검수 권장»이라 적혀 있습니다. <b>놀이터가 아니라 이미 라이브인 계산기의 문제</b>이므로 우선순위가 더 높습니다.</p>
+            </div>
+          </div>
+          <div class="q-item">
+            <span class="qn">Q3</span>
+            <div>
+              <h4>주문 보상 후 취소를 어떻게 다룰 것인가</h4>
+              <p>+20 크레딧을 받고 주문을 취소하는 어뷰징이 가능합니다. 회수하면 정상 취소 고객이 불쾌하고, 두면 악용됩니다. 배송 완료 후 지급으로 미루는 절충안이 있지만 보상의 즉시성이 사라집니다.</p>
+            </div>
+          </div>
+          <div class="q-item">
+            <span class="qn">Q4</span>
+            <div>
+              <h4>1회 생성에 4장이 원가상 가능한가</h4>
+              <p>체감 성공률을 크게 올리지만 원가도 4배입니다. 크레딧이 무상이 된 지금은 전액이 마케팅비이므로, <b>«유입 1명당 얼마까지 쓸 것인가»</b>가 곧 이 답입니다. 무료 체험의 남용 제한 강도도 여기서 결정됩니다.</p>
+            </div>
+          </div>
+          <div class="q-item">
+            <span class="qn">Q5</span>
+            <div>
+              <h4>서명이 공유율을 떨어뜨리는가</h4>
+              <p>브랜드 서명은 유입의 유일한 경로지만, 광고처럼 보이면 공유 자체가 줄어 오히려 유입이 감소할 수 있습니다. 서명 크기·위치·유무를 A/B로 검증해야 하며, W-11의 스타일별 공유율 지표가 그 측정 도구입니다.</p>
+            </div>
+          </div>
+          <div class="q-item">
+            <span class="qn">Q6</span>
+            <div>
+              <h4>사람이 함께 찍힌 사진을 허용할 것인가</h4>
+              <p>실사용 사진의 상당수가 보호자와 함께 찍힌 것입니다. 허용하면 초상권·안전 필터 요구가 생기고, 막으면 업로드 실패율이 올라갑니다.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer>
+        <span>누띠 강아지 사진 놀이터 · 와이어프레임 v0.5</span>
+        <span>11 plates · 8 decided · 6 open</span>
+      </footer>
+
+    </main>
+  </div>
+</div>
+
+</body></html>
