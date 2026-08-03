@@ -1,0 +1,63 @@
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from tortoise import Tortoise
+
+from app.routers import admin, auth, credits, events, jobs, library, pets, results, styles, uploads
+from app.settings import settings
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await Tortoise.init(db_url=settings.database_url, modules={"models": ["app.models"]})
+    yield
+    await Tortoise.close_connections()
+
+
+app = FastAPI(title="Nutti Photo Playground API", lifespan=lifespan)
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
+    """docs/05-api-spec.md §1 공통 에러 포맷으로 변환.
+
+    ponytail: fastapi.HTTPException은 starlette.exceptions.HTTPException의 서브클래스이므로
+    베이스 클래스로 등록해야 라우팅 자체가 던지는 404(경로 불일치) 같은 케이스도 잡힌다.
+    """
+    detail = exc.detail
+    if isinstance(detail, dict) and "code" in detail:
+        code, message, extra = detail["code"], detail.get("message", ""), detail.get("detail", {})
+    else:
+        code, message, extra = "HTTP_ERROR", str(detail), {}
+    return JSONResponse(status_code=exc.status_code, content={"error": {"code": code, "message": message, "detail": extra}})
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    return JSONResponse(
+        status_code=400,
+        content={"error": {"code": "VALIDATION_ERROR", "message": "요청 형식이 올바르지 않습니다", "detail": exc.errors()}},
+    )
+
+
+@app.get("/healthz")
+async def healthz() -> dict:
+    return {"status": "ok"}
+
+
+for router in (
+    auth.router,
+    styles.router,
+    uploads.router,
+    pets.router,
+    jobs.router,
+    results.router,
+    library.router,
+    credits.router,
+    events.router,
+    admin.router,
+):
+    app.include_router(router, prefix="/v1")
