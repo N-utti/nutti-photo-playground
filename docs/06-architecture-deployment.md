@@ -183,7 +183,8 @@ AWS 표준 아웃바운드 요율(프리티어 소진 후 일반적으로 알려
 |---|---|---|
 | `DATABASE_URL` | Postgres 접속 문자열 | |
 | `JWT_SIGNING_KEY` | 게스트/회원 공용 JWT 서명 키 | 게스트·회원 동일 포맷(05-api-spec §1) |
-| `JWT_EXPIRES_IN` | JWT 만료 시간 | |
+| `JWT_EXPIRES_IN` | JWT 만료 시간(회원 세션) | |
+| `JWT_GUEST_EXPIRES_IN` | 게스트 JWT 만료 시간 — 기본 30일, 게스트 자산 보존(`guest_expires_at`)과 정렬(`07-decisions.md#Q7`, 이슈 #5) | |
 | `OPENAI_API_KEY` | OpenAI GPT Image API 키(§3 확정, ADR-10) | |
 | `OPENAI_BASE_URL` | OpenAI API 엔드포인트 오버라이드(선택, 기본값 사용 시 생략) | |
 | `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | Cloudflare R2 접근 키 | S3 호환 API 사용 |
