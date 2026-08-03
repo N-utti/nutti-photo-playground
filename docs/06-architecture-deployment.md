@@ -53,7 +53,7 @@ Redis/arq 없이 `generation_job` 테이블 자체를 큐로 씁니다. 동시 �
 SELECT * FROM generation_job
 WHERE status = 'queued'
    OR (status = 'processing' AND lease_expires_at < now())
-ORDER BY created_at
+ORDER BY queued_at
 FOR UPDATE SKIP LOCKED
 LIMIT 1;
 ```
@@ -73,7 +73,7 @@ W-03 "평균 24초 · 4장 생성" 목표를 맞추기 위해, 워커는 4장의
 ### 2.4 arq 승격 임계 (3건 중 1건이라도 충족 시 검토)
 
 1. 워커 크래시 후 lease 만료로 재처리되는 job 비율이 **일 1% 초과**가 1주일 이상 지속(직접 구현한 재시도 로직의 신뢰성 한계로 판단).
-2. 폴링 지연(`created_at` → job 실제 시작 시각)의 P95가 **10초 초과**가 지속 — 폴링 주기·인덱스 튜닝으로 해소되지 않는 경우.
+2. 폴링 지연(`queued_at` → job 실제 시작 시각)의 P95가 **10초 초과**가 지속 — 폴링 주기·인덱스 튜닝으로 해소되지 않는 경우.
 3. 워커를 **여러 프로세스/여러 서버로 스케일 아웃**해야 하는 시점 — 단일 asyncio 프로세스로는 동시 처리량 한계에 도달했을 때. arq는 Redis 기반 분산 큐라 여러 워커 인스턴스 조율이 기본 제공됩니다.
 
 이 중 하나라도 충족하면 `generation_job` 폴링을 arq(Redis 백엔드) 큐로 승격합니다. 지금은 만들지 않습니다(YAGNI).

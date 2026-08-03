@@ -263,7 +263,7 @@ erDiagram
 | `source_image_id` | UUID | FK → `source_image.id`, NOT NULL | |
 | `style_id` | BIGINT | FK → `style.id`, NULL | 커스텀 프롬프트(W-08)면 NULL |
 | `prompt_version_id` | BIGINT | FK → `style_prompt_version.id`, NULL | |
-| `custom_prompt_id` | UUID | FK → `custom_prompt_log.id`, NULL | |
+| `custom_prompt_id` | UUID | `custom_prompt_log.id` 참조, NULL | **구현 노트**: `custom_prompt_log.job_id`와 양방향 FK를 걸면 Tortoise 스키마 생성기가 순환 참조로 실패 — 실제 FK 제약은 `custom_prompt_log.job_id` 쪽 한 방향만 걸고, 이 컬럼은 제약 없는 UUID로 구현(app/models.py ponytail 주석 참조) |
 | `idempotency_key` | UUID | NOT NULL | |
 | `status` | TEXT | NOT NULL, CHECK IN (`queued`,`processing`,`succeeded`,`failed`) | |
 | `credit_cost` | INT | NOT NULL | 프리셋 1(또는 스타일별 값), 커스텀 2 |
