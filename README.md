@@ -4,8 +4,9 @@
 구현 코드는 아직 없고, 기획·설계 문서만 담고 있습니다.
 
 - 스펙 문서: [`docs/wireframe-spec-v0.5.html`](docs/wireframe-spec-v0.5.html) — 브라우저로 열어서 보세요
+- 개발 문서 세트: [`docs/README.md`](docs/README.md) — PRD·요구사항·유스케이스·ERD·API 명세·아키텍처·결정 로그(SSOT는 위 와이어프레임 HTML)
 - 버전: v0.5 · 기준일 2026-08-03
-- 구성: 11 plates (사용자 10 / 운영 1) · 결정 8건 · 열린 질문 6건
+- 구성: 11 plates (사용자 10 / 운영 1) · 결정 7건 · 열린 질문 6건(스펙 표기 "8 decided"는 오기 — [07-decisions.md](docs/07-decisions.md) 정오표 E-03 참고)
 
 ---
 
