@@ -116,6 +116,20 @@ Pawtograph · PixPawAI · Pawcaso · DreamPets · EaseMate를 훑어 얻은 결�
 | Q5 | 서명이 공유율을 떨어뜨리는가 — A/B 검증 필요 |
 | Q6 | 사람이 함께 찍힌 사진을 허용할 것인가 |
 
+## 백엔드 실행
+
+스캐폴딩 단계(FastAPI + Tortoise ORM, `app/`) — 상세 스펙은 [`docs/04-erd.md`](docs/04-erd.md)·[`docs/05-api-spec.md`](docs/05-api-spec.md)·[`docs/06-architecture-deployment.md`](docs/06-architecture-deployment.md) 참고.
+
+```bash
+uv sync                              # 의존성 설치(Python 3.13 고정, .python-version 참고)
+cp .env.example .env                 # 환경 변수 채우기
+docker compose up -d postgres        # 로컬 Postgres 기동
+uv run aerich init-db                # 최초 1회: migrations/ 생성 + 스키마 적용
+uv run uvicorn app.main:app --reload # API 서버 (localhost:8000, /healthz로 확인)
+```
+
+검증: `uv run pytest` — sqlite in-memory로 13개 모델 스키마 생성 + `/healthz` + 라우터 등록을 확인하는 스모크 테스트(`tests/test_smoke.py`)만 있습니다. 워커는 `uv run python -m app.worker`.
+
 ## 브랜드 팩트
 
 NUTTI(누띠) · 부산 · 국내 자체 제조 프리미엄 **강아지** 수제간식.
