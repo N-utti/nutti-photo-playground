@@ -78,6 +78,14 @@
 - **영향**: `04-erd.md` §2.1, §2.11, `06-architecture-deployment.md` §6.2.
 - **기각 대안**: 단일 "마지막 처리 시점" 컬럼 하나로 두 역할 겸용 — 토큰 만료 복구 시 소급 조회 범위와 보상 자격 범위가 뒤섞여 위 두 사고(누락/부정지급) 중 하나가 반드시 발생.
 
+### ADR-10 · AI 이미지 생성 프로바이더는 OpenAI GPT Image API
+
+- **배경**: `06-architecture-deployment.md` §3이 Gemini 2.5 Flash Image / GPT Image 1.5·mini / Flux Kontext 3안을 비교하고 파일럿 후 확정을 권고했다.
+- **선택**: **OpenAI GPT Image API**로 확정(2026-08-03, PO 결정).
+- **근거**: PO의 운영 선호(OpenAI API 연동 사용 의사). 단가는 mini 티어 기준 3안 중 최저가 가능(§3 비교표), 단종 리스크(Gemini Nano Banana 2026-10-02) 회피.
+- **영향**: `06-architecture-deployment.md` §3(확정 표기)·§7(`OPENAI_API_KEY`). 동기 응답형이므로 §3의 재시도 추적 절차(요청 발행 전 `attempt_count`·`status` 선커밋)가 적용됨. 파일럿의 목적은 프로바이더 선정이 아니라 **티어(1.5 vs mini)·품질 옵션 확정**으로 축소.
+- **기각 대안**: Gemini 2.5 Flash Image(단종 예정), Flux Kontext(정체성 보존 우수하나 PO 선호 아님·입력 이미지 과금). 비교표의 품질 리스크(얼굴 세부 변형 사례)는 파일럿 실측으로 검증하며, 미달 시 `model_config.provider` 필드로 교체 여지 유지.
+
 ## 2. 결정 카드 Q1~Q9
 
 Q3·Q6·Q9는 **블로킹**(기한·소유자 칸이 "PO 기입 필요"로 남아있는 한 이 항목은 미완료로 표시됩니다 — 문서 전체의 완료를 막지는 않되, PR 리뷰에서 반드시 확인).
@@ -117,7 +125,7 @@ Q3·Q6·Q9는 **블로킹**(기한·소유자 칸이 "PO 기입 필요"로 남�
 | [04-erd.md](04-erd.md) | 13테이블 ERD, dedupe_key 규약, 화면→테이블 커버리지 |
 | [05-api-spec.md](05-api-spec.md) | 공통규약·화면-API매핑·엔드포인트 스키마·시나리오·관리자 API |
 | [06-architecture-deployment.md](06-architecture-deployment.md) | 구성도·비동기 파이프라인·배포 추천(VPS+R2)·카페24 연동·백업·모니터링 |
-| [07-decisions.md](07-decisions.md) | ADR-lite 9건, 결정 카드 Q1~Q9, 스펙 정오표 4건 |
+| [07-decisions.md](07-decisions.md) | ADR-lite 10건, 결정 카드 Q1~Q9, 스펙 정오표 4건 |
 
 ## 5. 완료 조건 체크
 
