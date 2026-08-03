@@ -15,15 +15,15 @@
 
 | 문서 | 내용 |
 |---|---|
-| [01-prd.md](01-prd.md) | 제품 정의, 북극성 지표, 스코프, 설계 원칙 |
-| [02-requirements.md](02-requirements.md) | FR/NFR + 출처 역추적 표 |
-| [03-usecases.md](03-usecases.md) | 액터, 유스케이스, 엣지 케이스, 상태머신 |
-| [04-erd.md](04-erd.md) | 데이터 모델(ERD), 화면→테이블 커버리지 표 |
-| [05-api-spec.md](05-api-spec.md) | API 계약: 화면-API 매핑, 엔드포인트 스키마, 시나리오 |
-| [06-architecture-deployment.md](06-architecture-deployment.md) | 시스템 구성, 배포, 인프라 |
-| [07-decisions.md](07-decisions.md) | 결정 카드(ADR-lite), 스펙 정오표(errata) |
+| [01-prd.md](01-prd.md) | 제품 정의·스코프·북극성 지표(측정 배선 포함)·MVP 범위 |
+| [02-requirements.md](02-requirements.md) | FR/NFR + 출처 역추적 표, 엣지 13건 전건 반영 |
+| [03-usecases.md](03-usecases.md) | 액터, UC 12건(핵심 플로우 6단계 포함), job 상태머신, 크레딧 트랜잭션 시퀀스 |
+| [04-erd.md](04-erd.md) | 13테이블 ERD, dedupe_key 규약, 화면→테이블 커버리지 표 |
+| [05-api-spec.md](05-api-spec.md) | 공통규약·화면-API 매핑·엔드포인트 스키마·시나리오·관리자 API |
+| [06-architecture-deployment.md](06-architecture-deployment.md) | 구성도·비동기 파이프라인·배포 추천(VPS+R2)·카페24 연동·백업·모니터링 |
+| [07-decisions.md](07-decisions.md) | ADR-lite 9건, 결정 카드 Q1~Q9, 스펙 정오표 4건 |
 
-(각 문서는 아직 작성 중입니다. 완료되는 대로 위 표의 링크가 유효해집니다.)
+01~07 전건 작성 완료(`docs/foundation` 브랜치). 결정 대기 항목(Q3·Q6·Q9)은 [07-decisions.md](07-decisions.md) §2 참고.
 
 ## 독자별 읽기 순서
 
