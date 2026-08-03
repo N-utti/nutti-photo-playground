@@ -1,0 +1,73 @@
+@import 'tailwindcss';
+
+/**
+ * 디자인 토큰.
+ *
+ * 주의 — 색·타이포는 **확정된 브랜드 디자인이 아닙니다.**
+ * docs/wireframe-spec-v0.5.html 은 회색 박스 와이어프레임이고(.style-card > .img 가
+ * 빈 사각형, 텍스트는 .bar 회색 막대), 그 문서의 :root 색상은 **스펙 문서 자체의
+ * 서식**입니다 — 제품 팔레트가 아닙니다. 브랜드 색·서체는 어느 문서에도 없습니다.
+ *
+ * 그래서 아래 색은 와이어프레임과 같은 중립 회색을 의도적으로 그대로 씁니다.
+ * 화면 구조를 먼저 맞추고, 비주얼 디자인이 확정되면 이 블록만 교체합니다.
+ * 확정 전까지 화면 코드에 색을 하드코딩하지 마세요 — 여기 토큰만 참조해야
+ * 나중에 한 파일 교체로 끝납니다.
+ *
+ * 반면 **레이아웃 수치는 와이어프레임이 실제로 규정한 것**이라 그대로 옮겼습니다:
+ * 모바일 375 / 데스크톱 1280, 카탈로그 모바일 2열 · 데스크톱 4열(#p02 노트5).
+ */
+@theme {
+  /* --- 중립 팔레트 (플레이스홀더) --- */
+  --color-paper: #ecede8;
+  --color-surface: #ffffff;
+  --color-surface-2: #f6f7f2;
+  --color-ink: #1a1c19;
+  --color-ink-2: #4c5049;
+  --color-ink-3: #7d8179;
+  --color-rule: #d4d6ce;
+  --color-rule-strong: #b3b7ad;
+
+  /* --- 상태 색 (경고/차단 구분에 필요해 최소한만) --- */
+  --color-good: #2c6742;
+  --color-good-soft: #e3efe7;
+  --color-warn: #855610;
+  --color-warn-soft: #f6ecdb;
+  --color-danger: #a81d4e;
+  --color-danger-soft: #f9e5ec;
+
+  /* --- 서체 (Pretendard 등 확정 전 시스템 스택) --- */
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', Pretendard,
+    'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Mono', SFMono-Regular, Consolas, monospace;
+
+  /* --- 레이아웃 (와이어프레임 규정값) --- */
+  --breakpoint-desktop: 1024px;
+  --container-canvas: 1180px;
+}
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 이미지는 CDN 에서 직접 오고 크기가 다양하므로 기본 방어. */
+img {
+  max-width: 100%;
+  display: block;
+}
