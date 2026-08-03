@@ -14,6 +14,12 @@ npm-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
 # Env / secrets
 .env
 .env.*
