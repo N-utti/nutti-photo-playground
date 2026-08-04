@@ -35,10 +35,6 @@ function Stub({ id, title, endpoints, phase }: StubProps) {
   )
 }
 
-export const W07Calculator = () => (
-  <Stub id="W-07" title="계산기로 넘기기" phase="Phase 3" endpoints={['GET /v1/calculator-link']} />
-)
-
 export const W08Creative = () => (
   <Stub
     id="W-08"

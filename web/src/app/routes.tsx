@@ -15,11 +15,11 @@ import W03StyleDetail from '../screens/W03StyleDetail'
 import W04Upload from '../screens/W04Upload'
 import W05Waiting from '../screens/W05Waiting'
 import W06Result from '../screens/W06Result'
+import W07Calculator from '../screens/W07Calculator'
 import W10Credits from '../screens/W10Credits'
 import W10Ledger from '../screens/W10Ledger'
 import {
   NotFound,
-  W07Calculator,
   W08Creative,
   W09Library,
   W11Console,
@@ -43,6 +43,9 @@ export const router = createBrowserRouter([
       // job_id 가 경로에 있어야 재방문 시 복원됩니다(Q7).
       { path: '/jobs/:jobId/waiting', element: <W05Waiting /> },
       { path: '/jobs/:jobId', element: <W06Result /> },
+      // 결과에서 넘기는 주 경로는 W-06 배너가 **직접** 계산기로 나갑니다(UC-06 (c),
+      // 노트6 — 필수 경유지가 아님). 이 라우트는 결과가 눈앞에 없을 때의 진입
+      // (`?pet_id=`)이라 W-09 보관함·마이페이지가 붙을 때 연결됩니다.
       { path: '/calculator', element: <W07Calculator /> },
       { path: '/creative', element: <W08Creative /> },
       { path: '/library', element: <W09Library /> },

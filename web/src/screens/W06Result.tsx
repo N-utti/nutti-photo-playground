@@ -18,6 +18,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { ApiError, isApiError, session } from '../api/client'
+import { calculatorHeadline, estimateSummary } from '../api/calculatorLink'
 import { events } from '../api/endpoints'
 import { beginJobAttempt, clearJobAttempt, resumeJobAttempt } from '../api/idempotency'
 import { readJobContext, rememberJobContext } from '../api/jobContext'
@@ -512,6 +513,8 @@ function CalculatorBanner({ jobId }: { jobId: string }) {
   const { data: link } = useCalculatorLink({ job_id: jobId })
   if (!link) return null
 
+  // 문구 규칙(이름·추정 3케이스)은 W-07 화면과 공유합니다 — api/calculatorLink.ts.
+  // 여기서 따로 쓰면 같은 추정을 두고 두 화면이 다른 말을 하게 됩니다.
   return (
     <a
       href={link.calculator_url}
@@ -523,13 +526,8 @@ function CalculatorBanner({ jobId }: { jobId: string }) {
       }
       className="mt-4 block rounded-xl border border-rule-strong bg-surface-2 px-3 py-3"
     >
-      <span className="block text-sm font-semibold">우리 아이는 하루 몇 g까지 괜찮을까?</span>
-      <span className="mt-0.5 block text-xs text-ink-2">
-        {/* FR-EDGE-10 — 추정 실패면 틀린 견종을 프리필하느니 1단계부터 보냅니다. */}
-        {link.breed_label
-          ? `사진에서 ${link.breed_label}로 봤어요 · 2단계부터 시작`
-          : '견종을 확인하지 못했어요 · 1단계부터 시작'}
-      </span>
+      <span className="block text-sm font-semibold">{calculatorHeadline(link)}</span>
+      <span className="mt-0.5 block text-xs text-ink-2">{estimateSummary(link).text}</span>
       <span className="mt-2 block text-sm font-semibold underline">간식량 계산하기 →</span>
     </a>
   )
