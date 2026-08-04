@@ -22,6 +22,12 @@ export interface JobContext {
   uploadId: string
   /** 원본 이미지. 다른 스타일로 재사용할 때 W-04 를 다시 그리는 데 씁니다. */
   sourceImageUrl: string | null
+  /**
+   * W-08 커스텀 프롬프트로 만든 job 이면 그 문구. 이게 없으면 결과 화면의 "다시
+   * 만들기"가 스타일도 문구도 없는 요청을 보내고, 비용도 2 가 아니라 1 로 보입니다.
+   * 예전에 저장된 항목에는 이 필드가 없으므로 읽는 쪽에서 `?? null` 로 다룹니다.
+   */
+  customPrompt?: string | null
 }
 
 type ContextMap = Record<string, JobContext>

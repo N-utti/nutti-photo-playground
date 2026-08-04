@@ -444,7 +444,10 @@ function Regenerate({ jobId, label }: { jobId: string; label: string }) {
     )
   }
 
-  const cost = style?.credit_cost ?? 1
+  // W-08 커스텀은 프리셋의 2배입니다(FR-W08-04). 스타일이 없으면 style?.credit_cost
+  // 가 undefined 라 그냥 1 로 보이는데, 그러면 버튼이 값을 잘못 말합니다.
+  const customPrompt = context.customPrompt ?? null
+  const cost = customPrompt ? 2 : (style?.credit_cost ?? 1)
 
   function regenerate() {
     if (!context) return
@@ -452,7 +455,9 @@ function Regenerate({ jobId, label }: { jobId: string; label: string }) {
       style_id: context.styleId,
       upload_id: context.uploadId,
       pet_id: null,
-      custom_prompt: null,
+      // 커스텀으로 만든 결과는 같은 문구로 다시 돌려야 합니다 — 비우면 스타일도
+      // 문구도 없는 요청이 나갑니다.
+      custom_prompt: customPrompt,
     }
     // **새 의도 = 새 키**. 같은 키를 재사용하면 서버가 원래 job 을 그대로 돌려줘
     // 새 결과가 나오지 않습니다(§1 · api/idempotency.ts).

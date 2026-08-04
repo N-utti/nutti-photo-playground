@@ -137,7 +137,16 @@ export default function W02StyleCatalog() {
             </section>
           ))}
 
-          <p className="py-8 text-center text-sm text-ink-3">전체 {catalog.total_count}개</p>
+          <p className="pt-8 text-center text-sm text-ink-3">전체 {catalog.total_count}개</p>
+
+          {/* W-08 보조 진입점(FR-W08-01 노트1) — 커스텀 프롬프트는 기본 그리드에서
+              분리합니다. 전면에 놓으면 초보자에게 학습곡선이 됩니다. */}
+          <Link
+            to="/creative"
+            className="mt-4 mb-8 block rounded-xl border border-rule px-4 py-3 text-center text-sm text-ink-2"
+          >
+            원하는 걸 직접 써서 만들기 · 2 크레딧
+          </Link>
         </main>
       </div>
     </Shell>

@@ -16,14 +16,10 @@ import W04Upload from '../screens/W04Upload'
 import W05Waiting from '../screens/W05Waiting'
 import W06Result from '../screens/W06Result'
 import W07Calculator from '../screens/W07Calculator'
+import W08Creative from '../screens/W08Creative'
 import W10Credits from '../screens/W10Credits'
 import W10Ledger from '../screens/W10Ledger'
-import {
-  NotFound,
-  W08Creative,
-  W09Library,
-  W11Console,
-} from '../screens/placeholders'
+import { NotFound, W09Library, W11Console } from '../screens/placeholders'
 
 export const router = createBrowserRouter([
   {
