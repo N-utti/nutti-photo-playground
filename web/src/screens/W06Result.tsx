@@ -17,7 +17,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
-import { ApiError, isApiError, session } from '../api/client'
+import { ApiError, isApiError } from '../api/client'
 import { calculatorHeadline, estimateSummary } from '../api/calculatorLink'
 import { events } from '../api/endpoints'
 import { beginJobAttempt, clearJobAttempt, resumeJobAttempt } from '../api/idempotency'
@@ -29,6 +29,7 @@ import {
   useCalculatorLink,
   useCreateJob,
   useJobPolling,
+  useMe,
   useSelectResult,
   useShareJob,
   useStyleDetail,
@@ -36,6 +37,7 @@ import {
 } from '../api/queries'
 import { useGuestSessionReset } from '../app/guestSession'
 import type { Job, JobErrorCode } from '../api/types'
+import AccountSheet from './AccountSheet'
 import InsufficientCreditOverlay from './InsufficientCreditOverlay'
 import JobUnavailable from './JobUnavailable'
 
@@ -280,7 +282,10 @@ function CompareSlider({ beforeUrl, afterUrl }: { beforeUrl: string; afterUrl: s
 function ShareRow({ job, selectedIndex }: { job: Job; selectedIndex: number }) {
   const share = useShareJob(job.job_id)
   const [accountSheet, setAccountSheet] = useState(false)
-  const isMember = session.kind === 'member'
+  // 서버가 보는 상태를 씁니다 — 시트에서 로그인하면 캐시가 무효화되면서 이 줄이
+  // 곧바로 회원으로 바뀝니다. localStorage 의 kind 는 값이 바뀌어도 리렌더가 없습니다.
+  const { data: me } = useMe()
+  const isMember = me?.kind === 'member'
 
   function handleSave() {
     // §2 — 회원은 결과가 자동으로 보관함에 남습니다. 게스트는 남길 곳이 없어
@@ -358,66 +363,13 @@ function ShareRow({ job, selectedIndex }: { job: Job; selectedIndex: number }) {
         </p>
       )}
 
-      {accountSheet && <AccountLinkSheet onClose={() => setAccountSheet(false)} />}
+      {accountSheet && (
+        <AccountSheet
+          onClose={() => setAccountSheet(false)}
+          description="로그인하면 지금 결과가 보관함에 남고, 다음에 다른 기기에서도 열 수 있어요."
+        />
+      )}
     </>
-  )
-}
-
-/** W-06 B · 계정 연동 바텀시트 (FR-W06-09/10). */
-function AccountLinkSheet({ onClose }: { onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 z-30 flex items-end justify-center desktop:items-center">
-      <button
-        type="button"
-        aria-label="닫기"
-        onClick={onClose}
-        className="absolute inset-0 cursor-default bg-ink/40"
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="account-sheet-title"
-        className="relative w-full rounded-t-2xl bg-surface p-5 desktop:max-w-sm desktop:rounded-2xl"
-      >
-        <h2 id="account-sheet-title" className="text-base font-bold">
-          누띠 계정으로 이어서
-        </h2>
-        <p className="mt-1 text-sm text-ink-2">보관함에 저장하고 크레딧을 받으세요.</p>
-
-        {/*
-          노트5 — 카페24 쇼핑몰 계정이 곧 회원 DB. 다만 로그인을 **시작할** 경로가 아직
-          없습니다: authorize 가 Authorization 헤더를 요구해 브라우저 이동으로는 401 이고
-          fetch 로는 302 를 따라갈 수 없습니다(api/endpoints.ts `auth` 주석). ADR-11/PR #13
-          이 200 `{authorize_url}` 로 바꾸기로 했으니 그 구현 후 배선합니다.
-        */}
-        <button
-          type="button"
-          disabled
-          className="mt-4 w-full rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-paper disabled:opacity-50"
-        >
-          누띠 쇼핑몰 계정으로 로그인 (준비 중)
-        </button>
-
-        {/*
-          카카오도 마찬가지 — POST /v1/auth/kakao 는 501 이고 `kakao_token` 을 얻을 경로가
-          스펙·환경변수 어디에도 없습니다. ADR-11 에서 이 엔드포인트는 삭제 예정입니다.
-        */}
-        <button
-          type="button"
-          disabled
-          className="mt-2 w-full rounded-xl border border-rule-strong bg-surface px-4 py-3 text-sm font-semibold disabled:opacity-50"
-        >
-          카카오로 계속하기 (준비 중)
-        </button>
-
-        <p className="mt-3 text-center text-xs text-ink-3">
-          연동하면 크레딧 3개 · 쇼핑몰 회원 자동 가입
-        </p>
-        <button type="button" onClick={onClose} className="mt-2 w-full py-2 text-sm text-ink-3">
-          닫기
-        </button>
-      </div>
-    </div>
   )
 }
 

@@ -10,8 +10,10 @@
  * 실패하는 방식이 같습니다.
  */
 
+import { useState } from 'react'
 import { Link } from 'react-router'
 import { session } from '../api/client'
+import AccountSheet from './AccountSheet'
 
 export type UnavailableReason = 'guest-reset' | 'not-found' | 'error'
 
@@ -39,7 +41,10 @@ export default function JobUnavailable({
   detail?: string
 }) {
   const copy = COPY[reason]
+  // 여기서는 `/me` 대신 로컬 kind 를 씁니다 — 이 화면 자체가 세션이 깨진 상황이라
+  // `/me` 도 401 로 떨어질 수 있고, 그때 로그인 안내를 못 띄우면 본말이 전도됩니다.
   const isGuest = session.kind !== 'member'
+  const [loginSheet, setLoginSheet] = useState(false)
 
   return (
     <div className="mx-auto max-w-md px-5 py-16 text-center">
@@ -55,14 +60,34 @@ export default function JobUnavailable({
       </Link>
 
       {/*
-        기기 간 복원을 원하는 사람에게 지금 줄 수 있는 유일한 답이 계정 연동인데,
-        로그인을 시작할 경로가 아직 없습니다(api/endpoints.ts `auth` 주석 — PR #13).
-        링크를 걸면 100% 401 이라 사실만 알리고 링크는 뺍니다.
+        기기 간 복원을 원하는 사람에게 줄 수 있는 유일한 답이 로그인입니다. PR #21 전에는
+        시작할 경로가 없어 사실만 알리고 링크를 뺐지만, 이제 여기서 바로 붙일 수 있습니다.
+
+        지금 이 결과가 돌아오지는 않습니다 — 이미 잃은 세션의 자산은 병합 대상이 아닙니다.
+        그래서 "복구"가 아니라 **다음부터**라고 말합니다. 여기서 과장하면 로그인한 뒤
+        결과가 없는 걸 보고 두 번 실망합니다.
       */}
       {isGuest && reason !== 'error' && (
-        <p className="mt-4 text-xs text-ink-3">
-          누띠 계정으로 로그인하면 어느 기기에서나 보관함에서 볼 수 있어요. (로그인 준비 중)
-        </p>
+        <>
+          <p className="mt-4 text-xs text-ink-3">
+            지금 로그인해도 이 결과는 돌아오지 않아요. 다만 앞으로 만드는 결과는 계정에
+            쌓여서 다른 기기에서도 열 수 있어요.
+          </p>
+          <button
+            type="button"
+            onClick={() => setLoginSheet(true)}
+            className="mt-2 text-xs font-semibold text-ink-2 underline"
+          >
+            로그인하기
+          </button>
+        </>
+      )}
+
+      {loginSheet && (
+        <AccountSheet
+          onClose={() => setLoginSheet(false)}
+          description="앞으로 만드는 결과가 계정에 쌓여서 다른 기기에서도 열 수 있어요."
+        />
       )}
     </div>
   )

@@ -29,8 +29,14 @@ localStorage.setItem('nutti.mock.scenario', 'job:fail')     // GENERATION_FAILED
 localStorage.setItem('nutti.mock.scenario', 'job:safety')   // SAFETY_BLOCKED
 localStorage.setItem('nutti.mock.scenario', 'credit:empty') // 잔액 0에서 시작 → 402 → 시트에서 받고 재시도
 localStorage.setItem('nutti.mock.scenario', 'session:expired') // 게스트 토큰 만료 → 재발급 → 404 (복원 실패 안내)
+localStorage.setItem('nutti.mock.scenario', 'auth:statefail')  // 소셜 콜백 state 검증 실패(401)
+localStorage.setItem('nutti.mock.scenario', 'cafe24:linked')   // 카페24 연동 409 CAFE24_ALREADY_LINKED
 localStorage.removeItem('nutti.mock.scenario')              // 정상
 ```
+
+로컬 로그인 목: 비밀번호 `nutti1234`만 성공(그 외 401 `INVALID_CREDENTIALS`), 이메일
+`taken@nutti.co.kr`로 가입하면 409 `EMAIL_TAKEN`. 소셜·카페24 `authorize`는 프로바이더
+대신 **우리 콜백 라우트로 되돌려** 왕복 전체를 로컬에서 밟을 수 있게 합니다.
 
 ## 구조
 
@@ -49,7 +55,14 @@ src/
   app/
     routes.tsx      11개 화면 라우트 테이블 (W-03 은 W-02 의 자식 = 시트)
     guestSession.ts 게스트 세션 초기화 감지 → 복원 실패 안내 분기 (이슈 #5)
+    authReturn.ts   OAuth 왕복 동안 복귀 주소 보관 (sessionStorage, 내부 경로만)
+    retryAfter.ts   429 Retry-After → 사람이 읽는 문구 (게스트 발급·로그인 공용)
 ```
+
+로그인 진입점은 W-01 헤더 · W-06 저장 · W-10 연동 세 곳이고 전부 `screens/AccountSheet.tsx`
+한 벌을 씁니다. OAuth 복귀 지점은 `/auth/callback/:provider` (`screens/AuthCallback.tsx`) —
+**프로바이더 콘솔의 redirect_uri 가 이 주소**라 경로를 바꾸면 카카오·네이버·카페24 설정도
+같이 바꿔야 합니다.
 
 ## 진행 상황
 
@@ -59,7 +72,7 @@ src/
 | Phase 1 | 목 서버 · API 클라이언트 · 라우팅 골격 | 완료 |
 | Phase 2 | 핵심 플로우 W-01→W-02→W-03→W-04→W-05→W-06 | 완료 |
 | Phase 3 | 출구 3갈래 + 크레딧 (W-06 공유/쇼핑몰, W-07, W-10, 402 흐름) | 완료 |
-| Phase 4 | 계정·보관함 (W-06 B 로그인 시트, 콜백, W-09) | **이슈 #14 에 전면 차단** — 로그인 3종 authorize 가 없어 시트·콜백·W-09 전부 대기 |
+| Phase 4 | 계정·보관함 (W-06 B 로그인 시트, 콜백, W-09) | 로그인 3종·카페24 연동 배선 완료 (PR #21 대응) · **W-09 보관함 미착수** |
 | Phase 5 | W-08 크리에이티브 · W-11 운영 콘솔(번들 분리) | W-08 완료 · W-11 미착수 |
 | Phase 6 | GA4 크로스도메인 · UTM · 이벤트 비콘 | 미착수 |
 
@@ -71,7 +84,9 @@ src/
 | [#4](https://github.com/N-utti/nutti-photo-playground/issues/4) | `response_model` 없이 §3 삭제 금지 | 타입 생성으로 전환할 때 | 해결 (PR #6) |
 | [#5](https://github.com/N-utti/nutti-photo-playground/issues/5) | Q7 게스트 결과 복원 한계 | Phase 2 (W-05/W-06) | 결정 B+A · 프론트 반영 완료 |
 | [#9](https://github.com/N-utti/nutti-photo-playground/issues/9) | job/펫 응답에 `style_id`·`upload_id` 참조 없음 | W-06 다시 만들기·다른 스타일, W-04 펫 스킵 | 대기 (localStorage 색인으로 우회 중) |
-| [#10](https://github.com/N-utti/nutti-photo-playground/issues/10) | 카카오 `kakao_token` 획득 경로 미정 | W-06 B 계정 연동 | 대기 (카페24만 배선) |
+| [#10](https://github.com/N-utti/nutti-photo-playground/issues/10) | 카카오 `kakao_token` 획득 경로 미정 | W-06 B 계정 연동 | 해결 (ADR-11 A안 → PR #21, `POST /v1/auth/kakao` 삭제) |
+| [#14](https://github.com/N-utti/nutti-photo-playground/issues/14) | `authorize` 가 헤더를 요구하는 302 라 브라우저 이동 불가 | 로그인 시트·콜백 전부 | 해결 (PR #21 — 200 `{authorize_url}`) |
+| [#17](https://github.com/N-utti/nutti-photo-playground/issues/17) | 로컬 계정 복구 불가(비밀번호 재설정·이메일 인증 없음) · 로그인 수단 추가 미지원 | 로컬 가입 | 대기 (가입 시트에 사전 고지로 대응) |
 
 ## 미확정
 

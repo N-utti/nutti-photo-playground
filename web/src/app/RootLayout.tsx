@@ -8,6 +8,7 @@
 import { useState } from 'react'
 import { Outlet } from 'react-router'
 import { ensureSession, isApiError, session } from '../api/client'
+import { formatRetryAfter } from './retryAfter'
 import { clearSessionStatus, useSessionStatus } from './sessionStatus'
 
 export default function RootLayout() {
@@ -20,7 +21,7 @@ export default function RootLayout() {
 }
 
 function SessionBanner() {
-  const { lost, rateLimited } = useSessionStatus()
+  const { lost, rateLimited, retryAfter } = useSessionStatus()
   const [retrying, setRetrying] = useState(false)
   const [retryError, setRetryError] = useState<string | null>(null)
 
@@ -38,7 +39,7 @@ function SessionBanner() {
     } catch (error) {
       setRetryError(
         isApiError(error, 'RATE_LIMITED')
-          ? '아직 제한이 풀리지 않았어요. 조금 뒤에 다시 눌러 주세요.'
+          ? `아직 제한이 풀리지 않았어요. ${formatRetryAfter(error.retryAfter)} 다시 눌러 주세요.`
           : '다시 시작하지 못했어요. 잠시 후 다시 시도해 주세요.',
       )
       setRetrying(false)
@@ -52,7 +53,9 @@ function SessionBanner() {
       </p>
       <p className="mt-1 text-ink-2">
         {rateLimited
-          ? '같은 네트워크에서 새 세션을 너무 자주 만들었어요. 잠시 뒤 다시 시도하면 됩니다.'
+          ? // 서버가 Retry-After 를 함께 내려줍니다(PR #21) — 언제 풀리는지 말해 주면
+            // 사용자가 무한정 새로고침하지 않습니다.
+            `같은 네트워크에서 새 세션을 너무 자주 만들었어요. ${formatRetryAfter(retryAfter)} 다시 시도하면 됩니다.`
           : '로그인 없이 만든 결과는 만들었던 브라우저에서만 열립니다. 새로 시작하면 이전 결과에는 접근할 수 없어요.'}
       </p>
       {retryError && <p className="mt-1 text-danger">{retryError}</p>}

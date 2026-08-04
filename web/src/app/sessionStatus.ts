@@ -14,14 +14,20 @@
  */
 
 import { useEffect, useState } from 'react'
-import { GUEST_RATE_LIMITED_EVENT, SESSION_LOST_EVENT } from '../api/client'
+import {
+  GUEST_RATE_LIMITED_EVENT,
+  SESSION_LOST_EVENT,
+  type GuestRateLimitedDetail,
+} from '../api/client'
 
 export interface SessionStatus {
   lost: boolean
   rateLimited: boolean
+  /** 429 의 `Retry-After`(초). 헤더가 없으면 null — 화면은 "잠시 뒤"로 폴백합니다. */
+  retryAfter: number | null
 }
 
-let state: SessionStatus = { lost: false, rateLimited: false }
+let state: SessionStatus = { lost: false, rateLimited: false, retryAfter: null }
 const subscribers = new Set<(status: SessionStatus) => void>()
 
 function update(patch: Partial<SessionStatus>): void {
@@ -30,7 +36,10 @@ function update(patch: Partial<SessionStatus>): void {
 }
 
 window.addEventListener(SESSION_LOST_EVENT, () => update({ lost: true }))
-window.addEventListener(GUEST_RATE_LIMITED_EVENT, () => update({ rateLimited: true }))
+window.addEventListener(GUEST_RATE_LIMITED_EVENT, (event) => {
+  const detail = (event as CustomEvent<GuestRateLimitedDetail>).detail
+  update({ rateLimited: true, retryAfter: detail?.retryAfter ?? null })
+})
 
 export function useSessionStatus(): SessionStatus {
   const [status, setStatus] = useState<SessionStatus>(state)
@@ -48,5 +57,5 @@ export function useSessionStatus(): SessionStatus {
 
 /** 사용자가 새 세션을 받아 복구에 성공했을 때 배너를 내립니다. */
 export function clearSessionStatus(): void {
-  update({ lost: false, rateLimited: false })
+  update({ lost: false, rateLimited: false, retryAfter: null })
 }
