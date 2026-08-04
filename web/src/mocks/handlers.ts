@@ -8,14 +8,20 @@
  *
  * 시나리오 강제: localStorage 에 `nutti.mock.scenario` 를 넣으면 해당 케이스로 고정됩니다.
  *   upload:warn | upload:block | job:fail | job:safety | credit:empty | session:expired
- *   guest:ratelimited | session:lost
+ *   guest:ratelimited | session:lost | auth:statefail | cafe24:linked
+ *
+ * 로컬 로그인 목 규칙: 비밀번호 `nutti1234` 만 성공(그 외 401), 이메일
+ * `taken@nutti.co.kr` 로 가입하면 409 EMAIL_TAKEN.
  */
 
 import { HttpResponse, http, delay } from 'msw'
 import type {
+  AuthProvider,
   Credits,
+  EarnAction,
   Job,
   JobErrorCode,
+  Me,
   UploadResult,
 } from '../api/types'
 import {
@@ -47,13 +53,91 @@ interface MockJob {
   selectedIndex: number | null
 }
 
+/**
+ * 리로드를 건너뛰는 목 상태 (크레딧 · `/auth/me`).
+ *
+ * 로그인·연동은 `authorize_url` 로 페이지를 통째로 넘겼다가 콜백으로 돌아오는 구조라
+ * 모듈 변수만 쓰면 왕복 도중에 목이 초기화됩니다 — 돌아온 순간 회원이 다시 게스트가
+ * 되므로 "로그인 후 연동" 같은 2단계 흐름을 목 위에서 한 번도 못 밟습니다.
+ *
+ * 탭 수명과 묶으려고 sessionStorage 를 씁니다. job 은 여기 넣지 않습니다 — 결과 이미지가
+ * 런타임 placeholder 라 되살려도 의미가 없고, 목 job 의 수명은 원래 한 세션입니다.
+ */
+const PERSIST_KEY = 'nutti.mock.state'
+
+function restored(): { credits: Credits; me: Omit<Me, 'credit_balance'> } | null {
+  try {
+    const raw = sessionStorage.getItem(PERSIST_KEY)
+    return raw ? (JSON.parse(raw) as { credits: Credits; me: Omit<Me, 'credit_balance'> }) : null
+  } catch {
+    return null
+  }
+}
+
+function persist(): void {
+  sessionStorage.setItem(PERSIST_KEY, JSON.stringify({ credits: state.credits, me: state.me }))
+}
+
+const snapshot = restored()
+
 const state = {
-  credits: structuredClone(initialCredits) as Credits,
+  credits: snapshot?.credits ?? (structuredClone(initialCredits) as Credits),
   jobs: new Map<string, MockJob>(),
   /** Idempotency-Key → job_id. 같은 키 재요청 시 새 job 을 만들지 않습니다(§1). */
   idempotency: new Map<string, string>(),
   /** session:expired 시나리오에서 "만료된 것으로 칠" Authorization 헤더 값. */
   expiredToken: null as string | null,
+  /** `/auth/me` 의 원본. 로그인·연동이 이 값을 바꾸므로 화면 분기가 실제로 움직입니다. */
+  me:
+    snapshot?.me ??
+    ({
+      member_id: '8f14e457-4d09-41c2-9d70-1a2b3c4d5e6f',
+      kind: 'guest',
+      email: null,
+      nickname: null,
+      providers: [],
+      cafe24_linked: false,
+    } as Omit<Me, 'credit_balance'>),
+}
+
+/** 목 authorize_url — 프로바이더 대신 우리 콜백 라우트로 되돌립니다. */
+function mockAuthorizeUrl(provider: string): string {
+  return `${location.origin}/auth/callback/${provider}?code=mock-code&state=mock-state-${crypto.randomUUID()}`
+}
+
+/** 획득 행 1건을 지급 처리. 연동 +3 처럼 claim 을 거치지 않는 경로가 씁니다. */
+function grantEarnAction(action: EarnAction): void {
+  const row = state.credits.earn_actions.find((entry) => entry.action === action)
+  if (!row || row.status !== 'available') return
+  state.credits.balance += row.amount
+  row.status = 'done'
+  row.cta = null
+  persist()
+}
+
+/**
+ * 게스트 → 회원 (UC-07). merged 여부와 무관하게 목의 `/auth/me` 는 회원이 됩니다.
+ * 실제 서버는 병합이면 **다른 member_id** 를 주지만, 목은 자산을 실제로 옮기지 않으므로
+ * id 를 유지해 job 주소가 살아 있게 둡니다 — 그 차이는 백엔드에서만 관찰됩니다.
+ */
+function promoteToMember(options: {
+  provider: AuthProvider
+  email?: string
+  nickname?: string
+  merged?: boolean
+}) {
+  state.me.kind = 'member'
+  if (!state.me.providers.includes(options.provider)) state.me.providers.push(options.provider)
+  if (options.email) state.me.email = options.email.trim().toLowerCase()
+  if (options.nickname && state.me.nickname === null) state.me.nickname = options.nickname
+  persist()
+  return {
+    token: `mock-member-jwt.${crypto.randomUUID()}`,
+    member_id: state.me.member_id,
+    kind: 'member' as const,
+    merged: options.merged ?? false,
+    credit_balance: state.credits.balance,
+  }
 }
 
 /** 생성에 걸리는 시간. W-03 "평균 24초"보다 짧게 잡아 개발 반복을 빠르게 합니다. */
@@ -75,6 +159,7 @@ function applyEmptyScenario() {
   if (!emptyApplied) {
     state.credits.balance = 0
     emptyApplied = true
+    persist()
   }
 }
 
@@ -155,34 +240,96 @@ export const handlers = [
     if (scenario() === 'guest:ratelimited') {
       return apiError(429, 'RATE_LIMITED', '게스트 발급 한도를 초과했습니다')
     }
+    // 새 게스트 발급 = 다른 사람이 되는 것. 유지 중인 `/auth/me` 를 게스트로 되돌리지
+    // 않으면 토큰을 지우고 새로 시작해도 화면이 계속 회원으로 보입니다.
+    const member_id = crypto.randomUUID()
+    state.me = {
+      member_id,
+      kind: 'guest',
+      email: null,
+      nickname: null,
+      providers: [],
+      cafe24_linked: false,
+    }
+    persist()
     return HttpResponse.json(
-      {
-        token: `mock-guest-jwt.${crypto.randomUUID()}`,
-        member_id: crypto.randomUUID(),
-        kind: 'guest',
-      },
+      { token: `mock-guest-jwt.${crypto.randomUUID()}`, member_id, kind: 'guest' },
       { status: 201 },
     )
   }),
 
-  http.get(`${BASE}/auth/me`, () => {
-    return HttpResponse.json({
-      member_id: '8f14e457-4d09-41c2-9d70-1a2b3c4d5e6f',
-      kind: 'guest',
-      credit_balance: state.credits.balance,
-      cafe24_linked: false,
-    })
+  http.get(`${BASE}/auth/me`, () => HttpResponse.json({ ...state.me, credit_balance: state.credits.balance })),
+
+  /*
+    로그인·연동 시작. 실제 서버는 카카오/네이버/카페24 URL 을 조립해 주지만, 목에서는
+    **우리 콜백 라우트로 되돌립니다** — 그래야 프로바이더 없이 왕복 전체(시트 → 이동 →
+    /auth/callback → 세션 교체 → 복귀)를 로컬에서 밟아 볼 수 있습니다.
+  */
+  http.get(`${BASE}/auth/cafe24/authorize`, async () => {
+    await delay(150)
+    if (state.me.kind !== 'member') {
+      return apiError(401, 'UNAUTHORIZED', '회원만 연동할 수 있습니다')
+    }
+    return HttpResponse.json({ authorize_url: mockAuthorizeUrl('cafe24') })
   }),
 
-  http.post(`${BASE}/auth/kakao`, async () => {
-    await delay(200)
-    return HttpResponse.json({
-      token: `mock-member-jwt.${crypto.randomUUID()}`,
-      member_id: '8f14e457-4d09-41c2-9d70-1a2b3c4d5e6f',
-      kind: 'member',
-      merged: false,
-      credit_balance: state.credits.balance + 4,
-    })
+  http.get(`${BASE}/auth/cafe24/callback`, async () => {
+    await delay(300)
+    if (scenario() === 'cafe24:linked') {
+      return apiError(409, 'CAFE24_ALREADY_LINKED', '이미 연동된 계정입니다')
+    }
+    if (!state.me.cafe24_linked) {
+      state.me.cafe24_linked = true
+      grantEarnAction('link_account') // 연동 +3 은 클레임이 아니라 이 콜백이 지급합니다.
+    }
+    return HttpResponse.json({ cafe24_linked: true, credit_balance: state.credits.balance })
+  }),
+
+  http.get(`${BASE}/auth/:provider/authorize`, async ({ params }) => {
+    await delay(150)
+    const provider = String(params.provider)
+    if (provider !== 'kakao' && provider !== 'naver') {
+      return apiError(404, 'NOT_FOUND', '알 수 없는 프로바이더입니다')
+    }
+    // 회원이 로그인 수단을 더 붙이는 건 MVP 미지원(이슈 #17).
+    if (state.me.kind === 'member') {
+      return apiError(409, 'ALREADY_MEMBER', '이미 로그인되어 있습니다')
+    }
+    return HttpResponse.json({ authorize_url: mockAuthorizeUrl(provider) })
+  }),
+
+  http.get(`${BASE}/auth/:provider/callback`, async ({ params }) => {
+    await delay(400)
+    const provider = String(params.provider)
+    if (provider !== 'kakao' && provider !== 'naver') {
+      return apiError(404, 'NOT_FOUND', '알 수 없는 프로바이더입니다')
+    }
+    // state 는 1회용 nonce — 재사용·만료는 401 입니다(§3 인증). 이중 호출 방지가
+    // 제대로 걸렸는지 보려면 이 시나리오가 필요합니다.
+    if (scenario() === 'auth:statefail') {
+      return apiError(401, 'UNAUTHORIZED', 'state 검증에 실패했습니다')
+    }
+    return HttpResponse.json(promoteToMember({ provider, nickname: '콩이엄마' }))
+  }),
+
+  http.post(`${BASE}/auth/register`, async ({ request }) => {
+    await delay(350)
+    const { email } = (await request.json()) as { email: string }
+    if (email.trim().toLowerCase() === 'taken@nutti.co.kr') {
+      return apiError(409, 'EMAIL_TAKEN', '이미 가입된 이메일입니다')
+    }
+    return HttpResponse.json(promoteToMember({ provider: 'local', email }), { status: 201 })
+  }),
+
+  http.post(`${BASE}/auth/login`, async ({ request }) => {
+    await delay(350)
+    const { email, password } = (await request.json()) as { email: string; password: string }
+    // 이메일 존재 여부를 구분하지 않는 단일 실패 메시지(§3) — 목도 같은 규칙을 지킵니다.
+    if (password !== 'nutti1234') {
+      return apiError(401, 'INVALID_CREDENTIALS', '이메일 또는 비밀번호가 올바르지 않습니다')
+    }
+    // 재방문 로그인이 기본 경로이므로(UC-07) 병합(merged: true)으로 답합니다.
+    return HttpResponse.json(promoteToMember({ provider: 'local', email, merged: true }))
   }),
 
   http.post(`${BASE}/auth/logout`, () => new HttpResponse(null, { status: 204 })),
@@ -269,6 +416,7 @@ export const handlers = [
     state.jobs.set(job.id, job)
     state.idempotency.set(key, job.id)
     state.credits.balance -= cost // 차감은 job 생성 시점(04-erd 크레딧 트랜잭션).
+    persist()
 
     return HttpResponse.json({ job_id: job.id, status: 'queued' }, { status: 202 })
   }),
@@ -297,6 +445,7 @@ export const handlers = [
     if (projected.status === 'failed' && job.creditCost > 0) {
       state.credits.balance += job.creditCost
       job.creditCost = 0
+      persist()
     }
     return HttpResponse.json(projected)
   }),
@@ -356,6 +505,7 @@ export const handlers = [
     state.credits.balance += row.amount
     row.status = action === 'daily' ? 'tomorrow' : 'done'
     row.cta = action === 'daily' ? '내일 다시' : null
+    persist()
     return HttpResponse.json({ balance: state.credits.balance, amount_granted: row.amount })
   }),
 

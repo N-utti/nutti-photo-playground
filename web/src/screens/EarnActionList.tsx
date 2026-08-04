@@ -11,15 +11,18 @@
  */
 
 import { useState } from 'react'
+import { useLocation } from 'react-router'
 import { isApiError } from '../api/client'
 import { events } from '../api/endpoints'
-import { useClaimCredit, useCredits } from '../api/queries'
+import { useAuthorizeRedirect, useClaimCredit, useCredits, useMe } from '../api/queries'
+import { rememberAuthReturn } from '../app/authReturn'
 import {
   NUTTI_INSTAGRAM_HANDLE,
   NUTTI_INSTAGRAM_URL,
   NUTTI_SHOP_URL,
 } from '../app/externalLinks'
 import type { ClaimableAction, EarnAction, EarnActionRow } from '../api/types'
+import AccountSheet from './AccountSheet'
 
 const ACTION_ORDER: EarnAction[] = ['order', 'link_account', 'follow_ig', 'daily']
 
@@ -36,9 +39,27 @@ function isClaimable(action: EarnAction): action is ClaimableAction {
 }
 
 export default function EarnActionList() {
+  const location = useLocation()
   const { data: credits, isPending, isError, error, refetch } = useCredits()
+  const { data: me } = useMe()
   const claim = useClaimCredit()
+  const authorize = useAuthorizeRedirect()
   const [granted, setGranted] = useState<{ action: EarnAction; amount: number } | null>(null)
+  const [loginSheet, setLoginSheet] = useState(false)
+
+  /**
+   * 연동 +3 은 두 단계입니다 — 카페24 연동은 **회원 전용**이라(ADR-11) 게스트는 먼저
+   * 로그인해야 합니다. 게스트에게 곧바로 연동을 걸면 authorize 가 401 이므로, 같은
+   * 버튼이 상태에 따라 다른 일을 합니다(§2 W-10 "게스트에게는 로그인 유도").
+   */
+  function startLinkAccount() {
+    if (me?.kind !== 'member') {
+      setLoginSheet(true)
+      return
+    }
+    rememberAuthReturn(`${location.pathname}${location.search}`)
+    authorize.mutate('cafe24')
+  }
 
   if (isPending) {
     return (
@@ -86,10 +107,19 @@ export default function EarnActionList() {
               row={row}
               claiming={claim.isPending && claim.variables === row.action}
               onClaim={handleClaim}
+              onLinkAccount={startLinkAccount}
+              linking={authorize.isPending}
+              memberKnown={me !== undefined}
             />
           </li>
         ))}
       </ul>
+
+      {authorize.isError && (
+        <p role="alert" className="mt-2 text-center text-sm text-danger">
+          연동 화면을 열지 못했어요. 잠시 뒤 다시 시도해 주세요.
+        </p>
+      )}
 
       {granted && (
         <p role="status" className="mt-2 text-center text-sm font-semibold text-good">
@@ -104,19 +134,29 @@ export default function EarnActionList() {
             : claim.error.message}
         </p>
       )}
+
+      {loginSheet && (
+        <AccountSheet
+          onClose={() => setLoginSheet(false)}
+          title="먼저 로그인해 주세요"
+          description="쇼핑몰 계정 연동은 회원만 할 수 있어요. 로그인 후 연동하면 +3 크레딧을 받아요."
+        />
+      )}
     </>
   )
 }
 
-function EarnRow({
-  row,
-  claiming,
-  onClaim,
-}: {
+interface EarnRowProps {
   row: EarnActionRow
   claiming: boolean
   onClaim: (action: ClaimableAction) => void
-}) {
+  onLinkAccount: () => void
+  linking: boolean
+  /** `/me` 가 아직 안 왔으면 연동 버튼이 로그인/연동 중 무엇을 할지 모릅니다. */
+  memberKnown: boolean
+}
+
+function EarnRow({ row, claiming, onClaim, onLinkAccount, linking, memberKnown }: EarnRowProps) {
   const copy = EARN_COPY[row.action] ?? { title: row.action, note: '' }
   const best = row.action === 'order'
 
@@ -133,20 +173,19 @@ function EarnRow({
         </p>
         <p className="truncate text-xs text-ink-3">{copy.note}</p>
       </div>
-      <EarnCta row={row} claiming={claiming} onClaim={onClaim} />
+      <EarnCta
+        row={row}
+        claiming={claiming}
+        onClaim={onClaim}
+        onLinkAccount={onLinkAccount}
+        linking={linking}
+        memberKnown={memberKnown}
+      />
     </div>
   )
 }
 
-function EarnCta({
-  row,
-  claiming,
-  onClaim,
-}: {
-  row: EarnActionRow
-  claiming: boolean
-  onClaim: (action: ClaimableAction) => void
-}) {
+function EarnCta({ row, claiming, onClaim, onLinkAccount, linking, memberKnown }: EarnRowProps) {
   // 노트2 — 주문 보상은 클레임이 아니라 **자동 지급**입니다(카페24 주문 동기화 배치).
   // 이 줄이 하는 일은 쇼핑몰로 보내는 것뿐이라 상태와 무관하게 링크입니다.
   if (row.action === 'order') {
@@ -168,24 +207,22 @@ function EarnCta({
   }
 
   /*
-    연동(+3)은 카페24 OAuth 를 **시작할 수 없어서** 아직 못 켭니다.
+    연동(+3)은 클레임이 아니라 **카페24 콜백이 지급**합니다(§2 W-10) — 그래서 이 버튼은
+    POST /credits/claim 이 아니라 authorize 로 갑니다. PR #21 이 authorize 를 200
+    `{authorize_url}` 로 바꾸면서 비로소 배선이 성립했습니다(그전에는 302 + 헤더 요구라
+    브라우저 이동으로는 무조건 401).
 
-    ADR-11 로 카페24는 로그인이 아니라 회원의 쇼핑몰 계정 연동이 됐고, 그래서 두 겹으로
-    막혀 있습니다. (1) 연동은 회원 토큰이 필요한데 로그인 3종(카카오·네이버·로컬)의
-    authorize 가 아직 없고, (2) 구현된 카페24 authorize 는 Authorization 헤더를 요구하는
-    302 라 브라우저 이동으로는 401 입니다(이슈 #14). 200 `{authorize_url}` 로 바뀌면
-    fetch → location.href 로 배선합니다. 그때까지 누르면 반드시 실패하는 버튼 대신
-    비활성 + 사유를 둡니다.
+    게스트에게는 연동 대신 로그인을 띄웁니다 — 연동은 회원 전용입니다.
   */
   if (row.action === 'link_account') {
     return (
       <button
         type="button"
-        disabled
-        title="로그인과 카페24 연동 배선 대기 중(이슈 #14)"
+        onClick={onLinkAccount}
+        disabled={linking || !memberKnown}
         className="shrink-0 rounded-lg border border-rule-strong px-3 py-2 text-xs font-semibold disabled:opacity-50"
       >
-        준비 중
+        {linking ? '여는 중…' : (row.cta ?? '연동하기')}
       </button>
     )
   }

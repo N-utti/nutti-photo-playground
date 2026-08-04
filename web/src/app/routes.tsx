@@ -19,6 +19,7 @@ import W07Calculator from '../screens/W07Calculator'
 import W08Creative from '../screens/W08Creative'
 import W10Credits from '../screens/W10Credits'
 import W10Ledger from '../screens/W10Ledger'
+import AuthCallback from '../screens/AuthCallback'
 import { NotFound, W09Library, W11Console } from '../screens/placeholders'
 
 export const router = createBrowserRouter([
@@ -49,6 +50,9 @@ export const router = createBrowserRouter([
       // W-10 B(받은 내역)는 자기 앱바·뒤로가기를 가진 별도 프레임입니다(#p10 B).
       { path: '/credits/ledger', element: <W10Ledger /> },
       { path: '/admin', element: <W11Console /> },
+      // 화면이 아니라 OAuth 복귀 지점입니다 — 프로바이더 콘솔에 등록하는 redirect_uri 가
+      // 이 주소라(§3 인증) 경로를 바꾸면 카카오·네이버·카페24 설정도 같이 바꿔야 합니다.
+      { path: '/auth/callback/:provider', element: <AuthCallback /> },
       { path: '*', element: <NotFound /> },
     ],
   },

@@ -9,9 +9,15 @@ import {
   useQueryClient,
   type QueryClient,
 } from '@tanstack/react-query'
-import { ApiError } from './client'
-import { calculator, credits, jobs, library, pets, styles, uploads } from './endpoints'
-import type { ClaimableAction, CreateJobBody, Job } from './types'
+import { ApiError, ensureSession, session } from './client'
+import { auth, calculator, credits, jobs, library, pets, styles, uploads } from './endpoints'
+import type {
+  ClaimableAction,
+  CreateJobBody,
+  Job,
+  MemberSession,
+  SocialProvider,
+} from './types'
 
 export const queryKeys = {
   me: ['me'] as const,
@@ -23,6 +29,89 @@ export const queryKeys = {
   job: (id: string) => ['jobs', id] as const,
   library: (petId?: string) => ['library', { petId }] as const,
   calculatorLink: (params: { pet_id?: string; job_id?: string }) => ['calculator-link', params] as const,
+}
+
+// ---------------------------------------------------------------- 인증 (PR #21)
+
+/**
+ * 로그인 상태의 **단일 출처**.
+ *
+ * `session.kind`(localStorage)는 부팅 직후 동기적으로 읽을 수 있어 편하지만, 서버가
+ * 토큰을 어떻게 보는지는 모릅니다 — 병합돼 죽은 회원 토큰도 kind 는 'member' 입니다.
+ * 연동 여부·로그인 수단처럼 화면 분기를 결정하는 값은 여기서만 읽습니다.
+ */
+export function useMe() {
+  return useQuery({ queryKey: queryKeys.me, queryFn: auth.me })
+}
+
+/**
+ * 로그인 응답을 현재 세션으로 교체합니다.
+ *
+ * 병합(merged=true)이면 게스트 자산이 **다른 member_id** 로 옮겨졌고, 승격이면 같은
+ * 행이 회원이 된 것입니다. 어느 쪽이든 잔액·보관함·소유 판정이 전부 새 토큰 기준으로
+ * 다시 계산되므로 캐시를 통째로 무효화합니다 — 일부만 지우면 앱바 잔액과 보관함이
+ * 서로 다른 사람을 말하는 상태가 남습니다.
+ */
+export async function adoptMemberSession(
+  client: QueryClient,
+  memberSession: MemberSession,
+): Promise<void> {
+  session.set(memberSession.token, 'member')
+  await client.invalidateQueries()
+}
+
+/** 로컬 가입·로그인. 두 엔드포인트는 성공 처리와 실패 코드만 다르고 폼은 같습니다. */
+export function useLocalAuth() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      mode,
+      email,
+      password,
+    }: {
+      mode: 'login' | 'register'
+      email: string
+      password: string
+    }) => (mode === 'register' ? auth.register(email, password) : auth.login(email, password)),
+    onSuccess: (memberSession) => adoptMemberSession(client, memberSession),
+  })
+}
+
+/**
+ * 로그아웃 = 회원 토큰 폐기 + **새 게스트로 재시작**.
+ *
+ * 토큰만 지우면 이후 모든 요청이 401 이라 앱이 통째로 멎습니다. 이 앱에는 "로그인
+ * 화면으로 보낸다"는 선택지가 없으므로(로그인 없이 전 플로우가 도는 게 전제) 게스트
+ * 발급까지가 한 동작이어야 합니다.
+ *
+ * 서버 logout 은 204 만 주고 토큰을 무효화하지 않으므로(app/routers/auth.py) 실패해도
+ * 멈추지 않습니다 — 로컬 토큰은 endpoints.ts 의 finally 가 이미 지웠고, 남은 일은 다시
+ * 서는 것뿐입니다.
+ */
+export function useLogout() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      await auth.logout().catch(() => {})
+      await ensureSession()
+    },
+    onSuccess: () => client.invalidateQueries(),
+  })
+}
+
+/**
+ * 소셜 로그인·카페24 연동 시작.
+ *
+ * 성공 시 돌아오지 않습니다 — `authorize_url` 로 페이지를 통째로 넘깁니다. 그래서
+ * 여기서 캐시를 건드릴 필요가 없고, 돌아오는 지점은 `/auth/callback/{provider}` 입니다.
+ */
+export function useAuthorizeRedirect() {
+  return useMutation({
+    mutationFn: async (provider: SocialProvider | 'cafe24') => {
+      const { authorize_url } = await auth.authorize(provider)
+      window.location.assign(authorize_url)
+    },
+  })
 }
 
 // ---------------------------------------------------------------- 스타일

@@ -18,13 +18,25 @@ export class ApiError extends Error {
   readonly code: ErrorCode
   readonly status: number
   readonly detail: unknown
+  /**
+   * 429 응답의 `Retry-After`(초). 인증·게스트 발급 레이트리밋이 함께 내려줍니다(§3 인증).
+   * 없으면 null — 헤더가 없는 429 도 있으므로 화면은 값이 없을 때를 항상 감안해야 합니다.
+   */
+  readonly retryAfter: number | null
 
-  constructor(code: ErrorCode, message: string, status: number, detail?: unknown) {
+  constructor(
+    code: ErrorCode,
+    message: string,
+    status: number,
+    detail?: unknown,
+    retryAfter: number | null = null,
+  ) {
     super(message)
     this.name = 'ApiError'
     this.code = code
     this.status = status
     this.detail = detail
+    this.retryAfter = retryAfter
   }
 }
 
@@ -90,8 +102,15 @@ export const SESSION_LOST_EVENT = 'nutti:session-lost'
  * 서버는 IP 당 시간당 발급 횟수를 제한합니다(app/routers/auth.py `_check_guest_rate_limit`).
  * 막히면 앱은 토큰 없이 뜨고 이후 모든 요청이 401 이므로, 조용히 넘기면 사용자는 전부
  * 고장난 화면만 보게 됩니다.
+ *
+ * `detail.retryAfter` 는 429 의 `Retry-After`(초, PR #21). 없으면 null 입니다 — 언제
+ * 풀리는지 말해 줄 수 있으면 "잠시 뒤"보다 훨씬 나은 안내가 됩니다.
  */
 export const GUEST_RATE_LIMITED_EVENT = 'nutti:guest-rate-limited'
+
+export interface GuestRateLimitedDetail {
+  retryAfter: number | null
+}
 
 // ---------------------------------------------------------------- 요청
 
@@ -155,10 +174,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
     // 만료가 아닌 401 은 재발급으로 풀리지 않습니다. 서버가 거절한 토큰을 들고 있으면
     // 이후 모든 요청이 같은 401 이므로 지우고, 다음 행동은 화면이 사용자에게 묻습니다.
-    //
-    // OAuth 경로는 예외입니다 — 거기서의 401 은 state 검증 실패라서(app/routers/auth.py)
-    // 토큰이 죽었다는 뜻이 아닙니다. 로그인에 실패했다고 게스트 자산까지 버리면 안 됩니다.
-    if (parsed.code === 'UNAUTHORIZED' && token && !path.startsWith('/auth/cafe24/')) {
+    if (parsed.code === 'UNAUTHORIZED' && token && !isOAuthPath(path)) {
       session.clear()
       window.dispatchEvent(new CustomEvent(SESSION_LOST_EVENT))
     }
@@ -168,15 +184,47 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   return (await response.json()) as T
 }
 
+/**
+ * 여기서의 401 은 "내 토큰이 죽었다"가 아니라서 세션을 지우면 안 되는 경로입니다.
+ *
+ * - `/auth/{provider}/callback`: state 검증 실패(재사용·만료·주체 불일치, app/routers/auth.py).
+ *   로그인 한 번 실패했다고 게스트 자산까지 버리면 안 됩니다.
+ * - `/auth/cafe24/authorize`: 게스트가 회원 전용 엔드포인트를 부른 경우 — 권한 부족이지
+ *   토큰이 무효라는 뜻이 아닙니다(§3 인증).
+ *
+ * 반대로 register/login/소셜 authorize 의 401 은 게스트 토큰 자체가 거절된 것이라
+ * 예외가 아닙니다(회원 토큰이면 401 이 아니라 409 ALREADY_MEMBER 로 옵니다).
+ */
+function isOAuthPath(path: string): boolean {
+  if (!path.startsWith('/auth/')) return false
+  return path.endsWith('/callback') || path === '/auth/cafe24/authorize'
+}
+
+function parseRetryAfter(response: Response): number | null {
+  const header = response.headers.get('Retry-After')
+  if (!header) return null
+  const seconds = Number(header)
+  return Number.isFinite(seconds) && seconds >= 0 ? seconds : null
+}
+
 async function parseErrorBody(response: Response): Promise<ApiError> {
+  const retryAfter = parseRetryAfter(response)
   try {
     const body = (await response.json()) as Partial<ApiErrorBody>
     const error = body.error
-    if (error?.code) return new ApiError(error.code, error.message ?? '', response.status, error.detail)
+    if (error?.code) {
+      return new ApiError(error.code, error.message ?? '', response.status, error.detail, retryAfter)
+    }
   } catch {
     // 본문이 JSON 이 아닌 경우(프록시 502 등)는 아래 폴백으로 떨어집니다.
   }
-  return new ApiError('HTTP_ERROR', `요청이 실패했습니다 (HTTP ${response.status})`, response.status)
+  return new ApiError(
+    'HTTP_ERROR',
+    `요청이 실패했습니다 (HTTP ${response.status})`,
+    response.status,
+    undefined,
+    retryAfter,
+  )
 }
 
 /**
@@ -200,7 +248,11 @@ async function issueGuestSession(): Promise<GuestSession> {
     return await request<GuestSession>('/auth/guest', { method: 'POST', _retried: true })
   } catch (error) {
     if (isApiError(error, 'RATE_LIMITED')) {
-      window.dispatchEvent(new CustomEvent(GUEST_RATE_LIMITED_EVENT))
+      window.dispatchEvent(
+        new CustomEvent<GuestRateLimitedDetail>(GUEST_RATE_LIMITED_EVENT, {
+          detail: { retryAfter: error.retryAfter },
+        }),
+      )
     }
     throw error
   }

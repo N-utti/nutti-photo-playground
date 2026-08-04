@@ -5,6 +5,8 @@
 
 import { request, session } from './client'
 import type {
+  AuthorizeResponse,
+  Cafe24LinkResult,
   CalculatorLink,
   ClaimResult,
   CreateJobBody,
@@ -18,6 +20,7 @@ import type {
   MetricEventBody,
   Paginated,
   Pet,
+  SocialProvider,
   StyleCatalog,
   StyleDetail,
   UploadResult,
@@ -29,24 +32,42 @@ import type {
 export const auth = {
   guest: () => request<GuestSession>('/auth/guest', { method: 'POST' }),
 
-  /*
-    로그인 시작(authorize)은 지금 프론트에서 호출할 수 없습니다.
+  /**
+   * 로그인·연동 시작 (PR #21).
+   *
+   * 302 리다이렉트가 아니라 200 `{authorize_url}` 입니다 — state 가 호출 주체의 토큰에
+   * 바인딩돼 Authorization 헤더가 필수인데 브라우저 링크 이동으로는 헤더를 실을 수
+   * 없기 때문입니다(§3 인증). 그래서 fetch 로 URL 을 받아 `window.location` 으로
+   * 이동하는 2단계가 됩니다 — `<a href>` 로 바꾸면 다시 401 이 됩니다.
+   *
+   * 토큰 요구가 provider 마다 다릅니다: 소셜은 **게스트 토큰**(회원이면 409
+   * ALREADY_MEMBER), cafe24 는 **회원 토큰**(게스트면 401 — 먼저 로그인).
+   */
+  authorize: (provider: SocialProvider | 'cafe24') =>
+    request<AuthorizeResponse>(`/auth/${provider}/authorize`),
 
-    GET /v1/auth/cafe24/authorize 가 `Authorization: Bearer <게스트 토큰>` 을 요구하고
-    (app/routers/auth.py) 302 로 cafe24api.com 에 넘깁니다. 브라우저 이동은 헤더를 실을
-    수 없어 무조건 401 이고, fetch 로 부르면 cross-origin 302 라 Location 을 읽을 수
-    없습니다(redirect:'manual' → opaqueredirect). 즉 두 방식 다 성립하지 않습니다.
+  /** 소셜 로그인 완료. 여기서 게스트 자산 병합·승격(UC-07)이 일어납니다. */
+  socialCallback: (provider: SocialProvider, code: string, state: string) =>
+    request<MemberSession>(`/auth/${provider}/callback`, { query: { code, state } }),
 
-    ADR-11/PR #13 이 이 엔드포인트를 200 `{authorize_url}` 로 바꾸기로 했으므로, 배선은
-    그 구현이 올라온 뒤 fetch → location.href 패턴으로 추가합니다. 그때까지 링크를 두면
-    100% 실패하는 버튼이 되므로 화면에서도 뺐습니다.
-  */
-
+  /**
+   * 카페24 **연동** 완료. 로그인이 아니므로 토큰이 바뀌지 않고 자산 병합도 없습니다
+   * (UC-07 미적용) — 응답에 token 이 없는 게 그 신호입니다.
+   */
   cafe24Callback: (code: string, state: string) =>
-    request<MemberSession>('/auth/cafe24/callback', { query: { code, state } }),
+    request<Cafe24LinkResult>('/auth/cafe24/callback', { query: { code, state } }),
 
-  kakao: (kakaoToken: string) =>
-    request<MemberSession>('/auth/kakao', { method: 'POST', json: { kakao_token: kakaoToken } }),
+  /**
+   * 로컬 가입. 게스트 토큰 필수이며 성공 시 그 게스트 행이 회원으로 승격됩니다.
+   * 비밀번호 재설정이 MVP 에 없어 **분실 시 복구 수단이 없습니다**(이슈 #17) —
+   * 화면은 가입 전에 이 사실을 고지해야 합니다.
+   */
+  register: (email: string, password: string) =>
+    request<MemberSession>('/auth/register', { method: 'POST', json: { email, password } }),
+
+  /** 로컬 로그인. 실패는 이메일 존재 여부를 구분하지 않는 401 INVALID_CREDENTIALS. */
+  login: (email: string, password: string) =>
+    request<MemberSession>('/auth/login', { method: 'POST', json: { email, password } }),
 
   me: () => request<Me>('/auth/me'),
 

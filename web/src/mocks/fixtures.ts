@@ -150,7 +150,9 @@ export const initialCredits: Credits = {
   balance: 11,
   earn_actions: [
     { action: 'order', amount: 20, status: 'available', cta: '쇼핑몰 →' },
-    { action: 'link_account', amount: 3, status: 'done', cta: null },
+    // 미연동이 기본값입니다 — done 으로 고정해 두면 연동 CTA(카페24 authorize → 콜백 +3)를
+    // 목 위에서 한 번도 밟아 볼 수 없습니다. 연동 콜백이 done 으로 바꿔 줍니다.
+    { action: 'link_account', amount: 3, status: 'available', cta: '연동하기' },
     { action: 'follow_ig', amount: 2, status: 'available', cta: '받기' },
     { action: 'daily', amount: 1, status: 'tomorrow', cta: '내일 다시' },
   ],

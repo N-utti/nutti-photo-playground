@@ -8,13 +8,12 @@
  *   4. "강아지 전용"을 보조 문구에 명시
  *   5. 인기 스타일 프리뷰는 한 줄 — 모바일 3 / 데스크톱 5
  *
+ * 로그인 진입점(FR-W01-05)은 PR #21 로 3종 authorize 가 200 `{authorize_url}` 이 되면서
+ * 열렸습니다 — 그전에는 누르면 100% 401 이라 아예 빼 뒀습니다. 다만 **보조**입니다:
+ * 주 CTA 는 여전히 로그인 없이 W-04 로 가고(노트2), 로그인은 헤더 구석에 둡니다.
+ *
  * 빠진 것과 그 이유:
  *
- * - **로그인 진입점(FR-W01-05)**. ADR-11 로 로그인이 카카오·네이버·로컬 3종으로
- *   바뀌었고 그 authorize 엔드포인트는 아직 없습니다. 유일하게 구현된 카페24
- *   authorize 는 헤더를 요구하는 302 라 브라우저 이동으로는 100% 실패합니다
- *   (이슈 #14, api/endpoints.ts `auth` 주석). 누르면 반드시 깨지는 버튼을 두느니
- *   빼 둡니다 — 로그인 없이도 전 플로우가 돌아가는 게 이 화면의 전제입니다.
  * - **"요금" 메뉴(FR-W01-07)**. 07-decisions.md errata E-04 가 v0.2 잔재로 판정하고
  *   제거 대상으로 확정했습니다(크레딧 판매 OFF).
  */
@@ -22,8 +21,20 @@
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import { Link } from 'react-router'
 import { events } from '../api/endpoints'
-import { useStyles } from '../api/queries'
-import type { StyleCard } from '../api/types'
+import { useLogout, useMe, useStyles } from '../api/queries'
+import type { Me, StyleCard } from '../api/types'
+import AccountSheet from './AccountSheet'
+
+/**
+ * 회원 표시명. `nickname` 은 소셜 프로필에서만 오므로(이슈 #12) 로컬 전용 회원은
+ * 항상 null 입니다 — 그때 이메일 전체를 헤더에 박으면 남에게 보이는 화면에 계정
+ * 아이디가 그대로 노출되므로 앞부분만 씁니다(§3 인증 폴백 규칙).
+ */
+function memberLabel(me: Me): string {
+  if (me.nickname) return `${me.nickname}님`
+  const local = me.email?.split('@')[0]
+  return local ? `${local}님` : '내 계정'
+}
 
 /** 브랜드 촬영본이 없어 자리표시자입니다 — public/hero/*.svg 주석 참고. */
 const HERO_BEFORE = '/hero/before.svg'
@@ -35,6 +46,9 @@ const MOBILE_PREVIEW_COUNT = 3
 
 export default function W01Landing() {
   const { data, isPending, isError } = useStyles({ section: 'popular', limit: PREVIEW_COUNT })
+  const { data: me } = useMe()
+  const [loginSheet, setLoginSheet] = useState(false)
+  const [logoutConfirm, setLogoutConfirm] = useState(false)
   const popular = data?.sections[0]?.styles ?? []
 
   return (
@@ -43,12 +57,45 @@ export default function W01Landing() {
       <header className="flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
         <span className="size-6 rounded-full bg-rule-strong" aria-hidden />
         <span className="text-base font-bold">누띠 놀이터</span>
-        <nav className="ml-auto hidden desktop:block" aria-label="주요">
-          <Link to="/styles" className="text-sm text-ink-2 hover:text-ink">
+        <nav className="ml-auto flex items-center gap-4" aria-label="주요">
+          <Link to="/styles" className="hidden text-sm text-ink-2 hover:text-ink desktop:block">
             스타일
           </Link>
+          {/*
+            FR-W01-05 로그인 칩. `/me` 가 오기 전에는 아무것도 그리지 않습니다 —
+            게스트로 깜빡였다가 "○○님"으로 바뀌면 회원이 매 방문마다 로그아웃된 것처럼
+            보입니다.
+          */}
+          {me?.kind === 'member' ? (
+            // 로그인만 있고 나갈 길이 없으면 이 브라우저에서 계정을 영영 못 바꿉니다.
+            // 마이페이지(ADR-11 후속)가 생기면 그쪽으로 옮길 최소 진입점입니다.
+            <button
+              type="button"
+              onClick={() => setLogoutConfirm(true)}
+              className="max-w-32 truncate text-sm text-ink-2 underline"
+            >
+              {memberLabel(me)}
+            </button>
+          ) : me?.kind === 'guest' ? (
+            <button
+              type="button"
+              onClick={() => setLoginSheet(true)}
+              className="rounded-full border border-rule-strong px-3 py-1.5 text-sm font-semibold"
+            >
+              로그인
+            </button>
+          ) : null}
         </nav>
       </header>
+
+      {loginSheet && (
+        <AccountSheet
+          onClose={() => setLoginSheet(false)}
+          description="로그인하면 만든 결과가 보관함에 쌓이고, 크레딧을 이어서 쓸 수 있어요."
+        />
+      )}
+
+      {logoutConfirm && <LogoutConfirm onClose={() => setLogoutConfirm(false)} />}
 
       <main className="mx-auto w-full max-w-(--container-canvas) px-4 pb-16">
         {/* 모바일은 헤드라인 → 슬라이더 → CTA 세로 순서, 데스크톱은 좌(문구·CTA)/우(슬라이더). */}
@@ -109,6 +156,61 @@ export default function W01Landing() {
           )}
         </section>
       </main>
+    </div>
+  )
+}
+
+/**
+ * 로그아웃 확인.
+ *
+ * 확인을 한 겹 두는 이유: 헤더 라벨은 마이페이지가 생기기 전의 임시 자리라 "내 계정을
+ * 보려고" 누르는 사람이 있습니다. 그 클릭이 곧바로 로그아웃이면 로컬 계정 사용자는
+ * 비밀번호를 기억 못 할 경우 되돌아올 방법이 없습니다(이슈 #17).
+ */
+function LogoutConfirm({ onClose }: { onClose: () => void }) {
+  const logout = useLogout()
+
+  return (
+    <div className="fixed inset-0 z-30 flex items-end justify-center desktop:items-center">
+      <button
+        type="button"
+        aria-label="닫기"
+        onClick={onClose}
+        className="absolute inset-0 cursor-default bg-ink/40"
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="logout-title"
+        className="relative w-full rounded-t-2xl bg-surface p-5 desktop:max-w-sm desktop:rounded-2xl"
+      >
+        <h2 id="logout-title" className="text-base font-bold">
+          로그아웃할까요?
+        </h2>
+        <p className="mt-1 text-sm text-ink-2">
+          이 브라우저는 다시 게스트로 시작해요. 계정에 쌓인 결과와 크레딧은 그대로 있고,
+          다시 로그인하면 이어서 쓸 수 있어요.
+        </p>
+
+        <button
+          type="button"
+          disabled={logout.isPending}
+          onClick={() => logout.mutate(undefined, { onSuccess: onClose })}
+          className="mt-4 w-full rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-paper disabled:opacity-50"
+        >
+          {logout.isPending ? '로그아웃 중…' : '로그아웃'}
+        </button>
+
+        {logout.isError && (
+          <p role="alert" className="mt-2 text-center text-sm text-danger">
+            로그아웃은 됐지만 새 게스트 세션을 받지 못했어요. 잠시 뒤 새로고침해 주세요.
+          </p>
+        )}
+
+        <button type="button" onClick={onClose} className="mt-2 w-full py-2 text-sm text-ink-3">
+          취소
+        </button>
+      </div>
     </div>
   )
 }

@@ -22,10 +22,14 @@ export type ErrorCode =
   | 'VALIDATION_ERROR' // 400
   | 'UNAUTHORIZED' // 401
   | 'TOKEN_EXPIRED' // 401
+  | 'INVALID_CREDENTIALS' // 401 — 로컬 로그인 실패. 이메일 존재 여부를 구분하지 않습니다
   | 'NOT_FOUND' // 404
   | 'RATE_LIMITED' // 429
   | 'INSUFFICIENT_CREDIT' // 402
   | 'ALREADY_CLAIMED' // 409
+  | 'EMAIL_TAKEN' // 409 — register, 이미 가입된 이메일
+  | 'ALREADY_MEMBER' // 409 — 회원 토큰으로 register/login/소셜 authorize (이슈 #17)
+  | 'CAFE24_ALREADY_LINKED' // 409 — 타 회원 연동 or 타 카페24 계정으로 재바인딩
   | 'HTTP_ERROR' // 백엔드 공통 핸들러의 폴백 (app/main.py:34)
 
 /**
@@ -58,7 +62,18 @@ export interface GuestSession {
   kind: 'guest'
 }
 
-/** cafe24/callback · kakao 공통 응답. */
+/** 로그인 수단 3종(ADR-11). 카페24는 로그인이 아니라 **연동**이라 여기 없습니다. */
+export type AuthProvider = 'kakao' | 'naver' | 'local'
+
+/** 소셜 provider — authorize/callback 경로에 들어가는 값. */
+export type SocialProvider = Extract<AuthProvider, 'kakao' | 'naver'>
+
+/**
+ * 로그인 3종(소셜 callback · register · login)의 공통 응답.
+ *
+ * 카페24 콜백은 **이 타입이 아닙니다** — 연동은 로그인이 아니라서 토큰을 주지
+ * 않습니다(Cafe24LinkResult).
+ */
 export interface MemberSession {
   token: string
   member_id: string
@@ -68,10 +83,27 @@ export interface MemberSession {
   credit_balance: number
 }
 
+/** authorize 계열 응답. 302 가 아니라 200 인 이유는 §3 인증 노트 참고. */
+export interface AuthorizeResponse {
+  authorize_url: string
+}
+
+/** `GET /v1/auth/cafe24/callback` — 토큰 없음. 세션은 그대로 두고 연동 상태만 바뀝니다. */
+export interface Cafe24LinkResult {
+  cafe24_linked: true
+  credit_balance: number
+}
+
 export interface Me {
   member_id: string
   kind: MemberKind
   credit_balance: number
+  /** `local` 미보유 시 null. 게스트는 항상 null. */
+  email: string | null
+  /** 소셜 프로필에서 수집(이슈 #12). 로컬 전용·미제공 시 null — 표시는 화면이 폴백합니다. */
+  nickname: string | null
+  /** 보유한 로그인 수단(복수 가능). 게스트는 `[]`. */
+  providers: AuthProvider[]
   cafe24_linked: boolean
 }
 
