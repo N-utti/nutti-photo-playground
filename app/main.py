@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -10,10 +11,16 @@ from tortoise import Tortoise
 from app.routers import admin, auth, credits, events, jobs, library, pets, results, styles, uploads
 from app.settings import settings
 
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await Tortoise.init(db_url=settings.database_url, modules={"models": ["app.models"]})
+    await Tortoise.init(
+        db_url=settings.database_url,
+        modules={"models": ["app.models"]},
+        _enable_global_fallback=True,
+    )
     yield
     await Tortoise.close_connections()
 
@@ -49,6 +56,15 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     return JSONResponse(
         status_code=400,
         content={"error": {"code": "VALIDATION_ERROR", "message": "요청 형식이 올바르지 않습니다", "detail": exc.errors()}},
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    logger.exception("Unhandled application exception", exc_info=exc)
+    return JSONResponse(
+        status_code=500,
+        content={"error": {"code": "INTERNAL_ERROR", "message": "내부 오류가 발생했습니다", "detail": {}}},
     )
 
 

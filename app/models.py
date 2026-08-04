@@ -64,6 +64,8 @@ class Member(Model):
         "models.Member", related_name="merged_members", null=True, on_delete=fields.SET_NULL
     )
     guest_expires_at = fields.DatetimeField(null=True)
+    oauth_state_nonce = fields.CharField(max_length=64, null=True)
+    oauth_state_expires_at = fields.DatetimeField(null=True)
     order_reward_cutoff = fields.DatetimeField(null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
 

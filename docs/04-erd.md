@@ -36,6 +36,8 @@ erDiagram
         int credit_balance "캐시, 음수 허용"
         uuid merged_into_id FK "자기참조, NULL"
         timestamptz guest_expires_at "NULL(회원은 NULL)"
+        text oauth_state_nonce "NULL, OAuth state 일회성 nonce"
+        timestamptz oauth_state_expires_at "NULL, state 만료(5분)"
         timestamptz order_reward_cutoff "NULL, 연동 시점"
         timestamptz created_at
     }
@@ -183,6 +185,8 @@ erDiagram
 | `credit_balance` | INT | NOT NULL DEFAULT 0 | **캐시**. 원장(`credit_ledger`)이 진실. **음수 허용**(CHECK 제약 없음) — 표시는 `max(0, credit_balance)`, 차감 판정은 `credit_balance >= cost` |
 | `merged_into_id` | UUID | FK → `member.id`(자기참조), NULL | 게스트가 기존 회원에 병합된 경우 대상 회원을 가리킴(UC-07 분기 A) |
 | `guest_expires_at` | TIMESTAMPTZ | NULL | 게스트만 값 존재(가입 시 NULL로 전환). 미병합 게스트 세션·자산의 만료 시점(**30일** — 게스트 JWT 만료와 정렬, FR-EDGE-12·`07-decisions.md#Q7`) |
+| `oauth_state_nonce` | VARCHAR(64) | NULL | 카페24 OAuth `state`의 일회성 nonce — `/auth/cafe24/authorize`에서 발급, 콜백에서 검증 직후 NULL로 소비(재사용 차단, PR #8 C1) |
+| `oauth_state_expires_at` | TIMESTAMPTZ | NULL | 위 nonce의 만료 시점(발급 +5분) — 경과 시 콜백 거부 |
 | `order_reward_cutoff` | TIMESTAMPTZ | NULL | 회원이 쇼핑몰 계정을 연동한 시점 — 주문 보상 자격 필터(06-architecture-deployment.md §6.2와 동일 정의, `cafe24_oauth_token.last_synced_at` 워터마크와는 다른 개념) |
 | `created_at` | TIMESTAMPTZ | NOT NULL DEFAULT now() | |
 
