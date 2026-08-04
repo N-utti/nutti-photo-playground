@@ -16,12 +16,12 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, Outlet, useMatch } from 'react-router'
-import { useCredits, useStyles } from '../api/queries'
+import { useStyles } from '../api/queries'
+import { CreditBadge } from '../app/CreditBadge'
 import type { StyleCard } from '../api/types'
 
 export default function W02StyleCatalog() {
   const { data: catalog, isPending, isError, error, refetch } = useStyles()
-  const { data: credits } = useCredits()
 
   // W-03 시트가 이 화면 위에 렌더됩니다(routes.tsx). 시트가 떠 있는 동안
   // 뒤 그리드는 탭 이동·스크린리더 대상에서 빠져야 모달로서 성립합니다.
@@ -81,13 +81,11 @@ export default function W02StyleCatalog() {
   return (
     <Shell sheetOpen={sheetOpen}>
       <div className="min-h-full bg-paper pb-24">
-        {/* 앱바 — 크레딧 배지는 GET /v1/credits 의 balance. ADR-02 로 음수가 될 수 있어 표시는 max(0, …). */}
+        {/* 앱바 — 크레딧 배지의 표시 규칙(ADR-02 음수·미상 처리)은 app/CreditBadge.tsx 에 있습니다. */}
         <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
           <span className="size-6 rounded-full bg-rule-strong" aria-hidden />
           <h1 className="text-base font-bold">스타일</h1>
-          <span className="ml-auto rounded-full border border-rule bg-surface-2 px-3 py-1 font-mono text-sm tabular-nums">
-            ◆ {Math.max(0, credits?.balance ?? 0)} 크레딧
-          </span>
+          <CreditBadge showUnit />
         </header>
 
         {/* 앵커바 — 점프 전용(노트2). 눌러도 다른 섹션을 숨기지 않습니다. */}

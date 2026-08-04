@@ -21,6 +21,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { isApiError } from '../api/client'
+import { CreditBadge } from '../app/CreditBadge'
 import {
   beginJobAttempt,
   clearJobAttempt,
@@ -30,7 +31,6 @@ import {
 import {
   useCreateJob,
   useCreatePet,
-  useCredits,
   usePets,
   useStyleDetail,
   useUploadPhoto,
@@ -48,7 +48,6 @@ export default function W04Upload() {
   const styleId = Number.isInteger(styleIdParam) && styleIdParam > 0 ? styleIdParam : null
 
   const { data: style } = useStyleDetail(styleId)
-  const { data: credits } = useCredits()
   const { data: petsData } = usePets()
 
   const [petId, setPetId] = useState<string | null>(null)
@@ -167,9 +166,7 @@ export default function W04Upload() {
           ←
         </button>
         <h1 className="text-base font-bold">{confirming ? '확인' : '사진 선택'}</h1>
-        <span className="ml-auto rounded-full border border-rule bg-surface-2 px-3 py-1 font-mono text-sm tabular-nums">
-          ◆ {Math.max(0, credits?.balance ?? 0)}
-        </span>
+        <CreditBadge />
       </header>
 
       <main className="mx-auto w-full max-w-md px-4 py-4">

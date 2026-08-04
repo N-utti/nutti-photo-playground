@@ -8,6 +8,7 @@
  *
  * 시나리오 강제: localStorage 에 `nutti.mock.scenario` 를 넣으면 해당 케이스로 고정됩니다.
  *   upload:warn | upload:block | job:fail | job:safety | credit:empty | session:expired
+ *   guest:ratelimited | session:lost
  */
 
 import { HttpResponse, http, delay } from 'msw'
@@ -131,6 +132,10 @@ export const handlers = [
   // ------------------------------------------------------------ 인증
   http.post(`${BASE}/auth/guest`, async () => {
     await delay(120)
+    // IP 당 시간당 발급 제한(app/routers/auth.py `_check_guest_rate_limit`, 이슈 #15).
+    if (scenario() === 'guest:ratelimited') {
+      return apiError(429, 'RATE_LIMITED', '게스트 발급 한도를 초과했습니다')
+    }
     return HttpResponse.json(
       {
         token: `mock-guest-jwt.${crypto.randomUUID()}`,
@@ -141,14 +146,14 @@ export const handlers = [
     )
   }),
 
-  http.get(`${BASE}/auth/me`, () =>
-    HttpResponse.json({
+  http.get(`${BASE}/auth/me`, () => {
+    return HttpResponse.json({
       member_id: '8f14e457-4d09-41c2-9d70-1a2b3c4d5e6f',
       kind: 'guest',
       credit_balance: state.credits.balance,
       cafe24_linked: false,
-    }),
-  ),
+    })
+  }),
 
   http.post(`${BASE}/auth/kakao`, async () => {
     await delay(200)
@@ -310,7 +315,15 @@ export const handlers = [
   http.delete(`${BASE}/library`, () => new HttpResponse(null, { status: 204 })),
 
   // ------------------------------------------------------------ 크레딧
-  http.get(`${BASE}/credits`, () => HttpResponse.json(state.credits)),
+  http.get(`${BASE}/credits`, () => {
+    // 만료가 아닌 401 — 병합된 게스트 토큰·kind 불일치(app/auth.py `get_current_member`).
+    // TOKEN_EXPIRED 와 달리 재발급으로 풀리지 않는다는 게 이 시나리오의 요점입니다.
+    // 앱바 크레딧 pill 이 어느 화면에서나 이걸 부르므로 여기에 겁니다.
+    if (scenario() === 'session:lost') {
+      return apiError(401, 'UNAUTHORIZED', '유효하지 않은 토큰입니다')
+    }
+    return HttpResponse.json(state.credits)
+  }),
 
   http.post(`${BASE}/credits/claim`, async ({ request }) => {
     await delay(250)
