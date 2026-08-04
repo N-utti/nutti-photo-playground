@@ -9,6 +9,7 @@
 
 import { createBrowserRouter } from 'react-router'
 import RootLayout from './RootLayout'
+import W01Landing from '../screens/W01Landing'
 import W02StyleCatalog from '../screens/W02StyleCatalog'
 import W03StyleDetail from '../screens/W03StyleDetail'
 import W04Upload from '../screens/W04Upload'
@@ -16,7 +17,6 @@ import W05Waiting from '../screens/W05Waiting'
 import W06Result from '../screens/W06Result'
 import {
   NotFound,
-  W01Landing,
   W07Calculator,
   W08Creative,
   W09Library,
