@@ -89,7 +89,7 @@
 | 적용 예시 캐러셀(6장) | `GET /v1/styles/{style_id}` → `examples[]` |
 | 타이틀·크레딧 비용 | `GET /v1/styles/{style_id}` → `name`, `credit_cost` |
 | 적합도 태그 칩(소형견◎/대형견◎/검은털△) | `GET /v1/styles/{style_id}` → `fit_tags[]` |
-| "평균 24초 · 4장 생성" | `GET /v1/styles/{style_id}` → `avg_duration_seconds`, `output_count` |
+| "평균 24초 · 1장 생성" | `GET /v1/styles/{style_id}` → `avg_duration_seconds`, `output_count` |
 | "이 스타일로 만들기" | 네비게이션(W-04로), 생성 자체는 `POST /v1/jobs` |
 
 ### W-04 · 사진 업로드 · 품질 체크 ([#p04](wireframe-spec-v0.5.html#p04))
@@ -116,8 +116,7 @@
 | UI 요소 | 데이터 출처 |
 |---|---|
 | 비교 슬라이더(원본/변환) + 서명 | `GET /v1/jobs/{job_id}` → `source_image_url`, `results[].image_url`(서명은 이미지 자체에 합성되어 저장됨) |
-| 썸네일 4장·"4장 중 N번" | `GET /v1/jobs/{job_id}` → `results[]`(4개), `selected_index` |
-| 결과 선택 | `POST /v1/jobs/{job_id}/select` → `{result_index}` |
+| 결과 이미지 1장 | `GET /v1/jobs/{job_id}` → `results[]`(1개 — Q4 확정: 1요청 1장, 썸네일 선택 UI 제거) |
 | 저장(보관함) | 로그인 회원은 결과가 자동으로 보관함에 남음(`GET /v1/library`에서 조회). 게스트는 W-06 B 계정 연동 필요 |
 | 인스타 공유 | `POST /v1/jobs/{job_id}/share` |
 | "다시 만들기 · 1 크레딧" | `POST /v1/jobs`(**새 Idempotency-Key** 필수) |
@@ -361,7 +360,7 @@
     { "label": "검은 털", "score": "caution" }
   ],
   "avg_duration_seconds": 24,
-  "output_count": 4
+  "output_count": 1
 }
 ```
 `404 NOT_FOUND`: 존재하지 않거나 `status='retired'`인 스타일.
@@ -499,7 +498,6 @@
   "status_message": "레고 블록을 쌓는 중…",
   "source_image_url": "https://cdn.nutti.co.kr/uploads/3fa85f64.../orig.jpg",
   "results": null,
-  "selected_index": null,
   "error_code": null
 }
 ```
@@ -515,15 +513,12 @@
   "status_message": null,
   "source_image_url": "https://cdn.nutti.co.kr/uploads/3fa85f64.../orig.jpg",
   "results": [
-    { "index": 0, "image_url": "https://cdn.nutti.co.kr/results/aaa1.jpg" },
-    { "index": 1, "image_url": "https://cdn.nutti.co.kr/results/aaa2.jpg" },
-    { "index": 2, "image_url": "https://cdn.nutti.co.kr/results/aaa3.jpg" },
-    { "index": 3, "image_url": "https://cdn.nutti.co.kr/results/aaa4.jpg" }
+    { "index": 0, "image_url": "https://cdn.nutti.co.kr/results/aaa1.jpg" }
   ],
-  "selected_index": null,
   "error_code": null
 }
 ```
+`results[]`는 항상 1개(Q4 확정 — 1요청 1장). 배열 형태는 산출 수 상향 대비로 유지하며, 다른 결과가 필요하면 "다시 만들기"(새 job·새 크레딧)로 재생성합니다.
 ```json
 // 200 — 실패(모델 오류, 크레딧 자동 반환됨)
 {
@@ -536,7 +531,6 @@
   "status_message": null,
   "source_image_url": "https://cdn.nutti.co.kr/uploads/3fa85f64.../orig.jpg",
   "results": null,
-  "selected_index": null,
   "error_code": "GENERATION_FAILED"
 }
 ```
@@ -552,22 +546,12 @@
   "status_message": null,
   "source_image_url": "https://cdn.nutti.co.kr/uploads/9c858901.../orig.jpg",
   "results": null,
-  "selected_index": null,
   "error_code": "SAFETY_BLOCKED"
 }
 ```
 `404 NOT_FOUND`: 존재하지 않거나 다른 회원 소유의 job.
 
-#### `POST /v1/jobs/{job_id}/select`
-
-```json
-// 요청
-{ "result_index": 0 }
-```
-```json
-// 200
-{ "job_id": "b3e13c4a-2f1e-4a3a-9b1e-1234567890ab", "selected_index": 0 }
-```
+> `POST /v1/jobs/{job_id}/select`와 `selected_index` 필드는 **Q4 확정(1요청 1장)으로 삭제**되었습니다 — 단일 결과에는 선택이 없습니다.
 
 #### `POST /v1/jobs/{job_id}/share`
 
@@ -756,7 +740,7 @@
 1. `POST /v1/jobs`(헤더 `Idempotency-Key: <새 UUID>`) → 202, `{job_id, status: "queued"}`.
 2. `GET /v1/jobs/{job_id}`를 **2초 간격, 지수 백오프(2s → 4s → 8s …)**로 폴링. 서버는 큐 길이 기반으로 `eta_seconds`·`progress`를 계산.
 3. `status`가 `processing`으로 60초를 넘겨도 실패가 아님 — W-05 "알림 받고 나가기"로 이탈 가능. 서버는 계속 처리, 재조회 시 상태가 그대로 복원.
-4. `status: "succeeded"` → `results[]`(4장) 반환, W-06 전환.
+4. `status: "succeeded"` → `results[]`(1장) 반환, W-06 전환.
 5. `status: "failed"` → `error_code`(`GENERATION_FAILED` 또는 `SAFETY_BLOCKED`) 포함, 크레딧 자동 반환(`credit_ledger`에 `refund:<job_uuid>` 기록) — 사용자는 별도 요청 없이 `GET /v1/credits`에서 반환된 잔액 확인.
 
 ### 시나리오 3 · 크레딧 부족 인라인 흐름
@@ -801,7 +785,7 @@ W-11 프롬프트 운영 콘솔 전용. 별도 인증 경계(`admin_user` 세션
       "status": "public",
       "sort_order": 1,
       "credit_cost": 1,
-      "output_count": 4,
+      "output_count": 1,
       "avg_seconds": 24,
       "selection_rate": 0.184,
       "share_rate": 0.41,
@@ -815,7 +799,7 @@ W-11 프롬프트 운영 콘솔 전용. 별도 인증 경계(`admin_user` 세션
       "status": "public",
       "sort_order": 4,
       "credit_cost": 2,
-      "output_count": 4,
+      "output_count": 1,
       "avg_seconds": 24,
       "selection_rate": 0.097,
       "share_rate": 0.08,
@@ -835,7 +819,7 @@ W-11 프롬프트 운영 콘솔 전용. 별도 인증 경계(`admin_user` 세션
   "name": "파일럿",
   "section": "직업",
   "credit_cost": 1,
-  "output_count": 4,
+  "output_count": 1,
   "avg_seconds": 24,
   "progress_message": null,
   "fit_tags": [],
@@ -852,7 +836,7 @@ W-11 프롬프트 운영 콘솔 전용. 별도 인증 경계(`admin_user` 세션
   "status": "draft",
   "sort_order": 0,
   "credit_cost": 1,
-  "output_count": 4,
+  "output_count": 1,
   "avg_seconds": 24,
   "progress_message": null,
   "fit_tags": [],
@@ -879,7 +863,7 @@ W-11 프롬프트 운영 콘솔 전용. 별도 인증 경계(`admin_user` 세션
   "status": "public",
   "sort_order": 0,
   "credit_cost": 1,
-  "output_count": 4,
+  "output_count": 1,
   "avg_seconds": 24,
   "progress_message": null,
   "fit_tags": [],
@@ -903,7 +887,7 @@ W-11 프롬프트 운영 콘솔 전용. 별도 인증 경계(`admin_user` 세션
   "status": "retired",
   "sort_order": 0,
   "credit_cost": 1,
-  "output_count": 4,
+  "output_count": 1,
   "avg_seconds": 24,
   "updated_at": "2026-08-03T11:00:00+09:00"
 }
@@ -1015,7 +999,7 @@ W-11 프롬프트 운영 콘솔 전용. 별도 인증 경계(`admin_user` 세션
   "section": "겨울",
   "status": "draft",
   "credit_cost": 1,
-  "output_count": 4
+  "output_count": 1
 }
 ```
 응답은 새로 생성된 `style` 객체(다른 `POST /v1/admin/styles`와 동일 스키마). 서버는 이 `normalized_text`를 가진 모든 `custom_prompt_log` 행의 `promoted_style_id`를 이 신규 `style.id`로 채웁니다. `409 ALREADY_CLAIMED`: 이미 승격된 문구 재요청.

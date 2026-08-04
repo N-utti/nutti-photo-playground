@@ -63,7 +63,7 @@ erDiagram
         int credit_cost
         text status "draft/public/ab/retired"
         int sort_order
-        int output_count "기본 4"
+        int output_count "기본 1, Q4 확정"
         int avg_seconds "기본 24"
         text progress_message "NULL"
         jsonb fit_tags
@@ -114,7 +114,7 @@ erDiagram
     generation_result {
         uuid id PK
         uuid job_id FK
-        int seq "1~4, UNIQUE(job_id,seq)"
+        int seq "항상 1, UNIQUE(job_id,seq)"
         text storage_key UK
         text signature_variant "NULL, Q5 A/B"
         boolean is_selected
@@ -226,7 +226,7 @@ erDiagram
 | `credit_cost` | INT | NOT NULL DEFAULT 1 | |
 | `status` | TEXT | NOT NULL, CHECK IN (`draft`,`public`,`ab`,`retired`) | |
 | `sort_order` | INT | NOT NULL DEFAULT 0 | 시즌 섹션 노출 순서(W-11에서 운영이 조정) |
-| `output_count` | INT | NOT NULL DEFAULT 4 | Q4 결정값 |
+| `output_count` | INT | NOT NULL DEFAULT 1 | **Q4 확정(2026-08-04): 1요청 1장.** 컬럼은 산출 수 상향 대비로 유지 |
 | `avg_seconds` | INT | NOT NULL DEFAULT 24 | |
 | `progress_message` | TEXT | NULL | W-05 스타일별 진행 문구 |
 | `fit_tags` | JSONB | NOT NULL DEFAULT `[]` | 적합도 태그(소형견◎ 등) |
@@ -296,7 +296,7 @@ erDiagram
 |---|---|---|---|
 | `id` | UUID | PK | |
 | `job_id` | UUID | FK → `generation_job.id`, NOT NULL | |
-| `seq` | INT | NOT NULL | 1~4 |
+| `seq` | INT | NOT NULL | 항상 1(Q4 — 1요청 1장). 컬럼·UNIQUE 제약은 상향 대비 유지 |
 | `storage_key` | TEXT | UNIQUE, NOT NULL | 서명 합성 완료본(06-architecture §4) |
 | `signature_variant` | TEXT | NULL | Q5 서명 A/B 실험용 |
 | `is_selected` | BOOLEAN | NOT NULL DEFAULT false | |
@@ -467,7 +467,7 @@ erDiagram
 | | 견종 추정 | `source_image.breed_estimate` |
 | W-05 대기 (`#p05`) | 진행률·잔여초 | `generation_job.status/queued_at/started_at`(서버 계산, 저장 컬럼 아님) |
 | | 진행 문구 | `style.progress_message` |
-| W-06 결과 (`#p06`) | 결과 4장·서명 | `generation_result.storage_key/seq/signature_variant` |
+| W-06 결과 (`#p06`) | 결과 1장·서명 | `generation_result.storage_key/seq/signature_variant` |
 | | 선택 상태 | `generation_result.is_selected` |
 | | 계산기 배너 견종 | `pet_profile.breed_code/breed_label` 또는 `source_image.breed_estimate` |
 | | 계정 연동 지급 | `credit_ledger`(`reason=link_account`) |
