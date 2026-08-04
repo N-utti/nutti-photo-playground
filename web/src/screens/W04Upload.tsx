@@ -223,6 +223,12 @@ export default function W04Upload() {
           required={insufficient.required}
           balance={insufficient.balance}
           onClose={() => setInsufficient(null)}
+          // §4 시나리오3 4단계 — 크레딧을 받았으면 시트를 닫고 **같은 키로** 재시도합니다.
+          // startGeneration 이 resumeJobAttempt 를 먼저 보므로 키는 자동으로 이어집니다.
+          onRetry={() => {
+            setInsufficient(null)
+            startGeneration()
+          }}
         />
       )}
     </div>

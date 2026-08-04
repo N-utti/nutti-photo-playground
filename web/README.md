@@ -27,7 +27,7 @@ localStorage.setItem('nutti.mock.scenario', 'upload:warn')  // 품질 경고(비
 localStorage.setItem('nutti.mock.scenario', 'upload:block') // 고양이 감지(차단)
 localStorage.setItem('nutti.mock.scenario', 'job:fail')     // GENERATION_FAILED + 크레딧 반환
 localStorage.setItem('nutti.mock.scenario', 'job:safety')   // SAFETY_BLOCKED
-localStorage.setItem('nutti.mock.scenario', 'credit:empty') // 402 INSUFFICIENT_CREDIT
+localStorage.setItem('nutti.mock.scenario', 'credit:empty') // 잔액 0에서 시작 → 402 → 시트에서 받고 재시도
 localStorage.setItem('nutti.mock.scenario', 'session:expired') // 게스트 토큰 만료 → 재발급 → 404 (복원 실패 안내)
 localStorage.removeItem('nutti.mock.scenario')              // 정상
 ```
@@ -58,7 +58,7 @@ src/
 | Phase 0 | 스택 확정 · `web/` 배치 · 백엔드 차단 이슈 등록 | 완료 |
 | Phase 1 | 목 서버 · API 클라이언트 · 라우팅 골격 | 완료 |
 | Phase 2 | 핵심 플로우 W-01→W-02→W-03→W-04→W-05→W-06 | 완료 |
-| Phase 3 | 출구 3갈래 + 크레딧 (W-06 공유/쇼핑몰, W-07, W-10, 402 흐름) | W-06 출구 3갈래·402 오버레이 완료 · W-07/W-10 미착수 |
+| Phase 3 | 출구 3갈래 + 크레딧 (W-06 공유/쇼핑몰, W-07, W-10, 402 흐름) | W-06 출구 3갈래·W-10·402 인라인 흐름 완료 · **W-07 남음** |
 | Phase 4 | 계정·보관함 (W-06 B 로그인 시트, 콜백, W-09) | W-06 B 시트(카페24만) · 콜백/W-09 미착수 |
 | Phase 5 | W-08 크리에이티브 · W-11 운영 콘솔(번들 분리) | 미착수 |
 | Phase 6 | GA4 크로스도메인 · UTM · 이벤트 비콘 | 미착수 |
