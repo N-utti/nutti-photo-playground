@@ -7,7 +7,7 @@
  *
  * 반영한 노트:
  *   1. 비교 슬라이더 — 변환본만으로는 "우리 애가 맞나" 판단이 안 됩니다
- *   2. 4장 중 선택
+ *   2. ~~4장 중 선택~~ — Q4 확정(1요청 1장, 이슈 #26)으로 사문화. 정오표 E-05
  *   3. 공유가 주 버튼, 저장이 보조 (v0.2에서 뒤집힘)
  *   4. 누띠 서명은 **서버가 이미지에 합성**해 내려줍니다(§2) — 프론트가 그리지 않습니다
  *   6. 출구 셋을 감정 최고점에 모읍니다
@@ -170,7 +170,11 @@ function ResultPanel({ job }: { job: Job }) {
       {/* 출구 1 — 공유가 주 버튼(노트3). */}
       <ShareRow job={job} />
 
-      <Regenerate job={job} label="다시 만들기" />
+      <Regenerate
+        job={job}
+        label="다시 만들기"
+        hint="결과는 매번 달라져요 — 마음에 안 들면 다시 만들어 보세요"
+      />
 
       {/* 출구 2 — 계산기(W-07 배선). */}
       <CalculatorBanner jobId={job.job_id} />
@@ -338,7 +342,7 @@ function ShareRow({ job }: { job: Job }) {
 
 // ---------------------------------------------------------------- 다시 만들기 (FR-W06-04)
 
-function Regenerate({ job, label }: { job: Job; label: string }) {
+function Regenerate({ job, label, hint }: { job: Job; label: string; hint?: string }) {
   const navigate = useNavigate()
   // 서버가 style_id·upload_id 를 주면 그 값이, 아직이면 로컬 색인이 답합니다(이슈 #9).
   const context = resolveJobContext(job.job_id, job)
@@ -410,10 +414,21 @@ function Regenerate({ job, label }: { job: Job; label: string }) {
         type="button"
         onClick={regenerate}
         disabled={createJob.isPending}
-        className="mt-2 w-full rounded-xl border border-rule px-4 py-3 text-sm font-semibold text-ink-2 disabled:opacity-50"
+        className="mt-2 w-full rounded-xl border border-rule-strong bg-surface px-4 py-3 text-sm font-semibold disabled:opacity-50"
       >
         {createJob.isPending ? '보내는 중…' : `${label} · ${cost} 크레딧`}
       </button>
+
+      {/*
+        1요청 1장(Q4 확정)이 되면서 이 버튼이 **"다른 결과"로 가는 유일한 경로**가
+        됐습니다(이슈 #26). 마음에 안 들 때 고를 썸네일이 없어졌으니, 재생성이
+        가능하다는 사실 자체를 말해 주지 않으면 그냥 이탈합니다.
+
+        다만 버튼 위계는 그대로 둡니다 — 공유가 주 버튼인 건 이 화면의 목적이고
+        (FR-W06-03·노트3), 재생성을 검정 버튼으로 올리면 유입 동선이 뒤집힙니다.
+        저장과 같은 무게까지만 올리고 나머지는 문구로 해결합니다.
+      */}
+      {hint && <p className="mt-1 text-center text-xs text-ink-3">{hint}</p>}
 
       {insufficient && (
         <InsufficientCreditOverlay
