@@ -194,8 +194,13 @@ AWS 표준 아웃바운드 요율(프리티어 소진 후 일반적으로 알려
 | `CAFE24_CLIENT_ID` / `CAFE24_CLIENT_SECRET` | 카페24 OAuth 앱 자격증명 | |
 | `CAFE24_MALL_ID` | 카페24 몰 ID | `cafe24_oauth_token.mall_id`와 매칭 |
 | `CAFE24_REDIRECT_URI` | OAuth 콜백 URL | |
-| `KAKAO_REST_API_KEY` | 카카오 로그인(보조) REST API 키 | Q8: 보조 로그인용 |
-| `KAKAO_REDIRECT_URI` | 카카오 OAuth 콜백 URL | |
+| `KAKAO_REST_API_KEY` | 카카오 로그인 REST API 키(client_id 역할) | ADR-11: 로그인 3종 중 하나 |
+| `KAKAO_CLIENT_SECRET` | 카카오 토큰 교환 시크릿(카카오 콘솔에서 활성화한 경우만) | 선택 — 빈 값이면 생략 |
+| `KAKAO_REDIRECT_URI` | 카카오 OAuth 콜백 — **프론트 라우트**(`/auth/callback/kakao`) | 05-api-spec §3 OAuth 공통 규칙 |
+| `NAVER_CLIENT_ID` / `NAVER_CLIENT_SECRET` | 네이버 로그인 앱 자격증명 | ADR-11 |
+| `NAVER_REDIRECT_URI` | 네이버 OAuth 콜백 — 프론트 라우트(`/auth/callback/naver`) | |
+| `TRUST_PROXY` | `X-Forwarded-For` 신뢰 여부(기본 `false`) | 아래 프록시 전환 체크리스트 필독 |
+| `GUEST_RATE_LIMIT_PER_HOUR` | 게스트 발급 IP당 시간당 한도(기본 30) | 인메모리 — 워커 수만큼 배가됨(이슈 #15) |
 | `ADMIN_ALERT_SLACK_WEBHOOK_URL` | 관리자 알림(토큰 만료·백업 실패·헬스체크 다운) | §6.1, §9 |
 | `SENTRY_DSN` | 에러 트래킹(§9) | |
 | `GA4_MEASUREMENT_ID` | GA4 속성 ID(§10) | |
@@ -203,6 +208,15 @@ AWS 표준 아웃바운드 요율(프리티어 소진 후 일반적으로 알려
 | `APP_ENV` | `production` \| `staging` | |
 | `CORS_ALLOWED_ORIGINS` | 허용 오리진(놀이터 서브도메인, 쇼핑몰) | |
 | `LOG_LEVEL` | 로그 레벨 | |
+
+### 프록시 전환 체크리스트 (이슈 #15 · #11 N2)
+
+현 MVP 토폴로지는 `api`가 8000 포트를 **직접 노출**하므로 `TRUST_PROXY=false`가 정답이다(소켓 IP = 실클라이언트). **리버스 프록시/LB를 도입하는 시점**에 아래를 함께 하지 않으면 게스트 레이트리밋이 "전 사용자 한 버킷"(프록시 IP 하나)으로 오동작한다:
+
+1. `TRUST_PROXY=true` 설정
+2. uvicorn에 `--proxy-headers --forwarded-allow-ips=<프록시 IP>` 병행
+3. 프록시가 `X-Forwarded-For`를 **반드시 append/overwrite** 하는지 확인 — 안 하면 클라이언트 위조 XFF가 그대로 신뢰되어 레이트리밋 우회(PR #8 H1)가 재현된다
+4. 기동 로그의 `trust_proxy=... guest_rate_limit_per_hour=...` 라인으로 배포 후 설정 상태 확인
 
 ---
 
