@@ -49,6 +49,9 @@ interface MockJob {
   id: string
   createdAt: number
   creditCost: number
+  /** 재료 참조(이슈 #9 A안) — 스펙 §3 이 job 응답에 그대로 싣기로 확정한 값입니다. */
+  styleId: number | null
+  uploadId: string
   forcedError: JobErrorCode | null
   selectedIndex: number | null
 }
@@ -171,12 +174,15 @@ function apiError(status: number, code: string, message: string, detail: unknown
 function projectJob(job: MockJob): Job {
   const elapsed = Date.now() - job.createdAt
   const sourceImageUrl = placeholderImage('원본')
+  // 어느 상태에서든 실립니다 — W-06 "다시 만들기"는 실패한 job 에서도 눌리기 때문입니다.
+  const materials = { style_id: job.styleId, upload_id: job.uploadId }
 
   if (elapsed >= JOB_DURATION_MS) {
     if (job.forcedError) {
       return {
         job_id: job.id,
         status: 'failed',
+        ...materials,
         progress: null,
         eta_seconds: null,
         status_message: null,
@@ -189,6 +195,7 @@ function projectJob(job: MockJob): Job {
     return {
       job_id: job.id,
       status: 'succeeded',
+      ...materials,
       progress: 100,
       eta_seconds: 0,
       status_message: null,
@@ -206,6 +213,7 @@ function projectJob(job: MockJob): Job {
     return {
       job_id: job.id,
       status: 'queued',
+      ...materials,
       progress: 0,
       eta_seconds: Math.ceil(JOB_DURATION_MS / 1000),
       status_message: '대기 중…',
@@ -220,6 +228,7 @@ function projectJob(job: MockJob): Job {
   return {
     job_id: job.id,
     status: 'processing',
+    ...materials,
     progress: Math.floor(ratio * 100),
     eta_seconds: Math.ceil((JOB_DURATION_MS - elapsed) / 1000),
     status_message: '레고 블록을 쌓는 중…',
@@ -373,13 +382,35 @@ export const handlers = [
   http.get(`${BASE}/pets`, () => HttpResponse.json({ items: petList })),
 
   http.post(`${BASE}/pets`, async ({ request }) => {
-    const { name } = (await request.json()) as { name: string }
-    const pet = { id: crypto.randomUUID(), name, thumbnail_url: placeholderImage(name) }
+    const { name, upload_id } = (await request.json()) as { name: string; upload_id: string }
+    const pet = {
+      id: crypto.randomUUID(),
+      name,
+      thumbnail_url: placeholderImage(name),
+      // 방금 올린 사진이 곧 이 펫의 최근 업로드입니다 — 다음 방문에서 스킵이 성립합니다.
+      latest_upload_id: upload_id ?? null,
+    }
     petList.push(pet)
     return HttpResponse.json(pet, { status: 201 })
   }),
 
-  http.delete(`${BASE}/pets/:petId`, () => new HttpResponse(null, { status: 204 })),
+  // W-12 C 섹션(FR-W12-03). 목록 배열을 실제로 고쳐야 화면 갱신이 확인됩니다.
+  http.patch(`${BASE}/pets/:petId`, async ({ params, request }) => {
+    const pet = petList.find((item) => item.id === String(params.petId))
+    if (!pet) return apiError(404, 'NOT_FOUND', '강아지를 찾을 수 없습니다')
+    const { name } = (await request.json()) as { name: string }
+    pet.name = name
+    return HttpResponse.json(pet)
+  }),
+
+  http.delete(`${BASE}/pets/:petId`, ({ params }) => {
+    const index = petList.findIndex((item) => item.id === String(params.petId))
+    if (index === -1) return apiError(404, 'NOT_FOUND', '강아지를 찾을 수 없습니다')
+    petList.splice(index, 1)
+    // 결과물은 지우지 않습니다 — `source_image.pet_profile_id` 만 NULL 이 되고 보관함에
+    // 남는 게 확정된 동작입니다(이슈 #12 결정4).
+    return new HttpResponse(null, { status: 204 })
+  }),
 
   // ------------------------------------------------------------ 생성 job
   http.post(`${BASE}/jobs`, async ({ request }) => {
@@ -393,7 +424,11 @@ export const handlers = [
     const existing = state.idempotency.get(key)
     if (existing) return HttpResponse.json({ job_id: existing, status: 'queued' }, { status: 202 })
 
-    const body = (await request.json()) as { custom_prompt: string | null }
+    const body = (await request.json()) as {
+      custom_prompt: string | null
+      style_id: number | null
+      upload_id: string
+    }
     const cost = body.custom_prompt ? 2 : 1
 
     applyEmptyScenario()
@@ -409,6 +444,8 @@ export const handlers = [
       id: crypto.randomUUID(),
       createdAt: Date.now(),
       creditCost: cost,
+      styleId: body.style_id,
+      uploadId: body.upload_id,
       forcedError:
         forced === 'job:fail' ? 'GENERATION_FAILED' : forced === 'job:safety' ? 'SAFETY_BLOCKED' : null,
       selectedIndex: null,

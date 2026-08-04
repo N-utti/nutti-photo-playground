@@ -141,9 +141,25 @@ export const uploadBlocked: UploadResult = {
 
 // ---------------------------------------------------------------- 펫 · 크레딧 · 보관함
 
+/**
+ * `latest_upload_id` 를 한쪽만 채웁니다(이슈 #9 A안).
+ *
+ * 둘 다 값이 있으면 "업로드 만료·삭제로 스킵이 안 되는" 경로(FR-W04-02 폴백)를 목
+ * 위에서 한 번도 못 밟습니다 — 콩이는 바로 만들기, 두부는 사진을 새로 올리는 쪽입니다.
+ */
 export const petList: Pet[] = [
-  { id: 'b6f9e6b0-0000-4000-8000-000000000001', name: '콩이', thumbnail_url: placeholderImage('콩이') },
-  { id: 'd1a2b3c4-0000-4000-8000-000000000002', name: '두부', thumbnail_url: placeholderImage('두부') },
+  {
+    id: 'b6f9e6b0-0000-4000-8000-000000000001',
+    name: '콩이',
+    thumbnail_url: placeholderImage('콩이'),
+    latest_upload_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+  },
+  {
+    id: 'd1a2b3c4-0000-4000-8000-000000000002',
+    name: '두부',
+    thumbnail_url: placeholderImage('두부'),
+    latest_upload_id: null,
+  },
 ]
 
 export const initialCredits: Credits = {

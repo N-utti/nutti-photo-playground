@@ -1,11 +1,16 @@
 /**
  * job 을 만들 때 쓴 재료(스타일·업로드)를 job_id 로 되찾기 위한 로컬 색인.
  *
- * 왜 필요한가: `GET /v1/jobs/{job_id}` 응답에 `style_id` 도 `upload_id` 도 없습니다
- * (05-api-spec §3). 그런데 W-06 의 "다시 만들기"(FR-W06-04, P0)와 "이 사진으로 다른
- * 스타일"(FR-W06-07)은 둘 다 그 두 값을 요구합니다 — 결과 화면만 보고는 무엇으로
- * 무엇을 만들었는지 알 수 없어 재생성이 불가능합니다. 백엔드 이슈로 올렸고, 응답에
- * 두 필드가 붙으면 이 파일은 통째로 지웁니다.
+ * 왜 필요한가: `GET /v1/jobs/{job_id}` 응답에 `style_id` 도 `upload_id` 도 없었습니다.
+ * 그런데 W-06 의 "다시 만들기"(FR-W06-04, P0)와 "이 사진으로 다른 스타일"
+ * (FR-W06-07)은 둘 다 그 두 값을 요구합니다 — 결과 화면만 보고는 무엇으로 무엇을
+ * 만들었는지 알 수 없어 재생성이 불가능합니다.
+ *
+ * **현재 상태(이슈 #9)**: A안이 채택돼 §3 에는 `style_id`·`upload_id` 가 들어갔지만
+ * 백엔드 구현은 아직 올라오지 않았습니다. 그래서 읽는 쪽은 `resolveJobContext` 로
+ * **서버 값을 먼저 보고 없을 때만 이 색인**을 씁니다. 구현이 착지하면 남는 용도는
+ * `customPrompt` 하나뿐이며(아래 주석 참고) 그것까지 응답에 실리면 이 파일과
+ * `rememberJobContext` 호출부를 함께 지웁니다.
  *
  * localStorage 인 이유: 게스트 복원 자체가 **동일 브라우저 한정**이고(이슈 #5 PO
  * 결정, 30일) 세션 토큰도 localStorage 에 있습니다. 탭을 닫았다 URL 로 돌아오는 게
@@ -56,4 +61,30 @@ export function rememberJobContext(jobId: string, context: JobContext): void {
 
 export function readJobContext(jobId: string): JobContext | null {
   return readMap()[jobId] ?? null
+}
+
+/**
+ * 재생성 재료의 단일 진입점 — **서버 우선, 로컬 폴백**(이슈 #9).
+ *
+ * `job.upload_id` 가 오면 그 값이 진실입니다. 로컬 색인은 이 브라우저에서 만든
+ * job 에만 있으므로, 서버가 답하기 시작하면 다른 기기·다른 탭에서 연 결과도
+ * 재생성할 수 있게 됩니다.
+ *
+ * `customPrompt` 만 예외적으로 로컬을 계속 봅니다 — job 응답에 `custom_prompt` 가
+ * 없어서(§3) 서버 값만으로는 W-08 커스텀 job 을 같은 문구로 다시 돌릴 수도, 비용
+ * 2크레딧을 맞게 표시할 수도 없습니다. 이 갭은 이슈 #9 에 남겼습니다.
+ */
+export function resolveJobContext(
+  jobId: string,
+  job?: { style_id?: number | null; upload_id?: string; source_image_url?: string } | null,
+): JobContext | null {
+  const local = readJobContext(jobId)
+  if (!job?.upload_id) return local
+
+  return {
+    styleId: job.style_id ?? null,
+    uploadId: job.upload_id,
+    sourceImageUrl: job.source_image_url ?? local?.sourceImageUrl ?? null,
+    customPrompt: local?.customPrompt ?? null,
+  }
 }

@@ -180,6 +180,16 @@ export interface Pet {
   id: string
   name: string
   thumbnail_url: string
+  /**
+   * 이 펫에 연결된 가장 최근 `source_image` id (이슈 #9 A안, §3).
+   * 값이 있으면 W-04 에서 **업로드 단계를 건너뛰고** 그대로 `POST /v1/jobs` 의
+   * `upload_id` 로 씁니다(FR-W04-02). 연결된 업로드가 만료·삭제됐으면 `null`.
+   *
+   * 옵셔널인 이유: 스펙(§3)에는 확정됐지만 백엔드 구현이 아직 안 올라왔습니다
+   * (app/routers/pets.py). 필드가 없으면 스킵을 제안하지 않고 기존 동작(이번
+   * 업로드에 펫 태깅)으로 떨어집니다 — 구현이 착지하면 `?`만 떼면 됩니다.
+   */
+  latest_upload_id?: string | null
 }
 
 // ---------------------------------------------------------------- 생성 job
@@ -198,6 +208,16 @@ export interface JobResultImage {
 export interface Job {
   job_id: string
   status: JobStatus
+  /**
+   * 이 job 을 만든 재료 참조 (이슈 #9 A안, §3). W-06 "다시 만들기"(FR-W06-04)와
+   * "이 사진으로 다른 스타일"(FR-W06-07)이 이 둘로 `POST /v1/jobs` 를 재조립합니다.
+   * 커스텀 프롬프트 job 은 `style_id: null`.
+   *
+   * `Pet.latest_upload_id` 와 같은 이유로 옵셔널입니다 — 백엔드 미구현 구간에서는
+   * api/jobContext.ts 의 localStorage 색인이 대신 답합니다(resolveJobContext).
+   */
+  style_id?: number | null
+  upload_id?: string
   /** 진행 중에만 값이 있고 실패 시 null. */
   progress: number | null
   eta_seconds: number | null

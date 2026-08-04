@@ -213,6 +213,23 @@ export function useJobPolling(jobId: string | null) {
   })
 }
 
+/**
+ * 폴링 없이 한 번만 읽습니다 — W-04 가 `?from_job=` 으로 들어왔을 때 재생성 재료
+ * (`style_id`·`upload_id`, 이슈 #9)를 서버에서 확인하는 용도입니다. 폴링과 같은
+ * 캐시 키를 쓰므로 방금 보던 job 이면 요청이 다시 나가지 않습니다.
+ */
+export function useJob(jobId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.job(jobId ?? ''),
+    queryFn: ({ signal }) => jobs.get(jobId as string, signal),
+    enabled: jobId !== null,
+    retry: (failureCount, error) => {
+      if (error instanceof ApiError && error.status < 500) return false
+      return failureCount < 2
+    },
+  })
+}
+
 /** 썸네일 선택(§3). 서버 확정값을 캐시에 되꽂아 W-06 의 "4장 중 N번"과 어긋나지 않게 합니다. */
 export function useSelectResult(jobId: string) {
   const client = useQueryClient()
@@ -285,6 +302,31 @@ export function useCreatePet() {
     mutationFn: ({ name, uploadId }: { name: string; uploadId: string }) =>
       pets.create(name, uploadId),
     onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.pets }),
+  })
+}
+
+/** W-12 C 섹션 · FR-W12-03. 목록만 바뀌므로 무효화 대상도 pets 하나입니다. */
+export function useRenamePet() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ petId, name }: { petId: string; name: string }) => pets.rename(petId, name),
+    onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.pets }),
+  })
+}
+
+/**
+ * 펫 삭제(FR-W12-03). 결과물은 남고 `source_image.pet_profile_id` 만 NULL 이 됩니다
+ * (이슈 #12 결정4) — 그래서 보관함 캐시도 함께 무효화합니다. 강아지 단위 필터에서
+ * 이 펫이 사라지고 해당 결과가 "전체"로만 보이게 되기 때문입니다.
+ */
+export function useDeletePet() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (petId: string) => pets.remove(petId),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: queryKeys.pets })
+      client.invalidateQueries({ queryKey: ['library'] })
+    },
   })
 }
 

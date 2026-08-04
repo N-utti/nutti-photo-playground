@@ -21,20 +21,10 @@
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import { Link } from 'react-router'
 import { events } from '../api/endpoints'
-import { useLogout, useMe, useStyles } from '../api/queries'
-import type { Me, StyleCard } from '../api/types'
+import { useMe, useStyles } from '../api/queries'
+import { memberLabel } from '../app/memberIdentity'
+import type { StyleCard } from '../api/types'
 import AccountSheet from './AccountSheet'
-
-/**
- * 회원 표시명. `nickname` 은 소셜 프로필에서만 오므로(이슈 #12) 로컬 전용 회원은
- * 항상 null 입니다 — 그때 이메일 전체를 헤더에 박으면 남에게 보이는 화면에 계정
- * 아이디가 그대로 노출되므로 앞부분만 씁니다(§3 인증 폴백 규칙).
- */
-function memberLabel(me: Me): string {
-  if (me.nickname) return `${me.nickname}님`
-  const local = me.email?.split('@')[0]
-  return local ? `${local}님` : '내 계정'
-}
 
 /** 브랜드 촬영본이 없어 자리표시자입니다 — public/hero/*.svg 주석 참고. */
 const HERO_BEFORE = '/hero/before.svg'
@@ -48,7 +38,6 @@ export default function W01Landing() {
   const { data, isPending, isError } = useStyles({ section: 'popular', limit: PREVIEW_COUNT })
   const { data: me } = useMe()
   const [loginSheet, setLoginSheet] = useState(false)
-  const [logoutConfirm, setLogoutConfirm] = useState(false)
   const popular = data?.sections[0]?.styles ?? []
 
   return (
@@ -67,15 +56,11 @@ export default function W01Landing() {
             보입니다.
           */}
           {me?.kind === 'member' ? (
-            // 로그인만 있고 나갈 길이 없으면 이 브라우저에서 계정을 영영 못 바꿉니다.
-            // 마이페이지(ADR-11 후속)가 생기면 그쪽으로 옮길 최소 진입점입니다.
-            <button
-              type="button"
-              onClick={() => setLogoutConfirm(true)}
-              className="max-w-32 truncate text-sm text-ink-2 underline"
-            >
+            // 로그아웃·펫 관리·연동은 이제 마이페이지(W-12)의 것입니다. 랜딩 헤더는
+            // 그 문으로만 남습니다 — 이 라벨이 곧바로 로그아웃이던 임시 상태를 끝냅니다.
+            <Link to="/me" className="max-w-32 truncate text-sm text-ink-2 underline">
               {memberLabel(me)}
-            </button>
+            </Link>
           ) : me?.kind === 'guest' ? (
             <button
               type="button"
@@ -94,8 +79,6 @@ export default function W01Landing() {
           description="로그인하면 만든 결과가 보관함에 쌓이고, 크레딧을 이어서 쓸 수 있어요."
         />
       )}
-
-      {logoutConfirm && <LogoutConfirm onClose={() => setLogoutConfirm(false)} />}
 
       <main className="mx-auto w-full max-w-(--container-canvas) px-4 pb-16">
         {/* 모바일은 헤드라인 → 슬라이더 → CTA 세로 순서, 데스크톱은 좌(문구·CTA)/우(슬라이더). */}
@@ -156,61 +139,6 @@ export default function W01Landing() {
           )}
         </section>
       </main>
-    </div>
-  )
-}
-
-/**
- * 로그아웃 확인.
- *
- * 확인을 한 겹 두는 이유: 헤더 라벨은 마이페이지가 생기기 전의 임시 자리라 "내 계정을
- * 보려고" 누르는 사람이 있습니다. 그 클릭이 곧바로 로그아웃이면 로컬 계정 사용자는
- * 비밀번호를 기억 못 할 경우 되돌아올 방법이 없습니다(이슈 #17).
- */
-function LogoutConfirm({ onClose }: { onClose: () => void }) {
-  const logout = useLogout()
-
-  return (
-    <div className="fixed inset-0 z-30 flex items-end justify-center desktop:items-center">
-      <button
-        type="button"
-        aria-label="닫기"
-        onClick={onClose}
-        className="absolute inset-0 cursor-default bg-ink/40"
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="logout-title"
-        className="relative w-full rounded-t-2xl bg-surface p-5 desktop:max-w-sm desktop:rounded-2xl"
-      >
-        <h2 id="logout-title" className="text-base font-bold">
-          로그아웃할까요?
-        </h2>
-        <p className="mt-1 text-sm text-ink-2">
-          이 브라우저는 다시 게스트로 시작해요. 계정에 쌓인 결과와 크레딧은 그대로 있고,
-          다시 로그인하면 이어서 쓸 수 있어요.
-        </p>
-
-        <button
-          type="button"
-          disabled={logout.isPending}
-          onClick={() => logout.mutate(undefined, { onSuccess: onClose })}
-          className="mt-4 w-full rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-paper disabled:opacity-50"
-        >
-          {logout.isPending ? '로그아웃 중…' : '로그아웃'}
-        </button>
-
-        {logout.isError && (
-          <p role="alert" className="mt-2 text-center text-sm text-danger">
-            로그아웃은 됐지만 새 게스트 세션을 받지 못했어요. 잠시 뒤 새로고침해 주세요.
-          </p>
-        )}
-
-        <button type="button" onClick={onClose} className="mt-2 w-full py-2 text-sm text-ink-3">
-          취소
-        </button>
-      </div>
     </div>
   )
 }
