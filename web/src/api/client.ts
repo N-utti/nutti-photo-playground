@@ -74,6 +74,25 @@ export const session = {
  */
 export const GUEST_SESSION_RESET_EVENT = 'nutti:guest-session-reset'
 
+/**
+ * 재발급으로 풀리지 않는 401(UNAUTHORIZED)이 왔을 때 발행됩니다.
+ *
+ * 백엔드는 만료(TOKEN_EXPIRED)와 그 외 무효를 구분해서 내려줍니다(app/auth.py). 병합된
+ * 게스트 토큰·kind 불일치·위조는 전부 UNAUTHORIZED 이고, 이건 새 토큰을 받아도 같은
+ * 결과가 아니라 **다른 사람이 되는 것**이라 자동 재발급 대상이 아닙니다. 화면이 사용자
+ * 의사를 물어야 하므로 여기서는 알리기만 합니다.
+ */
+export const SESSION_LOST_EVENT = 'nutti:session-lost'
+
+/**
+ * 게스트 발급이 429 로 막혔을 때 발행됩니다.
+ *
+ * 서버는 IP 당 시간당 발급 횟수를 제한합니다(app/routers/auth.py `_check_guest_rate_limit`).
+ * 막히면 앱은 토큰 없이 뜨고 이후 모든 요청이 401 이므로, 조용히 넘기면 사용자는 전부
+ * 고장난 화면만 보게 됩니다.
+ */
+export const GUEST_RATE_LIMITED_EVENT = 'nutti:guest-rate-limited'
+
 // ---------------------------------------------------------------- 요청
 
 interface RequestOptions {
@@ -133,6 +152,16 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       await reissueGuestSession()
       return request<T>(path, { ...options, _retried: true })
     }
+
+    // 만료가 아닌 401 은 재발급으로 풀리지 않습니다. 서버가 거절한 토큰을 들고 있으면
+    // 이후 모든 요청이 같은 401 이므로 지우고, 다음 행동은 화면이 사용자에게 묻습니다.
+    //
+    // OAuth 경로는 예외입니다 — 거기서의 401 은 state 검증 실패라서(app/routers/auth.py)
+    // 토큰이 죽었다는 뜻이 아닙니다. 로그인에 실패했다고 게스트 자산까지 버리면 안 됩니다.
+    if (parsed.code === 'UNAUTHORIZED' && token && !path.startsWith('/auth/cafe24/')) {
+      session.clear()
+      window.dispatchEvent(new CustomEvent(SESSION_LOST_EVENT))
+    }
     throw parsed
   }
 
@@ -157,9 +186,24 @@ async function parseErrorBody(response: Response): Promise<ApiError> {
  */
 async function reissueGuestSession(): Promise<void> {
   session.clear()
-  const fresh = await request<GuestSession>('/auth/guest', { method: 'POST', _retried: true })
+  const fresh = await issueGuestSession()
   session.set(fresh.token, 'guest')
   window.dispatchEvent(new CustomEvent(GUEST_SESSION_RESET_EVENT))
+}
+
+/**
+ * 게스트 발급 1회. 429 는 삼키지 않고 알린 뒤 그대로 던집니다 — 여기서 재시도하면
+ * 서버의 시간당 카운터만 더 태워서 잠긴 시간이 길어집니다.
+ */
+async function issueGuestSession(): Promise<GuestSession> {
+  try {
+    return await request<GuestSession>('/auth/guest', { method: 'POST', _retried: true })
+  } catch (error) {
+    if (isApiError(error, 'RATE_LIMITED')) {
+      window.dispatchEvent(new CustomEvent(GUEST_RATE_LIMITED_EVENT))
+    }
+    throw error
+  }
 }
 
 /**
@@ -168,6 +212,6 @@ async function reissueGuestSession(): Promise<void> {
  */
 export async function ensureSession(): Promise<void> {
   if (session.token) return
-  const guest = await request<GuestSession>('/auth/guest', { method: 'POST' })
+  const guest = await issueGuestSession()
   session.set(guest.token, 'guest')
 }

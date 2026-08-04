@@ -3,7 +3,7 @@
  * 정책·캐싱은 여기 두지 않습니다 — 그건 api/queries.ts.
  */
 
-import { request } from './client'
+import { request, session } from './client'
 import type {
   CalculatorLink,
   ClaimResult,
@@ -29,8 +29,18 @@ import type {
 export const auth = {
   guest: () => request<GuestSession>('/auth/guest', { method: 'POST' }),
 
-  /** 카페24 로그인 페이지로 보내는 302 — fetch 가 아니라 브라우저 이동입니다. */
-  cafe24AuthorizeUrl: () => `${import.meta.env.VITE_API_BASE_URL ?? '/v1'}/auth/cafe24/authorize`,
+  /*
+    로그인 시작(authorize)은 지금 프론트에서 호출할 수 없습니다.
+
+    GET /v1/auth/cafe24/authorize 가 `Authorization: Bearer <게스트 토큰>` 을 요구하고
+    (app/routers/auth.py) 302 로 cafe24api.com 에 넘깁니다. 브라우저 이동은 헤더를 실을
+    수 없어 무조건 401 이고, fetch 로 부르면 cross-origin 302 라 Location 을 읽을 수
+    없습니다(redirect:'manual' → opaqueredirect). 즉 두 방식 다 성립하지 않습니다.
+
+    ADR-11/PR #13 이 이 엔드포인트를 200 `{authorize_url}` 로 바꾸기로 했으므로, 배선은
+    그 구현이 올라온 뒤 fetch → location.href 패턴으로 추가합니다. 그때까지 링크를 두면
+    100% 실패하는 버튼이 되므로 화면에서도 뺐습니다.
+  */
 
   cafe24Callback: (code: string, state: string) =>
     request<MemberSession>('/auth/cafe24/callback', { query: { code, state } }),
@@ -40,7 +50,17 @@ export const auth = {
 
   me: () => request<Me>('/auth/me'),
 
-  logout: () => request<void>('/auth/logout', { method: 'POST' }),
+  /**
+   * 서버는 204 만 주고 토큰을 무효화하지 않습니다(app/routers/auth.py `logout`) —
+   * 실제 로그아웃은 로컬 토큰 삭제 쪽입니다. 서버 호출이 실패해도 반드시 지웁니다.
+   */
+  logout: async () => {
+    try {
+      await request<void>('/auth/logout', { method: 'POST' })
+    } finally {
+      session.clear()
+    }
+  },
 }
 
 // ---------------------------------------------------------------- 스타일

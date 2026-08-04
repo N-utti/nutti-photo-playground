@@ -18,14 +18,14 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { ApiError, isApiError, session } from '../api/client'
-import { auth, events } from '../api/endpoints'
+import { events } from '../api/endpoints'
 import { beginJobAttempt, clearJobAttempt } from '../api/idempotency'
 import { readJobContext, rememberJobContext } from '../api/jobContext'
+import { CreditBadge } from '../app/CreditBadge'
 import {
   invalidateAfterJobSettled,
   useCalculatorLink,
   useCreateJob,
-  useCredits,
   useJobPolling,
   useSelectResult,
   useShareJob,
@@ -69,7 +69,6 @@ export default function W06Result() {
   const guestReset = useGuestSessionReset()
 
   const { data: job, error } = useJobPolling(jobId ?? null)
-  const { data: credits } = useCredits()
 
   // 아직 만드는 중인 job 주소로 직접 들어온 경우(Q7 복원 포함)는 대기 화면이 주인입니다.
   useEffect(() => {
@@ -104,9 +103,7 @@ export default function W06Result() {
           ←
         </Link>
         <h1 className="text-base font-bold">{job?.status === 'failed' ? '실패' : '완성'}</h1>
-        <span className="ml-auto rounded-full border border-rule bg-surface-2 px-3 py-1 font-mono text-sm tabular-nums">
-          ◆ {Math.max(0, credits?.balance ?? 0)}
-        </span>
+        <CreditBadge />
       </header>
 
       <main className="mx-auto w-full max-w-md px-4 py-4">
@@ -385,18 +382,23 @@ function AccountLinkSheet({ onClose }: { onClose: () => void }) {
         </h2>
         <p className="mt-1 text-sm text-ink-2">보관함에 저장하고 크레딧을 받으세요.</p>
 
-        {/* 노트5 — 카페24 쇼핑몰 계정이 곧 회원 DB. fetch 가 아니라 브라우저 이동입니다. */}
-        <a
-          href={auth.cafe24AuthorizeUrl()}
-          className="mt-4 block rounded-xl bg-ink px-4 py-3 text-center text-sm font-semibold text-paper"
+        {/*
+          노트5 — 카페24 쇼핑몰 계정이 곧 회원 DB. 다만 로그인을 **시작할** 경로가 아직
+          없습니다: authorize 가 Authorization 헤더를 요구해 브라우저 이동으로는 401 이고
+          fetch 로는 302 를 따라갈 수 없습니다(api/endpoints.ts `auth` 주석). ADR-11/PR #13
+          이 200 `{authorize_url}` 로 바꾸기로 했으니 그 구현 후 배선합니다.
+        */}
+        <button
+          type="button"
+          disabled
+          className="mt-4 w-full rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-paper disabled:opacity-50"
         >
-          누띠 쇼핑몰 계정으로 로그인
-        </a>
+          누띠 쇼핑몰 계정으로 로그인 (준비 중)
+        </button>
 
         {/*
-          카카오는 아직 배선할 수 없습니다 — POST /v1/auth/kakao 는 `kakao_token` 을
-          요구하는데, 그 토큰을 얻을 경로(JS SDK 키 또는 서버 authorize 리다이렉트)가
-          스펙·환경변수 어디에도 없습니다. 백엔드 이슈로 올렸습니다.
+          카카오도 마찬가지 — POST /v1/auth/kakao 는 501 이고 `kakao_token` 을 얻을 경로가
+          스펙·환경변수 어디에도 없습니다. ADR-11 에서 이 엔드포인트는 삭제 예정입니다.
         */}
         <button
           type="button"

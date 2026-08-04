@@ -29,6 +29,7 @@ async function bootstrap() {
 
   // §4 시나리오1 1단계 — 토큰이 없으면 게스트로 시작합니다.
   // 실패해도 앱은 띄웁니다. 여기서 멈추면 사용자에게 흰 화면만 남습니다.
+  // 발급 제한(429)이면 client.ts 가 이벤트를 쏘고 RootLayout 배너가 사유를 설명합니다.
   await ensureSession().catch((error: unknown) => {
     console.error('게스트 세션 발급 실패', error)
   })

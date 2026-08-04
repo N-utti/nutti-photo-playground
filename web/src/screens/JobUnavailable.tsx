@@ -11,7 +11,6 @@
  */
 
 import { Link } from 'react-router'
-import { auth } from '../api/endpoints'
 import { session } from '../api/client'
 
 export type UnavailableReason = 'guest-reset' | 'not-found' | 'error'
@@ -55,13 +54,14 @@ export default function JobUnavailable({
         새로 만들기
       </Link>
 
-      {/* 기기 간 복원을 원하는 사람에게 지금 줄 수 있는 유일한 답이 계정 연동입니다. */}
+      {/*
+        기기 간 복원을 원하는 사람에게 지금 줄 수 있는 유일한 답이 계정 연동인데,
+        로그인을 시작할 경로가 아직 없습니다(api/endpoints.ts `auth` 주석 — PR #13).
+        링크를 걸면 100% 401 이라 사실만 알리고 링크는 뺍니다.
+      */}
       {isGuest && reason !== 'error' && (
         <p className="mt-4 text-xs text-ink-3">
-          누띠 계정으로 로그인하면 어느 기기에서나 보관함에서 볼 수 있어요.{' '}
-          <a href={auth.cafe24AuthorizeUrl()} className="font-semibold underline">
-            로그인
-          </a>
+          누띠 계정으로 로그인하면 어느 기기에서나 보관함에서 볼 수 있어요. (로그인 준비 중)
         </p>
       )}
     </div>
