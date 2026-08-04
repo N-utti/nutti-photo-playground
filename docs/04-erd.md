@@ -33,6 +33,9 @@ erDiagram
         text kind "guest | member"
         text cafe24_member_id UK "NULL 허용"
         text kakao_id UK "NULL 허용"
+        text naver_id UK "NULL 허용"
+        text email UK "NULL 허용, 로컬 로그인"
+        text password_hash "NULL, 로컬 로그인"
         int credit_balance "캐시, 음수 허용"
         uuid merged_into_id FK "자기참조, NULL"
         timestamptz guest_expires_at "NULL(회원은 NULL)"
@@ -181,7 +184,10 @@ erDiagram
 | `id` | UUID | PK | |
 | `kind` | TEXT | NOT NULL, CHECK IN (`guest`,`member`) | 게스트 테이블을 따로 두지 않음(UC-07) |
 | `cafe24_member_id` | TEXT | UNIQUE, NULL | 회원 전환 시 채워짐 |
-| `kakao_id` | TEXT | UNIQUE, NULL | 보조 로그인(`07-decisions.md#Q8`) |
+| `kakao_id` | TEXT | UNIQUE, NULL | 카카오 로그인 식별자(ADR-11 — 로그인 3종 중 하나) |
+| `naver_id` | TEXT | UNIQUE, NULL | 네이버 로그인 식별자(ADR-11) |
+| `email` | TEXT | UNIQUE, NULL | 로컬 로그인 식별자(ADR-11). 소셜 전용 회원은 NULL |
+| `password_hash` | TEXT | NULL | 로컬 로그인 비밀번호 해시(bcrypt/argon2 — 구현 시 확정). `email`과 함께만 존재 |
 | `credit_balance` | INT | NOT NULL DEFAULT 0 | **캐시**. 원장(`credit_ledger`)이 진실. **음수 허용**(CHECK 제약 없음) — 표시는 `max(0, credit_balance)`, 차감 판정은 `credit_balance >= cost` |
 | `merged_into_id` | UUID | FK → `member.id`(자기참조), NULL | 게스트가 기존 회원에 병합된 경우 대상 회원을 가리킴(UC-07 분기 A) |
 | `guest_expires_at` | TIMESTAMPTZ | NULL | 게스트만 값 존재(가입 시 NULL로 전환). 미병합 게스트 세션·자산의 만료 시점(**30일** — 게스트 JWT 만료와 정렬, FR-EDGE-12·`07-decisions.md#Q7`) |
@@ -190,7 +196,7 @@ erDiagram
 | `order_reward_cutoff` | TIMESTAMPTZ | NULL | 회원이 쇼핑몰 계정을 연동한 시점 — 주문 보상 자격 필터(06-architecture-deployment.md §6.2와 동일 정의, `cafe24_oauth_token.last_synced_at` 워터마크와는 다른 개념) |
 | `created_at` | TIMESTAMPTZ | NOT NULL DEFAULT now() | |
 
-인덱스: `cafe24_member_id`, `kakao_id`(UNIQUE 인덱스가 조회에도 사용됨).
+인덱스: `cafe24_member_id`, `kakao_id`, `naver_id`, `email`(UNIQUE 인덱스가 조회에도 사용됨).
 
 ### 2.2 `pet_profile` — 저장된 강아지
 
