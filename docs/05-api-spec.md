@@ -44,6 +44,9 @@
 | `RATE_LIMITED` | HTTP 에러 | 429 | 요청 빈도 초과 |
 | `INSUFFICIENT_CREDIT` | HTTP 에러 | 402 | `POST /v1/jobs` 시점 크레딧 부족(FR-EDGE-03) |
 | `ALREADY_CLAIMED` | HTTP 에러 | 409 | `POST /v1/credits/claim` 중복 요청 — `credit_ledger.dedupe_key` UNIQUE 충돌([04-erd.md §2.8](04-erd.md)) |
+| `INVALID_CREDENTIALS` | HTTP 에러 | 401 | `POST /v1/auth/login` 실패 — 이메일 존재 여부를 구분하지 않는 단일 메시지 |
+| `EMAIL_TAKEN` | HTTP 에러 | 409 | `POST /v1/auth/register` — 이미 가입된 이메일 |
+| `CAFE24_ALREADY_LINKED` | HTTP 에러 | 409 | 카페24 연동 콜백 — 해당 카페24 계정이 이미 다른 회원에 연동됨 |
 | `CAT_DETECTED` | 리소스 필드값(`uploads.blocking_issue.code`) | — (본 요청은 200) | 고양이 감지 — 업로드 진행 차단(FR-EDGE-07) |
 | `NOT_A_DOG` | 리소스 필드값(`uploads.warnings[].code`) | — (200) | 강아지 미검출 — 경고만, 진행 허용(FR-EDGE-08) |
 | `MULTI_SUBJECT` | 리소스 필드값(`uploads.warnings[].code`) | — (200) | 여러 마리 감지(FR-EDGE-09) |
@@ -120,7 +123,7 @@
 | 계산기 배너 | `GET /v1/calculator-link?pet_id=` 또는 `?job_id=`(§2 W-07 참고) |
 | 쇼핑몰 행(썸네일·배송안내) | 정적 콘텐츠(운영이 갱신하는 설정값, API 비대상) |
 | "이 사진으로 다른 스타일" | `GET /v1/styles?section=popular&limit=3` |
-| W-06 B 계정 연동 바텀시트 | "누띠 쇼핑몰 계정으로 로그인" → `GET /v1/auth/cafe24/authorize`, "카카오로 계속하기" → `POST /v1/auth/kakao` |
+| W-06 B 계정 연동 바텀시트 | 로그인 3종(ADR-11): "카카오로 계속하기" → `GET /v1/auth/kakao/authorize`, "네이버로 계속하기" → `GET /v1/auth/naver/authorize`, 이메일 가입/로그인 → `POST /v1/auth/register` / `POST /v1/auth/login`. 카페24 버튼 없음(연동은 로그인 후 마이페이지·W-10) |
 
 ### W-07 · 계산기로 넘기기 ([#p07](wireframe-spec-v0.5.html#p07))
 
@@ -154,7 +157,8 @@
 | A · 잔액 "보유 크레딧 11" | `GET /v1/credits` → `balance` |
 | A · 4개 획득 행(주문+20/연동+3/팔로우+2/오늘의무료+1)과 각 행의 상태(가능/완료/내일 다시) | `GET /v1/credits` → `earn_actions[]`(action, amount, status, cta) |
 | "쇼핑몰 →" (주문하기) | 정적 링크(쇼핑몰 이동), 지급 자체는 카페24 주문 동기화 배치가 처리 |
-| 각 획득 CTA(연동 완료/받기) | `POST /v1/credits/claim` → `{action: "link_account" \| "follow_ig" \| "daily"}`("order"는 배치 자동 지급이라 이 엔드포인트로 클레임하지 않음) |
+| 연동 +3 행 CTA("연동하기", 미연동 회원) | `GET /v1/auth/cafe24/authorize`(회원 토큰) → `authorize_url` 이동 → 콜백이 +3 지급(§3 인증). 게스트에게는 로그인 유도(§3 로그인 3종) |
+| 각 획득 CTA(팔로우/오늘의무료 받기) | `POST /v1/credits/claim` → `{action: "follow_ig" \| "daily"}`("order"는 배치 자동 지급, "link_account"는 카페24 연동 콜백이 지급하므로 이 엔드포인트로 클레임하지 않음) |
 | B · 받은 내역 테이블 | `GET /v1/credits/ledger?cursor=`(커서 페이지네이션) → `{reason, ref_label, occurred_on, amount}` |
 
 ### W-11 · 프롬프트 운영 콘솔(내부/관리자) ([#p11](wireframe-spec-v0.5.html#p11))
@@ -177,9 +181,17 @@
 
 ### 인증
 
+**구조(ADR-11, 2026-08-04 개정)**: 로그인 수단은 **카카오 · 네이버 · 로컬(이메일+비밀번호) 3종**이며, 게스트 병합·승격(UC-07)은 이 3종의 가입/로그인 시점에 일어납니다. **카페24는 로그인 수단이 아니라 회원의 쇼핑몰 계정 연동**입니다(마이페이지·W-10) — 연동 시 +3 크레딧과 주문 보상 자격(`order_reward_cutoff`)이 발생합니다.
+
+**OAuth 공통 규칙**:
+
+- `authorize` 계열은 302 리다이렉트가 아니라 **200 `{"authorize_url": ...}`**을 반환합니다. state가 호출 주체의 토큰에 바인딩되어 Authorization 헤더가 필수인데, 브라우저 링크 이동으로는 헤더를 실을 수 없기 때문 — 프론트는 fetch로 URL을 받아 `window.location`으로 이동합니다.
+- 프로바이더 콘솔에 등록하는 redirect_uri는 **프론트 라우트**(예: `https://play.nutti.co.kr/auth/callback/kakao`)입니다. 프론트는 쿼리로 받은 `code`·`state`를 아래 콜백 엔드포인트에 fetch로 전달해 세션 JSON을 받습니다.
+- `state`는 서명 JWT + DB nonce(`member.oauth_state_nonce`, 5분 만료)로 **일회성**입니다. 재사용·주체 불일치·만료는 전부 401.
+
 #### `POST /v1/auth/guest`
 
-요청 본문 없음.
+요청 본문 없음. IP당 5회/시간 레이트리밋(초과 시 `429 RATE_LIMITED`).
 
 ```json
 // 201
@@ -190,14 +202,19 @@
 }
 ```
 
-#### `GET /v1/auth/cafe24/authorize`
+#### `GET /v1/auth/{provider}/authorize` — `provider ∈ kakao | naver`
 
-302 리다이렉트(카페24 로그인 페이지), 응답 본문 없음.
-
-#### `GET /v1/auth/cafe24/callback?code=...&state=...`
+헤더: `Authorization: Bearer <guestToken>` **필수**(미병합 게스트).
 
 ```json
 // 200
+{ "authorize_url": "https://kauth.kakao.com/oauth/authorize?client_id=...&response_type=code&state=..." }
+```
+
+#### `GET /v1/auth/{provider}/callback?code=...&state=...`
+
+```json
+// 200 — MemberSession
 {
   "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI4ZjE0ZTQ1NyJ9.yyy",
   "member_id": "8f14e457-4d09-41c2-9d70-1a2b3c4d5e6f",
@@ -206,24 +223,56 @@
   "credit_balance": 15
 }
 ```
-`merged: true`는 UC-07 분기 A(기존 회원 행에 병합)가 발생했음을 의미. 분기 B(신규 승격)면 `merged: false`.
+`merged: true`는 UC-07 분기 A(기존 회원 행에 병합·자산 이관), `false`는 분기 B(게스트 행 승격). 클라이언트는 즉시 게스트 토큰을 회원 토큰으로 교체합니다.
 
-#### `POST /v1/auth/kakao`
+#### `POST /v1/auth/register` — 로컬 가입
+
+헤더: `Authorization: Bearer <guestToken>` 필수.
 
 ```json
 // 요청
-{ "kakao_token": "kakao-oauth-access-token-abcd1234" }
+{ "email": "user@example.com", "password": "correct-horse-battery" }
 ```
 ```json
-// 200 — 응답 형태는 cafe24/callback과 동일
-{
-  "token": "eyJhbGciOiJIUzI1NiJ9...",
-  "member_id": "8f14e457-4d09-41c2-9d70-1a2b3c4d5e6f",
-  "kind": "member",
-  "merged": false,
-  "credit_balance": 4
-}
+// 201 — MemberSession (게스트 행 승격, merged: false)
+{ "token": "eyJ...", "member_id": "8f14e457-...", "kind": "member", "merged": false, "credit_balance": 4 }
 ```
+`409 EMAIL_TAKEN`: 이미 가입된 이메일. 비밀번호 재설정(이메일 발송)은 MVP 범위 밖(후속 이슈로 추적).
+
+#### `POST /v1/auth/login` — 로컬 로그인
+
+헤더: `Authorization: Bearer <guestToken>` 필수.
+
+```json
+// 요청
+{ "email": "user@example.com", "password": "correct-horse-battery" }
+```
+```json
+// 200 — MemberSession (현재 게스트가 기존 회원에 병합됨)
+{ "token": "eyJ...", "member_id": "8f14e457-...", "kind": "member", "merged": true, "credit_balance": 15 }
+```
+`401 INVALID_CREDENTIALS`: 이메일 존재 여부를 구분하지 않습니다.
+
+#### `GET /v1/auth/cafe24/authorize` — 쇼핑몰 계정 연동(회원 전용)
+
+헤더: `Authorization: Bearer <memberToken>` **필수**(`kind=member` — 게스트는 401, 먼저 로그인).
+
+```json
+// 200
+{ "authorize_url": "https://nutti.cafe24api.com/api/v2/oauth/authorize?...&response_type=code&scope=mall.read_customer&state=..." }
+```
+
+#### `GET /v1/auth/cafe24/callback?code=...&state=...`
+
+```json
+// 200
+{ "cafe24_linked": true, "credit_balance": 15 }
+```
+- 연동 +3 크레딧은 `credit_ledger` dedupe(`link_account`)로 1회만 지급 — 해제 후 재연동해도 반복 수령 불가.
+- `member.order_reward_cutoff` 기록 → 이후 주문부터 +20 보상 자격(ADR-09).
+- `409 CAFE24_ALREADY_LINKED`: 해당 카페24 계정이 이미 다른 회원에 연동됨. **자산 병합은 일어나지 않습니다** — 연동은 로그인이 아니므로 UC-07 미적용.
+
+> `POST /v1/auth/kakao`(클라이언트 SDK 토큰 전달)는 이슈 #10 A안(서버 리다이렉트) 확정으로 **삭제**되었습니다.
 
 #### `GET /v1/auth/me`
 
@@ -233,9 +282,12 @@
   "member_id": "8f14e457-4d09-41c2-9d70-1a2b3c4d5e6f",
   "kind": "member",
   "credit_balance": 11,
+  "email": null,
+  "providers": ["kakao"],
   "cafe24_linked": true
 }
 ```
+`providers`: 회원이 보유한 로그인 수단(`kakao`/`naver`/`local`, 복수 가능). 게스트는 `[]`이며 `email`은 `local` 미보유 시 `null`.
 
 #### `POST /v1/auth/logout`
 
@@ -358,11 +410,12 @@
 // 200
 {
   "items": [
-    { "id": "b6f9e6b0-...", "name": "콩이", "thumbnail_url": "https://cdn.nutti.co.kr/pets/b6f9e6b0.jpg" },
-    { "id": "d1a2b3c4-...", "name": "두부", "thumbnail_url": "https://cdn.nutti.co.kr/pets/d1a2b3c4.jpg" }
+    { "id": "b6f9e6b0-...", "name": "콩이", "thumbnail_url": "https://cdn.nutti.co.kr/pets/b6f9e6b0.jpg", "latest_upload_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6" },
+    { "id": "d1a2b3c4-...", "name": "두부", "thumbnail_url": "https://cdn.nutti.co.kr/pets/d1a2b3c4.jpg", "latest_upload_id": null }
   ]
 }
 ```
+`latest_upload_id`(이슈 #9 A안): 해당 펫에 연결된 가장 최근 `source_image` id. 값이 있으면 W-04에서 **업로드 단계 스킵** — 이 값을 `POST /v1/jobs`의 `upload_id`로 그대로 사용(FR-W04-02). 연결된 업로드가 만료·삭제됐으면 `null`(스킵 불가, 새로 업로드).
 
 #### `POST /v1/pets`
 
@@ -424,11 +477,15 @@
 
 #### `GET /v1/jobs/{job_id}`
 
+`style_id`·`upload_id`(이슈 #9 A안): 이 job을 만든 재료 참조. W-06 "다시 만들기"(같은 재료 + 새 Idempotency-Key)와 "이 사진으로 다른 스타일"(같은 `upload_id` + 다른 `style_id`)이 이 두 필드로 `POST /v1/jobs`를 재조립합니다(FR-W06-04·FR-W06-07). 커스텀 프롬프트 job은 `style_id: null`.
+
 ```json
 // 200 — 진행 중(60초 이내)
 {
   "job_id": "b3e13c4a-2f1e-4a3a-9b1e-1234567890ab",
   "status": "processing",
+  "style_id": 101,
+  "upload_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
   "progress": 62,
   "eta_seconds": 14,
   "status_message": "레고 블록을 쌓는 중…",
@@ -443,6 +500,8 @@
 {
   "job_id": "b3e13c4a-2f1e-4a3a-9b1e-1234567890ab",
   "status": "succeeded",
+  "style_id": 101,
+  "upload_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
   "progress": 100,
   "eta_seconds": 0,
   "status_message": null,
@@ -462,6 +521,8 @@
 {
   "job_id": "b3e13c4a-2f1e-4a3a-9b1e-1234567890ab",
   "status": "failed",
+  "style_id": 101,
+  "upload_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
   "progress": null,
   "eta_seconds": null,
   "status_message": null,
@@ -476,6 +537,8 @@
 {
   "job_id": "c4f24d5b-3g2f-5b4b-0c2f-2345678901bc",
   "status": "failed",
+  "style_id": null,
+  "upload_id": "9c858901-8a57-4791-81fe-4c455b099bc9",
   "progress": null,
   "eta_seconds": null,
   "status_message": null,
@@ -660,16 +723,25 @@
 
 ## §4 시나리오
 
-### 시나리오 1 · 게스트 → 로그인 승격
+### 시나리오 1 · 게스트 → 로그인 승격 (카카오·네이버·로컬 공통)
 
 요청 순서:
 
 1. `POST /v1/auth/guest` → `{token: guestToken, member_id, kind: "guest"}`. 이후 모든 요청에 `Authorization: Bearer <guestToken>`.
 2. 게스트 상태로 자유롭게 진행: `POST /v1/uploads` → `POST /v1/jobs`(Idempotency-Key) → `GET /v1/jobs/{id}` 폴링 → 결과 확인.
-3. W-06 B에서 "누띠 쇼핑몰 계정으로 로그인" → `GET /v1/auth/cafe24/authorize` → (카페24 로그인) → `GET /v1/auth/cafe24/callback?code=...`.
-4. 서버 처리: 콜백된 카페24 회원에 기존 `member` 행이 있으면(재방문) 게스트 자산(pet/source_image/job/custom_prompt_log/metric_event)을 이관하고 게스트 행에 `merged_into_id` 기록. `guest_trial` 크레딧은 기존 회원이 이미 받았다면 dedupe 충돌로 스킵. 없으면(신규) 게스트 행 자체를 `kind: guest → member`로 승격.
+3. W-06 B 시트에서 로그인 선택:
+   - **소셜(카카오/네이버)**: `GET /v1/auth/{provider}/authorize`(게스트 토큰) → `{authorize_url}` 수신 → `window.location` 이동 → 프로바이더 로그인 → 프론트 라우트 `/auth/callback/{provider}`로 복귀 → 쿼리의 `code`·`state`를 `GET /v1/auth/{provider}/callback`에 fetch.
+   - **로컬**: `POST /v1/auth/register`(신규) 또는 `POST /v1/auth/login`(기존) — 둘 다 게스트 토큰 필수.
+4. 서버 처리: 해당 로그인 식별자(kakao_id/naver_id/email)에 기존 `member` 행이 있으면(재방문) 게스트 자산(pet/source_image/job/custom_prompt_log/metric_event)을 이관하고 게스트 행에 `merged_into_id` 기록. `guest_trial` 크레딧은 기존 회원이 이미 받았다면 dedupe 충돌로 스킵. 없으면(신규) 게스트 행 자체를 `kind: guest → member`로 승격.
 5. 응답 `{token: memberToken, member_id, kind: "member", merged, credit_balance}` — 클라이언트는 즉시 `guestToken`을 `memberToken`으로 교체.
 6. `GET /v1/credits` 재조회 → 병합/승격된 크레딧 반영 확인.
+
+### 시나리오 1-B · 회원의 카페24 연동 (+3 크레딧, 마이페이지·W-10)
+
+1. 전제: `kind: "member"` 토큰 보유(시나리오 1 완료). 게스트가 연동을 시도하면 401 — 로그인 유도.
+2. W-10 "연동 +3" CTA 또는 마이페이지에서 `GET /v1/auth/cafe24/authorize`(회원 토큰) → `{authorize_url}` 이동 → 카페24 로그인/동의 → 프론트 라우트 복귀 → `GET /v1/auth/cafe24/callback?code&state` fetch.
+3. 서버 처리: 회원 행에 `cafe24_member_id` 기록 + `order_reward_cutoff` 세팅 + `link_account` 크레딧 +3(dedupe — 재연동 반복 수령 불가). 해당 카페24 계정이 이미 다른 회원에 연동돼 있으면 `409 CAFE24_ALREADY_LINKED`(자산 병합 없음).
+4. 응답 `{cafe24_linked: true, credit_balance}` → W-10 연동 행이 "완료"로 전환, 이후 쇼핑몰 주문은 동기화 배치가 +20 자동 지급.
 
 ### 시나리오 2 · 생성 폴링 흐름
 
