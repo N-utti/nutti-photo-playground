@@ -46,7 +46,8 @@
 | `ALREADY_CLAIMED` | HTTP 에러 | 409 | `POST /v1/credits/claim` 중복 요청 — `credit_ledger.dedupe_key` UNIQUE 충돌([04-erd.md §2.8](04-erd.md)) |
 | `INVALID_CREDENTIALS` | HTTP 에러 | 401 | `POST /v1/auth/login` 실패 — 이메일 존재 여부를 구분하지 않는 단일 메시지 |
 | `EMAIL_TAKEN` | HTTP 에러 | 409 | `POST /v1/auth/register` — 이미 가입된 이메일 |
-| `CAFE24_ALREADY_LINKED` | HTTP 에러 | 409 | 카페24 연동 콜백 — 해당 카페24 계정이 이미 다른 회원에 연동됨 |
+| `CAFE24_ALREADY_LINKED` | HTTP 에러 | 409 | 카페24 연동 콜백 — 이미 다른 회원/다른 카페24 계정에 연동됨 |
+| `ALREADY_MEMBER` | HTTP 에러 | 409 | 회원 토큰으로 register/login/소셜 authorize 호출 — 로그인 수단 추가는 MVP 미지원(이슈 #17) |
 | `CAT_DETECTED` | 리소스 필드값(`uploads.blocking_issue.code`) | — (본 요청은 200) | 고양이 감지 — 업로드 진행 차단(FR-EDGE-07) |
 | `NOT_A_DOG` | 리소스 필드값(`uploads.warnings[].code`) | — (200) | 강아지 미검출 — 경고만, 진행 허용(FR-EDGE-08) |
 | `MULTI_SUBJECT` | 리소스 필드값(`uploads.warnings[].code`) | — (200) | 여러 마리 감지(FR-EDGE-09) |
@@ -188,6 +189,7 @@
 - `authorize` 계열은 302 리다이렉트가 아니라 **200 `{"authorize_url": ...}`**을 반환합니다. state가 호출 주체의 토큰에 바인딩되어 Authorization 헤더가 필수인데, 브라우저 링크 이동으로는 헤더를 실을 수 없기 때문 — 프론트는 fetch로 URL을 받아 `window.location`으로 이동합니다.
 - 프로바이더 콘솔에 등록하는 redirect_uri는 **프론트 라우트**(예: `https://play.nutti.co.kr/auth/callback/kakao`)입니다. 프론트는 쿼리로 받은 `code`·`state`를 아래 콜백 엔드포인트에 fetch로 전달해 세션 JSON을 받습니다.
 - `state`는 서명 JWT + DB nonce(`member.oauth_state_nonce`, 5분 만료)로 **일회성**입니다. 재사용·주체 불일치·만료는 전부 401.
+- **이미 회원인 토큰**으로 `register`/`login`/소셜 `authorize`를 호출하면 `409 ALREADY_MEMBER`(로그인 수단 추가는 MVP 미지원 — 이슈 #17). 프론트는 `/me`의 `kind`가 `member`면 로그인 시트를 띄우지 않습니다.
 
 #### `POST /v1/auth/guest`
 
@@ -237,8 +239,10 @@
 // 201 — MemberSession (게스트 행 승격, merged: false)
 { "token": "eyJ...", "member_id": "8f14e457-...", "kind": "member", "merged": false, "credit_balance": 4 }
 ```
-`409 EMAIL_TAKEN`: 이미 가입된 이메일. 비밀번호 재설정(이메일 발송)은 MVP 범위 밖(후속 이슈로 추적).
+`409 EMAIL_TAKEN`: 이미 가입된 이메일. 형식 오류·길이 위반은 `400 VALIDATION_ERROR`(§1 공통 포맷).
 레이트리밋: IP당 20회/시간(`429` + `Retry-After`). 이메일은 소문자화·공백 제거 후 비교, 최대 254자·비밀번호 8~128자.
+
+> **로컬 계정 복구 불가(이슈 #17)**: MVP는 비밀번호 재설정·이메일 인증을 제공하지 않습니다. 가입 이메일의 소유 증명이 없으므로 비밀번호 분실 시 **계정과 누적 크레딧을 복구할 수단이 없습니다** — 프론트는 로컬 가입 시트에 이를 사전 고지합니다(#11 L6 게스트 잔액 고지와 동일한 성격). 재설정은 후속 범위.
 
 #### `POST /v1/auth/login` — 로컬 로그인
 
@@ -286,11 +290,12 @@
   "kind": "member",
   "credit_balance": 11,
   "email": null,
+  "nickname": "콩이엄마",
   "providers": ["kakao"],
   "cafe24_linked": true
 }
 ```
-`providers`: 회원이 보유한 로그인 수단(`kakao`/`naver`/`local`, 복수 가능). 게스트는 `[]`이며 `email`은 `local` 미보유 시 `null`.
+`providers`: 회원이 보유한 로그인 수단(`kakao`/`naver`/`local`, 복수 가능). 게스트는 `[]`이며 `email`은 `local` 미보유 시 `null`. `nickname`은 소셜 로그인 시 프로바이더 프로필에서 수집(이슈 #12) — 로컬 전용 회원·미제공 시 `null`(프론트는 이메일 앞부분/이니셜 폴백).
 
 #### `POST /v1/auth/logout`
 

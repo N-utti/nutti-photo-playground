@@ -18,8 +18,8 @@ from app.auth import (
     create_state,
     create_token,
     get_current_member,
-    guest_member_id_from_authorization,
     hash_password,
+    identity_from_authorization,
     state_identity,
     verify_password,
 )
@@ -97,6 +97,7 @@ class MeResponse(BaseModel):
     kind: Literal["guest", "member"]
     credit_balance: int
     email: str | None
+    nickname: str | None
     providers: list[str]
     cafe24_linked: bool
 
@@ -112,6 +113,13 @@ def _unauthorized() -> HTTPException:
     return HTTPException(
         status_code=401,
         detail={"code": "UNAUTHORIZED", "message": "Invalid or missing authentication token", "detail": {}},
+    )
+
+
+def _already_member() -> HTTPException:
+    return HTTPException(
+        status_code=409,
+        detail={"code": "ALREADY_MEMBER", "message": "Already signed in as a member", "detail": {}},
     )
 
 
@@ -276,7 +284,12 @@ async def _fetch_naver_member(access_token: str) -> dict:
 
 
 async def _merge_or_promote_guest(
-    connection, guest_id: uuid.UUID, *, id_field: str, id_value: str
+    connection,
+    guest_id: uuid.UUID,
+    *,
+    id_field: str,
+    id_value: str,
+    nickname: str | None = None,
 ) -> tuple[Member, bool]:
     """Merge a locked guest into an existing member or promote it in place."""
     if id_field not in {"kakao_id", "naver_id", "email"}:
@@ -293,8 +306,12 @@ async def _merge_or_promote_guest(
         await guest.save(update_fields=["merged_into_id"], using_db=connection)
         existing.oauth_state_nonce = None
         existing.oauth_state_expires_at = None
+        update_fields = ["oauth_state_nonce", "oauth_state_expires_at"]
+        if existing.nickname is None and nickname is not None:
+            existing.nickname = nickname
+            update_fields.append("nickname")
         await existing.save(
-            update_fields=["oauth_state_nonce", "oauth_state_expires_at"],
+            update_fields=update_fields,
             using_db=connection,
         )
         return existing, True
@@ -304,6 +321,7 @@ async def _merge_or_promote_guest(
     guest.guest_expires_at = None
     guest.oauth_state_nonce = None
     guest.oauth_state_expires_at = None
+    guest.nickname = nickname
     await guest.save(
         update_fields=[
             "kind",
@@ -311,6 +329,7 @@ async def _merge_or_promote_guest(
             "guest_expires_at",
             "oauth_state_nonce",
             "oauth_state_expires_at",
+            "nickname",
         ],
         using_db=connection,
     )
@@ -435,8 +454,13 @@ async def social_authorize(
     provider: Literal["kakao", "naver"],
     authorization: str | None = Header(None, alias="Authorization"),
 ) -> AuthorizeResponse:
-    guest_id = guest_member_id_from_authorization(authorization)
-    if guest_id is None:
+    identity = identity_from_authorization(authorization)
+    if identity is None:
+        raise _unauthorized()
+    guest_id, kind = identity
+    if kind == "member":
+        raise _already_member()
+    if kind != "guest":
         raise _unauthorized()
     guest = await Member.filter(
         id=guest_id,
@@ -504,13 +528,27 @@ async def social_callback(
             if not isinstance(provider_id, int):
                 raise TypeError("Kakao member ID missing")
             id_field, id_value = "kakao_id", str(provider_id)
+            properties = profile.get("properties")
+            nickname = properties.get("nickname") if isinstance(properties, dict) else None
+            if not isinstance(nickname, str):
+                account = profile.get("kakao_account")
+                account_profile = account.get("profile") if isinstance(account, dict) else None
+                nickname = account_profile.get("nickname") if isinstance(account_profile, dict) else None
+            if not isinstance(nickname, str):
+                nickname = None
         else:
             token_data = await _exchange_naver_code(code, state)
             profile = await _fetch_naver_member(token_data["access_token"])
-            provider_id = profile["response"]["id"]
+            response = profile.get("response")
+            if not isinstance(response, dict):
+                raise TypeError("Naver member ID missing")
+            provider_id = response.get("id")
             if not isinstance(provider_id, str) or not provider_id:
                 raise TypeError("Naver member ID missing")
             id_field, id_value = "naver_id", provider_id
+            nickname = response.get("nickname")
+            if not isinstance(nickname, str):
+                nickname = None
     except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
         raise _bad_gateway() from exc
 
@@ -523,7 +561,11 @@ async def social_callback(
         if guest is None:
             raise _unauthorized()
         target, merged = await _merge_or_promote_guest(
-            connection, guest_id, id_field=id_field, id_value=id_value
+            connection,
+            guest_id,
+            id_field=id_field,
+            id_value=id_value,
+            nickname=nickname,
         )
 
     target = await Member.get(id=target.id)
@@ -543,8 +585,13 @@ async def register(
     authorization: str | None = Header(None, alias="Authorization"),
 ) -> AuthCallbackResponse:
     _check_bucket(_register_requests, _client_ip(request), _REGISTER_IP_RATE_LIMIT)
-    guest_id = guest_member_id_from_authorization(authorization)
-    if guest_id is None:
+    identity = identity_from_authorization(authorization)
+    if identity is None:
+        raise _unauthorized()
+    guest_id, kind = identity
+    if kind == "member":
+        raise _already_member()
+    if kind != "guest":
         raise _unauthorized()
     guest = await Member.filter(
         id=guest_id,
@@ -598,8 +645,13 @@ async def login(
     _check_bucket(_login_requests, f"ip:{_client_ip(request)}", _LOGIN_IP_RATE_LIMIT)
     email_key = f"email:{body.email}"
     _peek_bucket(_login_requests, email_key, _LOGIN_EMAIL_RATE_LIMIT)
-    guest_id = guest_member_id_from_authorization(authorization)
-    if guest_id is None:
+    identity = identity_from_authorization(authorization)
+    if identity is None:
+        raise _unauthorized()
+    guest_id, kind = identity
+    if kind == "member":
+        raise _already_member()
+    if kind != "guest":
         raise _unauthorized()
     guest = await Member.filter(
         id=guest_id,
@@ -655,6 +707,7 @@ async def get_me(member: Member = Depends(get_current_member)) -> MeResponse:
         kind=member.kind.value,
         credit_balance=member.credit_balance,
         email=member.email,
+        nickname=member.nickname,
         providers=providers,
         cafe24_linked=member.cafe24_member_id is not None,
     )

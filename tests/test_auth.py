@@ -66,7 +66,7 @@ async def _replace_oauth_nonce(member_id: str, nonce: str):
     await member.save(update_fields=["oauth_state_nonce", "oauth_state_expires_at"])
 
 
-async def _prepare_existing_merge(guest_id: str):
+async def _prepare_existing_merge(guest_id: str, nickname: str | None = None):
     guest = await Member.get(id=guest_id)
     pet = await PetProfile.create(member=guest, name="Nutti")
     source = await SourceImage.create(
@@ -94,6 +94,7 @@ async def _prepare_existing_merge(guest_id: str):
     existing = await Member.create(
         kind=MemberKind.MEMBER,
         kakao_id="123",
+        nickname=nickname,
         credit_balance=7,
         oauth_state_nonce="stale-nonce",
         oauth_state_expires_at=datetime.now(timezone.utc) + timedelta(minutes=5),
@@ -129,20 +130,24 @@ async def _credit_dedupe_result():
     return first, second, member, entries
 
 
-def _patch_kakao(monkeypatch: pytest.MonkeyPatch, kakao_id: int) -> None:
+def _patch_kakao(
+    monkeypatch: pytest.MonkeyPatch, kakao_id: int, nickname: str | None = None
+) -> None:
     async def exchange(code: str) -> dict:
         assert code == "test-code"
         return {"access_token": "test-access-token"}
 
     async def fetch(access_token: str) -> dict:
         assert access_token == "test-access-token"
-        return {"id": kakao_id}
+        return {"id": kakao_id, "properties": {"nickname": nickname}}
 
     monkeypatch.setattr(auth_router, "_exchange_kakao_code", exchange)
     monkeypatch.setattr(auth_router, "_fetch_kakao_member", fetch)
 
 
-def _patch_naver(monkeypatch: pytest.MonkeyPatch, naver_id: str) -> None:
+def _patch_naver(
+    monkeypatch: pytest.MonkeyPatch, naver_id: str, nickname: str | None = None
+) -> None:
     async def exchange(code: str, state: str) -> dict:
         assert code == "test-code"
         assert state
@@ -150,7 +155,7 @@ def _patch_naver(monkeypatch: pytest.MonkeyPatch, naver_id: str) -> None:
 
     async def fetch(access_token: str) -> dict:
         assert access_token == "test-access-token"
-        return {"response": {"id": naver_id}}
+        return {"response": {"id": naver_id, "nickname": nickname}}
 
     monkeypatch.setattr(auth_router, "_exchange_naver_code", exchange)
     monkeypatch.setattr(auth_router, "_fetch_naver_member", fetch)
@@ -223,6 +228,7 @@ def test_me_accepts_guest_and_rejects_missing_invalid_and_expired_tokens(client:
         "kind": "guest",
         "credit_balance": 1,
         "email": None,
+        "nickname": None,
         "providers": [],
         "cafe24_linked": False,
     }
@@ -363,6 +369,69 @@ def test_naver_callback_promotes_guest_and_reads_nested_profile(
     assert member.naver_id == "naver-user-1"
 
 
+def test_kakao_callback_saves_nickname_and_exposes_it_in_me(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    guest = client.post("/v1/auth/guest").json()
+    state = _authorize_state(client, guest["token"], "kakao")
+    _patch_kakao(monkeypatch, 456, "콩이엄마")
+
+    session = client.get(
+        "/v1/auth/kakao/callback",
+        params={"code": "test-code", "state": state},
+    ).json()
+    response = client.get(
+        "/v1/auth/me",
+        headers={"Authorization": f"Bearer {session['token']}"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["nickname"] == "콩이엄마"
+    assert client.portal.call(_member, guest["member_id"]).nickname == "콩이엄마"
+
+
+def test_naver_callback_saves_nickname(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    guest = client.post("/v1/auth/guest").json()
+    state = _authorize_state(client, guest["token"], "naver")
+    _patch_naver(monkeypatch, "naver-user-2", "네이버닉")
+
+    response = client.get(
+        "/v1/auth/naver/callback",
+        params={"code": "test-code", "state": state},
+    )
+
+    assert response.status_code == 200
+    assert client.portal.call(_member, guest["member_id"]).nickname == "네이버닉"
+
+
+@pytest.mark.parametrize(
+    ("existing_nickname", "expected_nickname"),
+    [("기존닉", "기존닉"), (None, "카카오닉")],
+)
+def test_kakao_merge_preserves_or_fills_existing_nickname(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    existing_nickname: str | None,
+    expected_nickname: str,
+):
+    guest = client.post("/v1/auth/guest").json()
+    assets = client.portal.call(
+        _prepare_existing_merge, guest["member_id"], existing_nickname
+    )
+    state = _authorize_state(client, guest["token"], "kakao")
+    _patch_kakao(monkeypatch, 123, "카카오닉")
+
+    response = client.get(
+        "/v1/auth/kakao/callback",
+        params={"code": "test-code", "state": state},
+    )
+
+    assert response.status_code == 200
+    assert client.portal.call(_member, assets["existing_id"]).nickname == expected_nickname
+
+
 @pytest.mark.parametrize("provider", ["kakao", "naver"])
 def test_social_callback_rejects_missing_provider_id(
     client: TestClient, monkeypatch: pytest.MonkeyPatch, provider: str
@@ -487,6 +556,42 @@ def test_register_requires_guest_token(client: TestClient):
     )
 
     assert response.status_code == 401
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "body"),
+    [
+        (
+            "post",
+            "/v1/auth/register",
+            {"email": "other@example.com", "password": "password-123"},
+        ),
+        (
+            "post",
+            "/v1/auth/login",
+            {"email": "member@example.com", "password": "password-123"},
+        ),
+        ("get", "/v1/auth/kakao/authorize", None),
+    ],
+)
+def test_member_token_rejects_guest_auth_flows_as_already_member(
+    client: TestClient, method: str, path: str, body: dict | None
+):
+    session = _register_member(client, "member@example.com")
+
+    response = client.request(
+        method,
+        path,
+        headers={"Authorization": f"Bearer {session['token']}"},
+        json=body,
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"] == {
+        "code": "ALREADY_MEMBER",
+        "message": "Already signed in as a member",
+        "detail": {},
+    }
 
 
 @pytest.mark.parametrize(
@@ -669,6 +774,28 @@ def test_register_and_login_report_expired_guest_token(
         path,
         headers={"Authorization": f"Bearer {token}"},
         json=body,
+    )
+
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "TOKEN_EXPIRED"
+
+
+def test_register_reports_expired_member_token(client: TestClient):
+    session = _register_member(client, "expired-member@example.com")
+    token = jwt.encode(
+        {
+            "sub": session["member_id"],
+            "kind": "member",
+            "exp": datetime.now(timezone.utc) - timedelta(minutes=1),
+        },
+        settings.jwt_signing_key,
+        algorithm="HS256",
+    )
+
+    response = client.post(
+        "/v1/auth/register",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"email": "other@example.com", "password": "password-123"},
     )
 
     assert response.status_code == 401

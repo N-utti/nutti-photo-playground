@@ -99,10 +99,10 @@ def _decode_authorization(authorization: str | None) -> dict:
         raise _unauthorized() from exc
 
 
-def guest_member_id_from_authorization(authorization: str | None) -> uuid.UUID | None:
+def identity_from_authorization(authorization: str | None) -> tuple[uuid.UUID, str] | None:
     try:
         payload = _decode_authorization(authorization)
-        return uuid.UUID(payload["sub"]) if payload["kind"] == "guest" else None
+        return uuid.UUID(payload["sub"]), payload["kind"]
     except HTTPException as exc:
         if exc.detail.get("code") == "TOKEN_EXPIRED":
             raise

@@ -36,6 +36,7 @@ erDiagram
         text naver_id UK "NULL 허용"
         text email UK "NULL 허용, 로컬 로그인"
         text password_hash "NULL, 로컬 로그인"
+        text nickname "NULL, 소셜 프로필 수집"
         int credit_balance "캐시, 음수 허용"
         uuid merged_into_id FK "자기참조, NULL"
         timestamptz guest_expires_at "NULL(회원은 NULL)"
@@ -187,7 +188,8 @@ erDiagram
 | `kakao_id` | TEXT | UNIQUE, NULL | 카카오 로그인 식별자(ADR-11 — 로그인 3종 중 하나) |
 | `naver_id` | TEXT | UNIQUE, NULL | 네이버 로그인 식별자(ADR-11) |
 | `email` | TEXT | UNIQUE, NULL | 로컬 로그인 식별자(ADR-11). 소셜 전용 회원은 NULL |
-| `password_hash` | TEXT | NULL | 로컬 로그인 비밀번호 해시(bcrypt/argon2 — 구현 시 확정). `email`과 함께만 존재 |
+| `password_hash` | TEXT | NULL | 로컬 로그인 비밀번호 해시(stdlib scrypt `scrypt$N$r$p$salt$hash` 포맷). `email`과 함께만 존재 |
+| `nickname` | VARCHAR(100) | NULL | 소셜 로그인 시 프로바이더 프로필에서 수집(이슈 #12, 마이페이지 표시용). 로컬 전용·미제공 시 NULL |
 | `credit_balance` | INT | NOT NULL DEFAULT 0 | **캐시**. 원장(`credit_ledger`)이 진실. **음수 허용**(CHECK 제약 없음) — 표시는 `max(0, credit_balance)`, 차감 판정은 `credit_balance >= cost` |
 | `merged_into_id` | UUID | FK → `member.id`(자기참조), NULL | 게스트가 기존 회원에 병합된 경우 대상 회원을 가리킴(UC-07 분기 A) |
 | `guest_expires_at` | TIMESTAMPTZ | NULL | 게스트만 값 존재(가입 시 NULL로 전환). 미병합 게스트 세션·자산의 만료 시점(**30일** — 게스트 JWT 만료와 정렬, FR-EDGE-12·`07-decisions.md#Q7`) |
