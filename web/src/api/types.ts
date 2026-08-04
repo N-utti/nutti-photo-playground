@@ -1,0 +1,256 @@
+/**
+ * docs/05-api-spec.md §3 을 수기로 옮긴 타입.
+ *
+ * 이 파일은 **임시**입니다. 백엔드가 전 엔드포인트에 `response_model`을 부착하면
+ * (이슈 #4) `openapi-typescript`로 생성한 타입으로 교체하고 이 파일을 지웁니다.
+ * 그 전까지 §3이 유일한 계약이므로 §3을 삭제해서는 안 됩니다(ADR-08 순서 함정).
+ */
+
+// ---------------------------------------------------------------- 공통 (§1)
+
+/** 모든 4xx/5xx 응답의 단일 포맷. */
+export interface ApiErrorBody {
+  error: {
+    code: ErrorCode
+    message: string
+    detail?: unknown
+  }
+}
+
+/** §1 코드 표 중 **HTTP 에러 채널**만. 리소스 필드값 채널은 아래 IssueCode. */
+export type ErrorCode =
+  | 'VALIDATION_ERROR' // 400
+  | 'UNAUTHORIZED' // 401
+  | 'TOKEN_EXPIRED' // 401
+  | 'NOT_FOUND' // 404
+  | 'RATE_LIMITED' // 429
+  | 'INSUFFICIENT_CREDIT' // 402
+  | 'ALREADY_CLAIMED' // 409
+  | 'HTTP_ERROR' // 백엔드 공통 핸들러의 폴백 (app/main.py:34)
+
+/**
+ * §1 코드 표 중 **리소스 필드값 채널**. HTTP 200과 함께 내려오므로
+ * 에러 인터셉터가 잡으면 안 되고, 화면이 직접 분기해야 합니다.
+ */
+export type IssueCode =
+  | 'CAT_DETECTED' // 차단
+  | 'NOT_A_DOG' // 경고
+  | 'MULTI_SUBJECT' // 경고
+  | 'QUALITY_WARNING' // 경고
+  | 'HUMAN_FACE_DETECTED' // app_setting.human_face_policy 에 따라 경고 또는 차단
+
+/** generation_job.error_code 로만 등장하는 코드. */
+export type JobErrorCode = 'GENERATION_FAILED' | 'SAFETY_BLOCKED' | 'MAX_RETRIES_EXCEEDED'
+
+/** 커서 페이지네이션 (§1). next_cursor 가 null 이면 마지막 페이지. */
+export interface Paginated<T> {
+  items: T[]
+  next_cursor: string | null
+}
+
+// ---------------------------------------------------------------- 인증
+
+export type MemberKind = 'guest' | 'member'
+
+export interface GuestSession {
+  token: string
+  member_id: string
+  kind: 'guest'
+}
+
+/** cafe24/callback · kakao 공통 응답. */
+export interface MemberSession {
+  token: string
+  member_id: string
+  kind: 'member'
+  /** true = 기존 회원 행에 병합(UC-07 분기 A), false = 게스트 행 승격(분기 B). */
+  merged: boolean
+  credit_balance: number
+}
+
+export interface Me {
+  member_id: string
+  kind: MemberKind
+  credit_balance: number
+  cafe24_linked: boolean
+}
+
+// ---------------------------------------------------------------- 스타일
+
+export interface StyleCard {
+  id: number
+  code: string
+  name: string
+  thumbnail_url: string
+  credit_cost: number
+}
+
+export interface StyleSection {
+  name: string
+  count: number
+  styles: StyleCard[]
+}
+
+export interface StyleCatalog {
+  sections: StyleSection[]
+  total_count: number
+}
+
+/**
+ * 적합도 태그. §3 예시에는 'good' | 'caution' 두 값만 등장하고
+ * 전체 값 도메인이 명세돼 있지 않습니다 — 세 번째 등급(◎/○/△의 ○ 등)이
+ * 있는지 백엔드 확정 필요. 미확정이므로 넓게 열어 둡니다.
+ */
+export interface FitTag {
+  label: string
+  score: 'good' | 'caution' | (string & {})
+}
+
+export interface StyleDetail {
+  id: number
+  code: string
+  name: string
+  credit_cost: number
+  /** W-03 캐러셀 6장. */
+  examples: string[]
+  fit_tags: FitTag[]
+  avg_duration_seconds: number
+  output_count: number
+}
+
+// ---------------------------------------------------------------- 업로드
+
+export interface UploadIssue {
+  code: IssueCode
+  message: string
+  detail?: { issues?: string[] } & Record<string, unknown>
+}
+
+export interface BreedEstimate {
+  /** 계산기 견종 42종 코드표와 값 도메인을 공유(§2 W-07 계약 노트). */
+  code: string
+  label: string
+  confidence: number
+}
+
+export interface UploadResult {
+  /** 차단된 경우 null. */
+  upload_id: string | null
+  image_url: string | null
+  blocking_issue: Pick<UploadIssue, 'code' | 'message'> | null
+  warnings: UploadIssue[]
+  breed_estimate: BreedEstimate | null
+}
+
+// ---------------------------------------------------------------- 펫
+
+export interface Pet {
+  id: string
+  name: string
+  thumbnail_url: string
+}
+
+// ---------------------------------------------------------------- 생성 job
+
+/**
+ * 04-erd.md §2.6 CHECK 제약 및 app/models.py JobStatus 와 동일한 4값.
+ * (06-architecture-deployment.md §4 6단계의 'completed' 는 해당 문서의 오기입니다.)
+ */
+export type JobStatus = 'queued' | 'processing' | 'succeeded' | 'failed'
+
+export interface JobResultImage {
+  index: number
+  image_url: string
+}
+
+export interface Job {
+  job_id: string
+  status: JobStatus
+  /** 진행 중에만 값이 있고 실패 시 null. */
+  progress: number | null
+  eta_seconds: number | null
+  status_message: string | null
+  source_image_url: string
+  /** 성공 시에만 채워지고 그 외에는 null. 길이는 style.output_count(기본 4). */
+  results: JobResultImage[] | null
+  selected_index: number | null
+  error_code: JobErrorCode | null
+}
+
+export interface CreateJobBody {
+  style_id: number | null
+  upload_id: string
+  pet_id: string | null
+  /** W-08 크리에이티브 모드에서만 사용. 이때 credit_cost=2. */
+  custom_prompt: string | null
+}
+
+// ---------------------------------------------------------------- 계산기 연결
+
+export interface CalculatorLink {
+  /** 추정 완전 실패 시 세 필드 모두 null, URL 에서 breed 파라미터 생략(FR-EDGE-10). */
+  breed_code: string | null
+  breed_label: string | null
+  size_label: string | null
+  /** UTM 까지 서버가 조립해 내려주므로 클라이언트는 그대로 사용. */
+  calculator_url: string
+}
+
+// ---------------------------------------------------------------- 보관함
+
+export interface LibraryItem {
+  job_id: string
+  result_id: string
+  image_url: string
+  pet_id: string
+  created_at: string
+}
+
+export interface LibraryMonth {
+  label: string
+  items: LibraryItem[]
+}
+
+export interface LibraryPage {
+  months: LibraryMonth[]
+  next_cursor: string | null
+}
+
+// ---------------------------------------------------------------- 크레딧
+
+/** 'order' 는 카페24 주문 동기화 배치가 자동 지급 — claim 대상이 아님(§2 W-10). */
+export type EarnAction = 'order' | 'link_account' | 'follow_ig' | 'daily'
+export type ClaimableAction = Exclude<EarnAction, 'order'>
+
+export interface EarnActionRow {
+  action: EarnAction
+  amount: number
+  /** done = 1회 한정 완료, tomorrow = daily 를 오늘 이미 받음. */
+  status: 'available' | 'done' | 'tomorrow'
+  cta: string | null
+}
+
+export interface Credits {
+  /** ADR-02 로 음수가 될 수 있습니다. 표시는 max(0, balance), 판정은 balance >= cost. */
+  balance: number
+  earn_actions: EarnActionRow[]
+}
+
+export interface ClaimResult {
+  balance: number
+  amount_granted: number
+}
+
+export interface LedgerEntry {
+  reason: string
+  ref_label: string | null
+  occurred_on: string
+  amount: number
+}
+
+// ---------------------------------------------------------------- 이벤트 비콘
+
+export interface MetricEventBody {
+  event_type: string
+  properties: Record<string, unknown>
+}

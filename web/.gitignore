@@ -1,0 +1,32 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# 루트 .gitignore 가 `.env.*` 를 전부 무시하지만, Vite 의 모드별 설정 파일은
+# 추적해야 합니다 — `VITE_` 접두 변수는 빌드 시 클라이언트 번들에 그대로 인라인되므로
+# 애초에 비밀을 담을 수 없고(비밀은 서버 .env 에만), 목 on/off 스위치는 다른
+# 개발자가 `npm run dev` 를 돌리는 데 필요합니다.
+# 개인 오버라이드는 `.env.development.local` 에 두세요 — 위 `*.local` 이 무시합니다.
+!.env.development
+!.env.production
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

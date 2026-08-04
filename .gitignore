@@ -34,3 +34,4 @@ out/
 # Agent state
 .omc/
 .claude/settings.local.json
+.gstack/
