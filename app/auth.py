@@ -1,6 +1,5 @@
 """JWT 발급과 인증 의존성."""
 
-import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -25,32 +24,32 @@ def create_token(member_id: uuid.UUID, kind: str) -> str:
     )
 
 
-def create_state(member_id: uuid.UUID | None = None) -> str:
-    payload: dict[str, object] = {
-        "kind": "state",
-        "nonce": secrets.token_urlsafe(16),
-        "exp": datetime.now(timezone.utc) + timedelta(minutes=5),
-    }
-    if member_id is not None:
-        payload["sub"] = str(member_id)
-    return jwt.encode(payload, settings.jwt_signing_key, algorithm="HS256")
+def create_state(member_id: uuid.UUID, nonce: str, expires_at: datetime) -> str:
+    return jwt.encode(
+        {
+            "sub": str(member_id),
+            "kind": "state",
+            "nonce": nonce,
+            "exp": expires_at,
+        },
+        settings.jwt_signing_key,
+        algorithm="HS256",
+    )
 
 
-def member_id_from_state(state: str | None) -> uuid.UUID | None:
-    if not state:
-        return None
+def state_identity(state: str) -> tuple[uuid.UUID, str]:
     try:
         payload = jwt.decode(
             state,
             settings.jwt_signing_key,
             algorithms=["HS256"],
-            options={"require": ["kind", "exp"]},
+            options={"require": ["sub", "kind", "nonce", "exp"]},
         )
-        if payload["kind"] != "state" or "sub" not in payload:
-            return None
-        return uuid.UUID(payload["sub"])
-    except (jwt.InvalidTokenError, TypeError, ValueError):
-        return None
+        if payload["kind"] != "state" or not isinstance(payload["nonce"], str):
+            raise ValueError
+        return uuid.UUID(payload["sub"]), payload["nonce"]
+    except (jwt.InvalidTokenError, TypeError, ValueError) as exc:
+        raise _unauthorized() from exc
 
 
 def _decode_authorization(authorization: str | None) -> dict:

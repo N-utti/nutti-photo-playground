@@ -6,6 +6,7 @@ ponytail: 스캐폴딩 편의를 위해 전 필드에 기본값을 둡니다(.en
 
 from functools import lru_cache
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -31,6 +32,7 @@ class Settings(BaseSettings):
     cafe24_client_secret: str = ""
     cafe24_mall_id: str = ""
     cafe24_redirect_uri: str = ""
+    cafe24_scope: str = "mall.read_customer"
 
     kakao_rest_api_key: str = ""
     kakao_redirect_uri: str = ""
@@ -42,8 +44,19 @@ class Settings(BaseSettings):
     backup_r2_bucket_name: str = ""
 
     app_env: str = "staging"
+    trust_proxy: bool = False
+    guest_rate_limit_per_hour: int = 5
     cors_allowed_origins: str = ""
     log_level: str = "INFO"
+
+    @model_validator(mode="after")
+    def validate_jwt_signing_key(self) -> "Settings":
+        if not self.jwt_signing_key or (
+            self.app_env != "development"
+            and (self.jwt_signing_key == "dev-secret-change-me" or len(self.jwt_signing_key) < 32)
+        ):
+            raise ValueError("JWT_SIGNING_KEY must be changed and contain at least 32 characters")
+        return self
 
 
 @lru_cache

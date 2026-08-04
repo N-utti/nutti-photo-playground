@@ -1,10 +1,14 @@
 import os
+import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
+from urllib.parse import parse_qs, urlparse
 
 os.environ.setdefault("DATABASE_URL", "sqlite://:memory:")
+os.environ.setdefault("APP_ENV", "development")
 
 import jwt
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 from tortoise import Tortoise
@@ -22,11 +26,12 @@ from app.models import (
     Style,
 )
 from app.routers import auth as auth_router
-from app.settings import settings
+from app.settings import Settings, settings
 
 
 @pytest.fixture
 def client():
+    auth_router._guest_requests.clear()
     with TestClient(app) as test_client:
         test_client.portal.call(Tortoise.generate_schemas)
         yield test_client
@@ -40,6 +45,13 @@ async def _member_and_ledger(member_id: str):
 
 async def _member(member_id: str):
     return await Member.get(id=member_id)
+
+
+async def _replace_oauth_nonce(member_id: str, nonce: str):
+    member = await Member.get(id=member_id)
+    member.oauth_state_nonce = nonce
+    member.oauth_state_expires_at = datetime.now(timezone.utc) + timedelta(minutes=5)
+    await member.save(update_fields=["oauth_state_nonce", "oauth_state_expires_at"])
 
 
 async def _prepare_existing_merge(guest_id: str):
@@ -96,6 +108,19 @@ def _patch_cafe24(monkeypatch: pytest.MonkeyPatch, member_id: str) -> None:
     monkeypatch.setattr(auth_router, "_fetch_cafe24_member", fetch)
 
 
+def _authorize_state(client: TestClient, guest: dict) -> str:
+    response = client.get(
+        "/v1/auth/cafe24/authorize",
+        headers={"Authorization": f"Bearer {guest['token']}"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 302
+    query = parse_qs(urlparse(response.headers["location"]).query)
+    assert query["response_type"] == ["code"]
+    assert query["scope"] == [settings.cafe24_scope]
+    return query["state"][0]
+
+
 def test_guest_issuance_creates_token_credit_and_ledger(client: TestClient):
     response = client.post("/v1/auth/guest")
 
@@ -148,14 +173,31 @@ def test_me_accepts_guest_and_rejects_missing_invalid_and_expired_tokens(client:
     assert expired.json()["error"]["code"] == "TOKEN_EXPIRED"
 
 
+def test_me_rejects_token_signed_with_another_key(client: TestClient):
+    guest = client.post("/v1/auth/guest").json()
+    forged_token = jwt.encode(
+        {
+            "sub": guest["member_id"],
+            "kind": "guest",
+            "exp": datetime.now(timezone.utc) + timedelta(minutes=5),
+        },
+        secrets.token_urlsafe(32),
+        algorithm="HS256",
+    )
+
+    response = client.get("/v1/auth/me", headers={"Authorization": f"Bearer {forged_token}"})
+
+    assert response.status_code == 401
+
+
 def test_cafe24_callback_promotes_new_guest_in_place(client: TestClient, monkeypatch: pytest.MonkeyPatch):
     guest = client.post("/v1/auth/guest").json()
+    state = _authorize_state(client, guest)
     _patch_cafe24(monkeypatch, "new-123")
 
     response = client.get(
         "/v1/auth/cafe24/callback",
-        params={"code": "test-code"},
-        headers={"Authorization": f"Bearer {guest['token']}"},
+        params={"code": "test-code", "state": state},
     )
 
     assert response.status_code == 200
@@ -172,12 +214,12 @@ def test_cafe24_callback_promotes_new_guest_in_place(client: TestClient, monkeyp
 def test_cafe24_callback_merges_assets_into_existing_member(client: TestClient, monkeypatch: pytest.MonkeyPatch):
     guest = client.post("/v1/auth/guest").json()
     existing_id, pet_id, job_id, initial_balance = client.portal.call(_prepare_existing_merge, guest["member_id"])
+    state = _authorize_state(client, guest)
     _patch_cafe24(monkeypatch, "existing-123")
 
     response = client.get(
         "/v1/auth/cafe24/callback",
-        params={"code": "test-code"},
-        headers={"Authorization": f"Bearer {guest['token']}"},
+        params={"code": "test-code", "state": state},
     )
 
     assert response.status_code == 200
@@ -196,6 +238,119 @@ def test_cafe24_callback_merges_assets_into_existing_member(client: TestClient, 
     assert existing.credit_balance == initial_balance
     assert response.json()["credit_balance"] == initial_balance
     assert link_entries == 1
+
+
+def test_cafe24_callback_requires_state(client: TestClient):
+    response = client.get("/v1/auth/cafe24/callback", params={"code": "test-code"})
+
+    assert 400 <= response.status_code < 500
+
+
+def test_cafe24_state_is_single_use(client: TestClient, monkeypatch: pytest.MonkeyPatch):
+    guest = client.post("/v1/auth/guest").json()
+    state = _authorize_state(client, guest)
+    _patch_cafe24(monkeypatch, "single-use-123")
+
+    first = client.get("/v1/auth/cafe24/callback", params={"code": "test-code", "state": state})
+    second = client.get("/v1/auth/cafe24/callback", params={"code": "test-code", "state": state})
+
+    assert first.status_code == 200
+    assert second.status_code == 401
+
+
+def test_cafe24_state_stays_consumed_after_upstream_failure(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    guest = client.post("/v1/auth/guest").json()
+    state = _authorize_state(client, guest)
+    calls = 0
+
+    async def exchange(code: str) -> dict:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise httpx.HTTPError("upstream failed")
+        return {"access_token": "test-access-token"}
+
+    async def fetch(access_token: str) -> dict:
+        return {"cafe24_member_id": "retry-123"}
+
+    monkeypatch.setattr(auth_router, "_exchange_cafe24_code", exchange)
+    monkeypatch.setattr(auth_router, "_fetch_cafe24_member", fetch)
+
+    first = client.get("/v1/auth/cafe24/callback", params={"code": "test-code", "state": state})
+    second = client.get("/v1/auth/cafe24/callback", params={"code": "test-code", "state": state})
+
+    assert first.status_code == 502
+    assert second.status_code == 401
+    assert calls == 1
+
+
+def test_cafe24_state_nonce_must_match_guest(client: TestClient, monkeypatch: pytest.MonkeyPatch):
+    guest = client.post("/v1/auth/guest").json()
+    old_state = _authorize_state(client, guest)
+    _authorize_state(client, guest)
+    _patch_cafe24(monkeypatch, "nonce-mismatch-123")
+
+    response = client.get("/v1/auth/cafe24/callback", params={"code": "test-code", "state": old_state})
+
+    assert response.status_code == 401
+
+
+def test_merged_guest_cannot_callback_again(client: TestClient, monkeypatch: pytest.MonkeyPatch):
+    guest = client.post("/v1/auth/guest").json()
+    client.portal.call(_prepare_existing_merge, guest["member_id"])
+    state = _authorize_state(client, guest)
+    _patch_cafe24(monkeypatch, "existing-123")
+    assert client.get(
+        "/v1/auth/cafe24/callback",
+        params={"code": "test-code", "state": state},
+    ).status_code == 200
+
+    nonce = secrets.token_urlsafe(32)
+    client.portal.call(_replace_oauth_nonce, guest["member_id"], nonce)
+    replay_state = jwt.encode(
+        {
+            "sub": guest["member_id"],
+            "kind": "state",
+            "nonce": nonce,
+            "exp": datetime.now(timezone.utc) + timedelta(minutes=5),
+        },
+        settings.jwt_signing_key,
+        algorithm="HS256",
+    )
+    response = client.get(
+        "/v1/auth/cafe24/callback",
+        params={"code": "test-code", "state": replay_state},
+    )
+
+    assert response.status_code == 401
+
+
+def test_guest_issuance_is_rate_limited_by_forwarded_ip(client: TestClient):
+    assert settings.trust_proxy is False
+
+    for index in range(settings.guest_rate_limit_per_hour):
+        headers = {"X-Forwarded-For": f"203.0.113.{index}"}
+        assert client.post("/v1/auth/guest", headers=headers).status_code == 201
+    response = client.post("/v1/auth/guest", headers={"X-Forwarded-For": "198.51.100.1"})
+
+    assert response.status_code == 429
+    assert response.json()["error"]["code"] == "RATE_LIMITED"
+
+    auth_router._guest_requests.clear()
+
+    for _ in range(settings.guest_rate_limit_per_hour):
+        assert client.post("/v1/auth/guest").status_code == 201
+    response = client.post("/v1/auth/guest")
+
+    assert response.status_code == 429
+    assert response.json()["error"]["code"] == "RATE_LIMITED"
+
+
+def test_empty_jwt_signing_key_is_rejected_in_development():
+    with pytest.raises(ValueError, match="JWT_SIGNING_KEY"):
+        Settings(app_env="development", jwt_signing_key="")
 
 
 def test_grant_credits_is_atomic_and_deduplicated(client: TestClient):
