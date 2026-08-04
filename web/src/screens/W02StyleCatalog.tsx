@@ -17,6 +17,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, Outlet, useMatch } from 'react-router'
 import { useStyles } from '../api/queries'
+import { AccountEntry } from '../app/AccountEntry'
 import { CreditBadge } from '../app/CreditBadge'
 import type { StyleCard } from '../api/types'
 
@@ -86,6 +87,8 @@ export default function W02StyleCatalog() {
           <span className="size-6 rounded-full bg-rule-strong" aria-hidden />
           <h1 className="text-base font-bold">스타일</h1>
           <CreditBadge showUnit />
+          {/* 숫자 = 크레딧 받기(W-10), 아바타 = 계정(W-12). 역할을 겹치지 않게 나눕니다. */}
+          <AccountEntry />
         </header>
 
         {/* 앵커바 — 점프 전용(노트2). 눌러도 다른 섹션을 숨기지 않습니다. */}

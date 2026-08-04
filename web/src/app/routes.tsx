@@ -19,6 +19,7 @@ import W07Calculator from '../screens/W07Calculator'
 import W08Creative from '../screens/W08Creative'
 import W10Credits from '../screens/W10Credits'
 import W10Ledger from '../screens/W10Ledger'
+import W12MyPage from '../screens/W12MyPage'
 import AuthCallback from '../screens/AuthCallback'
 import { NotFound, W09Library, W11Console } from '../screens/placeholders'
 
@@ -49,6 +50,9 @@ export const router = createBrowserRouter([
       { path: '/credits', element: <W10Credits /> },
       // W-10 B(받은 내역)는 자기 앱바·뒤로가기를 가진 별도 프레임입니다(#p10 B).
       { path: '/credits/ledger', element: <W10Ledger /> },
+      // W-12 마이페이지(이슈 #12 신설). 앱바 아바타가 유일한 진입점입니다
+      // (app/AccountEntry.tsx) — 탭바는 4칸을 유지합니다.
+      { path: '/me', element: <W12MyPage /> },
       { path: '/admin', element: <W11Console /> },
       // 화면이 아니라 OAuth 복귀 지점입니다 — 프로바이더 콘솔에 등록하는 redirect_uri 가
       // 이 주소라(§3 인증) 경로를 바꾸면 카카오·네이버·카페24 설정도 같이 바꿔야 합니다.

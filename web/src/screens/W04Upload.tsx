@@ -31,11 +31,12 @@ import {
 import {
   useCreateJob,
   useCreatePet,
+  useJob,
   usePets,
   useStyleDetail,
   useUploadPhoto,
 } from '../api/queries'
-import { readJobContext, rememberJobContext } from '../api/jobContext'
+import { rememberJobContext, resolveJobContext } from '../api/jobContext'
 import { clearUploadDraft, readUploadDraft, writeUploadDraft } from '../api/uploadDraft'
 import type { Pet, UploadIssue, UploadResult } from '../api/types'
 import InsufficientCreditOverlay from './InsufficientCreditOverlay'
@@ -63,10 +64,13 @@ export default function W04Upload() {
   // W-06 "이 사진으로 다른 스타일"(FR-W06-07)로 들어온 경우: 이미 올린 사진을
   // 그대로 재사용하므로 업로드 단계를 건너뜁니다.
   const fromJobId = searchParams.get('from_job')
+  // 재료는 서버가 우선입니다(이슈 #9 A안) — 로컬 색인은 이 브라우저에서 만든 job
+  // 에만 있어서, 링크를 다시 열거나 다른 탭에서 온 경우 답을 못 합니다.
+  const { data: fromJob, isPending: fromJobPending } = useJob(fromJobId)
 
   useEffect(() => {
     if (fromJobId) {
-      const context = readJobContext(fromJobId)
+      const context = resolveJobContext(fromJobId, fromJob)
       if (context) {
         setUpload({
           upload_id: context.uploadId,
@@ -78,6 +82,9 @@ export default function W04Upload() {
         })
         return
       }
+      // 서버 답을 기다리는 동안 초안 복원으로 내려가면, 재료가 도착하기 전에 엉뚱한
+      // 사진이 확인 단계에 먼저 그려집니다. 도착하면 이 효과가 다시 돕니다.
+      if (fromJobPending) return
     }
     // 402 오버레이에서 크레딧을 받으러 나갔다 돌아온 경우의 복원(api/uploadDraft.ts).
     //
@@ -93,7 +100,7 @@ export default function W04Upload() {
       // 또 "스타일 없는 초안"으로 남습니다.
       if (draft.styleId !== styleId) writeUploadDraft({ ...draft, styleId })
     }
-  }, [styleId, fromJobId])
+  }, [styleId, fromJobId, fromJob, fromJobPending])
 
   function handleFile(file: File | undefined) {
     if (!file) return
@@ -108,6 +115,33 @@ export default function W04Upload() {
         },
       },
     )
+  }
+
+  /**
+   * FR-W04-02 · "저장된 강아지 선택 시 업로드 단계 스킵".
+   *
+   * 스킵의 조건은 `latest_upload_id` 하나입니다(이슈 #9 A안) — 그 값이 곧
+   * `POST /v1/jobs` 의 `upload_id` 라서 사진을 다시 올릴 이유가 없습니다. 값이
+   * 없으면(업로드 만료·삭제, 또는 백엔드 미구현) 예전처럼 **선택 = 이번 업로드를
+   * 이 강아지에 붙이기**로만 동작합니다.
+   */
+  function selectPet(pet: Pet) {
+    const next = pet.id === petId ? null : pet.id
+    setPetId(next)
+    setInsufficient(null)
+    if (next === null || !pet.latest_upload_id) return
+
+    const reused: UploadResult = {
+      upload_id: pet.latest_upload_id,
+      // 원본 URL 은 `GET /v1/pets` 가 주지 않습니다. 썸네일은 같은 사진에서 나온
+      // 이미지라 확인 단계 미리보기로는 맞고, 생성에 쓰이는 건 upload_id 입니다.
+      image_url: pet.thumbnail_url,
+      blocking_issue: null,
+      warnings: [],
+      breed_estimate: null,
+    }
+    setUpload(reused)
+    writeUploadDraft({ styleId, petId: pet.id, upload: reused })
   }
 
   function pickAnother() {
@@ -208,7 +242,7 @@ export default function W04Upload() {
           <SelectPanel
             pets={petsData?.items ?? []}
             petId={petId}
-            onSelectPet={setPetId}
+            onSelectPet={selectPet}
             onOpenPicker={() => fileInputRef.current?.click()}
             uploading={uploadPhoto.isPending}
             uploadError={uploadPhoto.error?.message ?? null}
@@ -275,7 +309,7 @@ function StyleContext({
 interface SelectPanelProps {
   pets: Pet[]
   petId: string | null
-  onSelectPet: (petId: string | null) => void
+  onSelectPet: (pet: Pet) => void
   onOpenPicker: () => void
   uploading: boolean
   uploadError: string | null
@@ -317,14 +351,13 @@ function SelectPanel({
 }
 
 /**
- * 노트2 · FR-W04-02.
+ * 노트2 · FR-W04-02 — "선택 시 업로드 단계 스킵".
  *
- * 요구사항은 "선택 시 업로드 단계 스킵"이지만 지금 API 로는 불가능합니다 —
- * `GET /v1/pets` 는 {id, name, thumbnail_url} 만 주고, `POST /v1/jobs` 는 `upload_id`
- * 를 요구하는데 펫에서 source_image 로 가는 경로가 §3 에 없습니다(04-erd 에는
- * `source_image.pet_profile_id` 가 있으니 데이터는 서버에 있습니다). 백엔드 이슈로
- * 올렸고, 그때까지는 **선택 = 이번 업로드를 이 강아지에 붙이기**로 동작합니다
- * (`POST /v1/uploads` 의 `pet_id` — 이건 §3 에 있습니다).
+ * `GET /v1/pets` 의 `latest_upload_id`(이슈 #9 A안)가 그 스킵을 가능하게 합니다.
+ * 값이 있는 펫은 탭하는 순간 확인 단계로 넘어가고, 없는 펫(업로드 만료·삭제, 또는
+ * 백엔드 미구현 구간)은 예전처럼 **이번 업로드를 이 강아지에 붙이기**로 남습니다
+ * (`POST /v1/uploads` 의 `pet_id`). 두 상태를 칩 아래 한 줄로 구분해 줍니다 —
+ * 구분이 없으면 "어떤 애는 되고 어떤 애는 안 되는" 이유를 알 수 없습니다.
  */
 function SavedPets({
   pets,
@@ -334,14 +367,19 @@ function SavedPets({
 }: {
   pets: Pet[]
   petId: string | null
-  onSelectPet: (petId: string | null) => void
+  onSelectPet: (pet: Pet) => void
   onAdd: () => void
 }) {
   if (pets.length === 0) return null
 
+  const selectedPet = pets.find((pet) => pet.id === petId) ?? null
+
   return (
     <section className="mt-5">
       <h2 className="text-sm font-semibold">저장된 강아지</h2>
+      {pets.some((pet) => pet.latest_upload_id) && (
+        <p className="mt-1 text-xs text-ink-3">최근 사진이 있는 강아지는 바로 만들 수 있어요.</p>
+      )}
       <ul className="mt-2 flex flex-wrap gap-3">
         {pets.map((pet) => {
           const selected = pet.id === petId
@@ -350,7 +388,10 @@ function SavedPets({
               <button
                 type="button"
                 aria-pressed={selected}
-                onClick={() => onSelectPet(selected ? null : pet.id)}
+                aria-label={
+                  pet.latest_upload_id ? `${pet.name} — 최근 사진으로 바로 만들기` : pet.name
+                }
+                onClick={() => onSelectPet(pet)}
                 className="flex w-14 flex-col items-center gap-1"
               >
                 <img
@@ -376,7 +417,7 @@ function SavedPets({
           </button>
         </li>
       </ul>
-      {petId && (
+      {selectedPet && !selectedPet.latest_upload_id && (
         <p className="mt-2 text-xs text-ink-3">
           이 강아지로 저장됩니다 — 사진은 새로 올려 주세요.
         </p>

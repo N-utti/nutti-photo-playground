@@ -21,7 +21,7 @@ import { ApiError, isApiError } from '../api/client'
 import { calculatorHeadline, estimateSummary } from '../api/calculatorLink'
 import { events } from '../api/endpoints'
 import { beginJobAttempt, clearJobAttempt, resumeJobAttempt } from '../api/idempotency'
-import { readJobContext, rememberJobContext } from '../api/jobContext'
+import { rememberJobContext, resolveJobContext } from '../api/jobContext'
 import { CreditBadge } from '../app/CreditBadge'
 import { NUTTI_SHOP_URL } from '../app/externalLinks'
 import {
@@ -141,7 +141,7 @@ function FailurePanel({ job }: { job: Job }) {
         <p className="mt-0.5 text-sm text-ink-2">{copy.body}</p>
       </div>
       <p className="mt-2 text-center text-xs text-ink-3">크레딧은 자동으로 돌려드렸어요</p>
-      <Regenerate jobId={job.job_id} label="다시 시도" />
+      <Regenerate job={job} label="다시 시도" />
     </>
   )
 }
@@ -207,7 +207,7 @@ function ResultPanel({ job }: { job: Job }) {
       {/* 출구 1 — 공유가 주 버튼(노트3). */}
       <ShareRow job={job} selectedIndex={selected} />
 
-      <Regenerate jobId={job.job_id} label="다시 만들기" />
+      <Regenerate job={job} label="다시 만들기" />
 
       {/* 출구 2 — 계산기(W-07 배선). */}
       <CalculatorBanner jobId={job.job_id} />
@@ -375,17 +375,20 @@ function ShareRow({ job, selectedIndex }: { job: Job; selectedIndex: number }) {
 
 // ---------------------------------------------------------------- 다시 만들기 (FR-W06-04)
 
-function Regenerate({ jobId, label }: { jobId: string; label: string }) {
+function Regenerate({ job, label }: { job: Job; label: string }) {
   const navigate = useNavigate()
-  const context = readJobContext(jobId)
+  // 서버가 style_id·upload_id 를 주면 그 값이, 아직이면 로컬 색인이 답합니다(이슈 #9).
+  const context = resolveJobContext(job.job_id, job)
   const { data: style } = useStyleDetail(context?.styleId ?? null)
   const createJob = useCreateJob()
   const [insufficient, setInsufficient] = useState<{ required: number; balance: number } | null>(
     null,
   )
 
-  // 재료를 모르면 재생성 자체가 불가능합니다(api/jobContext.ts 주석 — 백엔드 이슈).
-  if (!context) {
+  // 재료를 모르면 재생성 자체가 불가능합니다. 서버 값이 왔더라도 **커스텀 job 인데
+  // 문구를 모르는 경우**(style_id: null + 로컬 색인 없음)가 남습니다 — job 응답에
+  // custom_prompt 가 없어서(§3) 스타일도 문구도 없는 요청이 나가기 때문입니다.
+  if (!context || (context.styleId === null && !context.customPrompt)) {
     return (
       <Link
         to="/styles"
