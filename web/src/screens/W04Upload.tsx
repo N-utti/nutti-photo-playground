@@ -80,10 +80,18 @@ export default function W04Upload() {
       }
     }
     // 402 오버레이에서 크레딧을 받으러 나갔다 돌아온 경우의 복원(api/uploadDraft.ts).
+    //
+    // `styleId === null` 인 초안도 받습니다. W-01 랜딩의 주 CTA 는 스타일 없이
+    // `/upload` 로 들어오므로(FR-W01-02) 사진이 먼저 올라가고 스타일이 나중에
+    // 붙습니다 — 이때 초안을 버리면 스타일을 고르고 돌아온 사용자가 같은 사진을
+    // 두 번 올리게 되고, upload_id 가 새로 발급돼 idempotency 전제도 깨집니다.
     const draft = readUploadDraft()
-    if (draft && draft.styleId === styleId) {
+    if (draft && (draft.styleId === styleId || draft.styleId === null)) {
       setUpload(draft.upload)
       setPetId(draft.petId)
+      // 이제 이 사진은 이 스타일의 것입니다. 다시 적어 두지 않으면 402 왕복에서
+      // 또 "스타일 없는 초안"으로 남습니다.
+      if (draft.styleId !== styleId) writeUploadDraft({ ...draft, styleId })
     }
   }, [styleId, fromJobId])
 
@@ -170,7 +178,7 @@ export default function W04Upload() {
       </header>
 
       <main className="mx-auto w-full max-w-md px-4 py-4">
-        <StyleContext styleId={styleId} styleName={style?.name} />
+        <StyleContext styleId={styleId} styleName={style?.name} afterUpload={confirming} />
 
         <input
           ref={fileInputRef}
@@ -222,13 +230,26 @@ export default function W04Upload() {
 }
 
 /** 어떤 스타일로 만드는 중인지 계속 보이게 둡니다 — 업로드 중에 잊어버리는 맥락입니다. */
-function StyleContext({ styleId, styleName }: { styleId: number | null; styleName?: string }) {
+function StyleContext({
+  styleId,
+  styleName,
+  afterUpload,
+}: {
+  styleId: number | null
+  styleName?: string
+  afterUpload: boolean
+}) {
   if (styleId === null) {
+    // 업로드 후에는 ConfirmPanel 의 주 버튼이 그대로 "스타일 고르기"라 여기서 또
+    // 말하지 않습니다. 업로드 전에는 경고가 아니라 순서 안내입니다 — 랜딩의 주
+    // CTA(FR-W01-02)가 스타일 없이 이 화면으로 보내므로, 도착하자마자 경고를
+    // 띄우면 정상 경로를 실수처럼 보이게 만듭니다.
+    if (afterUpload) return null
     return (
-      <div className="mb-4 rounded-lg border border-warn/30 bg-warn-soft px-3 py-2 text-sm text-warn">
-        스타일을 먼저 골라 주세요.{' '}
-        <Link to="/styles" className="font-semibold underline">
-          스타일 보러 가기
+      <div className="mb-4 flex items-center justify-between gap-2 text-sm text-ink-3">
+        <span className="truncate">스타일은 사진을 올린 뒤에 골라도 됩니다</span>
+        <Link to="/styles" className="shrink-0 underline">
+          먼저 고르기
         </Link>
       </div>
     )
@@ -412,13 +433,29 @@ function ConfirmPanel({
         다른 사진 고르기
       </button>
 
-      {!blocked && (
+      {!blocked && styleMissing && (
+        // 사진부터 올린 경로(W-01 랜딩 CTA)의 다음 한 걸음. 비활성 버튼을 두면
+        // 여기가 막다른 길이 됩니다 — 사진은 초안으로 남으니 돌아오면 이어집니다.
+        <>
+          <Link
+            to="/styles"
+            className="mt-2 block w-full rounded-xl bg-ink px-4 py-3 text-center text-sm font-semibold text-paper"
+          >
+            스타일 고르기 →
+          </Link>
+          <p className="mt-2 text-center text-xs text-ink-3">
+            고른 스타일로 돌아오면 이 사진 그대로 이어집니다
+          </p>
+        </>
+      )}
+
+      {!blocked && !styleMissing && (
         <>
           {/* 노트3 — 경고가 있어도 이 버튼은 항상 눌립니다. 노트4 — 금액을 버튼에 박습니다. */}
           <button
             type="button"
             onClick={onStart}
-            disabled={starting || creditCost === null || styleMissing}
+            disabled={starting || creditCost === null}
             className="mt-2 w-full rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-paper disabled:opacity-50"
           >
             {starting

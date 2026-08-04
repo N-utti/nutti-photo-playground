@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+  <!--
+    W-01 히어로 비교 슬라이더의 "원본" 자리표시자입니다. 실제 사진이 아닙니다.
+    브랜드 촬영본이 나오면 같은 이름의 사진 파일로 갈아끼우면 됩니다
+    (web/src/screens/W01Landing.tsx 의 HERO_BEFORE).
+  -->
+  <rect width="800" height="600" fill="#E1E2DC"/>
+  <g fill="#C6C8C0">
+    <ellipse cx="303" cy="214" rx="40" ry="64" transform="rotate(-22 303 214)"/>
+    <ellipse cx="497" cy="214" rx="40" ry="64" transform="rotate(22 497 214)"/>
+    <ellipse cx="400" cy="452" rx="152" ry="112"/>
+    <circle cx="400" cy="280" r="108"/>
+  </g>
+  <g fill="#9DA097">
+    <circle cx="362" cy="268" r="12"/>
+    <circle cx="438" cy="268" r="12"/>
+    <ellipse cx="400" cy="316" rx="20" ry="14"/>
+  </g>
+  <!-- 라벨은 각자 자기 쪽 **위** 모서리에 붙입니다. 가운데 두면 분할선에서 두
+       이미지의 글자가 겹치고, 아래에 두면 화면의 원본/변환 배지와 부딪칩니다. -->
+  <text x="36" y="56" fill="#7D8179" font-family="sans-serif" font-size="26" text-anchor="start">
+    원본 사진 자리
+  </text>
+</svg>

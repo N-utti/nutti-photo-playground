@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+  <!--
+    W-01 히어로 비교 슬라이더의 "변환" 자리표시자입니다. 실제 생성 결과가 아닙니다.
+    before.svg 와 같은 구도를 각진 형태·다른 색으로 그려, 슬라이더를 끌었을 때
+    무엇이 달라지는지가 보이게만 해 둡니다.
+  -->
+  <rect width="800" height="600" fill="#F3E1E8"/>
+  <g fill="#D9A7BC">
+    <rect x="262" y="140" width="62" height="76" rx="8"/>
+    <rect x="476" y="140" width="62" height="76" rx="8"/>
+    <rect x="288" y="176" width="224" height="204" rx="14"/>
+    <rect x="248" y="380" width="304" height="176" rx="14"/>
+  </g>
+  <g fill="#EFCEDB">
+    <circle cx="336" cy="166" r="18"/>
+    <circle cx="400" cy="166" r="18"/>
+    <circle cx="464" cy="166" r="18"/>
+  </g>
+  <g fill="#A81D4E">
+    <rect x="352" y="248" width="26" height="26" rx="6"/>
+    <rect x="422" y="248" width="26" height="26" rx="6"/>
+    <rect x="376" y="308" width="48" height="26" rx="6"/>
+  </g>
+  <text x="764" y="56" fill="#A05070" font-family="sans-serif" font-size="26" text-anchor="end">
+    변환 결과 자리
+  </text>
+</svg>
