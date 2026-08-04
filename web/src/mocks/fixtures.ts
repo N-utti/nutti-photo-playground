@@ -104,7 +104,7 @@ export function styleDetailFor(styleId: number): StyleDetail | null {
       { label: '검은 털', score: 'caution' },
     ],
     avg_duration_seconds: 24,
-    output_count: 4,
+    output_count: 1, // Q4 확정 — 1요청 1장(§3 예시도 1).
   }
 }
 
