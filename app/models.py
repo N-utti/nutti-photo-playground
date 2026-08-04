@@ -59,6 +59,9 @@ class Member(Model):
     kind = fields.CharEnumField(MemberKind)
     cafe24_member_id = fields.CharField(max_length=255, unique=True, null=True)
     kakao_id = fields.CharField(max_length=255, unique=True, null=True)
+    naver_id = fields.CharField(max_length=191, unique=True, null=True)
+    email = fields.CharField(max_length=254, unique=True, null=True)
+    password_hash = fields.CharField(max_length=256, null=True)
     credit_balance = fields.IntField(default=0)
     merged_into = fields.ForeignKeyField(
         "models.Member", related_name="merged_members", null=True, on_delete=fields.SET_NULL

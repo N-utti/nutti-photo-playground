@@ -36,6 +36,10 @@ class Settings(BaseSettings):
 
     kakao_rest_api_key: str = ""
     kakao_redirect_uri: str = ""
+    kakao_client_secret: str = ""
+    naver_client_id: str = ""
+    naver_client_secret: str = ""
+    naver_redirect_uri: str = ""
 
     admin_alert_slack_webhook_url: str = ""
     sentry_dsn: str = ""
@@ -45,7 +49,7 @@ class Settings(BaseSettings):
 
     app_env: str = "staging"
     trust_proxy: bool = False
-    guest_rate_limit_per_hour: int = 5
+    guest_rate_limit_per_hour: int = 30
     cors_allowed_origins: str = ""
     log_level: str = "INFO"
 

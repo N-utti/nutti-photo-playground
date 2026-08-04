@@ -21,6 +21,7 @@ async def lifespan(app: FastAPI):
         modules={"models": ["app.models"]},
         _enable_global_fallback=True,
     )
+    logger.info("trust_proxy=%s guest_rate_limit_per_hour=%s", settings.trust_proxy, settings.guest_rate_limit_per_hour)
     yield
     await Tortoise.close_connections()
 
@@ -48,7 +49,11 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException) 
         code, message, extra = detail["code"], detail.get("message", ""), detail.get("detail", {})
     else:
         code, message, extra = "HTTP_ERROR", str(detail), {}
-    return JSONResponse(status_code=exc.status_code, content={"error": {"code": code, "message": message, "detail": extra}})
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": {"code": code, "message": message, "detail": extra}},
+        headers=exc.headers,
+    )
 
 
 @app.exception_handler(RequestValidationError)

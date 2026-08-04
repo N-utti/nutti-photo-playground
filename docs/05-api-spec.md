@@ -191,7 +191,7 @@
 
 #### `POST /v1/auth/guest`
 
-요청 본문 없음. IP당 5회/시간 레이트리밋(초과 시 `429 RATE_LIMITED`).
+요청 본문 없음. IP당 **30회/시간** 레이트리밋(기본값, `GUEST_RATE_LIMIT_PER_HOUR` — 이슈 #15). 초과 시 `429 RATE_LIMITED` + `Retry-After: <초>` 헤더.
 
 ```json
 // 201
@@ -238,6 +238,7 @@
 { "token": "eyJ...", "member_id": "8f14e457-...", "kind": "member", "merged": false, "credit_balance": 4 }
 ```
 `409 EMAIL_TAKEN`: 이미 가입된 이메일. 비밀번호 재설정(이메일 발송)은 MVP 범위 밖(후속 이슈로 추적).
+레이트리밋: IP당 20회/시간(`429` + `Retry-After`). 이메일은 소문자화·공백 제거 후 비교, 최대 254자·비밀번호 8~128자.
 
 #### `POST /v1/auth/login` — 로컬 로그인
 
@@ -252,6 +253,7 @@
 { "token": "eyJ...", "member_id": "8f14e457-...", "kind": "member", "merged": true, "credit_balance": 15 }
 ```
 `401 INVALID_CREDENTIALS`: 이메일 존재 여부를 구분하지 않습니다.
+레이트리밋: IP당 20회/시간 + 이메일당 10회/시간(온라인 대입 방어, `429` + `Retry-After`).
 
 #### `GET /v1/auth/cafe24/authorize` — 쇼핑몰 계정 연동(회원 전용)
 
@@ -270,7 +272,8 @@
 ```
 - 연동 +3 크레딧은 `credit_ledger` dedupe(`link_account`)로 1회만 지급 — 해제 후 재연동해도 반복 수령 불가.
 - `member.order_reward_cutoff` 기록 → 이후 주문부터 +20 보상 자격(ADR-09).
-- `409 CAFE24_ALREADY_LINKED`: 해당 카페24 계정이 이미 다른 회원에 연동됨. **자산 병합은 일어나지 않습니다** — 연동은 로그인이 아니므로 UC-07 미적용.
+- `409 CAFE24_ALREADY_LINKED`: ① 해당 카페24 계정이 이미 **다른 회원**에 연동됨, 또는 ② 이 회원이 이미 **다른 카페24 계정**에 연동됨(재바인딩 금지 — 연동 해제는 MVP 미지원). **자산 병합은 일어나지 않습니다** — 연동은 로그인이 아니므로 UC-07 미적용.
+- 동일 계정 재연동(멱등 재시도)은 200이며 `order_reward_cutoff`를 앞으로 밀지 않습니다(기존 주문 보상 자격 보존).
 
 > `POST /v1/auth/kakao`(클라이언트 SDK 토큰 전달)는 이슈 #10 A안(서버 리다이렉트) 확정으로 **삭제**되었습니다.
 
