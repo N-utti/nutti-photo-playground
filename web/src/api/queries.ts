@@ -230,19 +230,6 @@ export function useJob(jobId: string | null) {
   })
 }
 
-/** 썸네일 선택(§3). 서버 확정값을 캐시에 되꽂아 W-06 의 "4장 중 N번"과 어긋나지 않게 합니다. */
-export function useSelectResult(jobId: string) {
-  const client = useQueryClient()
-  return useMutation({
-    mutationFn: (resultIndex: number) => jobs.select(jobId, resultIndex),
-    onSuccess: ({ selected_index }) => {
-      client.setQueryData(queryKeys.job(jobId), (previous: Job | undefined) =>
-        previous ? { ...previous, selected_index } : previous,
-      )
-    },
-  })
-}
-
 export function useShareJob(jobId: string) {
   return useMutation({ mutationFn: () => jobs.share(jobId) })
 }

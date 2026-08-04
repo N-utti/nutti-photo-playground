@@ -126,12 +126,6 @@ export const jobs = {
 
   get: (jobId: string, signal?: AbortSignal) => request<Job>(`/jobs/${jobId}`, { signal }),
 
-  select: (jobId: string, resultIndex: number) =>
-    request<{ job_id: string; selected_index: number }>(`/jobs/${jobId}/select`, {
-      method: 'POST',
-      json: { result_index: resultIndex },
-    }),
-
   share: (jobId: string, channel = 'instagram') =>
     request<{ share_image_url: string }>(`/jobs/${jobId}/share`, {
       method: 'POST',

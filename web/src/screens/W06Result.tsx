@@ -30,7 +30,6 @@ import {
   useCreateJob,
   useJobPolling,
   useMe,
-  useSelectResult,
   useShareJob,
   useStyleDetail,
   useStyles,
@@ -149,11 +148,11 @@ function FailurePanel({ job }: { job: Job }) {
 // ---------------------------------------------------------------- 성공
 
 function ResultPanel({ job }: { job: Job }) {
-  const results = job.results ?? []
-  const selectResult = useSelectResult(job.job_id)
-  const [selected, setSelected] = useState(job.selected_index ?? 0)
-
-  const current = results[selected] ?? results[0]
+  // Q4 확정(2026-08-04)으로 **1요청 = 1장**입니다. `results[]` 배열 형태는 산출 수
+  // 상향 대비로 남아 있지만(§3) 길이는 항상 1이고, `selected_index`·
+  // `POST /jobs/{id}/select` 는 스펙에서 삭제됐습니다 — 고를 게 없으니 선택도 없습니다.
+  // 다른 결과가 필요하면 "다시 만들기"(새 job·새 크레딧)가 그 경로입니다.
+  const current = job.results?.[0] ?? null
 
   // 노트: 결과를 실제로 본 시점을 W-11 집계의 기준선으로 씁니다(04-erd metric_event).
   const viewLogged = useRef(false)
@@ -163,49 +162,13 @@ function ResultPanel({ job }: { job: Job }) {
     void events.track({ event_type: 'result_view', properties: { job_id: job.job_id } })
   }, [job.job_id])
 
-  function choose(index: number) {
-    setSelected(index)
-    selectResult.mutate(index)
-  }
-
   return (
     <>
       {/* 노트1 — 원본 대조가 만족도의 근거. 노트4 — 서명은 이미지에 이미 합성돼 있습니다. */}
       {current && <CompareSlider beforeUrl={job.source_image_url} afterUrl={current.image_url} />}
 
-      {/* 노트2 — 4장 중 고르게 하면 체감 성공률이 급등합니다. */}
-      {results.length > 1 && (
-        <>
-          <ul className="mt-3 grid grid-cols-4 gap-2">
-            {results.map((result) => (
-              <li key={result.index}>
-                <button
-                  type="button"
-                  onClick={() => choose(result.index)}
-                  aria-pressed={selected === result.index}
-                  aria-label={`${result.index + 1}번 결과`}
-                  className={`block w-full overflow-hidden rounded-lg border-2 ${
-                    selected === result.index ? 'border-ink' : 'border-transparent'
-                  }`}
-                >
-                  <img
-                    src={result.image_url}
-                    alt=""
-                    loading="lazy"
-                    className="aspect-square w-full bg-surface-2 object-cover"
-                  />
-                </button>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-1 text-center text-xs text-ink-3">
-            {results.length}장 중 {selected + 1}번
-          </p>
-        </>
-      )}
-
       {/* 출구 1 — 공유가 주 버튼(노트3). */}
-      <ShareRow job={job} selectedIndex={selected} />
+      <ShareRow job={job} />
 
       <Regenerate job={job} label="다시 만들기" />
 
@@ -279,7 +242,7 @@ function CompareSlider({ beforeUrl, afterUrl }: { beforeUrl: string; afterUrl: s
 
 // ---------------------------------------------------------------- 출구 1 · 공유/저장
 
-function ShareRow({ job, selectedIndex }: { job: Job; selectedIndex: number }) {
+function ShareRow({ job }: { job: Job }) {
   const share = useShareJob(job.job_id)
   const [accountSheet, setAccountSheet] = useState(false)
   // 서버가 보는 상태를 씁니다 — 시트에서 로그인하면 캐시가 무효화되면서 이 줄이
@@ -309,7 +272,7 @@ function ShareRow({ job, selectedIndex }: { job: Job; selectedIndex: number }) {
           onClick={() => {
             void events.track({
               event_type: 'share_click',
-              properties: { job_id: job.job_id, result_index: selectedIndex },
+              properties: { job_id: job.job_id },
             })
             share.mutate()
           }}

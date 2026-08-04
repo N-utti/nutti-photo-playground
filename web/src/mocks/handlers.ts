@@ -53,7 +53,6 @@ interface MockJob {
   styleId: number | null
   uploadId: string
   forcedError: JobErrorCode | null
-  selectedIndex: number | null
 }
 
 /**
@@ -188,7 +187,6 @@ function projectJob(job: MockJob): Job {
         status_message: null,
         source_image_url: sourceImageUrl,
         results: null,
-        selected_index: null,
         error_code: job.forcedError,
       }
     }
@@ -200,11 +198,8 @@ function projectJob(job: MockJob): Job {
       eta_seconds: 0,
       status_message: null,
       source_image_url: sourceImageUrl,
-      results: Array.from({ length: 4 }, (_, index) => ({
-        index,
-        image_url: placeholderImage(`결과 ${index + 1}`, '#F9E5EC'),
-      })),
-      selected_index: job.selectedIndex,
+      // Q4 확정으로 1요청 1장(§3 `results[]`는 항상 1개).
+      results: [{ index: 0, image_url: placeholderImage('결과', '#F9E5EC') }],
       error_code: null,
     }
   }
@@ -219,7 +214,6 @@ function projectJob(job: MockJob): Job {
       status_message: '대기 중…',
       source_image_url: sourceImageUrl,
       results: null,
-      selected_index: null,
       error_code: null,
     }
   }
@@ -234,7 +228,6 @@ function projectJob(job: MockJob): Job {
     status_message: '레고 블록을 쌓는 중…',
     source_image_url: sourceImageUrl,
     results: null,
-    selected_index: null,
     error_code: null,
   }
 }
@@ -448,7 +441,6 @@ export const handlers = [
       uploadId: body.upload_id,
       forcedError:
         forced === 'job:fail' ? 'GENERATION_FAILED' : forced === 'job:safety' ? 'SAFETY_BLOCKED' : null,
-      selectedIndex: null,
     }
     state.jobs.set(job.id, job)
     state.idempotency.set(key, job.id)
@@ -485,14 +477,6 @@ export const handlers = [
       persist()
     }
     return HttpResponse.json(projected)
-  }),
-
-  http.post(`${BASE}/jobs/:jobId/select`, async ({ params, request }) => {
-    const job = state.jobs.get(String(params.jobId))
-    if (!job) return apiError(404, 'NOT_FOUND', '작업을 찾을 수 없습니다')
-    const { result_index } = (await request.json()) as { result_index: number }
-    job.selectedIndex = result_index
-    return HttpResponse.json({ job_id: job.id, selected_index: result_index })
   }),
 
   http.post(`${BASE}/jobs/:jobId/share`, async ({ params }) => {

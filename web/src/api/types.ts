@@ -223,9 +223,13 @@ export interface Job {
   eta_seconds: number | null
   status_message: string | null
   source_image_url: string
-  /** 성공 시에만 채워지고 그 외에는 null. 길이는 style.output_count(기본 4). */
+  /**
+   * 성공 시에만 채워지고 그 외에는 null. **길이는 항상 1**(Q4 확정 2026-08-04 —
+   * 1요청 1장). 배열 형태는 산출 수 상향 대비로 남겨 둔 것이고, 지금 화면은
+   * `results[0]` 하나만 그립니다. `selected_index` 와 `POST /jobs/{id}/select` 는
+   * 같은 결정으로 §3 에서 삭제됐습니다.
+   */
   results: JobResultImage[] | null
-  selected_index: number | null
   error_code: JobErrorCode | null
 }
 
