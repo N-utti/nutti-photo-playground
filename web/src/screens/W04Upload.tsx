@@ -452,6 +452,14 @@ function ConfirmPanel({
           <p className="mt-2 text-center text-xs text-ink-3">
             고른 스타일로 돌아오면 이 사진 그대로 이어집니다
           </p>
+          {/* W-08 보조 진입점 — 사진이 이미 있으니 여기서 바로 넘어갈 수 있습니다.
+              보조로만 두는 이유는 #p08 노트1(기본 그리드와 분리). */}
+          <Link
+            to="/creative"
+            className="mt-3 block text-center text-sm text-ink-2 underline"
+          >
+            원하는 걸 직접 써서 만들기 · 2 크레딧
+          </Link>
         </>
       )}
 

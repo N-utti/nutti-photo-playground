@@ -35,15 +35,6 @@ function Stub({ id, title, endpoints, phase }: StubProps) {
   )
 }
 
-export const W08Creative = () => (
-  <Stub
-    id="W-08"
-    title="크리에이티브 모드"
-    phase="Phase 5"
-    endpoints={['POST /v1/jobs (custom_prompt, 2 크레딧)']}
-  />
-)
-
 export const W09Library = () => (
   <Stub
     id="W-09"
