@@ -57,15 +57,6 @@ export const W09Library = () => (
   />
 )
 
-export const W10Credits = () => (
-  <Stub
-    id="W-10"
-    title="크레딧 받기"
-    phase="Phase 3"
-    endpoints={['GET /v1/credits', 'POST /v1/credits/claim', 'GET /v1/credits/ledger']}
-  />
-)
-
 export const W11Console = () => (
   <Stub
     id="W-11"

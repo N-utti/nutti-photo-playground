@@ -19,9 +19,10 @@ import { Link, useNavigate, useParams } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { ApiError, isApiError, session } from '../api/client'
 import { events } from '../api/endpoints'
-import { beginJobAttempt, clearJobAttempt } from '../api/idempotency'
+import { beginJobAttempt, clearJobAttempt, resumeJobAttempt } from '../api/idempotency'
 import { readJobContext, rememberJobContext } from '../api/jobContext'
 import { CreditBadge } from '../app/CreditBadge'
+import { NUTTI_SHOP_URL } from '../app/externalLinks'
 import {
   invalidateAfterJobSettled,
   useCalculatorLink,
@@ -42,7 +43,7 @@ import JobUnavailable from './JobUnavailable'
  * 문구에 효능(관절·면역 등) 단정 표현을 넣지 마세요 — FR-W06-11 · NFR-LEGAL-01.
  */
 const SHOP_BANNER = {
-  url: 'https://nutti.co.kr',
+  url: NUTTI_SHOP_URL,
   title: '누띠 수제간식 보러가기',
   note: '5만원 이상 무료배송',
 }
@@ -454,7 +455,12 @@ function Regenerate({ jobId, label }: { jobId: string; label: string }) {
     }
     // **새 의도 = 새 키**. 같은 키를 재사용하면 서버가 원래 job 을 그대로 돌려줘
     // 새 결과가 나오지 않습니다(§1 · api/idempotency.ts).
-    const attempt = beginJobAttempt(intent)
+    //
+    // 단 402 직후의 재시도는 예외입니다 — 그때는 job 이 만들어지지 않았으므로 원래
+    // 키를 이어야 합니다(§4 시나리오3 4단계). resumeJobAttempt 는 **같은 의도이면서
+    // 아직 job 이 안 생긴 시도**만 돌려주고(성공 시 clearJobAttempt 로 지워짐), 그
+    // 외에는 null 이라 평소의 "다시 만들기"는 그대로 새 키를 받습니다.
+    const attempt = resumeJobAttempt(intent) ?? beginJobAttempt(intent)
 
     createJob.mutate(
       { body: intent, idempotencyKey: attempt.key },
@@ -490,6 +496,10 @@ function Regenerate({ jobId, label }: { jobId: string; label: string }) {
           required={insufficient.required}
           balance={insufficient.balance}
           onClose={() => setInsufficient(null)}
+          onRetry={() => {
+            setInsufficient(null)
+            regenerate()
+          }}
         />
       )}
     </>

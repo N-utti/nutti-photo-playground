@@ -15,12 +15,13 @@ import W03StyleDetail from '../screens/W03StyleDetail'
 import W04Upload from '../screens/W04Upload'
 import W05Waiting from '../screens/W05Waiting'
 import W06Result from '../screens/W06Result'
+import W10Credits from '../screens/W10Credits'
+import W10Ledger from '../screens/W10Ledger'
 import {
   NotFound,
   W07Calculator,
   W08Creative,
   W09Library,
-  W10Credits,
   W11Console,
 } from '../screens/placeholders'
 
@@ -46,6 +47,8 @@ export const router = createBrowserRouter([
       { path: '/creative', element: <W08Creative /> },
       { path: '/library', element: <W09Library /> },
       { path: '/credits', element: <W10Credits /> },
+      // W-10 B(받은 내역)는 자기 앱바·뒤로가기를 가진 별도 프레임입니다(#p10 B).
+      { path: '/credits/ledger', element: <W10Ledger /> },
       { path: '/admin', element: <W11Console /> },
       { path: '*', element: <NotFound /> },
     ],

@@ -59,6 +59,25 @@ const state = {
 /** 생성에 걸리는 시간. W-03 "평균 24초"보다 짧게 잡아 개발 반복을 빠르게 합니다. */
 const JOB_DURATION_MS = 12_000
 
+/**
+ * `credit:empty` 는 "항상 402"가 아니라 **잔액 0에서 시작**입니다.
+ *
+ * 402 를 무조건 던지면 크레딧을 받아도 계속 막혀서, §4 시나리오3 의 뒷부분
+ * (시트에서 클레임 → 같은 키로 재시도 → 성공)을 목 위에서 밟을 수 없습니다.
+ * 잔액만 0으로 떨어뜨리면 이후는 실제 규칙(`balance < cost` → 402)이 처리합니다.
+ */
+let emptyApplied = false
+function applyEmptyScenario() {
+  if (scenario() !== 'credit:empty') {
+    emptyApplied = false
+    return
+  }
+  if (!emptyApplied) {
+    state.credits.balance = 0
+    emptyApplied = true
+  }
+}
+
 function apiError(status: number, code: string, message: string, detail: unknown = {}) {
   return HttpResponse.json({ error: { code, message, detail } }, { status })
 }
@@ -230,13 +249,11 @@ export const handlers = [
     const body = (await request.json()) as { custom_prompt: string | null }
     const cost = body.custom_prompt ? 2 : 1
 
-    const forcedEmpty = scenario() === 'credit:empty'
-    if (forcedEmpty || state.credits.balance < cost) {
+    applyEmptyScenario()
+    if (state.credits.balance < cost) {
       return apiError(402, 'INSUFFICIENT_CREDIT', '크레딧이 부족합니다', {
         required: cost,
-        // 강제 시나리오에서 실제 잔액을 그대로 실어 보내면 "1 크레딧이 필요한데
-        // 11 크레딧이 있어요" 같은 자기모순 화면이 나옵니다.
-        balance: forcedEmpty ? 0 : Math.max(0, state.credits.balance),
+        balance: Math.max(0, state.credits.balance),
       })
     }
 
@@ -322,6 +339,7 @@ export const handlers = [
     if (scenario() === 'session:lost') {
       return apiError(401, 'UNAUTHORIZED', '유효하지 않은 토큰입니다')
     }
+    applyEmptyScenario()
     return HttpResponse.json(state.credits)
   }),
 
