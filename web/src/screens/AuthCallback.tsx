@@ -151,7 +151,7 @@ export default function AuthCallback() {
         <button
           type="button"
           onClick={() => navigate(outcome.returnTo, { replace: true })}
-          className="mt-4 w-full rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-paper"
+          className="mt-4 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper"
         >
           계속하기
         </button>

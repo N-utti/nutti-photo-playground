@@ -54,7 +54,7 @@ export default function JobUnavailable({
 
       <Link
         to="/styles"
-        className="mt-6 block rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-paper"
+        className="mt-6 block rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper"
       >
         새로 만들기
       </Link>

@@ -74,7 +74,7 @@ export default function W05Waiting() {
           className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-rule"
         >
           <div
-            className="h-full rounded-full bg-ink transition-[width] duration-500"
+            className="h-full rounded-full bg-brand transition-[width] duration-500"
             style={{ width: `${progress}%` }}
           />
         </div>

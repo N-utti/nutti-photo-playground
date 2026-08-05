@@ -107,7 +107,7 @@ function GuestPanel() {
         <button
           type="button"
           onClick={() => setLoginSheet(true)}
-          className="mt-4 w-full rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-paper"
+          className="mt-4 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper"
         >
           로그인하고 이어서 쓰기
         </button>
@@ -299,7 +299,7 @@ function RenamePetDialog({ pet, onClose }: { pet: Pet; onClose: () => void }) {
         onClick={() =>
           rename.mutate({ petId: pet.id, name: trimmed }, { onSuccess: onClose })
         }
-        className="mt-4 w-full rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-paper disabled:opacity-50"
+        className="mt-4 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper disabled:opacity-50"
       >
         {rename.isPending ? '저장 중…' : '저장'}
       </button>

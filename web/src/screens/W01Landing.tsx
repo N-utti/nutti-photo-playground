@@ -44,8 +44,9 @@ export default function W01Landing() {
     <div className="min-h-full bg-paper">
       {/* 노트3 — 이 사이트가 누띠의 것임을 처음부터 밝힙니다. */}
       <header className="flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
-        <span className="size-6 rounded-full bg-rule-strong" aria-hidden />
-        <span className="text-base font-bold">누띠 놀이터</span>
+        <span className="size-6 rounded-full bg-brand" aria-hidden />
+        {/* 워드마크는 쇼핑몰과 같은 Cafe24Ohsquare 입니다 — 브랜드가 처음 읽히는 지점. */}
+        <span className="font-display text-base">누띠 놀이터</span>
         <nav className="ml-auto flex items-center gap-4" aria-label="주요">
           <Link to="/styles" className="hidden text-sm text-ink-2 hover:text-ink desktop:block">
             스타일
@@ -83,7 +84,9 @@ export default function W01Landing() {
       <main className="mx-auto w-full max-w-(--container-canvas) px-4 pb-16">
         {/* 모바일은 헤드라인 → 슬라이더 → CTA 세로 순서, 데스크톱은 좌(문구·CTA)/우(슬라이더). */}
         <section className="grid gap-4 pt-6 desktop:grid-cols-2 desktop:items-center desktop:gap-12 desktop:pt-14">
-          <h1 className="text-2xl leading-tight font-bold desktop:col-start-1 desktop:row-start-1 desktop:text-4xl">
+          {/* 히어로만 display 서체를 씁니다. Ohsquare 는 굵고 둥글어서 큰 글씨에서만
+              브랜드로 읽히고, 앱바 h1(text-base)에 쓰면 밀도만 나빠집니다. */}
+          <h1 className="font-display text-3xl leading-tight desktop:col-start-1 desktop:row-start-1 desktop:self-end desktop:text-5xl">
             우리 애를 레고로,
             <br />
             초상화로, 우주비행사로
@@ -93,12 +96,16 @@ export default function W01Landing() {
             <BeforeAfterSlider />
           </div>
 
-          <div className="desktop:col-start-1 desktop:row-start-2">
+          {/* 데스크톱에서 왼쪽 두 행의 높이 합은 오른쪽 슬라이더(row-span-2)가 정합니다.
+              각 행이 기본값(center)이면 헤드라인과 CTA 가 자기 행 한가운데로 흩어져
+              사이가 화면 높이만큼 벌어집니다 — 헤드라인은 아래로, CTA 는 위로 붙여
+              가운데에서 만나게 합니다. 모바일(1열)에는 영향이 없습니다. */}
+          <div className="desktop:col-start-1 desktop:row-start-2 desktop:self-start">
             {/* 노트2 — 조사한 모든 서비스가 가입을 먼저 요구했습니다. 여기서 웹의 우위를 씁니다. */}
             <Link
               to="/upload"
               onClick={trackCtaClick}
-              className="block rounded-xl bg-ink px-5 py-3.5 text-center text-base font-semibold text-paper desktop:inline-block desktop:px-7"
+              className="block rounded-xl bg-brand px-5 py-3.5 text-center text-base font-semibold text-paper desktop:inline-block desktop:px-7"
             >
               사진 올리고 무료로 1장 만들기
             </Link>

@@ -124,7 +124,7 @@ function SheetBody({ style }: { style: StyleDetail }) {
 
       <Link
         to={`/upload?style_id=${style.id}`}
-        className="mt-5 block rounded-xl bg-ink px-4 py-3 text-center text-sm font-semibold text-paper"
+        className="mt-5 block rounded-xl bg-brand px-4 py-3 text-center text-sm font-semibold text-paper"
       >
         이 스타일로 만들기
       </Link>
@@ -198,7 +198,7 @@ function ExampleCarousel({ images, styleName }: { images: string[]; styleName: s
               track?.scrollTo({ left: index * track.clientWidth, behavior: 'smooth' })
             }}
             className={`size-1.5 rounded-full transition-colors ${
-              active === index ? 'bg-ink' : 'bg-rule-strong'
+              active === index ? 'bg-brand' : 'bg-rule-strong'
             }`}
           />
         ))}
