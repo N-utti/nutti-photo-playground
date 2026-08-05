@@ -57,6 +57,7 @@ src/
   screens/          화면. 구현된 것만 개별 파일, 나머지는 placeholders.tsx
   app/
     routes.tsx      11개 화면 라우트 테이블 (W-03 은 W-02 의 자식 = 시트)
+    TabBar.tsx      하단 탭바 4칸. W-02·W-09 **두 화면만** 붙입니다 (그 근거는 파일 주석)
     guestSession.ts 게스트 세션 초기화 감지 → 복원 실패 안내 분기 (이슈 #5)
     authReturn.ts   OAuth 왕복 동안 복귀 주소 보관 (sessionStorage, 내부 경로만)
     retryAfter.ts   429 Retry-After → 사람이 읽는 문구 (게스트 발급·로그인 공용)
@@ -136,5 +137,10 @@ src/
    `styleId: null` 로 저장됐다가 스타일을 고르고 돌아올 때 넘겨받습니다
    (`api/uploadDraft.ts`). 이 연결이 끊기면 같은 사진을 두 번 올리게 되고
    `upload_id` 가 새로 발급돼 Idempotency-Key 전제가 깨집니다.
-8. **job 폴링은 에러에서 멈춰야 합니다.** TanStack Query는 에러 상태여도 `refetchInterval`을
+8. **탭바를 전 화면에 깔지 마세요.** FR-W02-08 의 «[전역]» 은 "여러 화면에 반복
+   등장하니 FR 을 한 번만 쓴다"는 문서 규칙이고, 와이어프레임이 실제로 탭바를 그린
+   건 W-02·W-09 둘뿐입니다. W-04→W-05→W-06 은 만들기 흐름 한복판이라 이탈문을 열면
+   안 되고, W-10 B·W-12 는 자기 앱바를 가진 별도 프레임입니다. «만들기» 탭이 보내는
+   `/upload` 에 탭바가 없는 것도 같은 이유이며 의도된 상태입니다(`app/TabBar.tsx` 주석).
+9. **job 폴링은 에러에서 멈춰야 합니다.** TanStack Query는 에러 상태여도 `refetchInterval`을
    멈추지 않아, 404인 job 주소에서 폴링이 영원히 돕니다(`useJobPolling` 주석 참고).
