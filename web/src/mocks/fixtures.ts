@@ -8,7 +8,7 @@
 import type {
   Credits,
   LedgerEntry,
-  LibraryPage,
+  LibraryItem,
   Pet,
   StyleCatalog,
   StyleDetail,
@@ -182,20 +182,43 @@ export const ledgerEntries: LedgerEntry[] = [
   { reason: 'daily_free', ref_label: null, occurred_on: '2026-07-28', amount: 1 },
 ]
 
-export const libraryPage: LibraryPage = {
-  months: [
-    {
-      label: '2026년 8월',
-      items: [
-        {
-          job_id: 'b3e13c4a-2f1e-4a3a-9b1e-1234567890ab',
-          result_id: 'e5f6a7b8-0000-4000-8000-000000000001',
-          image_url: placeholderImage('결과 1'),
-          pet_id: petList[0].id,
-          created_at: '2026-08-03T10:00:00+09:00',
-        },
-      ],
-    },
-  ],
-  next_cursor: null,
-}
+/**
+ * 보관함 시드 — §3 예시 1건(첫 항목, 값 그대로)에 과거 결과를 더 얹은 목록입니다.
+ *
+ * 1건만 두면 W-09 를 이루는 세 축을 목 위에서 **한 번도 밟을 수 없습니다** — 월 섹션
+ * 그룹핑(FR-W09-02)에는 달이 둘 이상 필요하고, 강아지 필터(FR-W09-01)에는 펫이 갈리는
+ * 항목이, 커서 페이지네이션에는 한 페이지를 넘기는 개수가 필요합니다.
+ *
+ * `pet_id: null` 항목을 하나 섞어 둡니다 — 펫을 지운 뒤 남은 결과(이슈 #12 결정4)가
+ * «전체»에서만 보이는 상태이고, 이게 W-12 삭제 확인 문구가 약속한 결과입니다.
+ *
+ * 응답 조립(월 묶기·필터·커서)은 픽스처가 아니라 핸들러가 합니다 — 서버가 하는 일이라서.
+ */
+export const libraryItems: LibraryItem[] = [
+  // §3 예시 그대로. id 두 개와 시각을 바꾸지 마세요.
+  {
+    job_id: 'b3e13c4a-2f1e-4a3a-9b1e-1234567890ab',
+    result_id: 'e5f6a7b8-0000-4000-8000-000000000001',
+    image_url: placeholderImage('결과 1'),
+    pet_id: petList[0].id,
+    created_at: '2026-08-03T10:00:00+09:00',
+  },
+  ...[
+    { day: '2026-08-02', pet: petList[0].id },
+    { day: '2026-08-02', pet: petList[1].id },
+    { day: '2026-08-01', pet: petList[1].id },
+    { day: '2026-07-30', pet: petList[0].id },
+    { day: '2026-07-28', pet: null },
+    { day: '2026-07-27', pet: petList[1].id },
+    { day: '2026-07-21', pet: petList[0].id },
+  ].map((row, index) => {
+    const serial = String(index + 2).padStart(12, '0')
+    return {
+      job_id: `b3e13c4a-2f1e-4a3a-9b1e-${serial}`,
+      result_id: `e5f6a7b8-0000-4000-8000-${serial}`,
+      image_url: placeholderImage(`결과 ${index + 2}`),
+      pet_id: row.pet,
+      created_at: `${row.day}T10:00:00+09:00`,
+    }
+  }),
+]

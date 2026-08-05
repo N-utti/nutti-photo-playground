@@ -326,6 +326,27 @@ export function useLibrary(petId?: string) {
   })
 }
 
+/**
+ * 보관함 다중 삭제(FR-W09-04). 인자는 `result_id` 목록입니다 — `job_id` 가 아닙니다.
+ * 한 job 에 결과가 여럿일 수 있는 형태로 §3 이 잡혀 있어서(지금은 1장, Q4) 삭제 단위도
+ * 결과 쪽입니다.
+ *
+ * 낙관적 갱신을 하지 않는 이유: 204 라 서버가 무엇이 남았는지 말해 주지 않고, 이 목록은
+ * **월 섹션으로 묶인 커서 페이지**라 항목 하나를 빼면 섹션이 비거나 페이지 경계가
+ * 어긋납니다. 지우고 다시 읽는 편이 정확합니다.
+ *
+ * 무효화를 `['library']` **접두사**로 거는 게 핵심입니다. 같은 결과가 «전체» 캐시와
+ * «그 강아지» 캐시 양쪽에 들어 있어서, 보고 있던 필터만 지우면 칩을 바꾸는 순간
+ * 방금 지운 사진이 되살아납니다.
+ */
+export function useDeleteLibraryItems() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (resultIds: string[]) => library.removeMany(resultIds),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['library'] }),
+  })
+}
+
 // ---------------------------------------------------------------- 계산기 연결
 
 export function useCalculatorLink(params: { pet_id?: string; job_id?: string }, enabled = true) {

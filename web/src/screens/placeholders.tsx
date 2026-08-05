@@ -35,15 +35,6 @@ function Stub({ id, title, endpoints, phase }: StubProps) {
   )
 }
 
-export const W09Library = () => (
-  <Stub
-    id="W-09"
-    title="보관함"
-    phase="Phase 4"
-    endpoints={['GET /v1/pets', 'GET /v1/library?pet_id=&cursor=', 'DELETE /v1/library']}
-  />
-)
-
 export const W11Console = () => (
   <Stub
     id="W-11"

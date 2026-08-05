@@ -17,11 +17,12 @@ import W05Waiting from '../screens/W05Waiting'
 import W06Result from '../screens/W06Result'
 import W07Calculator from '../screens/W07Calculator'
 import W08Creative from '../screens/W08Creative'
+import W09Library from '../screens/W09Library'
 import W10Credits from '../screens/W10Credits'
 import W10Ledger from '../screens/W10Ledger'
 import W12MyPage from '../screens/W12MyPage'
 import AuthCallback from '../screens/AuthCallback'
-import { NotFound, W09Library, W11Console } from '../screens/placeholders'
+import { NotFound, W11Console } from '../screens/placeholders'
 
 export const router = createBrowserRouter([
   {
@@ -43,7 +44,7 @@ export const router = createBrowserRouter([
       { path: '/jobs/:jobId', element: <W06Result /> },
       // 결과에서 넘기는 주 경로는 W-06 배너가 **직접** 계산기로 나갑니다(UC-06 (c),
       // 노트6 — 필수 경유지가 아님). 이 라우트는 결과가 눈앞에 없을 때의 진입
-      // (`?pet_id=`)이라 W-09 보관함·마이페이지가 붙을 때 연결됩니다.
+      // (`?pet_id=`)이고, W-09 보관함에서 강아지 필터를 걸면 그 링크가 나옵니다.
       { path: '/calculator', element: <W07Calculator /> },
       { path: '/creative', element: <W08Creative /> },
       { path: '/library', element: <W09Library /> },
