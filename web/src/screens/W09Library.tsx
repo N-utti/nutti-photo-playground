@@ -24,6 +24,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { useDeleteLibraryItems, useLibrary, useMe, usePets } from '../api/queries'
 import { CreditBadge } from '../app/CreditBadge'
+import { TabBar } from '../app/TabBar'
 import type { LibraryItem, LibraryMonth } from '../api/types'
 import AccountSheet from './AccountSheet'
 
@@ -79,14 +80,7 @@ export default function W09Library() {
           </>
         ) : (
           <>
-            {/*
-              탭바(FR-W02-08)가 아직 없습니다. 와이어프레임에서 보관함은 탭 목적지라
-              뒤로가기가 없지만, 지금 붙이지 않으면 W-06 «보관함 보기» 로 들어온 사람이
-              나갈 길이 없습니다. 탭바가 생기면 이 줄이 먼저 빠집니다.
-            */}
-            <Link to="/styles" aria-label="뒤로" className="text-ink-2">
-              ←
-            </Link>
+            {/* 보관함은 탭 목적지라 뒤로가기가 없습니다(#p09) — 나가는 길은 아래 탭바입니다. */}
             <h1 className="text-base font-bold">보관함</h1>
             <div className="ml-auto flex items-center gap-3">
               {items.length > 0 && (
@@ -163,6 +157,10 @@ export default function W09Library() {
           </>
         )}
       </main>
+
+      {/* 선택 모드에서는 탭바를 내립니다 — 같은 자리를 선택 바가 쓰고, 무엇보다
+          "N장 고른 상태"로 다른 탭에 가면 그 선택이 갈 곳이 없습니다. */}
+      {!selected && <TabBar />}
 
       {selected && (
         <SelectionBar

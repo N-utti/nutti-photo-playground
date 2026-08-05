@@ -19,6 +19,7 @@ import { Link, Outlet, useMatch } from 'react-router'
 import { useStyles } from '../api/queries'
 import { AccountEntry } from '../app/AccountEntry'
 import { CreditBadge } from '../app/CreditBadge'
+import { TabBar } from '../app/TabBar'
 import type { StyleCard } from '../api/types'
 
 export default function W02StyleCatalog() {
@@ -156,11 +157,21 @@ export default function W02StyleCatalog() {
   )
 }
 
-/** 카탈로그 본문 + 그 위에 뜨는 W-03 시트(Outlet). 로딩·에러 상태도 시트를 받습니다. */
+/**
+ * 카탈로그 본문 + 그 위에 뜨는 W-03 시트(Outlet). 로딩·에러 상태도 시트를 받습니다.
+ *
+ * 탭바를 여기 두는 이유: 카탈로그를 못 불러왔다고 보관함까지 갇히면 안 됩니다.
+ * 세 상태(로딩·에러·정상)가 전부 이 껍데기를 지나므로 한 번만 답니다.
+ * `inert` 안쪽인 것도 의도입니다 — 시트가 떠 있는 동안 탭바는 모달 밖이라
+ * 탭 이동·스크린리더 대상에서 같이 빠져야 합니다.
+ */
 function Shell({ sheetOpen, children }: { sheetOpen: boolean; children: ReactNode }) {
   return (
     <>
-      <div inert={sheetOpen}>{children}</div>
+      <div inert={sheetOpen}>
+        {children}
+        <TabBar />
+      </div>
       <Outlet />
     </>
   )
