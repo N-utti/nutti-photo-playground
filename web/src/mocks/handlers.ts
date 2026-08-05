@@ -62,8 +62,7 @@ interface MockJob {
  * 모듈 변수만 쓰면 왕복 도중에 목이 초기화됩니다 — 돌아온 순간 회원이 다시 게스트가
  * 되므로 "로그인 후 연동" 같은 2단계 흐름을 목 위에서 한 번도 못 밟습니다.
  *
- * 탭 수명과 묶으려고 sessionStorage 를 씁니다. job 은 여기 넣지 않습니다 — 결과 이미지가
- * 런타임 placeholder 라 되살려도 의미가 없고, 목 job 의 수명은 원래 한 세션입니다.
+ * 탭 수명과 묶으려고 sessionStorage 를 씁니다. job 은 수명이 달라 아래에서 따로 다룹니다.
  */
 const PERSIST_KEY = 'nutti.mock.state'
 
@@ -80,13 +79,61 @@ function persist(): void {
   sessionStorage.setItem(PERSIST_KEY, JSON.stringify({ credits: state.credits, me: state.me }))
 }
 
+/**
+ * job 은 **localStorage** 에 따로 남깁니다 — 목의 나머지 상태와 수명이 다릅니다.
+ *
+ * Q7(07-decisions.md)이 완료 알림 대신 약속한 게 "URL 보존 + 재방문 시 복원"이고,
+ * W-05 는 그 약속을 화면에서 문장으로 말합니다("이 브라우저에서 이 주소로 다시 오면
+ * 결과를 볼 수 있어요"). job 을 메모리에만 두면 새로고침 한 번에 `/jobs/{id}` 가 404 라
+ * 이 앱의 핵심 결정을 목 위에서 **한 번도 확인할 수 없습니다**.
+ *
+ * sessionStorage 가 아니라 localStorage 인 이유도 같습니다 — 탭을 닫았다 URL 로
+ * 돌아오는 게 바로 Q7 이 말하는 시나리오라, 탭 수명에 묶으면 절반만 재현됩니다.
+ * (`nutti.job-context` 가 localStorage 인 것도 같은 이유입니다.)
+ *
+ * `placeholderImage` 는 label 이 같으면 같은 data URI 를 내는 결정론적 함수라,
+ * 되살린 job 도 이미지까지 원래대로 그려집니다.
+ */
+const JOBS_KEY = 'nutti.mock.jobs'
+
+/** 색인이 아니라 목 데이터라 수명이 짧습니다. 오래된 것부터 버립니다. */
+const MAX_JOBS = 20
+
+interface PersistedJobs {
+  jobs: Record<string, MockJob>
+  /** 같은 키 재요청 보장(§1)도 리로드를 건너야 job 과 짝이 맞습니다. */
+  idempotency: Record<string, string>
+}
+
+function restoredJobs(): PersistedJobs {
+  try {
+    const raw = localStorage.getItem(JOBS_KEY)
+    const parsed = raw ? (JSON.parse(raw) as Partial<PersistedJobs>) : null
+    return { jobs: parsed?.jobs ?? {}, idempotency: parsed?.idempotency ?? {} }
+  } catch {
+    return { jobs: {}, idempotency: {} }
+  }
+}
+
+function persistJobs(): void {
+  // Map 은 삽입 순서를 지키므로 뒤에서 자르면 최신 MAX_JOBS 건이 남습니다.
+  const jobs = [...state.jobs.entries()].slice(-MAX_JOBS)
+  const kept = new Set(jobs.map(([id]) => id))
+  const idempotency = [...state.idempotency.entries()].filter(([, id]) => kept.has(id))
+  localStorage.setItem(
+    JOBS_KEY,
+    JSON.stringify({ jobs: Object.fromEntries(jobs), idempotency: Object.fromEntries(idempotency) }),
+  )
+}
+
 const snapshot = restored()
+const jobSnapshot = restoredJobs()
 
 const state = {
   credits: snapshot?.credits ?? (structuredClone(initialCredits) as Credits),
-  jobs: new Map<string, MockJob>(),
+  jobs: new Map<string, MockJob>(Object.entries(jobSnapshot.jobs)),
   /** Idempotency-Key → job_id. 같은 키 재요청 시 새 job 을 만들지 않습니다(§1). */
-  idempotency: new Map<string, string>(),
+  idempotency: new Map<string, string>(Object.entries(jobSnapshot.idempotency)),
   /** session:expired 시나리오에서 "만료된 것으로 칠" Authorization 헤더 값. */
   expiredToken: null as string | null,
   /** `/auth/me` 의 원본. 로그인·연동이 이 값을 바꾸므로 화면 분기가 실제로 움직입니다. */
@@ -422,7 +469,20 @@ export const handlers = [
       style_id: number | null
       upload_id: string
     }
-    const cost = body.custom_prompt ? 2 : 1
+    /*
+      비용은 **스타일마다 다릅니다**(§3 `credit_cost`) — 여기서 1 로 고정하면 목이
+      계약을 대변하지 않습니다. W-03·W-04 는 `credit_cost` 를 그대로 버튼에 박으므로
+      (노트4) 2 크레딧이라고 말해 놓고 1 만 빠지는 화면이 됩니다.
+
+      더 중요한 건 402 를 못 밟는다는 점입니다. 잔액 1 · 2크레딧 스타일이 정확히
+      §4 시나리오3 의 진입 조건인데, 비용이 항상 1 이면 잔액이 0 이 되기 전까지
+      INSUFFICIENT_CREDIT 이 한 번도 나오지 않습니다.
+
+      커스텀 프롬프트는 스타일과 무관하게 2 고정입니다(FR-W08-04) — 그래서 이쪽이 먼저.
+    */
+    const cost = body.custom_prompt
+      ? 2
+      : (styleDetailFor(body.style_id ?? -1)?.credit_cost ?? 1)
 
     applyEmptyScenario()
     if (state.credits.balance < cost) {
@@ -446,6 +506,7 @@ export const handlers = [
     state.idempotency.set(key, job.id)
     state.credits.balance -= cost // 차감은 job 생성 시점(04-erd 크레딧 트랜잭션).
     persist()
+    persistJobs()
 
     return HttpResponse.json({ job_id: job.id, status: 'queued' }, { status: 202 })
   }),
@@ -475,6 +536,8 @@ export const handlers = [
       state.credits.balance += job.creditCost
       job.creditCost = 0
       persist()
+      // creditCost 를 0 으로 만든 사실까지 남겨야 리로드 후 같은 job 이 또 반환하지 않습니다.
+      persistJobs()
     }
     return HttpResponse.json(projected)
   }),
