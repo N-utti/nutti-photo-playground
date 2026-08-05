@@ -421,7 +421,7 @@ function SavedPets({
                   src={pet.thumbnail_url}
                   alt=""
                   className={`size-14 rounded-full object-cover ${
-                    selected ? 'ring-2 ring-ink ring-offset-2 ring-offset-paper' : ''
+                    selected ? 'ring-2 ring-brand ring-offset-2 ring-offset-paper' : ''
                   }`}
                 />
                 <span className="w-full truncate text-center text-xs text-ink-2">{pet.name}</span>
@@ -509,7 +509,7 @@ function ConfirmPanel({
         <>
           <Link
             to="/styles"
-            className="mt-2 block w-full rounded-xl bg-ink px-4 py-3 text-center text-sm font-semibold text-paper"
+            className="mt-2 block w-full rounded-xl bg-brand px-4 py-3 text-center text-sm font-semibold text-paper"
           >
             스타일 고르기 →
           </Link>
@@ -534,7 +534,7 @@ function ConfirmPanel({
             type="button"
             onClick={onStart}
             disabled={starting || creditCost === null}
-            className="mt-2 w-full rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-paper disabled:opacity-50"
+            className="mt-2 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper disabled:opacity-50"
           >
             {starting
               ? '만드는 중…'

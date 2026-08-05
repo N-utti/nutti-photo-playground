@@ -70,7 +70,7 @@ export function TabBar() {
                 to={tab.to}
                 aria-current={active ? 'page' : undefined}
                 className={`flex flex-col items-center gap-0.5 py-2 text-[11px] ${
-                  active ? 'font-semibold text-ink' : 'text-ink-3'
+                  active ? 'font-semibold text-brand' : 'text-ink-3'
                 }`}
               >
                 <tab.icon />

@@ -85,7 +85,7 @@ export default function W02StyleCatalog() {
       <div className="min-h-full bg-paper pb-24">
         {/* 앱바 — 크레딧 배지의 표시 규칙(ADR-02 음수·미상 처리)은 app/CreditBadge.tsx 에 있습니다. */}
         <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
-          <span className="size-6 rounded-full bg-rule-strong" aria-hidden />
+          <span className="size-6 rounded-full bg-brand" aria-hidden />
           <h1 className="text-base font-bold">스타일</h1>
           <CreditBadge showUnit />
           {/* 숫자 = 크레딧 받기(W-10), 아바타 = 계정(W-12). 역할을 겹치지 않게 나눕니다. */}
@@ -104,7 +104,7 @@ export default function W02StyleCatalog() {
               aria-current={activeSection === name ? 'true' : undefined}
               className={`shrink-0 rounded-full border px-3 py-1 text-sm transition-colors ${
                 activeSection === name
-                  ? 'border-ink bg-ink text-paper'
+                  ? 'border-brand bg-brand text-paper'
                   : 'border-rule bg-surface text-ink-2'
               }`}
             >

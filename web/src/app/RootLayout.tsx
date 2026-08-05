@@ -63,7 +63,7 @@ function SessionBanner() {
         type="button"
         onClick={() => void retry()}
         disabled={retrying}
-        className="mt-2 rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-paper disabled:opacity-50"
+        className="mt-2 rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-paper disabled:opacity-50"
       >
         {retrying ? '시작하는 중…' : '새로 시작하기'}
       </button>

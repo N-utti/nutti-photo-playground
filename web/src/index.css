@@ -1,44 +1,134 @@
 @import 'tailwindcss';
 
 /**
- * 디자인 토큰.
+ * 디자인 토큰 — 누띠 브랜드 확정본.
  *
- * 주의 — 색·타이포는 **확정된 브랜드 디자인이 아닙니다.**
- * docs/wireframe-spec-v0.5.html 은 회색 박스 와이어프레임이고(.style-card > .img 가
- * 빈 사각형, 텍스트는 .bar 회색 막대), 그 문서의 :root 색상은 **스펙 문서 자체의
- * 서식**입니다 — 제품 팔레트가 아닙니다. 브랜드 색·서체는 어느 문서에도 없습니다.
+ * 출처: **nutti.co.kr 실측**입니다(2026-08-05). 브랜드 색·서체를 규정한 문서가
+ * 어디에도 없어서, 본체인 카페24 쇼핑몰의 렌더된 computed style 을 직접 집계해
+ * 빈도 상위 값을 가져왔습니다. 놀이터는 쇼핑몰의 홍보 자산이고 사용자에게
+ * "하나의 브랜드"로 읽혀야 하므로(README·01-prd.md GA4 크로스도메인 항목),
+ * 팔레트를 새로 만들지 않고 이식하는 쪽을 택했습니다.
  *
- * 그래서 아래 색은 와이어프레임과 같은 중립 회색을 의도적으로 그대로 씁니다.
- * 화면 구조를 먼저 맞추고, 비주얼 디자인이 확정되면 이 블록만 교체합니다.
- * 확정 전까지 화면 코드에 색을 하드코딩하지 마세요 — 여기 토큰만 참조해야
- * 나중에 한 파일 교체로 끝납니다.
+ * 실측 원본값:
+ *   브라운  rgb(92,61,36)=#5C3D24 (로고·주조) · rgb(140,98,57)=#8C6239 · rgb(58,42,28)=#3A2A1C
+ *   크림    rgb(249,246,240)=#F9F6F0 · rgb(246,241,231)=#F6F1E7 · rgb(238,224,208)=#EEE0D0
+ *   잉크    rgb(51,46,42)=#332E2A (중성 회색이 아니라 웜그레이)
+ *   골드    rgb(255,223,142)=#FFDF8E (로고 i 위의 점)
+ *   서체    본문 S-CoreDream · 로고/헤드 Cafe24Ohsquare
  *
- * 반면 **레이아웃 수치는 와이어프레임이 실제로 규정한 것**이라 그대로 옮겼습니다:
+ * 그대로 옮기지 **않은** 것이 하나 있습니다 — 결과·보관함의 바탕(`canvas`).
+ * 이 앱의 주인공은 변환된 사진이고, 크림(#F9F6F0)은 노란기가 있어서 그 위에
+ * 이미지를 깔면 결과물 색이 실제보다 따뜻하게 왜곡돼 보입니다. 사진이 지배하는
+ * 화면(W-06 결과 · W-09 보관함)만 중립 톤 `canvas` 를 쓰고, 나머지 화면은
+ * 크림 `paper` 를 씁니다.
+ *
+ * 대비는 전부 계산해서 넣었습니다(WCAG 2.1 상대휘도 기준, 괄호가 paper 위 비율).
+ * 특히 `ink-3` 는 직전 플레이스홀더값 #7d8179 가 3.80:1 로 본문 크기 AA 에
+ * 미달이었어서 이번에 #736A62 로 내렸습니다 — 색 교체가 아니라 접근성 수정입니다.
+ *
+ * 화면 코드에 색을 하드코딩하지 마세요. 유일한 예외는 AccountSheet 의 카카오·네이버
+ * 버튼으로, 각 사의 브랜드 가이드가 고정 색을 요구하는 자리입니다.
+ *
+ * 레이아웃 수치는 와이어프레임(docs/wireframe-spec-v0.5.html)이 규정한 값입니다:
  * 모바일 375 / 데스크톱 1280, 카탈로그 모바일 2열 · 데스크톱 4열(#p02 노트5).
  */
-@theme {
-  /* --- 중립 팔레트 (플레이스홀더) --- */
-  --color-paper: #ecede8;
-  --color-surface: #ffffff;
-  --color-surface-2: #f6f7f2;
-  --color-ink: #1a1c19;
-  --color-ink-2: #4c5049;
-  --color-ink-3: #7d8179;
-  --color-rule: #d4d6ce;
-  --color-rule-strong: #b3b7ad;
 
-  /* --- 상태 색 (경고/차단 구분에 필요해 최소한만) --- */
-  --color-good: #2c6742;
-  --color-good-soft: #e3efe7;
-  --color-warn: #855610;
-  --color-warn-soft: #f6ecdb;
-  --color-danger: #a81d4e;
+/* --------------------------------------------------------------- 웹폰트
+
+  둘 다 무료 배포·임베딩 허용 폰트입니다(에스코어 S-CoreDream, 카페24 Ohsquare).
+  쇼핑몰이 쓰는 카페24 CDN 을 그대로 참조하지 않고 public/fonts 에 자가 호스팅합니다 —
+  그건 카페24 쇼핑몰용 리소스 서버라 핫링크가 언제 막혀도 이상하지 않고, 그러면
+  우리 앱의 서체가 남의 인프라 사정에 묶입니다.
+
+  원본은 woff 였고 woff2 로 재압축했습니다(345KB→234KB 등). 완성형 한글 11,172자가
+  전부 들어 있어서 사용자가 입력한 강아지 이름에 희귀 음절이 있어도 깨지지 않습니다.
+
+  weight 는 코드가 실제로 쓰는 것만 받습니다(400 / 600 / 700). font-medium(500)은
+  네 곳뿐이라 400 으로 흡수시켰습니다 — 한글 웹폰트 한 벌이 240KB 라 위계에 기여하지
+  않는 굵기를 더 얹을 이유가 없습니다.
+
+  S-CoreDream 의 굵기 이름은 CSS weight 와 어긋납니다(6Bold=600, 7ExtraBold=700).
+  파일명만 보고 700 에 6Bold 를 매달지 마세요.
+*/
+@font-face {
+  font-family: 'S-CoreDream';
+  src: url('/fonts/S-CoreDream-4Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'S-CoreDream';
+  src: url('/fonts/S-CoreDream-6Bold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'S-CoreDream';
+  src: url('/fonts/S-CoreDream-7ExtraBold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Cafe24Ohsquare';
+  src: url('/fonts/Cafe24Ohsquare.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  /* --- 브랜드 (nutti.co.kr 실측) --- */
+  --color-brand: #5c3d24; /* 로고 브라운 · paper 위 9.06:1 AAA */
+  --color-brand-2: #8c6239; /* 보조 브라운 · 4.96:1 — 큰 글씨·아이콘·테두리용 */
+  --color-brand-deep: #3a2a1c; /* 눌린 상태(:active)와 오버레이 */
+  --color-brand-soft: #eee0d0; /* 브라운 계열 연한 배경(칩·선택 상태) */
+
+  /* --- 액센트 골드 (로고 i 의 점) ---
+     배경 전용입니다. paper 위 1.20:1 이라 글자색으로 쓰면 안 보입니다.
+     이 위에 얹는 글자는 ink(10.35:1) 또는 brand(7.54:1). */
+  --color-gold: #ffdf8e;
+  --color-gold-soft: #fdf3da;
+
+  /* --- 바탕: 크림 (랜딩·카탈로그·마이페이지 등 대부분의 화면) --- */
+  --color-paper: #f9f6f0;
+  --color-surface: #ffffff;
+  --color-surface-2: #f6f1e7;
+
+  /* --- 바탕: 중립 (사진이 주인공인 W-06 결과 · W-09 보관함) ---
+     크림의 노란기가 결과물 색을 왜곡해 보이게 하는 것을 막습니다. */
+  --color-canvas: #f5f4f2;
+  --color-canvas-2: #eceae6;
+  --color-canvas-rule: #dad7d2;
+
+  /* --- 글자 (웜그레이 — 순회색을 쓰면 크림 위에서 차갑게 뜹니다) --- */
+  --color-ink: #332e2a; /* 12.44:1 AAA */
+  --color-ink-2: #5b534c; /* 6.99:1 AA */
+  --color-ink-3: #736a62; /* 4.91:1 AA — 본문 크기 보조 텍스트의 하한 */
+
+  /* --- 경계선 --- */
+  --color-rule: #e6ded2;
+  --color-rule-strong: #cbbfae;
+
+  /* --- 상태 색 (경고/차단 구분에 필요해 최소한만) ---
+     브랜드 브라운과 섞이지 않게 채도를 낮춰 크림 바탕에 앉혔습니다. */
+  --color-good: #2c6742; /* 6.23:1 */
+  --color-good-soft: #e4efe6;
+  --color-warn: #855610; /* 5.84:1 */
+  --color-warn-soft: #f7ecda;
+  --color-danger: #a81d4e; /* 6.60:1 */
   --color-danger-soft: #f9e5ec;
 
-  /* --- 서체 (Pretendard 등 확정 전 시스템 스택) --- */
+  /* --- 서체 ---
+     font-sans 는 본문 전부, font-display 는 로고·히어로 헤드라인 전용입니다.
+     Ohsquare 는 둥글고 굵어서 본문에 쓰면 정보 밀도가 높은 화면(보관함·원장)에서
+     읽기가 나빠집니다. 큰 글씨에만 쓰세요. */
   --font-sans:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', Pretendard,
-    'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif;
+    'S-CoreDream', -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI',
+    Pretendard, 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif;
+  --font-display: 'Cafe24Ohsquare', 'S-CoreDream', var(--font-sans);
   --font-mono: ui-monospace, 'Cascadia Mono', SFMono-Regular, Consolas, monospace;
 
   /* --- 레이아웃 (와이어프레임 규정값) --- */
@@ -70,4 +160,12 @@ body {
 img {
   max-width: 100%;
   display: block;
+}
+
+/* 포커스 링. 브라우저 기본값은 파란색이라 이 팔레트에서 유일하게 튀는 색이 됩니다.
+   :focus 가 아니라 :focus-visible 이라 마우스 클릭에는 안 뜹니다. */
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+  border-radius: 2px;
 }

@@ -22,7 +22,12 @@ export function CreditBadge({ showUnit = false }: { showUnit?: boolean }) {
 
   return (
     <span
-      className="ml-auto rounded-full border border-rule bg-surface-2 px-3 py-1 font-mono text-sm tabular-nums"
+      // 크레딧은 이 앱의 화폐라 브랜드 골드(로고 i 위의 점 색)를 씁니다. 단,
+      // **잔액을 아는 경우에만** 입니다 — `—` 를 금색으로 칠하면 규칙 2 가 무너져서
+      // "모른다"가 다시 "있다"처럼 보입니다.
+      className={`ml-auto rounded-full border px-3 py-1 font-mono text-sm tabular-nums ${
+        balance === null ? 'border-rule bg-surface-2 text-ink-3' : 'border-gold bg-gold-soft'
+      }`}
       aria-label={balance === null ? '보유 크레딧을 불러오지 못했습니다' : `보유 크레딧 ${balance}개`}
     >
       ◆ {balance ?? '—'}

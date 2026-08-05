@@ -111,7 +111,7 @@ function HandoffCard({
               properties: { job_id: jobId ?? null, pet_id: petId ?? null, breed_code: link.breed_code },
             })
           }
-          className="mt-4 block rounded-xl bg-ink px-4 py-3 text-center text-sm font-semibold text-paper"
+          className="mt-4 block rounded-xl bg-brand px-4 py-3 text-center text-sm font-semibold text-paper"
         >
           간식량 계산하기 →
         </a>

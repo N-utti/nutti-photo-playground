@@ -118,7 +118,7 @@ export default function AccountSheet({
             <button
               type="button"
               onClick={onClose}
-              className="mt-4 w-full rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-paper"
+              className="mt-4 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper"
             >
               계속하기
             </button>
@@ -172,7 +172,7 @@ export default function AccountSheet({
                     localAuth.reset()
                   }}
                   className={`flex-1 rounded-lg px-3 py-2 font-semibold ${
-                    mode === value ? 'bg-ink text-paper' : 'border border-rule text-ink-2'
+                    mode === value ? 'bg-brand text-paper' : 'border border-rule text-ink-2'
                   }`}
                 >
                   {value === 'login' ? '로그인' : '가입'}
@@ -223,7 +223,7 @@ export default function AccountSheet({
               <button
                 type="submit"
                 disabled={localAuth.isPending}
-                className="w-full rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-paper disabled:opacity-50"
+                className="w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper disabled:opacity-50"
               >
                 {localAuth.isPending
                   ? '처리 중…'

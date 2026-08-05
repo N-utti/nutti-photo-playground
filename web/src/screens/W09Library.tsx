@@ -67,7 +67,7 @@ export default function W09Library() {
   const selectedItems = items.filter((item) => selected?.has(item.result_id))
 
   return (
-    <div className="min-h-full bg-paper pb-24">
+    <div className="min-h-full bg-canvas pb-24">
       <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
         {selected ? (
           <>
@@ -106,7 +106,7 @@ export default function W09Library() {
         {library.isPending ? (
           <div className="mt-4 grid grid-cols-3 gap-1.5">
             {Array.from({ length: 6 }, (_, index) => (
-              <div key={index} className="aspect-square animate-pulse rounded bg-rule/60" />
+              <div key={index} className="aspect-square animate-pulse rounded bg-canvas-rule/70" />
             ))}
           </div>
         ) : library.isError ? (
@@ -264,7 +264,7 @@ function Chip({
       onClick={onClick}
       aria-pressed={active}
       className={`shrink-0 rounded-full border px-3 py-1.5 text-sm ${
-        active ? 'border-ink bg-ink text-paper' : 'border-rule bg-surface text-ink-2'
+        active ? 'border-brand bg-brand text-paper' : 'border-rule bg-surface text-ink-2'
       }`}
     >
       {children}
@@ -355,19 +355,19 @@ function Tile({
         onClick={onToggle}
         aria-pressed={checked}
         aria-label={label}
-        className="relative block aspect-square w-full bg-surface-2"
+        className="relative block aspect-square w-full bg-canvas-2"
       >
         {image}
         <span
           aria-hidden
           className={`absolute inset-0 rounded ring-inset ${
-            checked ? 'bg-ink/30 ring-2 ring-ink' : 'ring-1 ring-rule'
+            checked ? 'bg-brand/25 ring-2 ring-brand' : 'ring-1 ring-rule'
           }`}
         />
         <span
           aria-hidden
           className={`absolute right-1 top-1 grid size-5 place-items-center rounded-full text-[10px] font-bold ${
-            checked ? 'bg-ink text-paper' : 'bg-surface/80 text-ink-3'
+            checked ? 'bg-brand text-paper' : 'bg-surface/80 text-ink-3'
           }`}
         >
           {checked ? '✓' : ''}
@@ -386,7 +386,7 @@ function Tile({
         // 결과 화면으로 넘어가 버립니다.
         if (longPress.fired.current) event.preventDefault()
       }}
-      className="block aspect-square bg-surface-2"
+      className="block aspect-square bg-canvas-2"
     >
       {image}
     </Link>
@@ -546,7 +546,7 @@ function EmptyState({
       </p>
       <Link
         to="/styles"
-        className="mt-4 inline-block rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-paper"
+        className="mt-4 inline-block rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper"
       >
         스타일 고르러 가기
       </Link>

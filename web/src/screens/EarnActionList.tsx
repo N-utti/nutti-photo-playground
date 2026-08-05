@@ -163,7 +163,7 @@ function EarnRow({ row, claiming, onClaim, onLinkAccount, linking, memberKnown }
   return (
     <div
       className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-3 ${
-        best ? 'border-ink bg-surface' : 'border-rule bg-surface'
+        best ? 'border-brand bg-surface' : 'border-rule bg-surface'
       }`}
     >
       <div className="min-w-0">
@@ -195,7 +195,7 @@ function EarnCta({ row, claiming, onClaim, onLinkAccount, linking, memberKnown }
         target="_blank"
         rel="noreferrer"
         onClick={() => void events.track({ event_type: 'shop_exit_click', properties: { from: 'W-10' } })}
-        className="shrink-0 rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-paper"
+        className="shrink-0 rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-paper"
       >
         {row.cta ?? '쇼핑몰 →'}
       </a>

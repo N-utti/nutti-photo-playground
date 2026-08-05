@@ -100,7 +100,7 @@ export default function W06Result() {
   }
 
   return (
-    <div className="min-h-full bg-paper pb-16">
+    <div className="min-h-full bg-canvas pb-16">
       <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
         <Link to="/styles" aria-label="스타일 목록" className="text-ink-2">
           ←
@@ -133,7 +133,7 @@ function FailurePanel({ job }: { job: Job }) {
       <img
         src={job.source_image_url}
         alt="업로드한 사진"
-        className="aspect-square w-full rounded-xl bg-surface-2 object-cover"
+        className="aspect-square w-full rounded-xl bg-canvas-2 object-cover"
       />
       <div className="mt-3 rounded-lg border border-danger/30 bg-danger-soft px-3 py-3">
         <p className="text-sm font-semibold text-danger">{copy.title}</p>
@@ -190,7 +190,7 @@ function ResultPanel({ job }: { job: Job }) {
             properties: { job_id: job.job_id },
           })
         }
-        className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-rule-strong bg-surface px-3 py-3"
+        className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-brand-2 bg-brand-soft px-3 py-3"
       >
         <span>
           <span className="block text-sm font-semibold">{SHOP_BANNER.title}</span>
@@ -215,7 +215,7 @@ function CompareSlider({ beforeUrl, afterUrl }: { beforeUrl: string; afterUrl: s
   const [position, setPosition] = useState(50)
 
   return (
-    <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-surface-2">
+    <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-canvas-2">
       <img src={afterUrl} alt="변환 결과" className="absolute inset-0 size-full object-cover" />
       <div className="absolute inset-0" style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}>
         <img src={beforeUrl} alt="원본" className="size-full object-cover" />
@@ -232,7 +232,7 @@ function CompareSlider({ beforeUrl, afterUrl }: { beforeUrl: string; afterUrl: s
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-y-0 w-0.5 bg-surface peer-focus-visible:w-1 peer-focus-visible:bg-ink"
+        className="pointer-events-none absolute inset-y-0 w-0.5 bg-surface peer-focus-visible:w-1 peer-focus-visible:bg-brand"
         style={{ left: `calc(${position}% - 1px)` }}
       />
       <div
@@ -280,7 +280,7 @@ function ShareRow({ job }: { job: Job }) {
             })
             share.mutate()
           }}
-          className="rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-paper disabled:opacity-50"
+          className="rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper disabled:opacity-50"
         >
           {share.isPending ? '준비 중…' : '인스타 공유'}
         </button>
@@ -302,7 +302,7 @@ function ShareRow({ job }: { job: Job }) {
           <img
             src={share.data.share_image_url}
             alt="공유용 이미지"
-            className="w-full rounded-lg bg-surface-2"
+            className="w-full rounded-lg bg-canvas-2"
           />
           <div className="mt-2 grid grid-cols-2 gap-2">
             <a
@@ -316,7 +316,7 @@ function ShareRow({ job }: { job: Job }) {
               href="https://www.instagram.com/"
               target="_blank"
               rel="noreferrer"
-              className="rounded-lg bg-ink px-3 py-2 text-center text-sm font-semibold text-paper"
+              className="rounded-lg bg-brand px-3 py-2 text-center text-sm font-semibold text-paper"
             >
               인스타그램 열기
             </a>
@@ -462,7 +462,7 @@ function CalculatorBanner({ jobId }: { jobId: string }) {
           properties: { job_id: jobId, breed_code: link.breed_code },
         })
       }
-      className="mt-4 block rounded-xl border border-rule-strong bg-surface-2 px-3 py-3"
+      className="mt-4 block rounded-xl border border-rule-strong bg-surface px-3 py-3"
     >
       <span className="block text-sm font-semibold">{calculatorHeadline(link)}</span>
       <span className="mt-0.5 block text-xs text-ink-2">{estimateSummary(link).text}</span>
@@ -493,7 +493,7 @@ function OtherStyles({ jobId }: { jobId: string }) {
                 src={style.thumbnail_url}
                 alt={style.name}
                 loading="lazy"
-                className="aspect-square w-full bg-surface-2 object-cover"
+                className="aspect-square w-full bg-canvas-2 object-cover"
               />
               <span className="block truncate px-2 py-1 text-xs">{style.name}</span>
             </Link>

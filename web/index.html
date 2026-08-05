@@ -4,7 +4,23 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- 모바일 브라우저 UI(주소창)까지 브랜드 크림으로. -->
+    <meta name="theme-color" content="#f9f6f0" />
     <title>누띠 사진 놀이터</title>
+
+    <!--
+      본문 Regular 만 preload 합니다. 이게 첫 화면의 거의 모든 글자이고,
+      나머지 굵기(600/700)와 헤드 서체는 @font-face 의 font-display:swap 으로
+      늦게 와도 됩니다 — 네 벌을 다 preload 하면 1MB 를 첫 페인트 앞에 세우는
+      셈이라 오히려 느려집니다.
+    -->
+    <link
+      rel="preload"
+      href="/fonts/S-CoreDream-4Regular.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
   </head>
   <body>
     <div id="root"></div>

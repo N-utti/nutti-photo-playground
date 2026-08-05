@@ -40,7 +40,7 @@ export default function LogoutConfirm({ onClose }: { onClose: () => void }) {
           type="button"
           disabled={logout.isPending}
           onClick={() => logout.mutate(undefined, { onSuccess: onClose })}
-          className="mt-4 w-full rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-paper disabled:opacity-50"
+          className="mt-4 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper disabled:opacity-50"
         >
           {logout.isPending ? '로그아웃 중…' : '로그아웃'}
         </button>

@@ -76,7 +76,7 @@ export default function InsufficientCreditOverlay({
           <button
             type="button"
             onClick={onRetry}
-            className="mt-4 w-full rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-paper"
+            className="mt-4 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper"
           >
             다시 시도 · {required} 크레딧
           </button>
