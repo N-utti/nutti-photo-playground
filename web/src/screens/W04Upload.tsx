@@ -7,8 +7,8 @@
  *
  * 반영한 노트:
  *   1. 업로드 **전에** 조건을 알려준다(촬영 팁)
- *   2. 펫 프로필 — 다만 "업로드 단계 스킵"(FR-W04-02)은 현재 API 로 불가능합니다.
- *      아래 SavedPets 주석 참고
+ *   2. 펫 프로필 — "업로드 단계 스킵"(FR-W04-02)은 `latest_upload_id`(이슈 #9 A안)로
+ *      동작하고, "관리"는 마이페이지(W-12)로 갑니다. 아래 SavedPets 주석 참고
  *   3. 품질 경고는 차단이 아니라 조언 — 경고가 있어도 진행 버튼은 그대로 활성
  *   4. 차감 금액을 버튼에 박는다
  *   5. 실패 시 자동 반환을 **결제 전에** 고지
@@ -19,7 +19,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { isApiError } from '../api/client'
 import { CreditBadge } from '../app/CreditBadge'
 import {
@@ -32,6 +32,7 @@ import {
   useCreateJob,
   useCreatePet,
   useJob,
+  useMe,
   usePets,
   useStyleDetail,
   useUploadPhoto,
@@ -358,6 +359,12 @@ function SelectPanel({
  * 백엔드 미구현 구간)은 예전처럼 **이번 업로드를 이 강아지에 붙이기**로 남습니다
  * (`POST /v1/uploads` 의 `pet_id`). 두 상태를 칩 아래 한 줄로 구분해 줍니다 —
  * 구분이 없으면 "어떤 애는 되고 어떤 애는 안 되는" 이유를 알 수 없습니다.
+ *
+ * "관리"(와이어프레임 W-04 A 프레임)의 목적지는 **마이페이지 C 섹션**입니다 — 이슈 #9
+ * 답변에서 `PATCH`·`DELETE /v1/pets/{id}` 소유가 W-12 로 확정됐습니다. 게스트에게는
+ * 그리지 않습니다: 앱바가 게스트에게 계정 진입점(아바타)을 주지 않는 것과 같은 규칙이고
+ * (app/AccountEntry.tsx), 눌러 봐야 로그인 유도 패널이라 이름 수정·삭제를 할 수 없습니다.
+ * 게스트의 다음 걸음은 같은 앱바의 "로그인" 입니다.
  */
 function SavedPets({
   pets,
@@ -370,13 +377,29 @@ function SavedPets({
   onSelectPet: (pet: Pet) => void
   onAdd: () => void
 }) {
+  const { data: me } = useMe()
+  const location = useLocation()
+
   if (pets.length === 0) return null
 
   const selectedPet = pets.find((pet) => pet.id === petId) ?? null
 
   return (
     <section className="mt-5">
-      <h2 className="text-sm font-semibold">저장된 강아지</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold">저장된 강아지</h2>
+        {me?.kind === 'member' && (
+          <Link
+            to="/me"
+            // 스타일 맥락(`?style_id=`)까지 담아 보냅니다 — W-12 의 ← 가 이 값으로
+            // 돌아오지 않으면 고르던 스타일을 다시 고르게 됩니다.
+            state={{ from: `${location.pathname}${location.search}` }}
+            className="text-xs text-ink-3 underline underline-offset-2"
+          >
+            관리
+          </Link>
+        )}
+      </div>
       {pets.some((pet) => pet.latest_upload_id) && (
         <p className="mt-1 text-xs text-ink-3">최근 사진이 있는 강아지는 바로 만들 수 있어요.</p>
       )}
