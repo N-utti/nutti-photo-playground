@@ -258,7 +258,16 @@ export interface LibraryItem {
   job_id: string
   result_id: string
   image_url: string
-  pet_id: string
+  /**
+   * §3 예시에는 값이 있는 경우만 나오지만 **null 이 될 수 있습니다**.
+   *
+   * 펫 삭제는 `source_image.pet_profile_id` 를 NULL 로 만들고 결과물은 남기기로
+   * 확정됐고(이슈 #12 결정4), W-12 삭제 확인 문구가 사용자에게 그렇게 약속합니다 —
+   * "결과는 남고 강아지 필터에서만 사라진다". 그 상태의 결과가 여기서 무엇을 다는지가
+   * §3 에 안 적혀 있는데, 지워진 펫의 id 를 계속 달고 있으면 «전체»에서만 보인다는
+   * 약속이 성립하지 않으므로 null 로 봅니다. 백엔드 구현 시 확인 필요.
+   */
+  pet_id: string | null
   created_at: string
 }
 

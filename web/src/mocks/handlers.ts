@@ -21,13 +21,15 @@ import type {
   EarnAction,
   Job,
   JobErrorCode,
+  LibraryItem,
+  LibraryMonth,
   Me,
   UploadResult,
 } from '../api/types'
 import {
   initialCredits,
   ledgerEntries,
-  libraryPage,
+  libraryItems,
   petList,
   placeholderImage,
   styleCatalog,
@@ -52,6 +54,12 @@ interface MockJob {
   /** 재료 참조(이슈 #9 A안) — 스펙 §3 이 job 응답에 그대로 싣기로 확정한 값입니다. */
   styleId: number | null
   uploadId: string
+  /**
+   * 어느 강아지의 결과인지. job 응답에는 없는 값이고(§3), 보관함 항목이 이걸 답니다 —
+   * 서버에서는 `source_image.pet_profile_id` 가 그 연결입니다. 없으면 W-09 강아지
+   * 필터가 방금 만든 결과를 영영 «전체»에만 두게 됩니다.
+   */
+  petId?: string | null
   forcedError: JobErrorCode | null
 }
 
@@ -126,6 +134,28 @@ function persistJobs(): void {
   )
 }
 
+/**
+ * 보관함에서 지운 `result_id`.
+ *
+ * job 과 같은 이유로 localStorage 입니다 — 지우고 새로고침했더니 되살아나면, 삭제가
+ * 됐는지 안 됐는지를 화면만 보고는 판단할 수 없습니다. 목록에서 항목을 빼는 대신
+ * 가리는 방식이라 시드를 되돌릴 수 있고, 그 초기화가 아래 리셋 키입니다.
+ */
+const DELETED_KEY = 'nutti.mock.library-deleted'
+
+function restoredDeleted(): Set<string> {
+  try {
+    const raw = localStorage.getItem(DELETED_KEY)
+    return new Set(raw ? (JSON.parse(raw) as string[]) : [])
+  } catch {
+    return new Set()
+  }
+}
+
+function persistDeletedResults(): void {
+  localStorage.setItem(DELETED_KEY, JSON.stringify([...state.deletedResults]))
+}
+
 const snapshot = restored()
 const jobSnapshot = restoredJobs()
 
@@ -134,6 +164,8 @@ const state = {
   jobs: new Map<string, MockJob>(Object.entries(jobSnapshot.jobs)),
   /** Idempotency-Key → job_id. 같은 키 재요청 시 새 job 을 만들지 않습니다(§1). */
   idempotency: new Map<string, string>(Object.entries(jobSnapshot.idempotency)),
+  /** 보관함에서 지운 결과. 목록 조립에서 가려집니다. */
+  deletedResults: restoredDeleted(),
   /** session:expired 시나리오에서 "만료된 것으로 칠" Authorization 헤더 값. */
   expiredToken: null as string | null,
   /** `/auth/me` 의 원본. 로그인·연동이 이 값을 바꾸므로 화면 분기가 실제로 움직입니다. */
@@ -275,6 +307,68 @@ function projectJob(job: MockJob): Job {
     status_message: '레고 블록을 쌓는 중…',
     source_image_url: sourceImageUrl,
     results: null,
+    error_code: null,
+  }
+}
+
+// ---------------------------------------------------------------- 보관함 조립
+
+/** 한 페이지에 담는 개수. 시드(8건)보다 작아야 «더 보기»가 목 위에서 눌립니다. */
+const LIBRARY_PAGE_SIZE = 6
+
+/**
+ * '2026-08-03T10:00:00+09:00' → '2026년 8월'.
+ *
+ * `new Date` 로 파싱하지 않습니다 — 실행 환경 시간대가 KST 가 아니면 8월 1일 09:00+09:00
+ * 이 7월로 넘어가 월 섹션이 하나 어긋납니다. 서버는 KST 기준으로 라벨을 만들 것이고,
+ * 문자열 앞부분이 이미 그 값입니다.
+ */
+function monthLabel(createdAt: string): string {
+  const [year, month] = createdAt.slice(0, 10).split('-')
+  return `${year}년 ${Number(month)}월`
+}
+
+/**
+ * 보관함 목록 = 시드 + **이 브라우저에서 성공한 job**.
+ *
+ * 후자가 없으면 W-06 «보관함 보기» 로 들어와도 방금 만든 결과가 없습니다 — 정작
+ * 확인해야 할 연결(만들기 → 보관함)이 목 위에서 성립하지 않는 것이고, 그건 화면이
+ * 아니라 목의 결함입니다.
+ *
+ * 삭제는 항목을 지우는 대신 `deletedResults` 로 가립니다. job 자체는 남겨야
+ * `/jobs/{id}` 주소가 계속 열리고(Q7 복원), 그건 보관함 삭제와 다른 사안입니다.
+ */
+function libraryEntries(): LibraryItem[] {
+  const fromJobs: LibraryItem[] = [...state.jobs.values()]
+    .filter((job) => projectJob(job).status === 'succeeded')
+    .map((job) => ({
+      job_id: job.id,
+      result_id: `${job.id}:0`,
+      image_url: placeholderImage('결과', '#F9E5EC'),
+      // 옛 저장분에는 이 필드가 없습니다(나중에 추가된 필드).
+      pet_id: job.petId ?? null,
+      created_at: new Date(job.createdAt).toISOString(),
+    }))
+
+  return [...fromJobs, ...libraryItems]
+    .filter((item) => !state.deletedResults.has(item.result_id))
+    .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
+}
+
+/** 시드 항목의 `job_id` 로 들어온 상세 요청. 보관함에서 결과를 열면 여기로 옵니다. */
+function seededJob(jobId: string): Job | null {
+  const item = libraryItems.find((entry) => entry.job_id === jobId)
+  if (!item) return null
+  return {
+    job_id: item.job_id,
+    status: 'succeeded',
+    style_id: null,
+    upload_id: `upload-${item.result_id}`,
+    progress: 100,
+    eta_seconds: 0,
+    status_message: null,
+    source_image_url: placeholderImage('원본'),
+    results: [{ index: 0, image_url: item.image_url }],
     error_code: null,
   }
 }
@@ -446,9 +540,17 @@ export const handlers = [
   http.delete(`${BASE}/pets/:petId`, ({ params }) => {
     const index = petList.findIndex((item) => item.id === String(params.petId))
     if (index === -1) return apiError(404, 'NOT_FOUND', '강아지를 찾을 수 없습니다')
-    petList.splice(index, 1)
+    const [removed] = petList.splice(index, 1)
     // 결과물은 지우지 않습니다 — `source_image.pet_profile_id` 만 NULL 이 되고 보관함에
-    // 남는 게 확정된 동작입니다(이슈 #12 결정4).
+    // 남는 게 확정된 동작입니다(이슈 #12 결정4). 그 NULL 을 실제로 적용해야 W-09
+    // 강아지 필터에서 사라지고 «전체»에만 남는 상태가 목 위에서 재현됩니다.
+    for (const item of libraryItems) {
+      if (item.pet_id === removed.id) item.pet_id = null
+    }
+    for (const job of state.jobs.values()) {
+      if (job.petId === removed.id) job.petId = null
+    }
+    persistJobs()
     return new HttpResponse(null, { status: 204 })
   }),
 
@@ -468,6 +570,7 @@ export const handlers = [
       custom_prompt: string | null
       style_id: number | null
       upload_id: string
+      pet_id: string | null
     }
     /*
       비용은 **스타일마다 다릅니다**(§3 `credit_cost`) — 여기서 1 로 고정하면 목이
@@ -499,6 +602,7 @@ export const handlers = [
       creditCost: cost,
       styleId: body.style_id,
       uploadId: body.upload_id,
+      petId: body.pet_id ?? null,
       forcedError:
         forced === 'job:fail' ? 'GENERATION_FAILED' : forced === 'job:safety' ? 'SAFETY_BLOCKED' : null,
     }
@@ -528,7 +632,13 @@ export const handlers = [
     }
 
     const job = state.jobs.get(String(params.jobId))
-    if (!job) return apiError(404, 'NOT_FOUND', '작업을 찾을 수 없습니다')
+    if (!job) {
+      // 보관함 시드에서 열린 과거 결과. 없으면 목록의 모든 항목이 404 로 이어져
+      // 보관함 → 결과 상세라는 이 화면의 존재 이유(FR-W09-03)를 못 밟습니다.
+      const seeded = seededJob(String(params.jobId))
+      if (seeded) return HttpResponse.json(seeded)
+      return apiError(404, 'NOT_FOUND', '작업을 찾을 수 없습니다')
+    }
 
     const projected = projectJob(job)
     // 실패 확정 시 크레딧 자동 반환(§4 시나리오2 5단계) — 1회만.
@@ -561,8 +671,44 @@ export const handlers = [
   }),
 
   // ------------------------------------------------------------ 보관함
-  http.get(`${BASE}/library`, () => HttpResponse.json(libraryPage)),
-  http.delete(`${BASE}/library`, () => new HttpResponse(null, { status: 204 })),
+  /*
+    필터·월 묶기·커서는 서버가 하는 일이라 여기서 합니다. 정적 픽스처를 그대로
+    돌려주면 W-09 의 세 축이 화면에서만 있는 척하게 됩니다.
+  */
+  http.get(`${BASE}/library`, async ({ request }) => {
+    await delay(150)
+    const url = new URL(request.url)
+    const petId = url.searchParams.get('pet_id')
+    // 커서 값의 형식은 서버가 정합니다(§1 은 불투명 문자열로만 규정) — 목은 오프셋을
+    // 씁니다. 프론트는 이 값을 해석하지 않고 그대로 되돌려주기만 해야 합니다.
+    const offset = Number(url.searchParams.get('cursor') ?? 0) || 0
+
+    const all = libraryEntries()
+    const filtered = petId ? all.filter((item) => item.pet_id === petId) : all
+    const slice = filtered.slice(offset, offset + LIBRARY_PAGE_SIZE)
+
+    const months: LibraryMonth[] = []
+    for (const item of slice) {
+      const label = monthLabel(item.created_at)
+      const last = months.at(-1)
+      if (last?.label === label) last.items.push(item)
+      else months.push({ label, items: [item] })
+    }
+
+    const next = offset + LIBRARY_PAGE_SIZE
+    return HttpResponse.json({
+      months,
+      next_cursor: next < filtered.length ? String(next) : null,
+    })
+  }),
+
+  http.delete(`${BASE}/library`, async ({ request }) => {
+    await delay(200)
+    const { ids } = (await request.json()) as { ids: string[] }
+    for (const id of ids) state.deletedResults.add(id)
+    persistDeletedResults()
+    return new HttpResponse(null, { status: 204 })
+  }),
 
   // ------------------------------------------------------------ 크레딧
   http.get(`${BASE}/credits`, () => {
