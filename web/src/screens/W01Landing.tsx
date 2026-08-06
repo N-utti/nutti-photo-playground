@@ -43,10 +43,18 @@ export default function W01Landing() {
   return (
     <div className="min-h-full bg-paper">
       {/* 노트3 — 이 사이트가 누띠의 것임을 처음부터 밝힙니다. */}
-      <header className="flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
-        <span className="size-6 rounded-full bg-brand" aria-hidden />
-        {/* 워드마크는 쇼핑몰과 같은 Cafe24Ohsquare 입니다 — 브랜드가 처음 읽히는 지점. */}
-        <span className="font-display text-base">누띠 놀이터</span>
+      <header className="flex items-center gap-2 border-b border-rule bg-surface px-4 py-3">
+        {/*
+          쇼핑몰 헤더에 걸린 것과 같은 NUTTi 워드마크입니다(출처·라이선스는
+          public/brand/NOTICE.md). 서체로 흉내 내지 않고 로고 원본을 씁니다 —
+          커스텀 레터링이라 Ohsquare 로 조판하면 다른 글자가 됩니다.
+
+          alt 는 "누띠" 한 단어입니다. 뒤에 오는 "놀이터"와 이어져 스크린리더가
+          "누띠 놀이터"로 읽습니다. width/height 는 고유비(35:9) 그대로 — 로고가
+          늦게 와도 헤더가 밀리지 않게 자리를 미리 잡습니다.
+        */}
+        <img src="/brand/nutti-wordmark.svg" alt="누띠" width={70} height={18} className="h-3.5 w-auto" />
+        <span className="font-display text-base">놀이터</span>
         <nav className="ml-auto flex items-center gap-4" aria-label="주요">
           <Link to="/styles" className="hidden text-sm text-ink-2 hover:text-ink desktop:block">
             스타일

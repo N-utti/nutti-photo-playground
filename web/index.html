@@ -2,7 +2,17 @@
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!--
+      파비콘은 쇼핑몰(nutti.co.kr)이 쓰는 발바닥 마크 그대로입니다 — 출처와 손댄
+      내역은 public/brand/NOTICE.md 에 있습니다. SVG 한 장이 아니라 PNG 세트인
+      이유는, 원본이 벡터가 아니라 래스터라서입니다. 트레이싱하면 원본에 없는
+      선명함을 지어내게 되고 그건 브랜드 마크를 우리가 고쳐 그리는 셈입니다.
+
+      32 는 탭, 512 는 안드로이드 홈 화면, 180 은 iOS 홈 화면용입니다.
+    -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/brand/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/brand/favicon-512.png" />
+    <link rel="apple-touch-icon" href="/brand/favicon-180.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!-- 모바일 브라우저 UI(주소창)까지 브랜드 크림으로. -->
     <meta name="theme-color" content="#f9f6f0" />
