@@ -38,6 +38,7 @@ import {
   useUploadPhoto,
 } from '../api/queries'
 import { rememberJobContext, resolveJobContext } from '../api/jobContext'
+import { withReuse } from '../app/reuseFromJob'
 import { clearUploadDraft, readUploadDraft, writeUploadDraft } from '../api/uploadDraft'
 import type { Pet, UploadIssue, UploadResult } from '../api/types'
 import InsufficientCreditOverlay from './InsufficientCreditOverlay'
@@ -213,7 +214,12 @@ export default function W04Upload() {
       </header>
 
       <main className="mx-auto w-full max-w-md px-4 py-4">
-        <StyleContext styleId={styleId} styleName={style?.name} afterUpload={confirming} />
+        <StyleContext
+          styleId={styleId}
+          styleName={style?.name}
+          afterUpload={confirming}
+          fromJobId={fromJobId}
+        />
 
         <input
           ref={fileInputRef}
@@ -238,6 +244,7 @@ export default function W04Upload() {
                 : null
             }
             styleMissing={styleId === null}
+            fromJobId={fromJobId}
           />
         ) : (
           <SelectPanel
@@ -270,15 +277,23 @@ export default function W04Upload() {
   )
 }
 
-/** 어떤 스타일로 만드는 중인지 계속 보이게 둡니다 — 업로드 중에 잊어버리는 맥락입니다. */
+/**
+ * 어떤 스타일로 만드는 중인지 계속 보이게 둡니다 — 업로드 중에 잊어버리는 맥락입니다.
+ *
+ * 카탈로그로 되돌아가는 두 링크는 `from_job` 을 그대로 달고 갑니다. 재사용으로
+ * 들어온 사용자가 스타일만 바꾸려다 사진을 잃으면, 다시 올린 사진은 새 `upload_id`
+ * 라 재사용이 통째로 무산됩니다(app/reuseFromJob.ts).
+ */
 function StyleContext({
   styleId,
   styleName,
   afterUpload,
+  fromJobId,
 }: {
   styleId: number | null
   styleName?: string
   afterUpload: boolean
+  fromJobId: string | null
 }) {
   if (styleId === null) {
     // 업로드 후에는 ConfirmPanel 의 주 버튼이 그대로 "스타일 고르기"라 여기서 또
@@ -289,7 +304,7 @@ function StyleContext({
     return (
       <div className="mb-4 flex items-center justify-between gap-2 text-sm text-ink-3">
         <span className="truncate">스타일은 사진을 올린 뒤에 골라도 됩니다</span>
-        <Link to="/styles" className="shrink-0 underline">
+        <Link to={withReuse('/styles', fromJobId)} className="shrink-0 underline">
           먼저 고르기
         </Link>
       </div>
@@ -298,7 +313,7 @@ function StyleContext({
   return (
     <div className="mb-4 flex items-center justify-between gap-2 text-sm text-ink-3">
       <span className="truncate">선택한 스타일 · {styleName ?? '불러오는 중…'}</span>
-      <Link to="/styles" className="shrink-0 underline">
+      <Link to={withReuse('/styles', fromJobId)} className="shrink-0 underline">
         변경
       </Link>
     </div>
@@ -461,6 +476,7 @@ interface ConfirmPanelProps {
   starting: boolean
   startError: string | null
   styleMissing: boolean
+  fromJobId: string | null
 }
 
 function ConfirmPanel({
@@ -473,6 +489,7 @@ function ConfirmPanel({
   starting,
   startError,
   styleMissing,
+  fromJobId,
 }: ConfirmPanelProps) {
   const blocked = upload.blocking_issue
 
@@ -508,7 +525,7 @@ function ConfirmPanel({
         // 여기가 막다른 길이 됩니다 — 사진은 초안으로 남으니 돌아오면 이어집니다.
         <>
           <Link
-            to="/styles"
+            to={withReuse('/styles', fromJobId)}
             className="mt-2 block w-full rounded-xl bg-brand px-4 py-3 text-center text-sm font-semibold text-paper"
           >
             스타일 고르기 →
@@ -519,7 +536,7 @@ function ConfirmPanel({
           {/* W-08 보조 진입점 — 사진이 이미 있으니 여기서 바로 넘어갈 수 있습니다.
               보조로만 두는 이유는 #p08 노트1(기본 그리드와 분리). */}
           <Link
-            to="/creative"
+            to={withReuse('/creative', fromJobId)}
             className="mt-3 block text-center text-sm text-ink-2 underline"
           >
             원하는 걸 직접 써서 만들기 · 2 크레딧

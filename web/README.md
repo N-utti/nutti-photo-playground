@@ -58,6 +58,7 @@ src/
   app/
     routes.tsx      11개 화면 라우트 테이블 (W-03 은 W-02 의 자식 = 시트)
     TabBar.tsx      하단 탭바 4칸. W-02·W-09 **두 화면만** 붙입니다 (그 근거는 파일 주석)
+    reuseFromJob.ts `?from_job=` — "이 사진으로 다른 스타일"의 재사용 맥락 (W-02·W-03·W-04·W-08)
     guestSession.ts 게스트 세션 초기화 감지 → 복원 실패 안내 분기 (이슈 #5)
     authReturn.ts   OAuth 왕복 동안 복귀 주소 보관 (sessionStorage, 내부 경로만)
     retryAfter.ts   429 Retry-After → 사람이 읽는 문구 (게스트 발급·로그인 공용)
@@ -87,16 +88,17 @@ src/
 | [#3](https://github.com/N-utti/nutti-photo-playground/issues/3) | `CORSMiddleware` 미배선 | 실서버 연결 시작 즉시 | 해결 (PR #6) |
 | [#4](https://github.com/N-utti/nutti-photo-playground/issues/4) | `response_model` 없이 §3 삭제 금지 | 타입 생성으로 전환할 때 | 해결 (PR #6) |
 | [#5](https://github.com/N-utti/nutti-photo-playground/issues/5) | Q7 게스트 결과 복원 한계 | Phase 2 (W-05/W-06) | 결정 B+A · 프론트 반영 완료 |
-| [#9](https://github.com/N-utti/nutti-photo-playground/issues/9) | job/펫 응답에 `style_id`·`upload_id` 참조 없음 | W-06 다시 만들기·다른 스타일, W-04 펫 스킵 | 대기 (localStorage 색인으로 우회 중) |
+| [#9](https://github.com/N-utti/nutti-photo-playground/issues/9) | job/펫 응답에 `style_id`·`upload_id` 참조 없음 | W-06 다시 만들기·다른 스타일, W-04 펫 스킵 | A안 확정 · §3 반영 · 프론트 배선 완료. **백엔드 구현 대기**(라우터가 아직 `not_implemented`)라 서버 값이 올 때까지 localStorage 색인 폴백 유지 |
 | [#10](https://github.com/N-utti/nutti-photo-playground/issues/10) | 카카오 `kakao_token` 획득 경로 미정 | W-06 B 계정 연동 | 해결 (ADR-11 A안 → PR #21, `POST /v1/auth/kakao` 삭제) |
 | [#14](https://github.com/N-utti/nutti-photo-playground/issues/14) | `authorize` 가 헤더를 요구하는 302 라 브라우저 이동 불가 | 로그인 시트·콜백 전부 | 해결 (PR #21 — 200 `{authorize_url}`) |
 | [#17](https://github.com/N-utti/nutti-photo-playground/issues/17) | 로컬 계정 복구 불가(비밀번호 재설정·이메일 인증 없음) · 로그인 수단 추가 미지원 | 로컬 가입 | 대기 (가입 시트에 사전 고지로 대응) |
 
 ## 미확정
 
-- **비주얼 디자인이 없습니다.** 와이어프레임은 회색 박스이고 브랜드 색·서체가 어느
-  문서에도 없습니다. `src/index.css`의 `@theme` 블록이 중립 플레이스홀더이며, 화면 코드에
-  색을 하드코딩하지 않으면 확정 시 그 블록만 교체하면 됩니다.
+- ~~비주얼 디자인이 없습니다.~~ **닫혔습니다**(PR #35·#36). 브랜드 색·서체가 어느 문서에도
+  없던 문제는 nutti.co.kr 실측으로 풀었고, `src/index.css`의 `@theme` 블록이 이제 확정본입니다.
+  폰트는 `public/fonts/`, 파비콘·로고는 `public/brand/`(출처는 같은 폴더 `NOTICE.md`).
+  **OG/공유 이미지는 아직 없습니다.**
 - **W-01 히어로 이미지가 자리표시자입니다.** `public/hero/before.svg`·`after.svg`는
   비교 슬라이더가 동작한다는 것만 보여 주는 도형이고 실제 사진·생성 결과가 아닙니다.
   "내 애가 유지된다"를 첫 3초에 증명하는 게 이 화면의 임무(#p01 노트1)이므로,
@@ -142,5 +144,12 @@ src/
    건 W-02·W-09 둘뿐입니다. W-04→W-05→W-06 은 만들기 흐름 한복판이라 이탈문을 열면
    안 되고, W-10 B·W-12 는 자기 앱바를 가진 별도 프레임입니다. «만들기» 탭이 보내는
    `/upload` 에 탭바가 없는 것도 같은 이유이며 의도된 상태입니다(`app/TabBar.tsx` 주석).
-9. **job 폴링은 에러에서 멈춰야 합니다.** TanStack Query는 에러 상태여도 `refetchInterval`을
+9. **`from_job` 을 떨어뜨리지 마세요.** "이 사진으로 다른 스타일"(FR-W06-07)은 W-06 이
+   보여 주는 인기 3장으로 끝나지 않습니다 — 카탈로그로 나가는 순간 맥락이 끊기면
+   **같은 사진을 다시 올리게 되고** `upload_id` 가 새로 발급돼 재사용이 무산됩니다
+   (7번과 같은 함정). W-02·W-03·W-04·W-08 이 이 파라미터를 나르며, 새로 링크를 추가할
+   때는 `withReuse()` 로 감싸세요(`app/reuseFromJob.ts`). 재료의 출처는 **서버 우선 ·
+   로컬 색인 폴백**이라 백엔드가 `upload_id` 를 싣기 시작하면 다른 기기·링크 재방문에서도
+   그대로 동작합니다.
+10. **job 폴링은 에러에서 멈춰야 합니다.** TanStack Query는 에러 상태여도 `refetchInterval`을
    멈추지 않아, 404인 job 주소에서 폴링이 영원히 돕니다(`useJobPolling` 주석 참고).
