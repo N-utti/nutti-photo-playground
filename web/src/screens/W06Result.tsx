@@ -480,7 +480,21 @@ function OtherStyles({ jobId }: { jobId: string }) {
 
   return (
     <section className="mt-8">
-      <h2 className="text-sm font-semibold">이 사진으로 다른 스타일</h2>
+      <div className="flex items-baseline justify-between gap-2">
+        <h2 className="text-sm font-semibold">이 사진으로 다른 스타일</h2>
+        {/*
+          여기 3장은 인기 섹션의 앞부분일 뿐입니다. 그 밖을 고르려면 카탈로그로
+          나가야 하는데 `from_job` 없이 보내면 맥락이 끊겨 **같은 사진을 다시
+          올리게 됩니다** — W-02·W-03 이 이 파라미터를 그대로 나릅니다
+          (app/reuseFromJob.ts).
+        */}
+        <Link
+          to={`/styles?from_job=${jobId}`}
+          className="shrink-0 text-xs text-ink-3 underline underline-offset-2"
+        >
+          전체 스타일 보기
+        </Link>
+      </div>
       <ul className="mt-2 grid grid-cols-3 gap-3">
         {styleList.map((style) => (
           <li key={style.id}>

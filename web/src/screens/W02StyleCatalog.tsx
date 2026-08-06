@@ -19,11 +19,18 @@ import { Link, Outlet, useMatch } from 'react-router'
 import { useStyles } from '../api/queries'
 import { AccountEntry } from '../app/AccountEntry'
 import { CreditBadge } from '../app/CreditBadge'
+import { useReuseFromJob, withReuse } from '../app/reuseFromJob'
 import { TabBar } from '../app/TabBar'
+import type { JobContext } from '../api/jobContext'
 import type { StyleCard } from '../api/types'
 
 export default function W02StyleCatalog() {
   const { data: catalog, isPending, isError, error, refetch } = useStyles()
+
+  // W-06 "이 사진으로 다른 스타일"(FR-W06-07)이 인기 3개 밖으로 나온 경로입니다.
+  // 맥락이 여기서 끊기면 같은 사진을 다시 올리게 되므로(app/reuseFromJob.ts) 카드
+  // 링크와 W-03 시트로 그대로 넘깁니다.
+  const reuse = useReuseFromJob()
 
   // W-03 시트가 이 화면 위에 렌더됩니다(routes.tsx). 시트가 떠 있는 동안
   // 뒤 그리드는 탭 이동·스크린리더 대상에서 빠져야 모달로서 성립합니다.
@@ -120,6 +127,8 @@ export default function W02StyleCatalog() {
         </nav>
 
         <main className="mx-auto w-full max-w-(--container-canvas) px-4">
+          {reuse.context && <ReuseBanner context={reuse.context} />}
+
           {catalog.sections.map((section) => (
             <section
               key={section.name}
@@ -140,7 +149,7 @@ export default function W02StyleCatalog() {
               <ul className="mt-3 grid grid-cols-2 gap-3 desktop:grid-cols-4">
                 {section.styles.map((style) => (
                   <li key={style.id}>
-                    <StyleCardItem style={style} />
+                    <StyleCardItem style={style} reuseJobId={reuse.jobId} />
                   </li>
                 ))}
               </ul>
@@ -151,8 +160,10 @@ export default function W02StyleCatalog() {
 
           {/* W-08 보조 진입점(FR-W08-01 노트1) — 커스텀 프롬프트는 기본 그리드에서
               분리합니다. 전면에 놓으면 초보자에게 학습곡선이 됩니다. */}
+          {/* 재사용 중이면 여기도 같은 사진을 이어받습니다 — 이 링크만 맥락을 잃으면
+              배너가 "사진 그대로"라고 말해 놓고 W-08 에서 사진을 다시 요구합니다. */}
           <Link
-            to="/creative"
+            to={withReuse('/creative', reuse.jobId)}
             className="mt-4 mb-8 block rounded-xl border border-rule px-4 py-3 text-center text-sm text-ink-2"
           >
             원하는 걸 직접 써서 만들기 · 2 크레딧
@@ -183,11 +194,39 @@ function Shell({ sheetOpen, children }: { sheetOpen: boolean; children: ReactNod
   )
 }
 
+/**
+ * 재사용 중임을 카탈로그 상단에 못박습니다 — 배너가 없으면 "왜 이 화면이
+ * 평소와 다르게 동작하지"(업로드를 안 물어봄)를 설명할 자리가 없습니다.
+ *
+ * 해제는 `from_job` 을 뗀 같은 주소입니다. 다른 화면으로 보내면 스타일을 고르던
+ * 중이었다는 사실이 사라집니다.
+ */
+function ReuseBanner({ context }: { context: JobContext }) {
+  return (
+    <div className="mt-4 flex items-center gap-3 rounded-xl border border-brand-2 bg-brand-soft px-3 py-2.5">
+      {context.sourceImageUrl && (
+        <img
+          src={context.sourceImageUrl}
+          alt="다시 쓸 사진"
+          className="size-11 shrink-0 rounded-lg bg-surface-2 object-cover"
+        />
+      )}
+      <p className="min-w-0 flex-1 text-sm">
+        <span className="block font-semibold">올린 사진 그대로 만들어요</span>
+        <span className="block text-xs text-ink-2">스타일만 고르면 바로 확인 단계예요</span>
+      </p>
+      <Link to="/styles" className="shrink-0 text-xs text-ink-3 underline underline-offset-2">
+        다른 사진 쓰기
+      </Link>
+    </div>
+  )
+}
+
 /** 리서치 인사이트2 — 카드 면적의 80% 이상이 적용 예시 이미지. */
-function StyleCardItem({ style }: { style: StyleCard }) {
+function StyleCardItem({ style, reuseJobId }: { style: StyleCard; reuseJobId: string | null }) {
   return (
     <Link
-      to={`/styles/${style.id}`}
+      to={withReuse(`/styles/${style.id}`, reuseJobId)}
       className="block overflow-hidden rounded-lg border border-rule bg-surface"
     >
       <img

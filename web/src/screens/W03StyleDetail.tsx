@@ -18,6 +18,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { isApiError } from '../api/client'
 import { useStyleDetail } from '../api/queries'
+import { useReuseFromJob, withReuse } from '../app/reuseFromJob'
 import type { FitTag, StyleDetail } from '../api/types'
 
 /**
@@ -37,7 +38,13 @@ export default function W03StyleDetail() {
   const { data: style, isPending, error } = useStyleDetail(id)
   const sheetRef = useRef<HTMLDivElement>(null)
 
-  const close = useCallback(() => navigate('/styles'), [navigate])
+  // 재사용 맥락(FR-W06-07)은 시트를 닫아도 살아 있어야 합니다 — 여기서 떨어뜨리면
+  // 뒤의 카탈로그가 갑자기 평소 모드로 바뀌어 사진을 다시 올리게 됩니다.
+  const reuse = useReuseFromJob()
+  const close = useCallback(
+    () => navigate(withReuse('/styles', reuse.jobId)),
+    [navigate, reuse.jobId],
+  )
 
   useEffect(() => {
     sheetRef.current?.focus()
@@ -89,14 +96,23 @@ export default function W03StyleDetail() {
             onClose={close}
           />
         ) : (
-          <SheetBody style={style} />
+          <SheetBody style={style} reuseJobId={reuse.jobId} reusing={reuse.context !== null} />
         )}
       </div>
     </div>
   )
 }
 
-function SheetBody({ style }: { style: StyleDetail }) {
+function SheetBody({
+  style,
+  reuseJobId,
+  reusing,
+}: {
+  style: StyleDetail
+  reuseJobId: string | null
+  /** 재료가 실제로 확인된 경우에만 "사진 그대로"를 약속합니다. */
+  reusing: boolean
+}) {
   return (
     <>
       {/* 노트2 — 예시는 서로 다른 견종으로 채워집니다(어떤 사진을 넣을지는 운영이 W-11 에서 정함). */}
@@ -122,12 +138,24 @@ function SheetBody({ style }: { style: StyleDetail }) {
         </ul>
       )}
 
+      {/* 재사용 중이면 `from_job` 을 그대로 넘겨 W-04 가 업로드 단계를 건너뜁니다. */}
       <Link
-        to={`/upload?style_id=${style.id}`}
+        to={withReuse(`/upload?style_id=${style.id}`, reuseJobId)}
         className="mt-5 block rounded-xl bg-brand px-4 py-3 text-center text-sm font-semibold text-paper"
       >
         이 스타일로 만들기
       </Link>
+
+      {/*
+        재사용 경로에서는 이 버튼 다음이 곧 결제(확인 → 생성)입니다. 업로드 단계를
+        건너뛰는 만큼 "얼마가 나가는지"를 여기서 한 번 말해 둡니다 — 비용 배지는
+        위에 있지만 시트를 스크롤한 상태면 눈에 없습니다(FR-W04-05 와 같은 이유).
+      */}
+      {reusing && (
+        <p className="mt-2 text-center text-sm font-semibold">
+          올린 사진 그대로 · {style.credit_cost} 크레딧
+        </p>
+      )}
 
       {/* 노트4 — 대기 이탈의 절반은 "얼마나 걸리는지 몰라서". 버튼 바로 아래에 둡니다. */}
       <p className="mt-2 text-center text-sm text-ink-3">

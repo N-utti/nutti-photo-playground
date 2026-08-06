@@ -29,6 +29,7 @@ import { rememberJobContext } from '../api/jobContext'
 import { clearUploadDraft, readUploadDraft } from '../api/uploadDraft'
 import { CreditBadge } from '../app/CreditBadge'
 import { promptRejectionReason } from '../app/promptFilter'
+import { useReuseFromJob } from '../app/reuseFromJob'
 import InsufficientCreditOverlay from './InsufficientCreditOverlay'
 
 /** §2 W-08 — 정적 콘텐츠(고정 예시 목록). 와이어프레임 #p08 칩과 동일합니다. */
@@ -50,7 +51,22 @@ export default function W08Creative() {
 
   // 노트3 — 판정 규칙은 app/promptFilter.ts. 통과 못 하면 버튼도 잠깁니다.
   const rejection = promptRejectionReason(prompt)
-  const uploadId = draft?.upload.upload_id ?? null
+
+  /**
+   * 사진의 출처는 둘입니다.
+   *
+   *  1. `?from_job=` — W-02 재사용 배너를 지나 여기까지 온 경우(FR-W06-07).
+   *     이미 만든 job 의 `upload_id` 를 그대로 씁니다(이슈 #9 A안, 서버 우선).
+   *  2. 업로드 초안 — W-04 에서 사진만 올리고 넘어온 평소 경로.
+   *
+   * 1을 무시하면 재사용으로 들어온 사용자가 "사진을 먼저 올려 주세요"를 만납니다.
+   * 재사용 시 `pet_id` 는 비웁니다 — job 응답이 어느 강아지였는지 말해 주지 않아서
+   * (§3) 아무 값이나 넣으면 보관함 필터가 틀린 강아지를 답합니다.
+   */
+  const reuse = useReuseFromJob()
+  const uploadId = reuse.context?.uploadId ?? draft?.upload.upload_id ?? null
+  const sourceImageUrl = reuse.context?.sourceImageUrl ?? draft?.upload.image_url ?? null
+  const petId = reuse.context ? null : (draft?.petId ?? null)
 
   function start() {
     if (!uploadId || !prompt.trim() || rejection) return
@@ -58,7 +74,7 @@ export default function W08Creative() {
     const intent: JobIntent = {
       style_id: null,
       upload_id: uploadId,
-      pet_id: draft?.petId ?? null,
+      pet_id: petId,
       custom_prompt: prompt.trim(),
     }
     // 402 후 재시도는 같은 키, 새 문구는 새 의도라 새 키입니다(api/idempotency.ts).
@@ -75,7 +91,7 @@ export default function W08Creative() {
           rememberJobContext(job_id, {
             styleId: null,
             uploadId: intent.upload_id,
-            sourceImageUrl: draft?.upload.image_url ?? null,
+            sourceImageUrl,
             customPrompt: intent.custom_prompt,
           })
           navigate(`/jobs/${job_id}/waiting`)
@@ -104,7 +120,11 @@ export default function W08Creative() {
       </header>
 
       <main className="mx-auto w-full max-w-md px-4 py-4">
-        {!uploadId ? (
+        {reuse.pending ? (
+          // 재사용 재료를 서버에 묻는 중입니다. 여기서 "사진을 먼저 올려 주세요"를
+          // 띄우면, 사진이 있는데도 없다고 말했다가 곧 뒤집는 화면이 됩니다.
+          <p className="py-16 text-center text-sm text-ink-3">사진을 불러오는 중…</p>
+        ) : !uploadId ? (
           <div className="rounded-xl border border-rule bg-surface px-4 py-5">
             <p className="text-sm font-semibold">사진을 먼저 올려 주세요</p>
             <p className="mt-1 text-sm text-ink-2">
@@ -119,9 +139,9 @@ export default function W08Creative() {
           </div>
         ) : (
           <>
-            {draft?.upload.image_url && (
+            {sourceImageUrl && (
               <img
-                src={draft.upload.image_url}
+                src={sourceImageUrl}
                 alt="업로드한 사진"
                 className="aspect-square w-full rounded-xl bg-surface-2 object-cover"
               />
