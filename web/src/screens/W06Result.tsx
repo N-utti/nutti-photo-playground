@@ -26,6 +26,7 @@ import { CreditBadge } from '../app/CreditBadge'
 import { NUTTI_SHOP_URL } from '../app/externalLinks'
 import {
   invalidateAfterJobSettled,
+  isFatalJobError,
   useCalculatorLink,
   useCreateJob,
   useJobPolling,
@@ -87,7 +88,10 @@ export default function W06Result() {
     if (settled) void invalidateAfterJobSettled(client)
   }, [settled, client])
 
-  if (error) {
+  // W-05 와 같은 판정입니다(같은 훅을 쓰므로 여기서 달라지면 두 화면이 같은 에러를
+  // 다르게 말합니다). 이미 그려 둔 결과가 있는데 5xx 한 번에 화면을 헐면, 손에 쥔
+  // 결과물을 «찾을 수 없다»로 덮는 셈입니다.
+  if (error && (job == null || isFatalJobError(error))) {
     const status = error instanceof ApiError ? error.status : 0
     return (
       <JobUnavailable
