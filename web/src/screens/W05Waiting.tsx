@@ -15,10 +15,20 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { ApiError } from '../api/client'
-import { readJobContext } from '../api/jobContext'
+import { readJobContext, readJobStartedAt } from '../api/jobContext'
 import { isFatalJobError, useJobPolling, useStyles } from '../api/queries'
 import { useGuestSessionReset } from '../app/guestSession'
 import JobUnavailable from './JobUnavailable'
+
+/**
+ * 여기를 넘기면 «백그라운드 전환»입니다 — FR-EDGE-02 · NFR-PERF-01(목표 20–40초,
+ * 60초 초과 시 타임아웃 정책).
+ *
+ * 넘겨도 화면이 하는 일은 기다림 그대로입니다. 크레딧은 정상 차감이고(FR-EDGE-02)
+ * 서버는 계속 그리고 있으므로 취소할 것도, 되돌릴 것도 없습니다. 바뀌는 건 **말**
+ * 하나뿐입니다: 여기서부터는 남은 초를 세는 게 아니라 "나가도 된다"를 말해야 합니다.
+ */
+const OVERDUE_AFTER_MS = 60_000
 
 /**
  * 진행 중일 때만 1초마다 리렌더를 부릅니다.
@@ -81,6 +91,28 @@ function smooth(
  * 조정" 패턴입니다 — 같은 커밋 안에서 즉시 다시 렌더되므로 화면에 중간값이
  * 새어 나가지 않습니다.
  */
+/**
+ * 경과를 재기 시작한 기준 시각.
+ *
+ * 이 브라우저에서 만든 job 이면 만든 순간이(api/jobContext.ts), 링크로 받은 job 이면
+ * **이 화면에 도착한 순간**이 기준입니다. 후자는 실제 경과보다 짧게 재므로 판정이
+ * 늦어질 뿐 없는 지연을 지어내지 않습니다 — 서버가 `created_at` 을 주기 시작하면
+ * 그 값으로 갈아탈 자리이기도 합니다.
+ *
+ * `resetKey`(job_id)가 바뀌면 다시 잽니다. "다시 만들기"로 이 화면이 재사용될 때
+ * 이전 job 의 기준을 물려받으면 새 job 이 시작하자마자 초과로 보입니다.
+ */
+function useStartedAt(jobId: string | undefined): number {
+  const [state, setState] = useState(() => ({ key: jobId, at: readJobStartedAt(jobId ?? '') ?? Date.now() }))
+
+  if (state.key !== jobId) {
+    const next = { key: jobId, at: readJobStartedAt(jobId ?? '') ?? Date.now() }
+    setState(next)
+    return next.at
+  }
+  return state.at
+}
+
 function useMonotonic(value: number, resetKey: string | undefined): number {
   const [floor, setFloor] = useState(0)
   const [key, setKey] = useState(resetKey)
@@ -113,6 +145,13 @@ export default function W05Waiting() {
   const estimate = smooth(job, running ? (now - dataUpdatedAt) / 1_000 : 0)
   const progress = useMonotonic(estimate.progress, jobId)
   const remaining = estimate.remaining
+
+  // FR-EDGE-02 — 60초를 넘기면 이 화면은 «곧 끝난다»를 스스로 말할 근거를 잃습니다.
+  // 남은 초가 0 에 붙은 뒤에도 계속 «거의 다 됐어요»를 띄우면 그건 안심이 아니라
+  // 멈춘 화면이고(노트1 이 스피너를 뺀 이유와 같습니다), 그 자리에서 해야 할 말은
+  // "오래 걸리는 중이니 나가도 된다" 쪽으로 바뀝니다.
+  const startedAt = useStartedAt(jobId)
+  const overdue = running && now - startedAt > OVERDUE_AFTER_MS
 
   // 종료 상태면 결과 화면이 주인입니다. replace 인 이유: 뒤로가기로 이미 끝난
   // 대기 화면에 돌아오면 다시 결과로 튕겨 나가 되돌아갈 수가 없습니다.
@@ -177,8 +216,13 @@ export default function W05Waiting() {
             {job?.status_message ?? '준비하는 중…'}
           </span>
           {/* 노트1 — 남은 초를 숫자로. 0 에 닿았는데 아직 안 끝났으면 숫자 대신 말로
-              바꿉니다 — "약 0초"가 계속 떠 있으면 그게 곧 멈춘 화면입니다. */}
-          {remaining != null && (
+              바꿉니다 — "약 0초"가 계속 떠 있으면 그게 곧 멈춘 화면입니다.
+              60초를 넘긴 뒤(overdue)에는 그 "거의 다 됐어요"마저 접습니다. 1분을
+              넘겨 놓고 계속 «거의»라고 말하면 그건 위로가 아니라 거짓말이고, 아래
+              안내가 같은 자리에서 사실대로 말합니다. 서버가 여전히 유효한 숫자를
+              주는 동안은(remaining > 0) 초과 상태에서도 그대로 보여 줍니다 — 얼마나
+              더 걸리는지가 곧 «나갈까 기다릴까»의 판단 재료입니다. */}
+          {remaining != null && !(overdue && remaining === 0) && (
             <span
               className={`shrink-0 text-sm text-ink-3 ${
                 remaining > 0 ? 'font-mono tabular-nums' : ''
@@ -198,16 +242,39 @@ export default function W05Waiting() {
           </p>
         )}
 
-        {/* 노트3 — 이탈은 막지 않습니다. 다만 알림은 없으므로 약속하지 않습니다. */}
+        {/* FR-EDGE-02 · 백그라운드 전환.
+            «실패»가 아니라 «정상이지만 오래 걸리는 중»입니다 — 크레딧도 정상 차감이라
+            되돌릴 것이 없고, 사용자가 할 수 있는 유일한 일이 «기다리거나 나가거나»
+            둘뿐입니다. 그래서 경고색을 쓰지 않고, 대신 사라진 남은 초 자리를 이
+            안내가 대신 채웁니다. 알림은 여전히 약속하지 않습니다(FR-W05-04). */}
+        {overdue && (
+          <div className="mt-3 rounded-lg border border-rule-strong bg-surface px-3 py-3">
+            <p className="text-sm font-semibold">예상보다 오래 걸리고 있어요</p>
+            <p className="mt-0.5 text-sm text-ink-2">
+              작업은 계속 진행 중이에요. 창을 닫아도 멈추지 않고, 이 브라우저에서 이 주소로
+              다시 오면 결과를 볼 수 있어요.
+            </p>
+          </div>
+        )}
+
+        {/* 노트3 — 이탈은 막지 않습니다. 다만 알림은 없으므로 약속하지 않습니다.
+            60초를 넘긴 뒤에는 이게 주 버튼입니다 — 그 시점에 우리가 정직하게 권할 수
+            있는 건 «기다려 주세요»가 아니라 «나가도 됩니다» 쪽입니다. */}
         <Link
           to="/styles"
-          className="mt-5 block rounded-xl border border-rule-strong bg-surface px-4 py-3 text-center text-sm font-semibold"
+          className={`mt-5 block rounded-xl px-4 py-3 text-center text-sm font-semibold ${
+            overdue
+              ? 'bg-brand text-paper'
+              : 'border border-rule-strong bg-surface'
+          }`}
         >
           나가서 둘러보기
         </Link>
-        <p className="mt-2 text-center text-xs text-ink-3">
-          나가도 작업은 계속됩니다. 이 브라우저에서 이 주소로 다시 오면 결과를 볼 수 있어요.
-        </p>
+        {!overdue && (
+          <p className="mt-2 text-center text-xs text-ink-3">
+            나가도 작업은 계속됩니다. 이 브라우저에서 이 주소로 다시 오면 결과를 볼 수 있어요.
+          </p>
+        )}
 
         {/* 노트4 — 결과를 보기 전이라 광고 밀도는 W-06 보다 낮게. 카드 3장까지만. */}
         {popular && popular.sections[0]?.styles.length > 0 && (

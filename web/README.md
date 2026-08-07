@@ -28,6 +28,7 @@ localStorage.setItem('nutti.mock.scenario', 'upload:block') // 고양이 감지(
 localStorage.setItem('nutti.mock.scenario', 'job:fail')     // GENERATION_FAILED + 크레딧 반환
 localStorage.setItem('nutti.mock.scenario', 'job:safety')   // SAFETY_BLOCKED
 localStorage.setItem('nutti.mock.scenario', 'job:flaky')    // 생성 중 3~18초 503 → W-05가 화면을 헐지 않고 자력 복구
+localStorage.setItem('nutti.mock.scenario', 'job:slow')     // 150초 job → 60초에서 W-05 백그라운드 전환(FR-EDGE-02)
 localStorage.setItem('nutti.mock.scenario', 'credit:empty') // 잔액 0에서 시작 → 402 → 시트에서 받고 재시도
 localStorage.setItem('nutti.mock.scenario', 'session:expired') // 게스트 토큰 만료 → 재발급 → 404 (복원 실패 안내)
 localStorage.setItem('nutti.mock.scenario', 'session:lost')    // 재발급으로 안 풀리는 401 — 앱바 크레딧이 어느 화면에서나 부름

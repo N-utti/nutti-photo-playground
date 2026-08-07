@@ -247,8 +247,23 @@ const FLAKY_OUTAGE_MS = { from: 3_000, to: 18_000 }
  */
 const FLAKY_JOB_DURATION_MS = 35_000
 
+/**
+ * `job:slow` — 60초를 넘겨 «백그라운드 전환»(FR-EDGE-02)에 들어가는 job.
+ *
+ * NFR-PERF-01 이 정한 목표가 20–40초라 12초짜리 기본 job 으로는 초과 상태를 한 번도
+ * 못 밟습니다. 실제로 넘겨 봐야 하는 이유는 그 구간에서 화면이 말을 바꾸기 때문입니다 —
+ * 남은 초 표기가 사라지고 «나가도 된다»가 주 버튼이 됩니다(W-05).
+ *
+ * 150초인 건 60초를 넘긴 뒤에도 **초과 상태를 충분히 들여다볼 시간**을 남기기
+ * 위해서입니다. 70초짜리면 안내가 뜨자마자 결과로 넘어가 버립니다.
+ */
+const SLOW_JOB_DURATION_MS = 150_000
+
 function jobDuration(): number {
-  return scenario() === 'job:flaky' ? FLAKY_JOB_DURATION_MS : JOB_DURATION_MS
+  const forced = scenario()
+  if (forced === 'job:flaky') return FLAKY_JOB_DURATION_MS
+  if (forced === 'job:slow') return SLOW_JOB_DURATION_MS
+  return JOB_DURATION_MS
 }
 
 /**
