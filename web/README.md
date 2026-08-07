@@ -27,8 +27,11 @@ localStorage.setItem('nutti.mock.scenario', 'upload:warn')  // 품질 경고(비
 localStorage.setItem('nutti.mock.scenario', 'upload:block') // 고양이 감지(차단)
 localStorage.setItem('nutti.mock.scenario', 'job:fail')     // GENERATION_FAILED + 크레딧 반환
 localStorage.setItem('nutti.mock.scenario', 'job:safety')   // SAFETY_BLOCKED
+localStorage.setItem('nutti.mock.scenario', 'job:flaky')    // 생성 중 3~18초 503 → W-05가 화면을 헐지 않고 자력 복구
 localStorage.setItem('nutti.mock.scenario', 'credit:empty') // 잔액 0에서 시작 → 402 → 시트에서 받고 재시도
 localStorage.setItem('nutti.mock.scenario', 'session:expired') // 게스트 토큰 만료 → 재발급 → 404 (복원 실패 안내)
+localStorage.setItem('nutti.mock.scenario', 'session:lost')    // 재발급으로 안 풀리는 401 — 앱바 크레딧이 어느 화면에서나 부름
+localStorage.setItem('nutti.mock.scenario', 'guest:ratelimited') // 게스트 발급 429 (이슈 #15)
 localStorage.setItem('nutti.mock.scenario', 'auth:statefail')  // 소셜 콜백 state 검증 실패(401)
 localStorage.setItem('nutti.mock.scenario', 'cafe24:linked')   // 카페24 연동 409 CAFE24_ALREADY_LINKED
 localStorage.removeItem('nutti.mock.scenario')              // 정상
@@ -151,5 +154,14 @@ src/
    때는 `withReuse()` 로 감싸세요(`app/reuseFromJob.ts`). 재료의 출처는 **서버 우선 ·
    로컬 색인 폴백**이라 백엔드가 `upload_id` 를 싣기 시작하면 다른 기기·링크 재방문에서도
    그대로 동작합니다.
-10. **job 폴링은 에러에서 멈춰야 합니다.** TanStack Query는 에러 상태여도 `refetchInterval`을
-   멈추지 않아, 404인 job 주소에서 폴링이 영원히 돕니다(`useJobPolling` 주석 참고).
+10. **job 폴링은 4xx 에서만 멈춥니다.** TanStack Query는 에러 상태여도 `refetchInterval`을
+   멈추지 않으므로 `useJobPolling`이 직접 판정합니다. 다만 "에러면 멈춘다"로 뭉뚱그리면
+   안 됩니다 — 404·401은 job이 없다는 뜻이지만 **5xx·네트워크 단절은 job이 아니라 우리
+   쪽 사정**이고, 서버는 그 사이에도 계속 그리고 있습니다. 여기서 접으면 크레딧이 이미
+   나간 작업의 결과를 화면이 영영 못 받습니다. 갈라 주는 건 `isFatalJobError()` 하나이고
+   `retry`·`refetchInterval`·W-05·W-06이 전부 이걸 씁니다. 목 시나리오 `job:flaky`로
+   전 구간을 밟을 수 있습니다.
+11. **회복 가능한 에러로 화면을 헐지 마세요.** W-05·W-06은 `error`가 있어도 이미 받아 둔
+   `job`이 있고 치명적이지 않으면 `JobUnavailable`로 넘어가지 않습니다. 넘어가면 아직
+   살아 있는 작업 앞에서 사용자가 보는 건 재시도 버튼이 없는 «새로 만들기»뿐이고,
+   그게 곧 크레딧을 버리게 만듭니다. W-05는 대신 "연결이 잠시 불안정해요" 한 줄만 붙입니다.
