@@ -36,6 +36,7 @@ import {
   useStyles,
 } from '../api/queries'
 import { useGuestSessionReset } from '../app/guestSession'
+import { withReuse } from '../app/reuseFromJob'
 import type { Job, JobErrorCode } from '../api/types'
 import AccountSheet from './AccountSheet'
 import InsufficientCreditOverlay from './InsufficientCreditOverlay'
@@ -359,13 +360,21 @@ function Regenerate({ job, label, hint }: { job: Job; label: string; hint?: stri
   // 재료를 모르면 재생성 자체가 불가능합니다. 서버 값이 왔더라도 **커스텀 job 인데
   // 문구를 모르는 경우**(style_id: null + 로컬 색인 없음)가 남습니다 — job 응답에
   // custom_prompt 가 없어서(§3) 스타일도 문구도 없는 요청이 나가기 때문입니다.
+  //
+  // 다만 그 둘은 남은 재료가 다릅니다. 문구만 모르는 쪽은 `upload_id` 를 이미 알고
+  // 있으므로 **사진까지 버릴 이유가 없습니다** — `from_job` 을 떼고 카탈로그로 보내면
+  // 방금 쓴 사진을 다시 올리게 되고 새 upload_id 가 발급돼, PR #37 이 막아 둔 함정에
+  // 그대로 빠집니다. 아래 «이 사진으로 다른 스타일» 섹션이 이미 맥락을 나르고 있어
+  // 같은 화면에서 두 동선이 엇갈리기도 합니다. 실패 화면에는 그 섹션이 없으므로
+  // (FailurePanel) 여기가 사진을 살리는 유일한 경로입니다.
   if (!context || (context.styleId === null && !context.customPrompt)) {
+    const keepsPhoto = context !== null
     return (
       <Link
-        to="/styles"
+        to={keepsPhoto ? withReuse('/styles', job.job_id) : '/styles'}
         className="mt-2 block rounded-xl border border-rule px-4 py-3 text-center text-sm text-ink-2"
       >
-        다른 사진으로 만들기
+        {keepsPhoto ? '이 사진으로 다른 스타일 고르기' : '다른 사진으로 만들기'}
       </Link>
     )
   }
