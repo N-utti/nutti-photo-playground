@@ -33,6 +33,17 @@ export interface JobContext {
    * 예전에 저장된 항목에는 이 필드가 없으므로 읽는 쪽에서 `?? null` 로 다룹니다.
    */
   customPrompt?: string | null
+  /**
+   * 이 job 을 만든 시각(ms). `rememberJobContext` 가 직접 찍으므로 호출부는 넘기지
+   * 않습니다.
+   *
+   * **재료 색인과 수명이 다릅니다.** 위 세 필드는 이슈 #9 구현이 착지하면 서버가
+   * 답하게 되지만, 이 값은 `GET /v1/jobs/{job_id}` 응답에 `created_at` 이 아예
+   * 없어서(§3) 서버가 대신 답해 줄 수 없습니다. W-05 가 FR-EDGE-02(60초 초과 =
+   * 백그라운드 전환)를 판정하는 유일한 근거라, #9 로 이 파일을 지울 때도 이 필드는
+   * 남습니다. 계약 공백은 별도 이슈로 올려 뒀습니다.
+   */
+  startedAt?: number
 }
 
 type ContextMap = Record<string, JobContext>
@@ -51,7 +62,10 @@ function readMap(): ContextMap {
 export function rememberJobContext(jobId: string, context: JobContext): void {
   const map = readMap()
   delete map[jobId] // 다시 넣어 삽입 순서를 최신으로 올립니다.
-  map[jobId] = context
+  // startedAt 은 **여기서 덮어씁니다**. "다시 만들기"는 이전 job 의 맥락을 그대로
+  // 넘겨 오므로(W-06 Regenerate), 넘어온 값을 그대로 두면 새 job 이 이전 job 의
+  // 시작 시각을 물려받아 만들자마자 «오래 걸리는 중»으로 보입니다.
+  map[jobId] = { ...context, startedAt: Date.now() }
 
   const keys = Object.keys(map)
   for (const stale of keys.slice(0, Math.max(0, keys.length - MAX_ENTRIES))) delete map[stale]
@@ -86,5 +100,17 @@ export function resolveJobContext(
     uploadId: job.upload_id,
     sourceImageUrl: job.source_image_url ?? local?.sourceImageUrl ?? null,
     customPrompt: local?.customPrompt ?? null,
+    startedAt: local?.startedAt,
   }
+}
+
+/**
+ * 이 job 이 시작된 시각. 이 브라우저에서 만든 job 이 아니면 `null` 입니다.
+ *
+ * 서버가 `created_at` 을 주지 않으므로(§3) 링크로 받은 job·다른 기기에서 만든
+ * job 은 경과를 알 수 없습니다. 호출부(W-05)는 그때 화면 도착 시각으로 대신
+ * 재는데, 그건 실제보다 **늦게** 판정하는 쪽이라 없는 지연을 지어내지 않습니다.
+ */
+export function readJobStartedAt(jobId: string): number | null {
+  return readJobContext(jobId)?.startedAt ?? null
 }
