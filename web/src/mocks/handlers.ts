@@ -7,8 +7,8 @@
  * 같은 Idempotency-Key 가 같은 job 을 돌려줍니다.
  *
  * 시나리오 강제: localStorage 에 `nutti.mock.scenario` 를 넣으면 해당 케이스로 고정됩니다.
- *   upload:warn | upload:block | job:fail | job:safety | credit:empty | session:expired
- *   guest:ratelimited | session:lost | auth:statefail | cafe24:linked
+ *   upload:warn | upload:block | job:fail | job:safety | job:flaky | credit:empty
+ *   session:expired | guest:ratelimited | session:lost | auth:statefail | cafe24:linked
  *
  * 로컬 로그인 목 규칙: 비밀번호 `nutti1234` 만 성공(그 외 401), 이메일
  * `taken@nutti.co.kr` 로 가입하면 409 EMAIL_TAKEN.
@@ -225,6 +225,33 @@ function promoteToMember(options: {
 const JOB_DURATION_MS = 12_000
 
 /**
+ * `job:flaky` — 생성 중 서버가 잠깐 5xx 를 뱉는 구간.
+ *
+ * W-05 는 404(job 이 없음)와 5xx(서버가 지금 답을 못 줌)를 다르게 다룹니다. 전자는
+ * 복원 실패 안내로 끝내고, 후자는 **화면을 헐지 않고 폴링을 계속 두드려 스스로
+ * 되살아나야** 합니다 — 서버는 그 사이에도 job 을 그리고 있고 크레딧은 이미 나갔기
+ * 때문입니다. 목에 이 구간이 없으면 그 분기는 브라우저에서 한 번도 밟히지 않습니다.
+ *
+ * 구간이 18초로 넉넉한 이유: 재시도 3회가 백오프 포함 7초 안팎에 소진되므로, 그보다
+ * 짧으면 재시도 단계에서 조용히 복구돼 정작 확인하려던 «에러 상태에서의 재개»에
+ * 도달하지 못합니다.
+ */
+const FLAKY_OUTAGE_MS = { from: 3_000, to: 18_000 }
+
+/**
+ * flaky 시나리오에서만 job 을 길게 잡습니다.
+ *
+ * 재시도 소진(≈7초) + 상한 간격 재개(8초)를 합치면 복구는 20초 언저리인데, 12초짜리
+ * job 은 그때 이미 끝나 있습니다. 그러면 결과 화면으로 넘어가 버려서 «막대가 다시
+ * 움직인다»는, 이 분기의 유일한 육안 증거를 놓칩니다.
+ */
+const FLAKY_JOB_DURATION_MS = 35_000
+
+function jobDuration(): number {
+  return scenario() === 'job:flaky' ? FLAKY_JOB_DURATION_MS : JOB_DURATION_MS
+}
+
+/**
  * `credit:empty` 는 "항상 402"가 아니라 **잔액 0에서 시작**입니다.
  *
  * 402 를 무조건 던지면 크레딧을 받아도 계속 막혀서, §4 시나리오3 의 뒷부분
@@ -251,11 +278,12 @@ function apiError(status: number, code: string, message: string, detail: unknown
 /** 경과 시간으로 job 상태를 계산 — 타이머 없이 폴링만으로 진행이 보입니다. */
 function projectJob(job: MockJob): Job {
   const elapsed = Date.now() - job.createdAt
+  const duration = jobDuration()
   const sourceImageUrl = placeholderImage('원본')
   // 어느 상태에서든 실립니다 — W-06 "다시 만들기"는 실패한 job 에서도 눌리기 때문입니다.
   const materials = { style_id: job.styleId, upload_id: job.uploadId }
 
-  if (elapsed >= JOB_DURATION_MS) {
+  if (elapsed >= duration) {
     if (job.forcedError) {
       return {
         job_id: job.id,
@@ -289,7 +317,7 @@ function projectJob(job: MockJob): Job {
       status: 'queued',
       ...materials,
       progress: 0,
-      eta_seconds: Math.ceil(JOB_DURATION_MS / 1000),
+      eta_seconds: Math.ceil(duration / 1000),
       status_message: '대기 중…',
       source_image_url: sourceImageUrl,
       results: null,
@@ -297,13 +325,13 @@ function projectJob(job: MockJob): Job {
     }
   }
 
-  const ratio = elapsed / JOB_DURATION_MS
+  const ratio = elapsed / duration
   return {
     job_id: job.id,
     status: 'processing',
     ...materials,
     progress: Math.floor(ratio * 100),
-    eta_seconds: Math.ceil((JOB_DURATION_MS - elapsed) / 1000),
+    eta_seconds: Math.ceil((duration - elapsed) / 1000),
     status_message: '레고 블록을 쌓는 중…',
     source_image_url: sourceImageUrl,
     results: null,
@@ -632,6 +660,16 @@ export const handlers = [
     }
 
     const job = state.jobs.get(String(params.jobId))
+
+    // 일시적 장애는 job 이 **있는데도** 답을 못 주는 상태입니다. 그래서 404 판정보다
+    // 먼저 오고, 실패해도 job 은 그대로 남아 구간이 끝나면 원래 진행률로 돌아옵니다.
+    if (job && scenario() === 'job:flaky') {
+      const elapsed = Date.now() - job.createdAt
+      if (elapsed >= FLAKY_OUTAGE_MS.from && elapsed < FLAKY_OUTAGE_MS.to) {
+        return apiError(503, 'SERVICE_UNAVAILABLE', '일시적으로 응답할 수 없습니다')
+      }
+    }
+
     if (!job) {
       // 보관함 시드에서 열린 과거 결과. 없으면 목록의 모든 항목이 404 로 이어져
       // 보관함 → 결과 상세라는 이 화면의 존재 이유(FR-W09-03)를 못 밟습니다.

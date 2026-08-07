@@ -181,12 +181,47 @@ const POLL_BASE_MS = 2_000
 const POLL_MAX_MS = 8_000
 
 /**
+ * 다음 폴링까지의 간격.
+ *
+ * 백오프만 쓰면 **남은 시간보다 늦게** 물어보는 구간이 생깁니다. 서버가 "6초 남았다"고
+ * 말한 직후 8초를 기다리면 화면은 이미 끝난 작업 앞에서 2초를 더 서 있고, 그 사이
+ * 진행률과 남은 초가 통째로 멈춥니다 — W-05 노트1 이 스피너 대신 숫자를 넣어 피하려던
+ * 바로 그 상태입니다. 그래서 백오프는 상한으로만 쓰고 `eta_seconds` 로 한 번 더 조입니다.
+ *
+ * 하한이 POLL_BASE_MS 인 이유: 예상보다 오래 걸리는 job 은 eta 가 0 에 붙어 있는데,
+ * 그때 간격까지 0 으로 수렴하면 폴링이 아니라 하드 루프가 됩니다.
+ */
+function nextPollDelay(attempts: number, etaSeconds: number | null | undefined): number {
+  const backoff = Math.min(POLL_BASE_MS * 2 ** Math.max(0, attempts - 1), POLL_MAX_MS)
+  if (etaSeconds == null) return backoff
+  return Math.max(POLL_BASE_MS, Math.min(backoff, etaSeconds * 1_000))
+}
+
+/**
+ * 이 에러 앞에서 job 읽기를 포기해도 되는가.
+ *
+ * 404·401 은 다시 물어도 답이 같습니다 — job 이 없거나 남의 것입니다(§3). 계속 때리면
+ * 존재하지 않는 주소에서 폴링이 영원히 돌고, 그동안 복원 실패 안내(이슈 #5)는 뜨지
+ * 않습니다. 그래서 즉시 포기하고 화면에 넘깁니다.
+ *
+ * 5xx·네트워크 단절은 성격이 다릅니다. 그건 **job 의 상태가 아니라 우리 쪽 사정**이고,
+ * 서버는 그 사이에도 계속 그리고 있습니다. 여기서 포기하면 크레딧이 이미 나간 작업의
+ * 결과를 화면이 영영 받지 못합니다 — 창을 닫아도 된다던 노트3 의 약속이 정작 창을
+ * 열어 둔 사람에게서 깨집니다. 끊긴 쪽이 우리라면 우리가 다시 두드려야 합니다.
+ */
+export function isFatalJobError(error: unknown): boolean {
+  return error instanceof ApiError && error.status < 500
+}
+
+/**
  * W-05 생성 대기 폴링.
  *
  * - 종료 상태(succeeded/failed)에 도달하면 폴링을 멈춥니다.
  * - 탭이 백그라운드면 폴링하지 않습니다. W-05 는 "창을 닫아도 됩니다"를 약속하므로
  *   보이지 않는 탭에서 계속 때릴 이유가 없고, 포커스가 돌아오면 refetchOnWindowFocus 로
  *   즉시 1회 따라잡습니다.
+ * - 회복 가능한 에러에서는 멈추지 않습니다(isFatalJobError). 재시도 3회를 소진했다는
+ *   건 지금 서버가 답을 못 준다는 뜻일 뿐, job 이 끝났다는 뜻이 아닙니다.
  */
 export function useJobPolling(jobId: string | null) {
   return useQuery({
@@ -194,22 +229,19 @@ export function useJobPolling(jobId: string | null) {
     queryFn: ({ signal }) => jobs.get(jobId as string, signal),
     enabled: jobId !== null,
     refetchInterval: (query) => {
-      // 에러로 끝난 쿼리를 계속 때리면 404 인 job 주소에서 폴링이 영원히 돕니다.
-      // (TanStack Query 는 에러 상태여도 refetchInterval 을 멈추지 않습니다.)
-      if (query.state.status === 'error') return false
+      // TanStack Query 는 에러 상태여도 refetchInterval 을 멈추지 않으므로 여기서
+      // 직접 판정합니다. 404 면 접고, 5xx 면 상한 간격으로 계속 두드립니다 — 이게
+      // 재시도 소진 뒤 화면이 스스로 되살아나는 유일한 경로입니다.
+      if (query.state.status === 'error') {
+        return isFatalJobError(query.state.error) ? false : POLL_MAX_MS
+      }
       const status = query.state.data?.status
       if (status && TERMINAL_STATUSES.has(status)) return false
-      const attempts = query.state.dataUpdateCount
-      return Math.min(POLL_BASE_MS * 2 ** Math.max(0, attempts - 1), POLL_MAX_MS)
+      return nextPollDelay(query.state.dataUpdateCount, query.state.data?.eta_seconds)
     },
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
-    // 폴링 중 일시적 5xx 로 화면이 실패로 넘어가면 안 됩니다. 다만 404·401 은
-    // 재시도해도 답이 같고, 그 사이 복원 실패 안내(이슈 #5)가 늦어집니다.
-    retry: (failureCount, error) => {
-      if (error instanceof ApiError && error.status < 500) return false
-      return failureCount < 3
-    },
+    retry: (failureCount, error) => (isFatalJobError(error) ? false : failureCount < 3),
   })
 }
 
@@ -223,10 +255,9 @@ export function useJob(jobId: string | null) {
     queryKey: queryKeys.job(jobId ?? ''),
     queryFn: ({ signal }) => jobs.get(jobId as string, signal),
     enabled: jobId !== null,
-    retry: (failureCount, error) => {
-      if (error instanceof ApiError && error.status < 500) return false
-      return failureCount < 2
-    },
+    // 폴링과 달리 화면이 이 응답을 기다려 세우지 않습니다(재료가 없으면 그냥 빈 폼) —
+    // 그래서 재시도도 한 번 적게 잡고 빨리 포기합니다.
+    retry: (failureCount, error) => (isFatalJobError(error) ? false : failureCount < 2),
   })
 }
 
