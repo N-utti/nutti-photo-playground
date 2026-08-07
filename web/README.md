@@ -95,7 +95,14 @@ src/
 | [#9](https://github.com/N-utti/nutti-photo-playground/issues/9) | job/펫 응답에 `style_id`·`upload_id` 참조 없음 | W-06 다시 만들기·다른 스타일, W-04 펫 스킵 | A안 확정 · §3 반영 · 프론트 배선 완료. **백엔드 구현 대기**(라우터가 아직 `not_implemented`)라 서버 값이 올 때까지 localStorage 색인 폴백 유지 |
 | [#10](https://github.com/N-utti/nutti-photo-playground/issues/10) | 카카오 `kakao_token` 획득 경로 미정 | W-06 B 계정 연동 | 해결 (ADR-11 A안 → PR #21, `POST /v1/auth/kakao` 삭제) |
 | [#14](https://github.com/N-utti/nutti-photo-playground/issues/14) | `authorize` 가 헤더를 요구하는 302 라 브라우저 이동 불가 | 로그인 시트·콜백 전부 | 해결 (PR #21 — 200 `{authorize_url}`) |
-| [#17](https://github.com/N-utti/nutti-photo-playground/issues/17) | 로컬 계정 복구 불가(비밀번호 재설정·이메일 인증 없음) · 로그인 수단 추가 미지원 | 로컬 가입 | 대기 (가입 시트에 사전 고지로 대응) |
+| [#17](https://github.com/N-utti/nutti-photo-playground/issues/17) | 로컬 계정 복구 불가(비밀번호 재설정·이메일 인증 없음) · 로그인 수단 추가 미지원 | 로컬 가입 | 해결 (PR #21 — 409 `ALREADY_MEMBER`·복구 불가 명시·검증 정책). **가입 시트의 사전 고지는 그대로 둡니다** — 계약이 명시됐을 뿐 비밀번호 재설정이 생긴 건 아닙니다 |
+| [#22](https://github.com/N-utti/nutti-photo-playground/issues/22) | 회원 탈퇴 — `DELETE /v1/auth/me` 와 데이터 파기 정책 미설계 | W-12 탈퇴 버튼 | 대기 (§3 에 엔드포인트 없음). FR-W12-06 이 "자리만 확보"라 화면은 막히지 않습니다 |
+| [#33](https://github.com/N-utti/nutti-photo-playground/issues/33) | 보관함 항목 `pet_id` 가 `null` 일 수 있는지 §3 에 없음 | W-09 강아지 필터 | 대기. 이슈 #12 결정4(펫 삭제 → FK NULL, 결과물 유지)와 §3 예시가 어긋난 상태 그대로 — 프론트는 `null` 가능으로 보고 그 항목을 «전체»에서만 그립니다 |
+| [#41](https://github.com/N-utti/nutti-photo-playground/issues/41) | job 응답에 시작 시각(`created_at`) 없음 | W-05 FR-EDGE-02 판정 | 대기. `jobContext.startedAt`(localStorage) 로 버티는 중 — 링크로 받은 job 은 화면 도착 시각으로 재므로 실제보다 늦게 판정합니다 |
+
+[#11](https://github.com/N-utti/nutti-photo-playground/issues/11)(auth 보안 후속 M3~M6·L1~L6)은 **프론트가 막히는 지점이 없어** 위 표에 넣지 않습니다 — 확인 근거는
+이슈 코멘트에 남겼습니다(오픈 리다이렉트는 `app/authReturn.ts` 가 이미 막고, 동시 가입 경합을
+서버가 409 로 정리하면 프론트는 무변경으로 맞는 문구가 나갑니다).
 
 ## 미확정
 
@@ -111,8 +118,8 @@ src/
   없습니다. 세 번째 등급이 있는지 확인 필요.
 - **보관함 `pet_id` 의 null 여부** — 펫 삭제는 FK 를 NULL 로 만들고 결과물은 남긴다고
   확정됐는데(이슈 #12 결정4) §3 예시에는 값이 있는 경우만 나옵니다. 프론트는 `null`
-  가능으로 보고 그 항목을 «전체»에서만 그립니다(`api/types.ts` 주석). 백엔드 구현 시
-  확인이 필요합니다.
+  가능으로 보고 그 항목을 «전체»에서만 그립니다(`api/types.ts` 주석). 이슈
+  [#33](https://github.com/N-utti/nutti-photo-playground/issues/33) 으로 올라가 있습니다.
 - **보관함 일괄 저장은 같은 출처에서만 «저장»입니다.** `<a download>` 는 교차 출처
   URL 에서 무시돼서, 결과 이미지가 다른 도메인 CDN 이면 저장 대신 새 탭으로 열립니다.
   제대로 받게 하려면 CDN 이 CORS 를 열거나 서버가 묶어서 내려줘야 합니다
