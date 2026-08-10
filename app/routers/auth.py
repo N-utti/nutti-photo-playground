@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import math
 import secrets
 import time
@@ -42,6 +43,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 _guest_requests: dict[str, deque[float]] = {}
 _login_requests: dict[str, deque[float]] = {}
 _register_requests: dict[str, deque[float]] = {}
+_refresh_requests: dict[str, deque[float]] = {}
 
 # ponytail: fixed thresholds are enough for now; promote to settings when traffic data warrants tuning.
 _LOGIN_IP_RATE_LIMIT = 20
@@ -57,6 +59,7 @@ class GuestTokenResponse(BaseModel):
 
 class AuthCallbackResponse(BaseModel):
     token: str
+    refresh_token: str
     member_id: str
     kind: Literal["member"]
     merged: bool
@@ -90,6 +93,15 @@ class LoginRequest(BaseModel):
     @classmethod
     def normalize_email(cls, value: str) -> str:
         return value.strip().lower()
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str = Field(max_length=128)
+
+
+class RefreshResponse(BaseModel):
+    token: str
+    refresh_token: str
 
 
 class MeResponse(BaseModel):
@@ -138,8 +150,7 @@ def _client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-def _check_bucket(buckets: dict[str, deque[float]], key: str, limit: int) -> None:
-    now = time.monotonic()
+def _prune_expired_buckets(buckets: dict[str, deque[float]], now: float) -> None:
     if len(buckets) > 10_000:
         expired_keys = [
             bucket_key
@@ -148,6 +159,11 @@ def _check_bucket(buckets: dict[str, deque[float]], key: str, limit: int) -> Non
         ]
         for expired_key in expired_keys:
             del buckets[expired_key]
+
+
+def _check_bucket(buckets: dict[str, deque[float]], key: str, limit: int) -> None:
+    now = time.monotonic()
+    _prune_expired_buckets(buckets, now)
     requests = buckets.setdefault(key, deque())
     while requests and requests[0] <= now - 3600:
         requests.popleft()
@@ -168,6 +184,7 @@ def _peek_bucket(buckets: dict[str, deque[float]], key: str, limit: int) -> None
     지속적으로 오답을 부어넣는 공격자는 여전히 잠금 창을 유지할 수 있음 — CAPTCHA/지수 백오프가 업그레이드 경로.
     """
     now = time.monotonic()
+    _prune_expired_buckets(buckets, now)
     requests = buckets.get(key)
     if not requests:
         return
@@ -298,7 +315,7 @@ async def _merge_or_promote_guest(
     guest = await Member.get(id=guest_id).using_db(connection)
     existing = await Member.filter(
         kind=MemberKind.MEMBER, **{id_field: id_value}
-    ).using_db(connection).first()
+    ).select_for_update().using_db(connection).first()
     if existing is not None:
         for model in (PetProfile, SourceImage, GenerationJob, CustomPromptLog, MetricEvent):
             await model.filter(member_id=guest.id).using_db(connection).update(member_id=existing.id)
@@ -567,10 +584,21 @@ async def social_callback(
             id_value=id_value,
             nickname=nickname,
         )
+        # ponytail: concurrent login is last-commit-wins; an earlier refresh gets 401, then the client re-logs in. Use a session table for multi-device support.
+        refresh_token = secrets.token_urlsafe(32)
+        target.refresh_token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
+        target.refresh_expires_at = datetime.now(timezone.utc) + timedelta(
+            seconds=settings.jwt_refresh_expires_in
+        )
+        await target.save(
+            update_fields=["refresh_token_hash", "refresh_expires_at"],
+            using_db=connection,
+        )
 
     target = await Member.get(id=target.id)
     return AuthCallbackResponse(
         token=create_token(target.id, "member"),
+        refresh_token=refresh_token,
         member_id=str(target.id),
         kind="member",
         merged=merged,
@@ -624,11 +652,20 @@ async def register(
                 detail={"code": "EMAIL_TAKEN", "message": "Email is already registered", "detail": {}},
             )
         target.password_hash = password_hash
-        await target.save(update_fields=["password_hash"], using_db=connection)
+        refresh_token = secrets.token_urlsafe(32)
+        target.refresh_token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
+        target.refresh_expires_at = datetime.now(timezone.utc) + timedelta(
+            seconds=settings.jwt_refresh_expires_in
+        )
+        await target.save(
+            update_fields=["password_hash", "refresh_token_hash", "refresh_expires_at"],
+            using_db=connection,
+        )
 
     target = await Member.get(id=target.id)
     return AuthCallbackResponse(
         token=create_token(target.id, "member"),
+        refresh_token=refresh_token,
         member_id=str(target.id),
         kind="member",
         merged=False,
@@ -681,14 +718,57 @@ async def login(
         target, merged = await _merge_or_promote_guest(
             connection, guest_id, id_field="email", id_value=body.email
         )
+        refresh_token = secrets.token_urlsafe(32)
+        target.refresh_token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
+        target.refresh_expires_at = datetime.now(timezone.utc) + timedelta(
+            seconds=settings.jwt_refresh_expires_in
+        )
+        await target.save(
+            update_fields=["refresh_token_hash", "refresh_expires_at"],
+            using_db=connection,
+        )
 
     target = await Member.get(id=target.id)
     return AuthCallbackResponse(
         token=create_token(target.id, "member"),
+        refresh_token=refresh_token,
         member_id=str(target.id),
         kind="member",
         merged=merged,
         credit_balance=target.credit_balance,
+    )
+
+
+@router.post("/refresh", response_model=RefreshResponse)
+async def refresh(body: RefreshRequest, request: Request) -> RefreshResponse:
+    client_ip = _client_ip(request)
+    _peek_bucket(_refresh_requests, client_ip, 20)
+    refresh_hash = hashlib.sha256(body.refresh_token.encode()).hexdigest()
+    now = datetime.now(timezone.utc)
+    async with in_transaction() as connection:
+        # ponytail: rotation removes the old hash, so reuse naturally fails this lookup.
+        member = await Member.filter(
+            refresh_token_hash=refresh_hash,
+            kind=MemberKind.MEMBER,
+            merged_into_id__isnull=True,
+        ).select_for_update().using_db(connection).first()
+        if (
+            member is None
+            or member.refresh_expires_at is None
+            or member.refresh_expires_at <= now
+        ):
+            _record_failure(_refresh_requests, client_ip)
+            raise _unauthorized()
+        refresh_token = secrets.token_urlsafe(32)
+        member.refresh_token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
+        member.refresh_expires_at = now + timedelta(seconds=settings.jwt_refresh_expires_in)
+        await member.save(
+            update_fields=["refresh_token_hash", "refresh_expires_at"],
+            using_db=connection,
+        )
+    return RefreshResponse(
+        token=create_token(member.id, "member"),
+        refresh_token=refresh_token,
     )
 
 
@@ -714,5 +794,11 @@ async def get_me(member: Member = Depends(get_current_member)) -> MeResponse:
 
 
 @router.post("/logout", status_code=204)
-async def logout() -> None:
+async def logout(member: Member = Depends(get_current_member)) -> None:
+    if member.kind == MemberKind.GUEST:
+        # ponytail: access tokens remain valid for their lifetime, as before; issue #11 L4 is out of scope.
+        return None
+    member.refresh_token_hash = None
+    member.refresh_expires_at = None
+    await member.save(update_fields=["refresh_token_hash", "refresh_expires_at"])
     return None

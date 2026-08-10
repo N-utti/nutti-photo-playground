@@ -218,6 +218,7 @@
 // 200 — MemberSession
 {
   "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI4ZjE0ZTQ1NyJ9.yyy",
+  "refresh_token": "8fFq3...one-time-plaintext...Zk",
   "member_id": "8f14e457-4d09-41c2-9d70-1a2b3c4d5e6f",
   "kind": "member",
   "merged": true,
@@ -225,6 +226,8 @@
 }
 ```
 `merged: true`는 UC-07 분기 A(기존 회원 행에 병합·자산 이관), `false`는 분기 B(게스트 행 승격). 클라이언트는 즉시 게스트 토큰을 회원 토큰으로 교체합니다.
+
+**회원 세션 = 액세스(1h) + 리프레시(30일, 회전)** — 이슈 #47(2026-08-10 확정). MemberSession을 반환하는 모든 응답(소셜 콜백·register·login)에 `refresh_token`이 포함되며 원문은 이때 한 번만 노출됩니다(서버는 해시만 보관, 회원당 활성 1개 — 새 로그인 시 이전 세션 무효화). 게스트는 리프레시 없음(30일 JWT + `POST /v1/auth/guest` 재발급 유지).
 
 #### `POST /v1/auth/register` — 로컬 가입
 
@@ -257,6 +260,22 @@
 ```
 `401 INVALID_CREDENTIALS`: 이메일 존재 여부를 구분하지 않습니다.
 레이트리밋: IP당 20회/시간 + 이메일당 10회/시간(온라인 대입 방어, `429` + `Retry-After`).
+
+#### `POST /v1/auth/refresh` — 액세스 토큰 재발급(이슈 #47)
+
+헤더: Authorization **불요**(만료된 액세스 상태에서 호출하는 엔드포인트). IP당 20회/시간 레이트리밋(`429` + `Retry-After`).
+
+```json
+// 요청
+{ "refresh_token": "8fFq3...Zk" }
+```
+```json
+// 200 — 회전: 액세스·리프레시 둘 다 새로 발급, 구 리프레시는 즉시 무효
+{ "token": "eyJ...", "refresh_token": "새로운-리프레시-원문" }
+```
+`401 UNAUTHORIZED`: 위조·만료·**이미 회전된 구 토큰 재사용** — 클라이언트는 SESSION_LOST 처리 후 재로그인 유도. **주의**: 이 401은 재생 방지이지 도난 탐지가 아닙니다 — 탈취자가 먼저 회전하면 탈취자 세션이 살아남고 정상 사용자가 로그아웃됩니다(잔여 위험 수용, 재사용 탐지·절대 세션 수명 상한은 후속 — 이슈 #11 추적).
+
+**프론트 배선**: `TOKEN_EXPIRED` 수신 시 게스트는 `POST /v1/auth/guest`, 회원은 이 엔드포인트로 재시도(1회) — refresh도 401이면 그때 세션 끊김 안내.
 
 #### `GET /v1/auth/cafe24/authorize` — 쇼핑몰 계정 연동(회원 전용)
 
@@ -298,7 +317,7 @@
 
 #### `POST /v1/auth/logout`
 
-응답: `204 No Content`(본문 없음).
+응답: `204 No Content`(본문 없음). 회원이면 서버가 리프레시 토큰을 폐기합니다(#11 L4 부분 해소) — 액세스 토큰은 잔여 수명(최대 1h) 동안 유효한 창을 수용합니다.
 
 ---
 
