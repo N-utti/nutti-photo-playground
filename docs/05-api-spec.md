@@ -509,6 +509,8 @@
 
 `style_id`·`upload_id`(이슈 #9 A안): 이 job을 만든 재료 참조. W-06 "다시 만들기"(같은 재료 + 새 Idempotency-Key)와 "이 사진으로 다른 스타일"(같은 `upload_id` + 다른 `style_id`)이 이 두 필드로 `POST /v1/jobs`를 재조립합니다(FR-W06-04·FR-W06-07). 커스텀 프롬프트 job은 `style_id: null`.
 
+`queued_at`·`started_at`(이슈 #41, 2026-08-10 확정): 모든 job 응답에 포함되는 ISO 8601 시각 — `started_at`은 워커가 집기 전까지 `null`. FR-EDGE-02(60초 초과 → 백그라운드 전환) 판정은 **`started_at` 기준**입니다(큐 대기 시간 불포함 — NFR-PERF-01의 "생성 처리" 정의와 일치). 프론트의 localStorage `startedAt` 색인은 이 필드로 대체.
+
 ```json
 // 200 — 진행 중(60초 이내)
 {
