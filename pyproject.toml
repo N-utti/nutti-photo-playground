@@ -15,6 +15,7 @@ dependencies = [
     "python-multipart>=0.0.12",
     "pyjwt>=2.9",
     "tzdata>=2024.1; sys_platform == 'win32'",
+    "boto3>=1.43.67",
 ]
 
 [dependency-groups]
@@ -25,6 +26,8 @@ dev = [
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+# var/ holds runtime artifacts (local media fallback storage, etc.), never test sources.
+norecursedirs = ["var", ".git", ".venv"]
 
 [tool.aerich]
 tortoise_orm = "app.settings.TORTOISE_ORM"

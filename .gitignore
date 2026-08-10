@@ -30,6 +30,7 @@ dist/
 build/
 .next/
 out/
+var/
 
 # Agent state
 .omc/

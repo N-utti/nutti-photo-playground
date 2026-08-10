@@ -22,6 +22,7 @@ class Settings(BaseSettings):
 
     openai_api_key: str = ""
     openai_base_url: str | None = None
+    openai_vision_model: str = "gpt-4o-mini"
 
     r2_access_key_id: str = ""
     r2_secret_access_key: str = ""
