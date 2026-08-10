@@ -1,10 +1,277 @@
-from fastapi import APIRouter, File, Form, UploadFile
+import base64
+import io
+import uuid
 
-from app.common import not_implemented
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from openai import AsyncOpenAI
+from PIL import Image, ImageFilter, ImageOps, ImageStat, UnidentifiedImageError
+from pydantic import BaseModel
+
+from app.auth import get_current_member
+from app.models import AppSetting, Member, MemberKind, PetProfile, SourceImage
+from app.settings import settings
+from app.storage import public_url, save_bytes
 
 router = APIRouter(tags=["uploads"])
 
+_ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
+_MAX_FILE_SIZE = 10 * 1024 * 1024
+_MAX_IMAGE_SIDE = 2048
+# ponytail: 파일럿 운영 데이터로 튜닝 예정인 임의 초기 추정치(8-bit 밝기 평균 60).
+_DARK_THRESHOLD = 60
+# ponytail: OpenCV 없이 FIND_EDGES 분산으로 Laplacian 분산을 근사한다. 선명/흐림 개발
+# 샘플 수 장을 눈대중 비교해 100을 초기 경계로 잡았고, 파일럿 오탐 데이터가 쌓이면 조정한다.
+_BLUR_VARIANCE_THRESHOLD = 100.0
+_POLICY_DEFAULTS = {"human_face_policy": "warn"}
 
-@router.post("/uploads")
-async def upload_photo(file: UploadFile = File(...), pet_id: str | None = Form(None)):
-    not_implemented()
+
+class BlockingIssue(BaseModel):
+    code: str
+    message: str
+
+
+class Warning(BaseModel):
+    code: str
+    message: str
+    detail: dict | None = None
+
+
+class BreedEstimate(BaseModel):
+    code: str | None = None
+    label: str | None = None
+    confidence: float | None = None
+
+
+class UploadResponse(BaseModel):
+    upload_id: str | None = None
+    image_url: str | None = None
+    blocking_issue: BlockingIssue | None = None
+    warnings: list[Warning]
+    breed_estimate: BreedEstimate | None = None
+
+
+class _VisionResult(BaseModel):
+    is_dog: bool
+    is_cat: bool
+    multi_subject: bool
+    human_face: bool
+    breed: BreedEstimate | None = None
+
+
+def _validation_error(message: str) -> HTTPException:
+    return HTTPException(
+        status_code=400,
+        detail={"code": "VALIDATION_ERROR", "message": message, "detail": {}},
+    )
+
+
+def _process_image(data: bytes) -> tuple[Image.Image, bytes]:
+    with Image.open(io.BytesIO(data)) as source:
+        image = ImageOps.exif_transpose(source)
+        image.thumbnail((_MAX_IMAGE_SIDE, _MAX_IMAGE_SIDE), Image.Resampling.LANCZOS)
+        if image.mode in {"RGBA", "LA"} or "transparency" in image.info:
+            rgba = image.convert("RGBA")
+            processed = Image.new("RGB", rgba.size, "white")
+            processed.paste(rgba, mask=rgba.getchannel("A"))
+        else:
+            processed = image.convert("RGB")
+
+    output = io.BytesIO()
+    processed.save(output, format="JPEG")
+    return processed, output.getvalue()
+
+
+def _quality_check(image: Image.Image) -> dict[str, bool]:
+    gray = image.convert("L")
+    edges = gray.filter(ImageFilter.FIND_EDGES)
+    if edges.width > 2 and edges.height > 2:
+        edges = edges.crop((1, 1, edges.width - 1, edges.height - 1))
+    return {
+        "blur": ImageStat.Stat(edges).var[0] < _BLUR_VARIANCE_THRESHOLD,
+        "dark": ImageStat.Stat(gray).mean[0] < _DARK_THRESHOLD,
+    }
+
+
+async def _analyze_vision(jpeg_bytes: bytes) -> _VisionResult | None:
+    # ponytail: 로컬 개발은 키 없이 업로드 흐름만 검증하고, 키를 채우면 비전 검사가 켜진다.
+    if not settings.openai_api_key:
+        return None
+
+    prompt = """이미지를 검사해 다음 JSON만 반환하세요.
+{"is_dog": bool, "is_cat": bool, "multi_subject": bool, "human_face": bool,
+ "breed": {"code": str|null, "label": str|null, "confidence": float|null}|null}
+is_dog/is_cat은 해당 동물이 명확히 보이는지, multi_subject는 동물이 여러 마리인지 판정하세요."""
+    try:
+        response = await AsyncOpenAI(
+            api_key=settings.openai_api_key,
+            base_url=settings.openai_base_url,
+        ).chat.completions.create(
+            model=settings.openai_vision_model,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": "data:image/jpeg;base64,"
+                                + base64.b64encode(jpeg_bytes).decode()
+                            },
+                        },
+                    ],
+                }
+            ],
+            response_format={"type": "json_object"},
+        )
+        content = response.choices[0].message.content
+        if content is None:
+            return None
+        return _VisionResult.model_validate_json(content)
+    except Exception:
+        # Vision failure must never prevent the upload itself.
+        return None
+
+
+async def _human_face_policy() -> str:
+    rows = await AppSetting.filter(key__in=_POLICY_DEFAULTS).all()
+    values = {**_POLICY_DEFAULTS, **{row.key: row.value for row in rows}}
+    policy = values["human_face_policy"]
+    return policy if policy in {"block", "warn", "allow"} else "warn"
+
+
+@router.post("/uploads", response_model=UploadResponse)
+async def upload_photo(
+    file: UploadFile = File(...),
+    pet_id: str | None = Form(None),
+    member: Member = Depends(get_current_member),
+):
+    if file.content_type not in _ALLOWED_CONTENT_TYPES:
+        raise _validation_error("지원하지 않는 이미지 형식입니다")
+    data = await file.read()
+    if len(data) > _MAX_FILE_SIZE:
+        raise _validation_error("파일 크기는 10MB 이하여야 합니다")
+
+    pet = None
+    if pet_id is not None:
+        try:
+            pet_uuid = uuid.UUID(pet_id)
+        except ValueError as exc:
+            raise _validation_error("pet_id 형식이 올바르지 않습니다") from exc
+        pet = await PetProfile.filter(id=pet_uuid, member_id=member.id).first()
+        if pet is None:
+            raise HTTPException(
+                status_code=404,
+                detail={"code": "NOT_FOUND", "message": "Pet not found", "detail": {}},
+            )
+
+    try:
+        image, jpeg_bytes = _process_image(data)
+    except (Image.DecompressionBombError, UnidentifiedImageError, OSError, ValueError) as exc:
+        raise _validation_error("올바른 이미지 파일이 아닙니다") from exc
+
+    quality = _quality_check(image)
+    vision = await _analyze_vision(jpeg_bytes)
+    checked = vision is not None
+    vision_values = vision.model_dump() if vision else {
+        "is_dog": False,
+        "is_cat": False,
+        "multi_subject": False,
+        "human_face": False,
+        "breed": None,
+    }
+    breed_estimate = vision_values["breed"]
+    quality_check = {
+        **quality,
+        "multi_subject": vision_values["multi_subject"],
+        "no_dog": checked and not vision_values["is_dog"],
+        "cat": vision_values["is_cat"],
+        "human_face": vision_values["human_face"],
+    }
+
+    if vision_values["is_cat"]:
+        return {
+            "upload_id": None,
+            "image_url": None,
+            "blocking_issue": {
+                "code": "CAT_DETECTED",
+                "message": "누띠는 강아지 전용이에요. 다른 사진을 골라주세요.",
+            },
+            "warnings": [],
+            "breed_estimate": None,
+        }
+
+    warnings = []
+    if vision_values["human_face"]:
+        policy = await _human_face_policy()
+        if policy == "block":
+            return {
+                "upload_id": None,
+                "image_url": None,
+                "blocking_issue": {
+                    "code": "HUMAN_FACE_DETECTED",
+                    "message": "사람 얼굴이 포함된 사진은 사용할 수 없어요.",
+                },
+                "warnings": [],
+                "breed_estimate": None,
+            }
+        if policy == "warn":
+            warnings.append(
+                {
+                    "code": "HUMAN_FACE_DETECTED",
+                    "message": "사람 얼굴이 함께 보여요",
+                    "detail": None,
+                }
+            )
+
+    if checked and not vision_values["is_dog"]:
+        warnings.append(
+            {
+                "code": "NOT_A_DOG",
+                "message": "강아지가 잘 보이지 않아요",
+                "detail": None,
+            }
+        )
+    if vision_values["multi_subject"]:
+        warnings.append(
+            {
+                "code": "MULTI_SUBJECT",
+                "message": "여러 마리가 함께 보여요",
+                "detail": None,
+            }
+        )
+    issues = [issue for issue in ("dark", "blur") if quality[issue]]
+    if issues:
+        if issues == ["dark"]:
+            message = "얼굴이 조금 어두워요"
+        elif issues == ["blur"]:
+            message = "사진이 조금 흐려요"
+        else:
+            message = "사진이 조금 어둡고 흐려요"
+        warnings.append(
+            {
+                "code": "QUALITY_WARNING",
+                "message": message,
+                "detail": {"issues": issues},
+            }
+        )
+
+    key = f"uploads/{uuid.uuid4()}.jpg"
+    await save_bytes(key, jpeg_bytes, "image/jpeg")
+    source = await SourceImage.create(
+        member=member,
+        pet_profile=pet,
+        storage_key=key,
+        width=image.width,
+        height=image.height,
+        quality_check=quality_check,
+        breed_estimate=breed_estimate,
+        expires_at=member.guest_expires_at if member.kind == MemberKind.GUEST else None,
+    )
+    return {
+        "upload_id": str(source.id),
+        "image_url": public_url(key),
+        "blocking_issue": None,
+        "warnings": warnings,
+        "breed_estimate": breed_estimate,
+    }

@@ -1,10 +1,12 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from tortoise import Tortoise
 
@@ -27,6 +29,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Nutti Photo Playground API", lifespan=lifespan)
+if not settings.r2_endpoint_url:
+    os.makedirs("var/media", exist_ok=True)
+    app.mount("/media", StaticFiles(directory="var/media"), name="media")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[origin.strip() for origin in settings.cors_allowed_origins.split(",") if origin.strip()],
