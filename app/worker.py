@@ -6,8 +6,9 @@ Postgres `generation_job` 테이블 자체를 큐로 쓴다(Redis/arq 없음). �
 
 ponytail: lease/처리 함수는 스텁. 실제 구현 시 채울 것 —
   - lease_job: status='processing', lease_expires_at=now()+90s, attempt_count+=1 커밋
-  - process_job: asyncio.gather로 4장 동시 생성(§2.3) → Pillow 서명 합성(§4) →
-    R2 업로드 → generation_result 4행 INSERT → status 갱신, 실패 시 크레딧 refund
+  - process_job: job당 프로바이더 요청 1건 발행(§2.3, Q4 확정 — 1요청 1장) →
+    Pillow 서명 합성(§4) → R2 업로드 → generation_result 1행 INSERT → status 갱신,
+    실패 시 크레딧 refund. 산출 수 상향 시 asyncio.gather 동시 발행으로 확장(§2.3)
   - attempt_count가 임계(3회) 초과 시 status='failed', error_code='MAX_RETRIES_EXCEEDED'
 """
 
@@ -49,7 +50,7 @@ async def lease_job(job_id: str) -> None:
 
 
 async def process_job(job: dict) -> None:
-    """4장 생성 → 서명 합성 → R2 업로드 → 상태 갱신. ponytail: 스텁."""
+    """1장 생성(Q4) → 서명 합성 → R2 업로드 → 상태 갱신. ponytail: 스텁."""
 
 
 async def run_worker_loop() -> None:

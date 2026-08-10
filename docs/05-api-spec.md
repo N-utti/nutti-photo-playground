@@ -629,6 +629,8 @@
 }
 ```
 
+`pet_id`는 `uuid | null`입니다(이슈 #33) — **펫이 삭제됐거나**(`DELETE /v1/pets` 시 `source_image.pet_profile_id` SET NULL, 이슈 #12 결정4) **애초에 펫 없이 만든 결과**(`POST /v1/jobs`의 `pet_id: null`) 둘 다 `null`로 내려오며 클라이언트는 구분하지 않습니다("전체"에서만 노출). 삭제된 펫을 가리키는 `?pet_id=` 조회는 빈 목록(`months: []`)을 반환합니다(404 아님 — 필터 결과가 없는 것과 동일 취급).
+
 #### `DELETE /v1/library`
 
 ```json

@@ -431,7 +431,7 @@ erDiagram
 | 대상 | 보존 기간 | 처리 |
 |---|---|---|
 | `metric_event` | 90일 | 배치가 주기적으로 만료 행을 물리 삭제 |
-| `source_image` (게스트) | `member.guest_expires_at`(24h)과 동일 시점 | 만료 시 정리 배치 대상(회원 승격 시 이관되어 해당 없음) |
+| `source_image` (게스트) | `member.guest_expires_at`(30일)과 동일 시점 | 만료 시 정리 배치 대상(회원 승격 시 이관되어 해당 없음) |
 | `source_image` (회원) | 무기한(`expires_at = NULL`) | 보관함(W-09)에 남아있는 한 보존, 삭제는 사용자 요청 시에만 |
 | `generation_result` (삭제 요청) | 즉시 `deleted_at` SET(논리삭제) | 배치가 지연 후 R2 실제 삭제 → CDN 캐시 퍼지(06-architecture §4) |
 | 게스트 `member` 행(미병합) | `guest_expires_at` 경과 | 정리 배치 대상(자산이 이미 만료·이관되지 않은 경우) |
