@@ -26,6 +26,8 @@ import type {
   LibraryItem,
   LibraryMonth,
   Me,
+  Pet,
+  PetSummary,
   UploadResult,
 } from '../api/types'
 import {
@@ -64,6 +66,11 @@ function breedForUpload(uploadId: string): BreedEstimate | null {
   const known = [uploadOk, uploadWarned, uploadNoDog, uploadMultiSubject, uploadHumanFaceWarned]
   const match = known.find((upload) => upload.upload_id === uploadId)
   return match ? match.breed_estimate : uploadOk.breed_estimate
+}
+
+/** 생성·수정 응답 모양. 목록(`Pet`)과 달리 `latest_upload_id` 가 없습니다(§3). */
+function petSummary(pet: Pet): PetSummary {
+  return { id: pet.id, name: pet.name, thumbnail_url: pet.thumbnail_url }
 }
 
 /** 계산기 42종 코드표의 사이즈 축(§3 예시: toy_poodle=소형, mixed=중형). */
@@ -648,7 +655,10 @@ export const handlers = [
       latest_upload_id: upload_id ?? null,
     }
     petList.push(pet)
-    return HttpResponse.json(pet, { status: 201 })
+    // 응답은 `latest_upload_id` 없이 나갑니다 — 그 필드를 주는 건 목록뿐입니다
+    // (app/routers/pets.py `PetResponse`). 목이 더 주면 화면이 목록 재조회 없이도
+    // 스킵을 아는 척하게 되고, 실서버에서만 그 가정이 무너집니다.
+    return HttpResponse.json(petSummary(pet), { status: 201 })
   }),
 
   // W-12 C 섹션(FR-W12-03). 목록 배열을 실제로 고쳐야 화면 갱신이 확인됩니다.
@@ -657,7 +667,7 @@ export const handlers = [
     if (!pet) return apiError(404, 'NOT_FOUND', '강아지를 찾을 수 없습니다')
     const { name } = (await request.json()) as { name: string }
     pet.name = name
-    return HttpResponse.json(pet)
+    return HttpResponse.json(petSummary(pet))
   }),
 
   http.delete(`${BASE}/pets/:petId`, ({ params }) => {

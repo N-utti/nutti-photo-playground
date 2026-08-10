@@ -39,6 +39,8 @@ import {
 } from '../api/queries'
 import { rememberJobContext, resolveJobContext } from '../api/jobContext'
 import { withReuse } from '../app/reuseFromJob'
+import { initialOf } from '../app/initials'
+import Thumbnail from '../app/Thumbnail'
 import { clearUploadDraft, readUploadDraft, writeUploadDraft } from '../api/uploadDraft'
 import type { Pet, UploadIssue, UploadResult } from '../api/types'
 import InsufficientCreditOverlay from './InsufficientCreditOverlay'
@@ -432,10 +434,11 @@ function SavedPets({
                 onClick={() => onSelectPet(pet)}
                 className="flex w-14 flex-col items-center gap-1"
               >
-                <img
+                <Thumbnail
                   src={pet.thumbnail_url}
                   alt=""
-                  className={`size-14 rounded-full object-cover ${
+                  fallbackLabel={initialOf(pet.name)}
+                  className={`size-14 rounded-full bg-surface-2 object-cover ${
                     selected ? 'ring-2 ring-brand ring-offset-2 ring-offset-paper' : ''
                   }`}
                 />

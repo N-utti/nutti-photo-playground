@@ -113,7 +113,12 @@ export interface StyleCard {
   id: number
   code: string
   name: string
-  thumbnail_url: string
+  /**
+   * **null 이 될 수 있습니다** — 서버가 `example_keys[0]` 으로 만드는 값이라 예시
+   * 이미지가 한 장도 없는 스타일은 null 입니다(app/routers/styles.py `StyleSummary`).
+   * `<img src>` 에 그대로 넣으면 깨진 이미지가 되므로 app/Thumbnail.tsx 를 씁니다.
+   */
+  thumbnail_url: string | null
   credit_cost: number
 }
 
@@ -176,20 +181,31 @@ export interface UploadResult {
 
 // ---------------------------------------------------------------- 펫
 
-export interface Pet {
+/**
+ * 펫의 공통 필드. `POST /v1/pets` · `PATCH /v1/pets/{id}` 응답이 **여기까지만**
+ * 줍니다(app/routers/pets.py `PetResponse`) — `latest_upload_id` 는 목록 전용입니다.
+ */
+export interface PetSummary {
   id: string
   name: string
-  thumbnail_url: string
+  /**
+   * **null 이 될 수 있습니다** — 썸네일 키가 없는 펫 행이 그렇습니다
+   * (app/routers/pets.py `_thumbnail_url`). StyleCard 와 같은 이유로 app/Thumbnail.tsx.
+   */
+  thumbnail_url: string | null
+}
+
+/** `GET /v1/pets` 목록 항목. */
+export interface Pet extends PetSummary {
   /**
    * 이 펫에 연결된 가장 최근 `source_image` id (이슈 #9 A안, §3).
    * 값이 있으면 W-04 에서 **업로드 단계를 건너뛰고** 그대로 `POST /v1/jobs` 의
-   * `upload_id` 로 씁니다(FR-W04-02). 연결된 업로드가 만료·삭제됐으면 `null`.
+   * `upload_id` 로 씁니다(FR-W04-02). 연결된 업로드가 만료·삭제됐으면 `null`
+   * (서버가 `expires_at` 을 지난 업로드를 null 로 떨굽니다 — app/routers/pets.py:75).
    *
-   * 옵셔널인 이유: 스펙(§3)에는 확정됐지만 백엔드 구현이 아직 안 올라왔습니다
-   * (app/routers/pets.py). 필드가 없으면 스킵을 제안하지 않고 기존 동작(이번
-   * 업로드에 펫 태깅)으로 떨어집니다 — 구현이 착지하면 `?`만 떼면 됩니다.
+   * PR #49 로 백엔드 구현이 착지해 옵셔널을 뗐습니다.
    */
-  latest_upload_id?: string | null
+  latest_upload_id: string | null
 }
 
 // ---------------------------------------------------------------- 생성 job

@@ -31,6 +31,8 @@ import {
 } from '../api/queries'
 import { rememberAuthReturn } from '../app/authReturn'
 import { memberInitial, memberLabel, PROVIDER_LABEL } from '../app/memberIdentity'
+import { initialOf } from '../app/initials'
+import Thumbnail from '../app/Thumbnail'
 import AccountSheet from './AccountSheet'
 import LogoutConfirm from './LogoutConfirm'
 import type { Me, Pet } from '../api/types'
@@ -245,9 +247,11 @@ function PetSection() {
         <ul className="mt-3 space-y-2">
           {pets.map((pet) => (
             <li key={pet.id} className="flex items-center gap-3">
-              <img
+              {/* 이름이 바로 옆 줄이라 장식용(alt="")이고, 사진이 없으면 첫 글자를 남깁니다. */}
+              <Thumbnail
                 src={pet.thumbnail_url}
                 alt=""
+                fallbackLabel={initialOf(pet.name)}
                 className="size-10 shrink-0 rounded-full bg-surface-2 object-cover"
               />
               <span className="min-w-0 flex-1 truncate text-sm">{pet.name}</span>

@@ -10,6 +10,7 @@
  * 중요할 이유도 없습니다(이슈 #12 결정5 확정).
  */
 
+import { initialOf } from './initials'
 import type { AuthProvider, Me } from '../api/types'
 
 /** 이메일 로컬파트. `null` 이거나 '@' 앞이 비면 null. */
@@ -24,11 +25,11 @@ export function memberLabel(me: Me): string {
   return local ? `${local}님` : '내 계정'
 }
 
-/** 아바타 원형 안에 넣는 한 글자. 한글·이모지도 코드 포인트 단위로 자릅니다. */
+/** 아바타 원형 안에 넣는 한 글자. 이름이 없으면 '나'. */
 export function memberInitial(me: Me): string {
   const source = me.nickname ?? emailLocalPart(me)
   if (!source) return '나'
-  return [...source][0] ?? '나'
+  return initialOf(source) || '나'
 }
 
 /** 로그인 수단 칩 라벨. `providers` 는 복수라(§3) 칩도 복수로 그립니다. */
