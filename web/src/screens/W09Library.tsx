@@ -18,6 +18,12 @@
  *
  * 필터는 `?pet_id=` 로 URL 에 답니다. 결과를 열었다가 뒤로 오면 보던 필터가 남아야 하고,
  * 이 앱은 화면 상태를 URL 로 복원하는 쪽을 이미 택했습니다(routes.tsx).
+ *
+ * **게스트 세션 리셋을 여기서도 받습니다**(이슈 #5). 재발급은 새 member_id 라 목록이
+ * 200 + 빈 배열로 옵니다 — 에러가 아니라서 화면은 아무 일도 없었던 것처럼 «아직 보관된
+ * 사진이 없어요»를 띄웁니다. 만든 적 있는 사람에게 그건 사실이 아니고, 결과가 사라진
+ * 이유를 들을 곳이 앱 안에 사라집니다(그전까지 안내는 job URL 로 직접 들어온 W-05·W-06
+ * 에만 있었습니다). 탭바로 들어온 사용자가 여기서 처음 만나므로 이 화면이 말해야 합니다.
  */
 
 import { useEffect, useRef, useState } from 'react'
@@ -25,6 +31,7 @@ import { Link, useSearchParams } from 'react-router'
 import { useDeleteLibraryItems, useLibrary, useMe, usePets } from '../api/queries'
 import { CreditBadge } from '../app/CreditBadge'
 import { TabBar } from '../app/TabBar'
+import { useGuestSessionReset } from '../app/guestSession'
 import type { LibraryItem, LibraryMonth } from '../api/types'
 import AccountSheet from './AccountSheet'
 
@@ -35,6 +42,13 @@ export default function W09Library() {
   const { data: me } = useMe()
   const { data: petsData } = usePets()
   const pets = petsData?.items ?? []
+
+  /*
+    회원일 때는 보지 않습니다 — 재발급 뒤 로그인하면 그 게스트 행이 승격·병합돼 결과가
+    계정에 남으므로(UC-07), 리셋 사실을 계속 알리면 없어지지도 않은 것을 없어졌다고
+    말하게 됩니다. `me` 가 아직 안 왔으면 잠시 뒤 뜨는 편이 낫습니다.
+  */
+  const guestReset = useGuestSessionReset() && me?.kind === 'guest'
 
   const library = useLibrary(petId)
   const months = mergeMonths(library.data?.pages ?? [])
@@ -99,7 +113,11 @@ export default function W09Library() {
       </header>
 
       <main className="mx-auto w-full max-w-md px-4 py-4">
-        {me?.kind === 'guest' && <GuestNotice onLogin={() => setLoginSheet(true)} />}
+        {guestReset ? (
+          <GuestResetNotice onLogin={() => setLoginSheet(true)} />
+        ) : (
+          me?.kind === 'guest' && <GuestNotice onLogin={() => setLoginSheet(true)} />
+        )}
 
         <PetFilter pets={pets} value={petId} onChange={selectPet} />
 
@@ -122,7 +140,11 @@ export default function W09Library() {
             </button>
           </div>
         ) : items.length === 0 ? (
-          <EmptyState filtered={Boolean(petId)} onClearFilter={() => selectPet(undefined)} />
+          <EmptyState
+            filtered={Boolean(petId)}
+            reset={guestReset}
+            onClearFilter={() => selectPet(undefined)}
+          />
         ) : (
           <>
             {months.map((month) => (
@@ -179,7 +201,12 @@ export default function W09Library() {
       {loginSheet && (
         <AccountSheet
           onClose={() => setLoginSheet(false)}
-          description="로그인하면 지금까지 만든 결과가 계정에 남아서, 다음에 다른 기기에서도 열 수 있어요."
+          /* 리셋된 사람에게 "지금까지 만든 결과"는 이미 닿을 수 없는 것을 가리킵니다. */
+          description={
+            guestReset
+              ? '로그인하면 앞으로 만드는 결과가 계정에 남아서, 브라우저를 바꿔도 열 수 있어요.'
+              : '로그인하면 지금까지 만든 결과가 계정에 남아서, 다음에 다른 기기에서도 열 수 있어요.'
+          }
         />
       )}
     </div>
@@ -518,9 +545,11 @@ async function saveAll(items: LibraryItem[]): Promise<void> {
 
 function EmptyState({
   filtered,
+  reset,
   onClearFilter,
 }: {
   filtered: boolean
+  reset: boolean
   onClearFilter: () => void
 }) {
   if (filtered) {
@@ -540,9 +569,18 @@ function EmptyState({
 
   return (
     <div className="mt-6 rounded-xl border border-rule bg-surface px-4 py-8 text-center">
-      <p className="text-sm font-semibold">아직 보관된 사진이 없어요</p>
+      {/*
+        리셋 뒤에는 «아직 없어요»가 거짓말이 됩니다 — 만든 적 있는 사람에게 그 문장은
+        서비스가 잃어버린 일을 본인 착각으로 돌립니다. 이유·로그인 유도는 위 배너가
+        이미 말했으므로 여기서는 반복하지 않고, 앞으로의 길(스타일 고르기)만 남깁니다.
+      */}
+      <p className="text-sm font-semibold">
+        {reset ? '새로 시작한 세션이라 비어 있어요' : '아직 보관된 사진이 없어요'}
+      </p>
       <p className="mt-1 text-sm text-ink-2">
-        스타일을 하나 골라 만들면 결과가 여기에 쌓여요.
+        {reset
+          ? '지금부터 만든 결과가 여기에 쌓여요.'
+          : '스타일을 하나 골라 만들면 결과가 여기에 쌓여요.'}
       </p>
       <Link
         to="/styles"
@@ -567,6 +605,38 @@ function GuestNotice({ onLogin }: { onLogin: () => void }) {
       <p className="text-sm font-semibold">이 브라우저에만 남아 있어요</p>
       <p className="mt-1 text-sm text-ink-2">
         로그인하면 지금까지 만든 결과가 계정에 남아서, 브라우저를 바꿔도 열 수 있어요.
+      </p>
+      <button
+        type="button"
+        onClick={onLogin}
+        className="mt-3 w-full rounded-xl border border-rule-strong px-4 py-2.5 text-sm font-semibold"
+      >
+        로그인하고 보관하기
+      </button>
+    </section>
+  )
+}
+
+/**
+ * 게스트 세션이 리셋된 뒤의 안내.
+ *
+ * 문구를 W-05·W-06 의 `JobUnavailable('guest-reset')` 과 맞춥니다 — 같은 사고를 두
+ * 화면이 다르게 설명하면 사용자는 서로 다른 일이 일어난 줄 압니다.
+ *
+ * `role="status"` 인 이유: 사용자가 누른 적 없는데 화면이 바뀐 경우라, 스크린리더
+ * 사용자에게는 빈 그리드만 남고 이 사실이 전달되지 않습니다. 다만 진행을 끊을 만큼
+ * 급한 소식은 아니라 `alert` 가 아니라 `status` 입니다.
+ */
+function GuestResetNotice({ onLogin }: { onLogin: () => void }) {
+  return (
+    <section
+      role="status"
+      className="mb-3 rounded-xl border border-rule-strong bg-surface px-4 py-3"
+    >
+      <p className="text-sm font-semibold">이전에 만든 결과는 열 수 없어요</p>
+      <p className="mt-1 text-sm text-ink-2">
+        게스트 세션이 만료돼 새 세션으로 시작했어요. 로그인 없이 만든 결과는 만들었던
+        브라우저에서 30일 동안만 열립니다.
       </p>
       <button
         type="button"

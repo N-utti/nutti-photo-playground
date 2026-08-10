@@ -143,6 +143,17 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
   const headers: Record<string, string> = {}
   const token = session.token
+  /*
+    kind 를 **보낼 때** 찍어 둡니다.
+
+    401 을 받은 뒤에 `session.kind` 를 읽으면 안 됩니다 — 같은 화면이 네 갈래로 동시에
+    요청을 보내고(크레딧·me·펫·목록) 만료된 세션에서는 넷이 함께 401 로 돌아옵니다.
+    먼저 도착한 하나가 재발급을 시작하며 `session.clear()` 를 부르는 순간 kind 는
+    null 이 되고, 그 찰나에 판정하는 나머지는 «게스트가 아니다»가 되어 재발급 경로를
+    통째로 건너뜁니다. 그래서 크레딧은 복구됐는데 보관함만 «토큰이 만료되었습니다»로
+    남는, 화면마다 결과가 다른 상태가 나옵니다.
+  */
+  const kind = session.kind
   if (token) headers.Authorization = `Bearer ${token}`
   if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey
   // FormData 는 boundary 를 브라우저가 붙여야 하므로 Content-Type 을 직접 넣지 않습니다.
@@ -167,7 +178,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     const parsed = await parseErrorBody(response)
 
     // §1: 게스트는 재발급, 회원은 재로그인. 재발급 후 원요청을 1회만 재시도합니다.
-    if (parsed.code === 'TOKEN_EXPIRED' && !options._retried && session.kind === 'guest') {
+    if (parsed.code === 'TOKEN_EXPIRED' && !options._retried && kind === 'guest') {
       await reissueGuestSession()
       return request<T>(path, { ...options, _retried: true })
     }
@@ -231,12 +242,29 @@ async function parseErrorBody(response: Response): Promise<ApiError> {
  * 만료된 게스트 토큰을 새로 발급받습니다.
  *
  * 주의: 이건 복구가 아니라 **새 게스트 생성**입니다. 이전 자산은 되찾을 수 없습니다.
+ *
+ * 동시에 여러 번 불려도 발급은 **한 번**입니다. 화면 하나가 네 갈래로 요청을 보내므로
+ * 그대로 두면 만료된 세션으로 진입할 때마다 게스트가 네 명 생기고, 앞의 셋은 태어나자
+ * 마자 버려집니다. 낭비로 끝나지 않는 이유는 발급이 **IP 당 시간당 30회**로 제한되기
+ * 때문입니다(`GUEST_RATE_LIMIT_PER_HOUR`) — 한 번의 방문이 한도를 네 칸씩 태우면 몇
+ * 번 만에 429 가 되고, 그때는 토큰을 아예 못 받아 앱 전체가 멈춥니다.
  */
-async function reissueGuestSession(): Promise<void> {
-  session.clear()
-  const fresh = await issueGuestSession()
-  session.set(fresh.token, 'guest')
-  window.dispatchEvent(new CustomEvent(GUEST_SESSION_RESET_EVENT))
+let reissueInFlight: Promise<void> | null = null
+
+function reissueGuestSession(): Promise<void> {
+  reissueInFlight ??= (async () => {
+    try {
+      session.clear()
+      const fresh = await issueGuestSession()
+      session.set(fresh.token, 'guest')
+      window.dispatchEvent(new CustomEvent(GUEST_SESSION_RESET_EVENT))
+    } finally {
+      // 성공이든 실패든 비웁니다. 실패한 프라미스를 붙들고 있으면 이후 모든 재발급이
+      // 그 실패를 되돌려받아, 한 번의 네트워크 단절이 세션을 영구히 못 고치게 만듭니다.
+      reissueInFlight = null
+    }
+  })()
+  return reissueInFlight
 }
 
 /**
