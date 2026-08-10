@@ -368,7 +368,10 @@ async def issue_guest_token(request: Request) -> GuestTokenResponse:
 @router.get("/cafe24/authorize", response_model=AuthorizeResponse)
 async def cafe24_authorize(member: Member = Depends(get_current_member)) -> AuthorizeResponse:
     if member.kind != MemberKind.MEMBER:
-        raise _unauthorized()
+        raise HTTPException(
+            status_code=403,
+            detail={"code": "MEMBER_ONLY", "message": "로그인이 필요합니다", "detail": {}},
+        )
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=5)
     nonce = secrets.token_urlsafe(32)
     member.oauth_state_nonce = nonce
