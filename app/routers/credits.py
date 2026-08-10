@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from tortoise.expressions import Q
 
-from app.auth import _unauthorized, get_current_member
+from app.auth import get_current_member
 from app.credits import grant_credits
 from app.models import AppSetting, CreditLedger, CreditReason, GenerationJob, Member, MemberKind
 
@@ -76,42 +76,46 @@ async def get_credits(member: Member = Depends(get_current_member)):
             member=member, dedupe_key__in=["link_account", "follow_ig", daily_key]
         ).values_list("dedupe_key", flat=True)
     )
+    earn_actions = [
+        {
+            "action": "order",
+            "amount": amounts["order_reward_amount"],
+            "status": "available",
+            "cta": "쇼핑몰 →",
+        },
+        {
+            "action": "link_account",
+            "amount": amounts["link_account_amount"],
+            "status": "done" if "link_account" in claimed else "available",
+            "cta": None if "link_account" in claimed else "연동하기",
+        },
+        {
+            "action": "follow_ig",
+            "amount": amounts["follow_ig_amount"],
+            "status": "done" if "follow_ig" in claimed else "available",
+            "cta": None if "follow_ig" in claimed else "받기",
+        },
+        {
+            "action": "daily",
+            "amount": amounts["daily_free_amount"],
+            "status": "tomorrow" if daily_key in claimed else "available",
+            "cta": "내일 다시" if daily_key in claimed else "받기",
+        },
+    ]
+    if member.kind == MemberKind.GUEST:
+        for action in earn_actions:
+            action.update(status="login_required", cta="로그인")
     # ponytail: API는 원장 캐시의 실제 값을 전달하고 화면용 0 클램프는 프론트에 맡긴다.
-    return {
-        "balance": member.credit_balance,
-        "earn_actions": [
-            {
-                "action": "order",
-                "amount": amounts["order_reward_amount"],
-                "status": "available",
-                "cta": "쇼핑몰 →",
-            },
-            {
-                "action": "link_account",
-                "amount": amounts["link_account_amount"],
-                "status": "done" if "link_account" in claimed else "available",
-                "cta": None if "link_account" in claimed else "연동하기",
-            },
-            {
-                "action": "follow_ig",
-                "amount": amounts["follow_ig_amount"],
-                "status": "done" if "follow_ig" in claimed else "available",
-                "cta": None if "follow_ig" in claimed else "받기",
-            },
-            {
-                "action": "daily",
-                "amount": amounts["daily_free_amount"],
-                "status": "tomorrow" if daily_key in claimed else "available",
-                "cta": "내일 다시" if daily_key in claimed else "받기",
-            },
-        ],
-    }
+    return {"balance": member.credit_balance, "earn_actions": earn_actions}
 
 
 @router.post("/claim", response_model=ClaimCreditResponse)
 async def claim_credit(body: ClaimCreditRequest, member: Member = Depends(get_current_member)):
     if member.kind == MemberKind.GUEST:
-        raise _unauthorized()
+        raise HTTPException(
+            status_code=403,
+            detail={"code": "MEMBER_ONLY", "message": "로그인이 필요합니다", "detail": {}},
+        )
     if body.action not in {"follow_ig", "daily"}:
         raise HTTPException(
             status_code=400,

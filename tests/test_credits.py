@@ -96,6 +96,33 @@ def test_earn_actions_and_claims_transition_states(client: TestClient):
     assert {entry.dedupe_key for entry in entries} == {"follow_ig", f"daily:{today_kst}"}
 
 
+def test_guest_earn_actions_require_login(client: TestClient):
+    _, headers = _session(client, MemberKind.GUEST, balance=3)
+
+    response = client.get("/v1/credits", headers=headers)
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "balance": 3,
+        "earn_actions": [
+            {"action": "order", "amount": 20, "status": "login_required", "cta": "로그인"},
+            {
+                "action": "link_account",
+                "amount": 3,
+                "status": "login_required",
+                "cta": "로그인",
+            },
+            {
+                "action": "follow_ig",
+                "amount": 2,
+                "status": "login_required",
+                "cta": "로그인",
+            },
+            {"action": "daily", "amount": 1, "status": "login_required", "cta": "로그인"},
+        ],
+    }
+
+
 def test_claim_rejects_duplicate_invalid_action_and_guest(client: TestClient):
     _, member_headers = _session(client, MemberKind.MEMBER)
     _, guest_headers = _session(client, MemberKind.GUEST)
@@ -121,8 +148,12 @@ def test_claim_rejects_duplicate_invalid_action_and_guest(client: TestClient):
     }
     assert invalid.status_code == 400
     assert invalid.json()["error"]["code"] == "VALIDATION_ERROR"
-    assert guest.status_code == 401
-    assert guest.json()["error"]["code"] == "UNAUTHORIZED"
+    assert guest.status_code == 403
+    assert guest.json()["error"] == {
+        "code": "MEMBER_ONLY",
+        "message": "로그인이 필요합니다",
+        "detail": {},
+    }
 
 
 async def _charge_scenarios():

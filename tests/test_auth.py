@@ -812,7 +812,12 @@ def test_cafe24_authorize_rejects_guest_token(client: TestClient):
         headers={"Authorization": f"Bearer {guest['token']}"},
     )
 
-    assert response.status_code == 401
+    assert response.status_code == 403
+    assert response.json()["error"] == {
+        "code": "MEMBER_ONLY",
+        "message": "로그인이 필요합니다",
+        "detail": {},
+    }
 
 
 def test_cafe24_callback_links_member_and_grants_three_credits(

@@ -88,6 +88,22 @@ async def _create_styles():
     )
 
 
+async def _create_extra_styles():
+    await Style.bulk_create(
+        [
+            Style(
+                id=style_id,
+                code=f"extra-{style_id}",
+                section="extra",
+                name=f"Extra {style_id}",
+                status=StyleStatus.PUBLIC,
+                sort_order=style_id - 3,
+            )
+            for style_id in range(8, 17)
+        ]
+    )
+
+
 def test_list_styles_groups_sorts_and_exposes_only_public(client: TestClient):
     client.portal.call(_create_styles)
 
@@ -145,15 +161,56 @@ def test_list_styles_limit_is_per_section_and_preserves_counts(client: TestClien
     client.portal.call(_create_styles)
 
     response = client.get("/v1/styles", params={"limit": 1})
-    filtered = client.get("/v1/styles", params={"section": "popular", "limit": 1})
+    filtered = client.get("/v1/styles", params={"section": "summer", "limit": 1})
 
     assert response.status_code == filtered.status_code == 200
     assert [len(section["styles"]) for section in response.json()["sections"]] == [1, 1]
     assert [section["count"] for section in response.json()["sections"]] == [2, 2]
     assert response.json()["total_count"] == 4
-    assert [section["name"] for section in filtered.json()["sections"]] == ["popular"]
+    assert [section["name"] for section in filtered.json()["sections"]] == ["summer"]
     assert filtered.json()["sections"][0]["count"] == 2
     assert filtered.json()["total_count"] == 4
+
+
+def test_list_styles_popular_uses_public_sort_order_and_limit(client: TestClient):
+    client.portal.call(_create_styles)
+
+    limited = client.get("/v1/styles", params={"section": "popular", "limit": 2})
+
+    assert limited.status_code == 200
+    assert limited.json()["sections"] == [
+        {
+            "name": "인기",
+            "count": 2,
+            "styles": [
+                {
+                    "id": 2,
+                    "code": "summer-first",
+                    "name": "Summer first",
+                    "thumbnail_url": None,
+                    "credit_cost": 1,
+                },
+                {
+                    "id": 3,
+                    "code": "popular-first",
+                    "name": "Popular first",
+                    "thumbnail_url": "https://cdn.example.com/styles/popular-first.jpg",
+                    "credit_cost": 2,
+                },
+            ],
+        }
+    ]
+    assert limited.json()["total_count"] == 4
+
+    client.portal.call(_create_extra_styles)
+    default_limit = client.get("/v1/styles", params={"section": "popular"})
+
+    assert default_limit.status_code == 200
+    assert default_limit.json()["sections"][0]["name"] == "인기"
+    assert default_limit.json()["sections"][0]["count"] == 12
+    assert len(default_limit.json()["sections"][0]["styles"]) == 12
+    assert default_limit.json()["sections"][0]["styles"][-1]["code"] == "extra-15"
+    assert default_limit.json()["total_count"] == 13
 
 
 def test_list_styles_etag_returns_empty_304(client: TestClient):

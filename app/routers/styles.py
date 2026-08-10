@@ -49,12 +49,16 @@ async def list_styles(
 ):
     public_styles = await Style.filter(status=StyleStatus.PUBLIC).order_by("sort_order", "id")
     total_count = len(public_styles)
-    if section is not None:
-        public_styles = [style for style in public_styles if style.section == section]
+    if section == "popular":
+        # ponytail: popular은 예약 키워드, 별도 컬럼/플래그 없이 sort_order 재사용
+        grouped = {"인기": public_styles[: limit if limit is not None else 12]}
+    else:
+        if section is not None:
+            public_styles = [style for style in public_styles if style.section == section]
 
-    grouped: dict[str, list[Style]] = {}
-    for style in public_styles:
-        grouped.setdefault(style.section, []).append(style)
+        grouped: dict[str, list[Style]] = {}
+        for style in public_styles:
+            grouped.setdefault(style.section, []).append(style)
 
     body = StyleListResponse(
         sections=[

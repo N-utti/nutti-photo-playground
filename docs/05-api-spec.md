@@ -48,6 +48,7 @@
 | `EMAIL_TAKEN` | HTTP 에러 | 409 | `POST /v1/auth/register` — 이미 가입된 이메일 |
 | `CAFE24_ALREADY_LINKED` | HTTP 에러 | 409 | 카페24 연동 콜백 — 이미 다른 회원/다른 카페24 계정에 연동됨 |
 | `ALREADY_MEMBER` | HTTP 에러 | 409 | 회원 토큰으로 register/login/소셜 authorize 호출 — 로그인 수단 추가는 MVP 미지원(이슈 #17) |
+| `MEMBER_ONLY` | HTTP 에러 | 403 | **유효한 게스트 토큰**으로 회원 전용 기능 접근(`POST /v1/credits/claim`·카페24 연동) — 401과 달리 토큰은 살아있으므로 클라이언트는 세션을 지우지 말고 로그인 시트를 띄움(이슈 #52) |
 | `CAT_DETECTED` | 리소스 필드값(`uploads.blocking_issue.code`) | — (본 요청은 200) | 고양이 감지 — 업로드 진행 차단(FR-EDGE-07) |
 | `NOT_A_DOG` | 리소스 필드값(`uploads.warnings[].code`) | — (200) | 강아지 미검출 — 경고만, 진행 허용(FR-EDGE-08) |
 | `MULTI_SUBJECT` | 리소스 필드값(`uploads.warnings[].code`) | — (200) | 여러 마리 감지(FR-EDGE-09) |
@@ -355,6 +356,9 @@
   "total_count": 68
 }
 ```
+
+- **`section=popular`은 예약 키워드**(이슈 #53, 2026-08-10 확정): 컬럼 매칭이 아니라 **public 전체에서 `sort_order` 상위 N**(N=`limit`, 기본 12)을 `name: "인기"` 섹션 하나로 반환합니다. W-01·W-05·W-06의 인기 카드 호출(§2)이 이 키워드를 사용합니다. 그 외 `section` 값은 저장된 한글 섹션명과 정확 일치로 필터.
+- **`total_count`는 필터와 무관하게 전체 public 스타일 수**입니다(W-02 하단 "전체 N개" 용도) — 섹션 개수는 `sections[].count`를 사용하세요.
 
 #### `GET /v1/styles/{style_id}`
 
@@ -676,7 +680,9 @@
   ]
 }
 ```
-`status` 값: `available`(가능) / `done`(이미 완료, `link_account`·`follow_ig`처럼 1회 한정) / `tomorrow`(오늘 이미 받음, `daily` 전용).
+`status` 값: `available`(가능) / `done`(이미 완료, `link_account`·`follow_ig`처럼 1회 한정) / `tomorrow`(오늘 이미 받음, `daily` 전용) / `login_required`(게스트 — 크레딧 획득은 **회원 전용**, 이슈 #52).
+
+**게스트 응답**: 게스트에게는 4행 전부 `status: "login_required"`, `cta: "로그인"`으로 내려갑니다. 게스트가 `POST /v1/credits/claim`을 호출하면 `403 MEMBER_ONLY`(§1) — 401이 아니므로 게스트 세션은 유지됩니다.
 
 #### `POST /v1/credits/claim`
 
@@ -768,7 +774,7 @@
 
 1. `POST /v1/jobs`가 `402 INSUFFICIENT_CREDIT`을 반환하면 job을 만들지 않고 크레딧 부족 상태로 전환.
 2. "크레딧 받기" 시트를 **인라인 오버레이**로 띄우고 `GET /v1/credits` 호출(주문 보상이 최상단·최대치).
-3. `POST /v1/credits/claim`(`follow_ig`/`daily`/`link_account`; `order`는 배치 자동 지급이라 이 경로로 들어오지 않음).
+3. `POST /v1/credits/claim`(`follow_ig`/`daily` — `link_account`는 카페24 연동 콜백이 지급하고 `order`는 배치 자동 지급이라 이 경로로 들어오지 않음). 회원 전용 — 게스트는 `403 MEMBER_ONLY`(§1, 이슈 #52).
 4. 클레임 성공 시 갱신된 `balance` 즉시 반영, 시트 닫고 `POST /v1/jobs`를 **동일 Idempotency-Key로 재시도**(아직 job이 생성되지 않았으므로 원래 시도의 키를 그대로 사용).
 
 ---
