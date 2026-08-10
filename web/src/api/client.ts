@@ -185,7 +185,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
     // 만료가 아닌 401 은 재발급으로 풀리지 않습니다. 서버가 거절한 토큰을 들고 있으면
     // 이후 모든 요청이 같은 401 이므로 지우고, 다음 행동은 화면이 사용자에게 묻습니다.
-    if (parsed.code === 'UNAUTHORIZED' && token && !isOAuthPath(path)) {
+    if (parsed.code === 'UNAUTHORIZED' && token && !keepsSessionOn401(path)) {
       session.clear()
       window.dispatchEvent(new CustomEvent(SESSION_LOST_EVENT))
     }
@@ -202,11 +202,20 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
  *   로그인 한 번 실패했다고 게스트 자산까지 버리면 안 됩니다.
  * - `/auth/cafe24/authorize`: 게스트가 회원 전용 엔드포인트를 부른 경우 — 권한 부족이지
  *   토큰이 무효라는 뜻이 아닙니다(§3 인증).
+ * - `/credits/claim`: 같은 이유입니다. 서버가 게스트의 claim 을 401 UNAUTHORIZED 로
+ *   막는데(app/routers/credits.py `claim_credit`), 같은 서버가 `GET /v1/credits` 에서는
+ *   게스트에게도 그 행을 `available` + "받기" 로 내려줍니다. 예외를 두지 않으면 **화면이
+ *   권한 후 누르라고 제안한 버튼이 세션을 지웁니다** — 게스트는 job·보관함·잔액을 전부
+ *   잃습니다. 게스트 토큰은 멀쩡하므로 지울 이유가 없습니다(이슈 #52).
  *
  * 반대로 register/login/소셜 authorize 의 401 은 게스트 토큰 자체가 거절된 것이라
  * 예외가 아닙니다(회원 토큰이면 401 이 아니라 409 ALREADY_MEMBER 로 옵니다).
+ *
+ * 이 목록이 늘어나는 것 자체가 계약 문제입니다 — 권한 부족은 토큰 무효와 다른 코드로
+ * 와야 합니다(이슈 #52 요청 3). 전용 코드가 생기면 이 함수는 통째로 사라집니다.
  */
-function isOAuthPath(path: string): boolean {
+function keepsSessionOn401(path: string): boolean {
+  if (path === '/credits/claim') return true
   if (!path.startsWith('/auth/')) return false
   return path.endsWith('/callback') || path === '/auth/cafe24/authorize'
 }
