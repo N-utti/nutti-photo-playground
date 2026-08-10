@@ -42,6 +42,8 @@ erDiagram
         timestamptz guest_expires_at "NULL(회원은 NULL)"
         text oauth_state_nonce "NULL, OAuth state 일회성 nonce"
         timestamptz oauth_state_expires_at "NULL, state 만료(5분)"
+        text refresh_token_hash UK "NULL, 리프레시 sha256(#47)"
+        timestamptz refresh_expires_at "NULL, 리프레시 만료(30일)"
         timestamptz order_reward_cutoff "NULL, 연동 시점"
         timestamptz created_at
     }
@@ -195,6 +197,8 @@ erDiagram
 | `guest_expires_at` | TIMESTAMPTZ | NULL | 게스트만 값 존재(가입 시 NULL로 전환). 미병합 게스트 세션·자산의 만료 시점(**30일** — 게스트 JWT 만료와 정렬, FR-EDGE-12·`07-decisions.md#Q7`) |
 | `oauth_state_nonce` | VARCHAR(64) | NULL | 카페24 OAuth `state`의 일회성 nonce — `/auth/cafe24/authorize`에서 발급, 콜백에서 검증 직후 NULL로 소비(재사용 차단, PR #8 C1) |
 | `oauth_state_expires_at` | TIMESTAMPTZ | NULL | 위 nonce의 만료 시점(발급 +5분) — 경과 시 콜백 거부 |
+| `refresh_token_hash` | VARCHAR(64) | UNIQUE, NULL | 회원 리프레시 토큰 sha256(이슈 #47) — 원문 비보관, 회원당 활성 1개(새 로그인 시 덮어씀 = 이전 세션 무효화) |
+| `refresh_expires_at` | TIMESTAMPTZ | NULL | 리프레시 만료(발급 +30일, `JWT_REFRESH_EXPIRES_IN`) — 회전 시마다 갱신 |
 | `order_reward_cutoff` | TIMESTAMPTZ | NULL | 회원이 쇼핑몰 계정을 연동한 시점 — 주문 보상 자격 필터(06-architecture-deployment.md §6.2와 동일 정의, `cafe24_oauth_token.last_synced_at` 워터마크와는 다른 개념) |
 | `created_at` | TIMESTAMPTZ | NOT NULL DEFAULT now() | |
 

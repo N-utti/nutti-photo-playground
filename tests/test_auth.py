@@ -38,6 +38,7 @@ def client():
         auth_router._guest_requests,
         auth_router._login_requests,
         auth_router._register_requests,
+        auth_router._refresh_requests,
     ):
         buckets.clear()
     with TestClient(app) as test_client:
@@ -488,6 +489,7 @@ def test_register_success_normalizes_email_and_hashes_password(client: TestClien
     assert response.status_code == 201
     assert response.json() == {
         "token": response.json()["token"],
+        "refresh_token": response.json()["refresh_token"],
         "member_id": guest["member_id"],
         "kind": "member",
         "merged": False,
