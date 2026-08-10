@@ -101,7 +101,7 @@ class Style(Model):
     credit_cost = fields.IntField(default=1)
     status = fields.CharEnumField(StyleStatus, default=StyleStatus.DRAFT)
     sort_order = fields.IntField(default=0)
-    output_count = fields.IntField(default=4)
+    output_count = fields.IntField(default=1)
     avg_seconds = fields.IntField(default=24)
     progress_message = fields.TextField(null=True)
     fit_tags = fields.JSONField(default=list)

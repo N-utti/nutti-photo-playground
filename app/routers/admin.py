@@ -11,7 +11,7 @@ class CreateStyleRequest(BaseModel):
     name: str
     section: str
     credit_cost: int = 1
-    output_count: int = 4
+    output_count: int = 1
     avg_seconds: int = 24
     progress_message: str | None = None
     fit_tags: list = []
