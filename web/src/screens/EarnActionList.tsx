@@ -131,7 +131,15 @@ export default function EarnActionList() {
         <p role="alert" className="mt-2 text-center text-sm text-danger">
           {isApiError(claim.error, 'ALREADY_CLAIMED')
             ? '이미 받은 크레딧이에요.'
-            : claim.error.message}
+            : isApiError(claim.error, 'UNAUTHORIZED')
+              ? /*
+                  서버가 게스트의 claim 을 401 로 막습니다(app/routers/credits.py). 서버
+                  메시지가 영문("Invalid or missing authentication token")이라 그대로 두면
+                  사용자가 뭘 해야 하는지 알 수 없습니다. 세션은 살아 있습니다 —
+                  client.ts `keepsSessionOn401` 이 이 경로를 예외로 둡니다(이슈 #52).
+                */
+                '지금은 로그인한 회원만 받을 수 있어요.'
+              : claim.error.message}
         </p>
       )}
 

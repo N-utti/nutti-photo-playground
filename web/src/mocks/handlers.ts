@@ -917,6 +917,21 @@ export const handlers = [
     const { action } = (await request.json()) as { action: string }
     const row = state.credits.earn_actions.find((a) => a.action === action)
 
+    /*
+      게스트 거절을 목도 그대로 재현합니다(app/routers/credits.py `claim_credit`).
+
+      위 `GET /credits` 는 게스트에게도 follow_ig·daily 를 `available` + "받기" 로 주는데
+      실서버는 누르는 순간 401 로 막습니다. 목이 이 거절을 빼면 «받기 → 지급» 만 밟히고,
+      실서버에서만 나오는 경로(이슈 #52 — 401 을 세션 소실로 오해해 게스트 자산이 통째로
+      날아가던 자리)를 브라우저 QA 로 영영 못 만납니다.
+
+      claim 의 게스트 허용 여부는 아직 계약 미정입니다(이슈 #52 요청 1). 게스트도 받는
+      쪽으로 정해지면 이 가드와 실서버 가드를 함께 걷습니다.
+    */
+    if (state.me.kind !== 'member') {
+      return apiError(401, 'UNAUTHORIZED', 'Invalid or missing authentication token')
+    }
+
     if (!row) return apiError(400, 'VALIDATION_ERROR', '알 수 없는 획득 경로입니다', { action })
     if (row.status !== 'available') {
       return apiError(409, 'ALREADY_CLAIMED', '이미 받은 크레딧이에요', { action })
