@@ -101,7 +101,7 @@ src/
 | [#14](https://github.com/N-utti/nutti-photo-playground/issues/14) | `authorize` 가 헤더를 요구하는 302 라 브라우저 이동 불가 | 로그인 시트·콜백 전부 | 해결 (PR #21 — 200 `{authorize_url}`) |
 | [#17](https://github.com/N-utti/nutti-photo-playground/issues/17) | 로컬 계정 복구 불가(비밀번호 재설정·이메일 인증 없음) · 로그인 수단 추가 미지원 | 로컬 가입 | 해결 (PR #21 — 409 `ALREADY_MEMBER`·복구 불가 명시·검증 정책). **가입 시트의 사전 고지는 그대로 둡니다** — 계약이 명시됐을 뿐 비밀번호 재설정이 생긴 건 아닙니다 |
 | [#22](https://github.com/N-utti/nutti-photo-playground/issues/22) | 회원 탈퇴 — `DELETE /v1/auth/me` 와 데이터 파기 정책 미설계 | W-12 탈퇴 버튼 | 대기 (§3 에 엔드포인트 없음). FR-W12-06 이 "자리만 확보"라 화면은 막히지 않습니다 |
-| [#33](https://github.com/N-utti/nutti-photo-playground/issues/33) | 보관함 항목 `pet_id` 가 `null` 일 수 있는지 §3 에 없음 | W-09 강아지 필터 | 대기. 이슈 #12 결정4(펫 삭제 → FK NULL, 결과물 유지)와 §3 예시가 어긋난 상태 그대로 — 프론트는 `null` 가능으로 보고 그 항목을 «전체»에서만 그립니다 |
+| [#33](https://github.com/N-utti/nutti-photo-playground/issues/33) | 보관함 항목 `pet_id` 가 `null` 일 수 있는지 §3 에 없음 | W-09 강아지 필터 | 해결 (PR #51 — §3 에 `pet_id: uuid \| null` 명시). 삭제된 펫과 «펫 없이 만든 결과»를 클라이언트가 구분하지 않는 것도 확정이고, **삭제된 펫을 가리키는 `?pet_id=` 조회는 404 가 아니라 빈 목록**이라 W-09 는 그 필터를 «전체»로 걷습니다 |
 | [#41](https://github.com/N-utti/nutti-photo-playground/issues/41) | job 응답에 시작 시각(`created_at`) 없음 | W-05 FR-EDGE-02 판정 | 대기. `jobContext.startedAt`(localStorage) 로 버티는 중 — 링크로 받은 job 은 화면 도착 시각으로 재므로 실제보다 늦게 판정합니다 |
 
 [#11](https://github.com/N-utti/nutti-photo-playground/issues/11)(auth 보안 후속 M3~M6·L1~L6)은 **프론트가 막히는 지점이 없어** 위 표에 넣지 않습니다 — 확인 근거는
@@ -120,10 +120,11 @@ src/
   **같은 강아지의 원본/변환 한 쌍**이 나오면 같은 경로에 그대로 교체하세요.
 - **`fit_tags[].score` 값 도메인** — §3 예시에 `good`/`caution` 둘만 등장하고 전체 목록이
   없습니다. 세 번째 등급이 있는지 확인 필요.
-- **보관함 `pet_id` 의 null 여부** — 펫 삭제는 FK 를 NULL 로 만들고 결과물은 남긴다고
-  확정됐는데(이슈 #12 결정4) §3 예시에는 값이 있는 경우만 나옵니다. 프론트는 `null`
-  가능으로 보고 그 항목을 «전체»에서만 그립니다(`api/types.ts` 주석). 이슈
-  [#33](https://github.com/N-utti/nutti-photo-playground/issues/33) 으로 올라가 있습니다.
+- ~~**보관함 `pet_id` 의 null 여부**~~ **닫혔습니다**(PR #51). §3 이 `pet_id: uuid | null`
+  을 명시했고, 펫 삭제분(이슈 #12 결정4)과 «펫 없이 만든 결과»를 클라이언트가 구분하지
+  않는 것도 함께 확정됐습니다 — 둘 다 «전체»에서만 보입니다(`api/types.ts` 주석).
+  삭제된 펫을 가리키는 `?pet_id=` 조회는 빈 목록이라, W-09 는 그 URL 필터를 복원하지 않고
+  «전체»로 걷습니다(`screens/W09Library.tsx` 의 `petGone`).
 - **보관함 일괄 저장은 같은 출처에서만 «저장»입니다.** `<a download>` 는 교차 출처
   URL 에서 무시돼서, 결과 이미지가 다른 도메인 CDN 이면 저장 대신 새 탭으로 열립니다.
   제대로 받게 하려면 CDN 이 CORS 를 열거나 서버가 묶어서 내려줘야 합니다

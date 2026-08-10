@@ -17,7 +17,10 @@
  * (기본 화면은 사진만)를 지키는 타협점이 앱바이기 때문입니다.
  *
  * 필터는 `?pet_id=` 로 URL 에 답니다. 결과를 열었다가 뒤로 오면 보던 필터가 남아야 하고,
- * 이 앱은 화면 상태를 URL 로 복원하는 쪽을 이미 택했습니다(routes.tsx).
+ * 이 앱은 화면 상태를 URL 로 복원하는 쪽을 이미 택했습니다(routes.tsx). 단 그 URL 이
+ * **지워진 강아지**를 가리키면 복원하지 않고 «전체» 로 걷습니다 — 서버가 그 조회를 404 가
+ * 아니라 빈 목록으로 답하는 계약이라(05-api-spec §3, 이슈 #33) 그대로 두면 결과가 없는
+ * 강아지처럼 보입니다.
  *
  * **게스트 세션 리셋을 여기서도 받습니다**(이슈 #5). 재발급은 새 member_id 라 목록이
  * 200 + 빈 배열로 옵니다 — 에러가 아니라서 화면은 아무 일도 없었던 것처럼 «아직 보관된
@@ -37,11 +40,31 @@ import AccountSheet from './AccountSheet'
 
 export default function W09Library() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const petId = searchParams.get('pet_id') ?? undefined
+  const urlPetId = searchParams.get('pet_id') ?? undefined
 
   const { data: me } = useMe()
   const { data: petsData } = usePets()
   const pets = petsData?.items ?? []
+
+  /*
+    URL 에 남은 `?pet_id=` 가 **이미 지워진 강아지**를 가리킬 수 있습니다 — 필터를 건 채
+    마이페이지에서 그 강아지를 지우고(FR-W12-03) 뒤로 오면 그 히스토리 항목이 그대로
+    살아 있습니다. 서버는 이 조회를 404 가 아니라 빈 목록으로 답하므로(05-api-spec §3,
+    이슈 #33) 그대로 두면 «이 강아지로 만든 결과가 아직 없어요»가 뜹니다 — 강아지는 이제
+    없고 그 결과들은 `pet_id: null` 이 되어 «전체» 에 그대로 남아 있는데도요(이슈 #12
+    결정4). 칩 줄에는 활성 항목이 하나도 없어 «전체» 마저 꺼져 보이고, 계산기 링크는
+    존재하지 않는 펫을 가리킵니다. 그래서 없는 강아지 필터는 걷고 전체를 보여 줍니다.
+
+    펫 목록이 도착하기 전에는 판단하지 않습니다 — 로딩 중의 빈 배열을 근거로 삼으면
+    멀쩡한 필터가 매 진입마다 지워집니다.
+  */
+  const petGone =
+    Boolean(urlPetId) && petsData !== undefined && !pets.some((pet) => pet.id === urlPetId)
+  const petId = petGone ? undefined : urlPetId
+
+  useEffect(() => {
+    if (petGone) setSearchParams({}, { replace: true })
+  }, [petGone, setSearchParams])
 
   /*
     회원일 때는 보지 않습니다 — 재발급 뒤 로그인하면 그 게스트 행이 승격·병합돼 결과가
@@ -244,6 +267,10 @@ function PetFilter({
   // 강아지가 하나도 없으면 칩 줄은 «전체» 하나뿐이라 아무 일도 하지 않습니다.
   if (pets.length === 0) return null
 
+  // 계산기 링크는 **칩으로 고를 수 있는 강아지**에만 답니다. 값만 보고 달면 지워진 펫을
+  // 가리키는 `?pet_id=` 를 그대로 넘겨, 앱 밖 계산기로 없는 프로필을 들고 나가게 됩니다.
+  const selectedPet = pets.find((pet) => pet.id === value)
+
   return (
     <>
       <div className="-mx-4 mt-1 flex gap-2 overflow-x-auto px-4 pb-1">
@@ -261,9 +288,9 @@ function PetFilter({
         노트1 — 저장된 프로필이 W-07 추천 정확도로 이어지는 자리입니다. 이 링크가 붙기
         전까지 `/calculator?pet_id=` 는 앱 안에서 도달할 수 없는 라우트였습니다.
       */}
-      {value && (
+      {selectedPet && (
         <Link
-          to={`/calculator?pet_id=${encodeURIComponent(value)}`}
+          to={`/calculator?pet_id=${encodeURIComponent(selectedPet.id)}`}
           className="mt-2 flex items-center justify-between rounded-xl border border-rule bg-surface px-4 py-2.5 text-sm"
         >
           이 강아지 간식량 계산하기
