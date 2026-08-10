@@ -13,10 +13,6 @@ class CreateJobRequest(BaseModel):
     custom_prompt: str | None = None
 
 
-class SelectResultRequest(BaseModel):
-    result_index: int
-
-
 class ShareRequest(BaseModel):
     channel: str
 
@@ -28,11 +24,6 @@ async def create_job(body: CreateJobRequest, idempotency_key: str = Header(..., 
 
 @router.get("/{job_id}")
 async def get_job(job_id: str):
-    not_implemented()
-
-
-@router.post("/{job_id}/select")
-async def select_result(job_id: str, body: SelectResultRequest):
     not_implemented()
 
 
