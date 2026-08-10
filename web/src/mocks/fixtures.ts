@@ -108,7 +108,13 @@ export function styleDetailFor(styleId: number): StyleDetail | null {
   }
 }
 
-// ---------------------------------------------------------------- 업로드 3케이스 (§3)
+// ---------------------------------------------------------------- 업로드 케이스
+//
+// §3 예시는 정상·경고·차단 3개만 보여 주지만, **판정 코드는 §1 표에 5개**가 있습니다
+// (`QUALITY_WARNING`·`NOT_A_DOG`·`MULTI_SUBJECT`·`HUMAN_FACE_DETECTED`·`CAT_DETECTED`).
+// 예시 3개만 목에 넣어 두면 W-04 의 `WarningCard` 가 코드별로 다른 조언을 준비해 놨는데도
+// (FR-EDGE-06·08·09) 그중 셋이 목 위에서 한 번도 안 그려집니다 — 화면은 멀쩡해 보이고
+// 분기는 영영 검증되지 않는, 이 프로젝트에서 이미 두 번 나온 실패 모양입니다.
 
 export const uploadOk: UploadResult = {
   upload_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
@@ -126,6 +132,63 @@ export const uploadWarned: UploadResult = {
     { code: 'QUALITY_WARNING', message: '얼굴이 조금 어두워요', detail: { issues: ['dark'] } },
   ],
   breed_estimate: { code: 'mixed', label: '믹스견', confidence: 0.41 },
+}
+
+/**
+ * FR-EDGE-08 · 강아지가 없는 사진 — 경고만, 진행 허용.
+ *
+ * `breed_estimate` 가 `null` 인 게 이 케이스의 핵심입니다. 강아지를 못 찾았으니
+ * 견종도 없고, 그러면 W-06 계산기 배너가 «추정 실패» 문구로 떨어져야 합니다
+ * (FR-EDGE-10 · api/calculatorLink.ts). 업로드 경고 하나가 결과 화면 출구까지
+ * 이어지는 유일한 케이스라, 여기서 견종을 채워 두면 그 연결이 안 밟힙니다.
+ */
+export const uploadNoDog: UploadResult = {
+  upload_id: 'c1d2e3f4-0000-4000-8000-00000000ed08',
+  image_url: placeholderImage('업로드 원본'),
+  blocking_issue: null,
+  warnings: [
+    { code: 'NOT_A_DOG', message: '강아지를 찾지 못했어요', detail: { issues: ['no_subject'] } },
+  ],
+  breed_estimate: null,
+}
+
+/** FR-EDGE-09 · 여러 마리 — "함께 변환" 안내 후 진행 허용. */
+export const uploadMultiSubject: UploadResult = {
+  upload_id: 'c1d2e3f4-0000-4000-8000-00000000ed09',
+  image_url: placeholderImage('업로드 원본'),
+  blocking_issue: null,
+  warnings: [
+    { code: 'MULTI_SUBJECT', message: '강아지가 두 마리 보여요', detail: { count: 2 } },
+  ],
+  breed_estimate: { code: 'toy_poodle', label: '토이푸들', confidence: 0.63 },
+}
+
+/**
+ * FR-EDGE-06 · 사람 얼굴 — `app_setting.human_face_policy` 가 갈라놓는 **한 코드의 두 얼굴**.
+ *
+ * `warn` 이면 `warnings[]`, `block` 이면 `blocking_issue` 로 같은 코드가 내려옵니다(§1).
+ * 프론트가 정하는 값이 아니라 서버 설정이라 목에서도 시나리오 둘로 나눠 둡니다 —
+ * 한쪽만 두면 «정책이 block 인 매장에서 이 화면이 어떻게 보이는가»를 못 봅니다.
+ */
+export const uploadHumanFaceWarned: UploadResult = {
+  upload_id: 'c1d2e3f4-0000-4000-8000-00000000ed06',
+  image_url: placeholderImage('업로드 원본'),
+  blocking_issue: null,
+  warnings: [
+    { code: 'HUMAN_FACE_DETECTED', message: '사람 얼굴이 함께 담겼어요', detail: { faces: 1 } },
+  ],
+  breed_estimate: { code: 'toy_poodle', label: '토이푸들', confidence: 0.77 },
+}
+
+export const uploadHumanFaceBlocked: UploadResult = {
+  upload_id: null,
+  image_url: null,
+  blocking_issue: {
+    code: 'HUMAN_FACE_DETECTED',
+    message: '사람 얼굴이 담긴 사진은 지금 만들 수 없어요. 강아지만 나온 사진을 골라주세요.',
+  },
+  warnings: [],
+  breed_estimate: null,
 }
 
 export const uploadBlocked: UploadResult = {

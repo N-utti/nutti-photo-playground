@@ -7,7 +7,8 @@
  * 같은 Idempotency-Key 가 같은 job 을 돌려줍니다.
  *
  * 시나리오 강제: localStorage 에 `nutti.mock.scenario` 를 넣으면 해당 케이스로 고정됩니다.
- *   upload:warn | upload:block | job:fail | job:safety | job:flaky | credit:empty
+ *   upload:warn | upload:nodog | upload:multi | upload:face | upload:face-block | upload:block
+ *   job:fail | job:safety | job:flaky | job:slow | credit:empty
  *   session:expired | guest:ratelimited | session:lost | auth:statefail | cafe24:linked
  *
  * 로컬 로그인 목 규칙: 비밀번호 `nutti1234` 만 성공(그 외 401), 이메일
@@ -17,6 +18,7 @@
 import { HttpResponse, http, delay } from 'msw'
 import type {
   AuthProvider,
+  BreedEstimate,
   Credits,
   EarnAction,
   Job,
@@ -35,6 +37,10 @@ import {
   styleCatalog,
   styleDetailFor,
   uploadBlocked,
+  uploadHumanFaceBlocked,
+  uploadHumanFaceWarned,
+  uploadMultiSubject,
+  uploadNoDog,
   uploadOk,
   uploadWarned,
 } from './fixtures'
@@ -43,6 +49,26 @@ const BASE = '*/v1'
 
 function scenario(): string {
   return localStorage.getItem('nutti.mock.scenario') ?? ''
+}
+
+/**
+ * `upload_id` → 그 업로드가 추정한 견종.
+ *
+ * 업로드 픽스처마다 `upload_id` 가 고정이라 되짚을 수 있습니다. 별도 저장소를 두지
+ * 않는 이유는 리로드입니다 — job 은 localStorage 에 남는데 견종 색인이 메모리에만
+ * 있으면, 새로고침 한 번에 "견종을 못 찾은 job" 이 조용히 정상 케이스로 바뀝니다.
+ *
+ * 모르는 업로드(펫의 `latest_upload_id`, 보관함 시드)는 정상 케이스로 둡니다.
+ */
+function breedForUpload(uploadId: string): BreedEstimate | null {
+  const known = [uploadOk, uploadWarned, uploadNoDog, uploadMultiSubject, uploadHumanFaceWarned]
+  const match = known.find((upload) => upload.upload_id === uploadId)
+  return match ? match.breed_estimate : uploadOk.breed_estimate
+}
+
+/** 계산기 42종 코드표의 사이즈 축(§3 예시: toy_poodle=소형, mixed=중형). */
+function sizeForBreed(code: string): string {
+  return code === 'mixed' ? '중형' : '소형'
 }
 
 // ---------------------------------------------------------------- 목 상태
@@ -587,12 +613,18 @@ export const handlers = [
   // ------------------------------------------------------------ 업로드
   http.post(`${BASE}/uploads`, async () => {
     await delay(700) // 품질 체크가 도는 체감을 남깁니다.
-    const forced = scenario()
-    let body: UploadResult = uploadOk
-    if (forced === 'upload:warn') body = uploadWarned
-    else if (forced === 'upload:block') body = uploadBlocked
+    // §1 판정 코드 5개를 전부 만들 수 있어야 W-04 의 코드별 분기(FR-EDGE-06·07·08·09)를
+    // 밟을 수 있습니다. 차단 2종은 `blocking_issue`, 나머지는 `warnings[]` 입니다.
+    const uploads: Record<string, UploadResult> = {
+      'upload:warn': uploadWarned,
+      'upload:nodog': uploadNoDog,
+      'upload:multi': uploadMultiSubject,
+      'upload:face': uploadHumanFaceWarned,
+      'upload:face-block': uploadHumanFaceBlocked,
+      'upload:block': uploadBlocked,
+    }
     // 차단도 HTTP 200 입니다(§1 코드 표) — 에러로 내리면 안 됩니다.
-    return HttpResponse.json(body)
+    return HttpResponse.json(uploads[scenario()] ?? uploadOk)
   }),
 
   // ------------------------------------------------------------ 펫
@@ -750,15 +782,50 @@ export const handlers = [
   }),
 
   // ------------------------------------------------------------ 계산기 연결
-  http.get(`${BASE}/calculator-link`, async () => {
+  /*
+    §3 은 이 엔드포인트의 응답을 **세 개**(정상 · 믹스견 폴백 · 완전 실패) 보여 주는데,
+    상수 하나를 돌려주면 그중 정상만 존재하게 됩니다. 그러면 `api/calculatorLink.ts` 가
+    FR-EDGE-10/11 을 위해 갈라 둔 문구가 W-06 배너에서도 W-07 화면에서도 안 나옵니다.
+
+    무엇을 돌려줄지는 서버가 지어내는 게 아니라 **업로드가 추정한 견종**에서 나옵니다
+    (`UploadResult.breed_estimate`). 그래서 job → upload → 견종으로 따라갑니다 —
+    "강아지를 못 찾은 사진"(upload:nodog)이 결과 화면 출구까지 어떻게 이어지는지가
+    이 경로에서만 보입니다.
+  */
+  http.get(`${BASE}/calculator-link`, async ({ request }) => {
     await delay(120)
+    const query_ = new URL(request.url).searchParams
+    const jobId = query_.get('job_id')
+    const job = jobId ? state.jobs.get(jobId) : null
+    // 두 진입이 있습니다(§2): 결과에서 오면 `job_id`, 보관함 강아지 필터에서 오면 `pet_id`.
+    const petId = query_.get('pet_id') ?? job?.petId ?? null
+    // 펫 진입(W-09 → W-07)과 시드 job 은 업로드를 되짚을 수 없어 정상 케이스로 둡니다.
+    const breed = job ? breedForUpload(job.uploadId) : uploadOk.breed_estimate
+
+    const size = breed ? sizeForBreed(breed.code) : null
+    /*
+      이름은 **저장된 강아지가 있을 때만** 붙습니다. 상수로 넣어 두면 펫을 고르지 않고
+      만든 결과에도 «콩이는 하루 몇 g까지…»가 떠서, 배너가 남의 강아지 이름을 말합니다.
+      그러면 `calculatorLink.ts` 가 이름 없는 경우를 위해 준비한 «우리 아이는» 도 영영
+      안 나옵니다 — 게스트 첫 방문이 정확히 그 경우입니다.
+    */
+    const petName = petList.find((pet) => pet.id === petId)?.name ?? null
+    // §3 예시가 한글을 인코딩하지 않은 채로 보여 주므로 목도 같은 모양을 냅니다.
+    // 견종을 모르면 breed·size 파라미터 자체가 빠집니다(FR-EDGE-10).
+    const query = [
+      ...(petName ? [`name=${petName}`] : []),
+      ...(breed ? [`breed=${breed.code}`, `size=${size}`] : []),
+      'utm_source=nutti_playground',
+      'utm_medium=referral',
+      'utm_campaign=calculator_handoff',
+    ].join('&')
+
     return HttpResponse.json({
-      breed_code: 'toy_poodle',
-      breed_label: '토이푸들',
-      size_label: '소형',
-      calculator_url:
-        'https://nutti.co.kr/calculator.html?name=콩이&breed=toy_poodle&size=소형' +
-        '&utm_source=nutti_playground&utm_medium=referral&utm_campaign=calculator_handoff',
+      breed_code: breed?.code ?? null,
+      breed_label: breed?.label ?? null,
+      size_label: size,
+      // 서버가 UTM 까지 붙여 완성해 내려주는 값입니다(FR-W07-03) — 프론트는 가공하지 않습니다.
+      calculator_url: `https://nutti.co.kr/calculator.html?${query}`,
     })
   }),
 
