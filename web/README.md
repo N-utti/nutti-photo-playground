@@ -23,8 +23,12 @@ dev proxy가 `/v1`을 `localhost:8000`으로 넘깁니다.
 브라우저 콘솔에서:
 
 ```js
-localStorage.setItem('nutti.mock.scenario', 'upload:warn')  // 품질 경고(비차단)
-localStorage.setItem('nutti.mock.scenario', 'upload:block') // 고양이 감지(차단)
+localStorage.setItem('nutti.mock.scenario', 'upload:warn')  // 품질 경고(비차단) · 견종은 믹스견
+localStorage.setItem('nutti.mock.scenario', 'upload:nodog') // 강아지 미검출 경고(FR-EDGE-08) · 견종 추정 실패
+localStorage.setItem('nutti.mock.scenario', 'upload:multi') // 여러 마리(FR-EDGE-09)
+localStorage.setItem('nutti.mock.scenario', 'upload:face')  // 사람 얼굴 — policy=warn (FR-EDGE-06)
+localStorage.setItem('nutti.mock.scenario', 'upload:face-block') // 사람 얼굴 — policy=block (FR-EDGE-06)
+localStorage.setItem('nutti.mock.scenario', 'upload:block') // 고양이 감지(차단, FR-EDGE-07)
 localStorage.setItem('nutti.mock.scenario', 'job:fail')     // GENERATION_FAILED + 크레딧 반환
 localStorage.setItem('nutti.mock.scenario', 'job:safety')   // SAFETY_BLOCKED
 localStorage.setItem('nutti.mock.scenario', 'job:flaky')    // 생성 중 3~18초 503 → W-05가 화면을 헐지 않고 자력 복구
@@ -169,7 +173,14 @@ src/
    나간 작업의 결과를 화면이 영영 못 받습니다. 갈라 주는 건 `isFatalJobError()` 하나이고
    `retry`·`refetchInterval`·W-05·W-06이 전부 이걸 씁니다. 목 시나리오 `job:flaky`로
    전 구간을 밟을 수 있습니다.
-11. **회복 가능한 에러로 화면을 헐지 마세요.** W-05·W-06은 `error`가 있어도 이미 받아 둔
+11. **계산기 배너 문구는 업로드가 정합니다.** `GET /v1/calculator-link` 가 돌려주는
+   견종은 그 job 이 쓴 업로드의 `breed_estimate` 에서 나옵니다 — 목도 job → upload 로
+   따라갑니다. 그래서 «강아지를 못 찾은 사진»(`upload:nodog`)으로 만든 결과는 배너가
+   «견종을 확인하지 못했어요 · 1단계부터»(FR-EDGE-10)로, 믹스견(`upload:warn`)은
+   «믹스견 · 중형»(FR-EDGE-11)으로 떨어집니다. 이름은 **저장된 강아지가 있을 때만**
+   붙고(없으면 «우리 아이는»), W-06 배너와 W-07 화면이 같은 문장을 말하는지는
+   `api/calculatorLink.ts` 한 곳이 보장합니다.
+12. **회복 가능한 에러로 화면을 헐지 마세요.** W-05·W-06은 `error`가 있어도 이미 받아 둔
    `job`이 있고 치명적이지 않으면 `JobUnavailable`로 넘어가지 않습니다. 넘어가면 아직
    살아 있는 작업 앞에서 사용자가 보는 건 재시도 버튼이 없는 «새로 만들기»뿐이고,
    그게 곧 크레딧을 버리게 만듭니다. W-05는 대신 "연결이 잠시 불안정해요" 한 줄만 붙입니다.
