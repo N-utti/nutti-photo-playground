@@ -290,6 +290,27 @@ function apiError(status: number, code: string, message: string, detail: unknown
   return HttpResponse.json({ error: { code, message, detail } }, { status })
 }
 
+/**
+ * `session:expired` 판정 — 지금 들어온 토큰이 만료 대상인지, 재발급된 새 게스트인지.
+ *
+ * "몇 번째 요청이냐"가 아니라 **어떤 토큰이냐**로 봅니다. 회차로 세면 StrictMode 이중
+ * 마운트나 재시도 한 번에 만료가 소진돼 재발급 경로를 못 밟습니다.
+ *
+ * 판정을 함수로 뽑아 둔 이유: 이 시나리오가 `/jobs/{id}` 하나에만 걸려 있는 동안은
+ * **보관함으로 들어온 사용자가 겪는 경로를 목이 만들 수 없었습니다**. 게스트가 결과를
+ * 잃는 사고는 job URL 로 직접 들어온 사람보다 탭바로 보관함을 여는 사람이 먼저
+ * 만나므로(이슈 #5), 같은 판정을 두 곳이 나눠 씁니다.
+ */
+function expiredSession(request: Request): 'expired' | 'reissued' | null {
+  if (scenario() !== 'session:expired') return null
+  const token = request.headers.get('Authorization') ?? ''
+  // 토큰 없는 요청 = 발급 그 자체. 이걸 판정에 넣으면 첫 방문(토큰 없이 시작)에서
+  // 빈 문자열이 «만료 대상»으로 굳어, 아직 만료된 적 없는 세션이 만료로 보입니다.
+  if (!token) return null
+  state.expiredToken ??= token
+  return token === state.expiredToken ? 'expired' : 'reissued'
+}
+
 /** 경과 시간으로 job 상태를 계산 — 타이머 없이 폴링만으로 진행이 보입니다. */
 function projectJob(job: MockJob): Job {
   const elapsed = Date.now() - job.createdAt
@@ -419,6 +440,25 @@ function seededJob(jobId: string): Job | null {
 // ---------------------------------------------------------------- 핸들러
 
 export const handlers = [
+  /*
+    만료 판정을 맨 앞에 한 번만 겁니다.
+
+    실서버에서 만료는 엔드포인트의 관심사가 아니라 인증 의존성이 걸러내는 일입니다
+    (app/auth.py `get_current_member`) — 만료된 토큰으로는 **어떤 경로도** 통과하지
+    못합니다. 목이 이걸 핸들러마다 붙이면 빠뜨린 곳이 «만료됐는데 되는» 구멍이 되고,
+    그게 정확히 목이 실서버에 없는 화면을 만들어 내는 방식입니다. 실제로 `/pets` 가
+    통과하는 동안, 새 게스트인데 «콩이» 칩은 살아 있고 사진만 0장인 상태가 나왔습니다.
+
+    아무것도 반환하지 않으면 MSW 가 다음 핸들러로 넘깁니다 — 만료가 아닐 때는 이
+    핸들러가 없는 것과 같습니다.
+  */
+  http.all(`${BASE}/*`, ({ request }) => {
+    if (expiredSession(request) === 'expired') {
+      return apiError(401, 'TOKEN_EXPIRED', '토큰이 만료되었습니다')
+    }
+    return undefined
+  }),
+
   // ------------------------------------------------------------ 인증
   http.post(`${BASE}/auth/guest`, async () => {
     await delay(120)
@@ -556,7 +596,15 @@ export const handlers = [
   }),
 
   // ------------------------------------------------------------ 펫
-  http.get(`${BASE}/pets`, () => HttpResponse.json({ items: petList })),
+  /*
+    새 게스트에게는 강아지도 없습니다. 여기를 빼먹으면 «콩이» 칩은 떠 있는데 그 강아지로
+    만든 사진은 한 장도 없는 상태가 되어, 목이 실서버에 없는 화면을 보여 주게 됩니다.
+  */
+  http.get(`${BASE}/pets`, ({ request }) =>
+    expiredSession(request) === 'reissued'
+      ? HttpResponse.json({ items: [] })
+      : HttpResponse.json({ items: petList }),
+  ),
 
   http.post(`${BASE}/pets`, async ({ request }) => {
     const { name, upload_id } = (await request.json()) as { name: string; upload_id: string }
@@ -659,18 +707,9 @@ export const handlers = [
   }),
 
   http.get(`${BASE}/jobs/:jobId`, ({ params, request }) => {
-    // 게스트 토큰 만료 → 재발급 → **다른 member_id** 라 원래 job 이 사라지는 경로.
-    // 이슈 #5 의 복원 실패 안내를 실제로 밟아 보려면 이 시나리오가 필요합니다.
-    //
-    // "몇 번째 요청이냐"가 아니라 **어떤 토큰이냐**로 판정합니다. 회차로 세면
-    // StrictMode 이중 마운트나 재시도 한 번에 만료가 소진돼 재발급 경로를 못 밟습니다.
-    if (scenario() === 'session:expired') {
-      const token = request.headers.get('Authorization') ?? ''
-      state.expiredToken ??= token
-      if (token === state.expiredToken) {
-        return apiError(401, 'TOKEN_EXPIRED', '토큰이 만료되었습니다')
-      }
-      // 재발급된 토큰 = 다른 게스트. 이전 job 은 남의 것이라 404 입니다(§3).
+    // 만료 자체는 위 인증 핸들러가 잡습니다. 여기 남는 건 그 다음 단계 —
+    // 재발급된 토큰 = 다른 게스트라, 이전 job 은 남의 것이라 404 입니다(§3).
+    if (expiredSession(request) === 'reissued') {
       return apiError(404, 'NOT_FOUND', '작업을 찾을 수 없습니다')
     }
 
@@ -730,6 +769,17 @@ export const handlers = [
   */
   http.get(`${BASE}/library`, async ({ request }) => {
     await delay(150)
+
+    /*
+      재발급 뒤의 보관함. 여기서 404 를 주면 안 됩니다 — 새 게스트에게 이전 결과는
+      «막힌» 게 아니라 **없는** 것이라, 실서버는 200 + 빈 목록을 냅니다. 그 차이가
+      화면을 가릅니다: 404 면 오류 화면이, 빈 목록이면 «아직 없어요»가 뜨고, 후자가
+      사고를 침묵으로 덮는 진짜 경로입니다(W09Library 의 리셋 안내).
+    */
+    if (expiredSession(request) === 'reissued') {
+      return HttpResponse.json({ months: [], next_cursor: null })
+    }
+
     const url = new URL(request.url)
     const petId = url.searchParams.get('pet_id')
     // 커서 값의 형식은 서버가 정합니다(§1 은 불투명 문자열로만 규정) — 목은 오프셋을
@@ -764,12 +814,22 @@ export const handlers = [
   }),
 
   // ------------------------------------------------------------ 크레딧
-  http.get(`${BASE}/credits`, () => {
+  http.get(`${BASE}/credits`, ({ request }) => {
     // 만료가 아닌 401 — 병합된 게스트 토큰·kind 불일치(app/auth.py `get_current_member`).
     // TOKEN_EXPIRED 와 달리 재발급으로 풀리지 않는다는 게 이 시나리오의 요점입니다.
     // 앱바 크레딧 pill 이 어느 화면에서나 이걸 부르므로 여기에 겁니다.
     if (scenario() === 'session:lost') {
       return apiError(401, 'UNAUTHORIZED', '유효하지 않은 토큰입니다')
+    }
+
+    /*
+      새 게스트의 잔액은 발급 시 받은 `guest_trial` +1 뿐입니다(app/routers/auth.py).
+      이전 잔액을 그대로 두면 앱바에 «11» 을 단 채로 "이전 결과는 열 수 없어요"를
+      말하게 되어, 화면이 스스로를 반박합니다. `state` 는 건드리지 않습니다 — 리셋된
+      세션에서만 다르게 보이면 되고, 시나리오를 끄면 원래 잔액으로 돌아와야 합니다.
+    */
+    if (expiredSession(request) === 'reissued') {
+      return HttpResponse.json({ balance: 1, earn_actions: state.credits.earn_actions })
     }
     applyEmptyScenario()
     return HttpResponse.json(state.credits)
