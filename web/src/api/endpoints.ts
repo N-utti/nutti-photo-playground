@@ -20,6 +20,7 @@ import type {
   MetricEventBody,
   Paginated,
   Pet,
+  PetSummary,
   SocialProvider,
   StyleCatalog,
   StyleDetail,
@@ -106,10 +107,15 @@ export const uploads = {
 
 export const pets = {
   list: () => request<{ items: Pet[] }>('/pets'),
+  /*
+    생성·수정 응답은 `PetSummary` 입니다 — `latest_upload_id` 를 주는 건 목록뿐입니다
+    (app/routers/pets.py). 여기서 `Pet` 이라고 적으면 없는 필드를 있다고 말하는 셈이라,
+    두 뮤테이션은 응답을 캐시에 쓰지 않고 목록을 무효화합니다(api/queries.ts).
+  */
   create: (name: string, uploadId: string) =>
-    request<Pet>('/pets', { method: 'POST', json: { name, upload_id: uploadId } }),
+    request<PetSummary>('/pets', { method: 'POST', json: { name, upload_id: uploadId } }),
   rename: (petId: string, name: string) =>
-    request<Pet>(`/pets/${petId}`, { method: 'PATCH', json: { name } }),
+    request<PetSummary>(`/pets/${petId}`, { method: 'PATCH', json: { name } }),
   remove: (petId: string) => request<void>(`/pets/${petId}`, { method: 'DELETE' }),
 }
 

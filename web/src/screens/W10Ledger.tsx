@@ -21,6 +21,9 @@ import type { LedgerEntry } from '../api/types'
 const REASON_LABEL: Record<string, string> = {
   generation_charge: '생성',
   generation_refund: '실패 반환',
+  // 세이프티 차단(SAFETY_BLOCKED)으로 되돌려준 줄. 서버가 실제로 내려주는 값인데
+  // (app/models.py CreditReason) 여기 없어서 표에 영문 코드가 그대로 찍혔습니다.
+  safety_block_refund: '안전 차단 반환',
   order_reward: '주문 확인',
   order_clawback: '주문 취소',
   link_account: '계정 연동',

@@ -23,6 +23,7 @@ import { Link } from 'react-router'
 import { events } from '../api/endpoints'
 import { useMe, useStyles } from '../api/queries'
 import { memberLabel } from '../app/memberIdentity'
+import Thumbnail from '../app/Thumbnail'
 import type { StyleCard } from '../api/types'
 import AccountSheet from './AccountSheet'
 
@@ -173,7 +174,8 @@ function PreviewCard({ style }: { style: StyleCard }) {
       to={`/styles/${style.id}`}
       className="block overflow-hidden rounded-lg border border-rule bg-surface"
     >
-      <img
+      {/* 이름이 바로 아래 있으므로 이미지가 없을 때 자리 표시자에 글자를 넣지 않습니다. */}
+      <Thumbnail
         src={style.thumbnail_url}
         alt={style.name}
         loading="lazy"

@@ -37,6 +37,7 @@ import {
 } from '../api/queries'
 import { useGuestSessionReset } from '../app/guestSession'
 import { withReuse } from '../app/reuseFromJob'
+import Thumbnail from '../app/Thumbnail'
 import type { Job, JobErrorCode } from '../api/types'
 import AccountSheet from './AccountSheet'
 import InsufficientCreditOverlay from './InsufficientCreditOverlay'
@@ -516,7 +517,7 @@ function OtherStyles({ jobId }: { jobId: string }) {
               to={`/upload?style_id=${style.id}&from_job=${jobId}`}
               className="block overflow-hidden rounded-lg border border-rule bg-surface"
             >
-              <img
+              <Thumbnail
                 src={style.thumbnail_url}
                 alt={style.name}
                 loading="lazy"

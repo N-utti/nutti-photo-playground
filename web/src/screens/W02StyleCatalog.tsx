@@ -21,6 +21,7 @@ import { AccountEntry } from '../app/AccountEntry'
 import { CreditBadge } from '../app/CreditBadge'
 import { useReuseFromJob, withReuse } from '../app/reuseFromJob'
 import { TabBar } from '../app/TabBar'
+import Thumbnail from '../app/Thumbnail'
 import type { JobContext } from '../api/jobContext'
 import type { StyleCard } from '../api/types'
 
@@ -229,7 +230,7 @@ function StyleCardItem({ style, reuseJobId }: { style: StyleCard; reuseJobId: st
       to={withReuse(`/styles/${style.id}`, reuseJobId)}
       className="block overflow-hidden rounded-lg border border-rule bg-surface"
     >
-      <img
+      <Thumbnail
         src={style.thumbnail_url}
         alt={style.name}
         // 68장이 한 페이지에 있으므로(카탈로그는 페이지네이션 없음) 지연 로드가 필수입니다.

@@ -10,6 +10,7 @@ import type {
   LedgerEntry,
   LibraryItem,
   Pet,
+  StyleCard,
   StyleCatalog,
   StyleDetail,
   UploadResult,
@@ -53,7 +54,9 @@ const SECTIONS = [
 export const styleCatalog: StyleCatalog = (() => {
   let nextId = 200
   const sections = SECTIONS.map(({ name, generated }) => {
-    const items = Array.from({ length: generated }, (_, i) => {
+    // StyleCard 로 명시합니다 — `thumbnail_url` 이 널 가능이라(§3) 아래에서 null 을
+    // 한 건 넣는데, 추론에 맡기면 이 배열이 `string` 으로 좁혀져 그게 막힙니다.
+    const items: StyleCard[] = Array.from({ length: generated }, (_, i) => {
       const id = nextId++
       return {
         id,
@@ -84,6 +87,17 @@ export const styleCatalog: StyleCatalog = (() => {
     },
   )
   sections[0].count = sections[0].styles.length
+
+  /*
+    썸네일 없는 스타일을 한 건 남깁니다.
+
+    `thumbnail_url` 은 서버가 `example_keys[0]` 으로 만드는 값이라 예시 이미지가 없는
+    행은 null 입니다(app/routers/styles.py). 목이 전부 이미지를 주면 app/Thumbnail.tsx
+    의 폴백 경로를 브라우저에서 한 번도 못 밟고, 그 자리가 깨지는지 여부를 코드로만
+    추측하게 됩니다. 인기 섹션 앞쪽에 두는 이유는 W-01(5장)·W-05·W-06(3장) 프리뷰에도
+    같이 잡히기 때문입니다.
+  */
+  sections[0].styles[2].thumbnail_url = null
 
   const total = sections.reduce((sum, s) => sum + s.styles.length, 0)
   return { sections, total_count: total }
@@ -220,7 +234,9 @@ export const petList: Pet[] = [
   {
     id: 'd1a2b3c4-0000-4000-8000-000000000002',
     name: '두부',
-    thumbnail_url: placeholderImage('두부'),
+    // 두 null 은 서로 다른 사안입니다 — 썸네일 없음(`thumbnail_key` 빈 행)은
+    // 자리 표시자 경로를, latest_upload_id 없음은 스킵 불가 경로를 각각 만듭니다.
+    thumbnail_url: null,
     latest_upload_id: null,
   },
 ]
@@ -243,6 +259,9 @@ export const ledgerEntries: LedgerEntry[] = [
   { reason: 'generation_refund', ref_label: '지브리', occurred_on: '2026-08-02', amount: 2 },
   { reason: 'link_account', ref_label: null, occurred_on: '2026-07-28', amount: 3 },
   { reason: 'daily_free', ref_label: null, occurred_on: '2026-07-28', amount: 1 },
+  // §3 예시에는 없지만 서버가 실제로 내려주는 사유입니다(app/models.py CreditReason) —
+  // 세이프티 차단 반환. 목에 없으면 W-10 B 의 라벨 표에 이 값이 있는지 확인할 길이 없습니다.
+  { reason: 'safety_block_refund', ref_label: '레고', occurred_on: '2026-07-27', amount: 1 },
 ]
 
 /**

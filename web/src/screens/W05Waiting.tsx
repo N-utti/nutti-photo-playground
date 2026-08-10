@@ -18,6 +18,7 @@ import { ApiError } from '../api/client'
 import { readJobContext, readJobStartedAt } from '../api/jobContext'
 import { isFatalJobError, useJobPolling, useStyles } from '../api/queries'
 import { useGuestSessionReset } from '../app/guestSession'
+import Thumbnail from '../app/Thumbnail'
 import JobUnavailable from './JobUnavailable'
 
 /**
@@ -287,7 +288,7 @@ export default function W05Waiting() {
                     to={`/styles/${style.id}`}
                     className="block overflow-hidden rounded-lg border border-rule bg-surface"
                   >
-                    <img
+                    <Thumbnail
                       src={style.thumbnail_url}
                       alt={style.name}
                       loading="lazy"
