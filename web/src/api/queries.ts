@@ -56,7 +56,8 @@ export async function adoptMemberSession(
   client: QueryClient,
   memberSession: MemberSession,
 ): Promise<void> {
-  session.set(memberSession.token, 'member')
+  // 리프레시 원문은 이 응답에만 있습니다(PR #57) — 여기서 안 담으면 되찾을 곳이 없습니다.
+  session.set(memberSession.token, 'member', memberSession.refresh_token)
   await client.invalidateQueries()
 }
 
@@ -84,9 +85,10 @@ export function useLocalAuth() {
  * 화면으로 보낸다"는 선택지가 없으므로(로그인 없이 전 플로우가 도는 게 전제) 게스트
  * 발급까지가 한 동작이어야 합니다.
  *
- * 서버 logout 은 204 만 주고 토큰을 무효화하지 않으므로(app/routers/auth.py) 실패해도
- * 멈추지 않습니다 — 로컬 토큰은 endpoints.ts 의 finally 가 이미 지웠고, 남은 일은 다시
- * 서는 것뿐입니다.
+ * 서버 logout 은 회원의 리프레시를 폐기하지만(PR #57) 실패해도 멈추지 않습니다 —
+ * 로컬 토큰은 endpoints.ts 의 finally 가 이미 지웠고, 남은 일은 다시 서는 것뿐입니다.
+ * 서버에 못 닿았으면 리프레시가 30일 동안 살아남지만, 원문은 이 브라우저에서 사라졌고
+ * 다시 로그인하면 그 순간 무효화됩니다(회원당 활성 1개).
  */
 export function useLogout() {
   const client = useQueryClient()

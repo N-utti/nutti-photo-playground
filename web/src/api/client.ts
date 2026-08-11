@@ -5,11 +5,12 @@
  * 게스트 토큰 재발급이 전부 이 파일에 모여 있어야 규약이 한 군데서 관리됩니다.
  */
 
-import type { ApiErrorBody, ErrorCode, GuestSession } from './types'
+import type { ApiErrorBody, ErrorCode, GuestSession, MemberRefresh } from './types'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/v1'
 const TOKEN_STORAGE_KEY = 'nutti.session.token'
 const KIND_STORAGE_KEY = 'nutti.session.kind'
+const REFRESH_STORAGE_KEY = 'nutti.session.refresh'
 
 // ---------------------------------------------------------------- 에러
 
@@ -58,6 +59,9 @@ export function isApiError(e: unknown, code?: ErrorCode): e is ApiError {
 /**
  * 게스트·회원이 같은 JWT 형식을 쓰므로(§1) 저장소도 하나입니다.
  * 로그인 성공 시 setSession 으로 회원 토큰을 덮어씁니다(§4 시나리오1 5단계).
+ *
+ * 회원만 리프레시 토큰을 하나 더 답니다(PR #57) — 액세스는 1h, 리프레시는 30일이라
+ * 회원 세션의 실제 수명은 이 값이 결정합니다. 게스트는 30일 JWT + 재발급이라 없습니다.
  */
 export const session = {
   get token(): string | null {
@@ -66,13 +70,23 @@ export const session = {
   get kind(): 'guest' | 'member' | null {
     return localStorage.getItem(KIND_STORAGE_KEY) as 'guest' | 'member' | null
   },
-  set(token: string, kind: 'guest' | 'member') {
+  get refreshToken(): string | null {
+    return localStorage.getItem(REFRESH_STORAGE_KEY)
+  },
+  /**
+   * `refreshToken` 을 생략하면 **지웁니다**. 게스트 발급이 회원 리프레시를 남겨 두면
+   * 다음 만료에서 남의 세션으로 되살아나는 셈이라, 기본값이 삭제여야 안전합니다.
+   */
+  set(token: string, kind: 'guest' | 'member', refreshToken?: string | null) {
     localStorage.setItem(TOKEN_STORAGE_KEY, token)
     localStorage.setItem(KIND_STORAGE_KEY, kind)
+    if (refreshToken) localStorage.setItem(REFRESH_STORAGE_KEY, refreshToken)
+    else localStorage.removeItem(REFRESH_STORAGE_KEY)
   },
   clear() {
     localStorage.removeItem(TOKEN_STORAGE_KEY)
     localStorage.removeItem(KIND_STORAGE_KEY)
+    localStorage.removeItem(REFRESH_STORAGE_KEY)
   },
 }
 
@@ -93,8 +107,17 @@ export const GUEST_SESSION_RESET_EVENT = 'nutti:guest-session-reset'
  * 게스트 토큰·kind 불일치·위조는 전부 UNAUTHORIZED 이고, 이건 새 토큰을 받아도 같은
  * 결과가 아니라 **다른 사람이 되는 것**이라 자동 재발급 대상이 아닙니다. 화면이 사용자
  * 의사를 물어야 하므로 여기서는 알리기만 합니다.
+ *
+ * 회원의 리프레시 회전이 401 로 실패한 경우도 여기로 옵니다(PR #57). 게스트와 달리
+ * 회원은 «새로 시작»이 아니라 **재로그인**이 답이라, 무엇이 끊겼는지 `detail.kind` 로
+ * 함께 알립니다 — 안내 문구가 갈리기 때문입니다.
  */
 export const SESSION_LOST_EVENT = 'nutti:session-lost'
+
+export interface SessionLostDetail {
+  /** 끊긴 세션의 종류. 판정 시점에 저장소는 이미 비어 있으므로 여기 실어 보냅니다. */
+  kind: 'guest' | 'member' | null
+}
 
 /**
  * 게스트 발급이 429 로 막혔을 때 발행됩니다.
@@ -123,6 +146,14 @@ interface RequestOptions {
   /** 생성 계열 POST 전용(§1). 값 관리는 api/idempotency.ts 참고. */
   idempotencyKey?: string
   signal?: AbortSignal
+  /**
+   * Authorization 헤더를 붙이지 않습니다.
+   *
+   * `POST /v1/auth/refresh` 전용입니다 — 이 엔드포인트는 **만료된 액세스 상태에서**
+   * 부르는 곳이라 헤더가 불요이고(§3), 굳이 죽은 토큰을 실어 보내면 그걸 걸러내는
+   * 인증 계층에 먼저 막혀 회전 자체를 못 합니다.
+   */
+  skipAuth?: boolean
   /** 내부용 — 토큰 재발급 후 재시도가 무한 반복되지 않도록 하는 플래그. */
   _retried?: boolean
 }
@@ -139,10 +170,10 @@ function buildUrl(path: string, query?: RequestOptions['query']): string {
 }
 
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', json, formData, query, idempotencyKey, signal } = options
+  const { method = 'GET', json, formData, query, idempotencyKey, signal, skipAuth } = options
 
   const headers: Record<string, string> = {}
-  const token = session.token
+  const token = skipAuth ? null : session.token
   /*
     kind 를 **보낼 때** 찍어 둡니다.
 
@@ -154,6 +185,16 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     남는, 화면마다 결과가 다른 상태가 나옵니다.
   */
   const kind = session.kind
+  /*
+    리프레시 토큰도 **보낼 때** 찍어 둡니다.
+
+    이건 kind 와 같은 이유에 더해 회전 때문에 더 중요합니다. 네 갈래가 함께 401 로
+    돌아와 먼저 온 하나가 회전을 끝내면 저장소의 리프레시는 이미 새 값입니다. 그때
+    저장소를 읽어 회전을 또 시도하는 건 **방금 발급받은 유효한 토큰을 한 번 더
+    태우는 것**이고, 서버는 회원당 한 개만 살려 두므로 마지막 하나를 뺀 나머지가
+    401 이 됩니다 — 로그인 직후 멀쩡한 세션이 스스로 끊깁니다.
+  */
+  const sentRefresh = session.refreshToken
   if (token) headers.Authorization = `Bearer ${token}`
   if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey
   // FormData 는 boundary 를 브라우저가 붙여야 하므로 Content-Type 을 직접 넣지 않습니다.
@@ -177,17 +218,30 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   if (!response.ok) {
     const parsed = await parseErrorBody(response)
 
-    // §1: 게스트는 재발급, 회원은 재로그인. 재발급 후 원요청을 1회만 재시도합니다.
-    if (parsed.code === 'TOKEN_EXPIRED' && !options._retried && kind === 'guest') {
-      await reissueGuestSession()
-      return request<T>(path, { ...options, _retried: true })
+    // §1: 게스트는 재발급, 회원은 리프레시 회전(PR #57). 어느 쪽이든 1회만 재시도합니다.
+    if (parsed.code === 'TOKEN_EXPIRED' && !options._retried) {
+      if (kind === 'guest') {
+        await reissueGuestSession()
+        return request<T>(path, { ...options, _retried: true })
+      }
+      if (kind === 'member') {
+        if (sentRefresh && (await rotateMemberSession(sentRefresh))) {
+          return request<T>(path, { ...options, _retried: true })
+        }
+        /*
+          리프레시가 없는 회원 = 이 배선(PR #57) 이전에 로그인한 브라우저입니다.
+          회전할 재료가 없으니 만료를 만회할 방법도 없는데, 그냥 던지면 화면마다
+          «토큰이 만료되었습니다» 만 뜨고 다음 행동을 아무도 말해 주지 않습니다.
+          끊긴 것으로 확정하고 재로그인을 안내합니다.
+        */
+        if (!sentRefresh && !keepsSessionOn401(path)) dropSession(kind)
+      }
     }
 
     // 만료가 아닌 401 은 재발급으로 풀리지 않습니다. 서버가 거절한 토큰을 들고 있으면
     // 이후 모든 요청이 같은 401 이므로 지우고, 다음 행동은 화면이 사용자에게 묻습니다.
     if (parsed.code === 'UNAUTHORIZED' && token && !keepsSessionOn401(path)) {
-      session.clear()
-      window.dispatchEvent(new CustomEvent(SESSION_LOST_EVENT))
+      dropSession(kind)
     }
     throw parsed
   }
@@ -245,6 +299,57 @@ async function parseErrorBody(response: Response): Promise<ApiError> {
     undefined,
     retryAfter,
   )
+}
+
+/** 세션을 버리고 화면에 알립니다. 게스트·회원의 다음 행동이 달라 kind 를 함께 실어 보냅니다. */
+function dropSession(kind: 'guest' | 'member' | null): void {
+  session.clear()
+  window.dispatchEvent(new CustomEvent<SessionLostDetail>(SESSION_LOST_EVENT, { detail: { kind } }))
+}
+
+/**
+ * 만료된 회원 액세스 토큰을 리프레시로 갈아 끼웁니다 (PR #57, 이슈 #47).
+ *
+ * 게스트 재발급과 겉모습은 같지만 의미가 정반대입니다 — 저쪽은 **다른 사람이 되는**
+ * 복구 불가 경로고, 이쪽은 같은 회원으로 이어 붙는 진짜 복구입니다. 그래서 화면에
+ * 아무것도 알리지 않고 조용히 원요청을 재시도합니다.
+ *
+ * 반환값 true 는 "이제 유효한 액세스 토큰이 저장소에 있다"는 뜻입니다 — 내가 회전시켰든,
+ * 기다리는 사이 다른 요청이 회전시켰든 같습니다.
+ *
+ * 서버는 회전할 때마다 구 리프레시를 즉시 버리므로(회원당 활성 1개) 동시에 두 번
+ * 부르면 뒤엣것이 앞엣것을 무효화합니다. 그래서 발급이 **한 번**인 게 낭비 문제가
+ * 아니라 정확성 문제입니다 — 아래 두 겹이 그걸 막습니다.
+ * 1. 내가 보낸 리프레시가 이미 저장소에서 바뀌었으면 = 다른 요청이 끝냈다 → 그대로 성공.
+ * 2. 동시에 들어오면 in-flight 프라미스 하나를 같이 기다린다.
+ */
+let rotateInFlight: Promise<boolean> | null = null
+
+function rotateMemberSession(sentRefresh: string): Promise<boolean> {
+  if (session.refreshToken !== sentRefresh) return Promise.resolve(true)
+  rotateInFlight ??= (async () => {
+    try {
+      const rotated = await request<MemberRefresh>('/auth/refresh', {
+        method: 'POST',
+        json: { refresh_token: sentRefresh },
+        skipAuth: true,
+        _retried: true,
+      })
+      session.set(rotated.token, 'member', rotated.refresh_token)
+      return true
+    } catch (error) {
+      /*
+        401 은 위조·만료·이미 회전된 토큰의 재사용입니다(§3) — 다시 물어봐도 답이 같으니
+        여기서 세션을 접고 재로그인을 안내합니다. 나머지(네트워크 단절·429)는 지금만
+        안 되는 것이라 토큰을 버리지 않습니다. 버리면 잠깐의 단절이 로그아웃이 됩니다.
+      */
+      if (isApiError(error) && error.status === 401) dropSession('member')
+      return false
+    } finally {
+      rotateInFlight = null
+    }
+  })()
+  return rotateInFlight
 }
 
 /**
