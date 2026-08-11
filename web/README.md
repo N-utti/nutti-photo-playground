@@ -33,6 +33,7 @@ localStorage.setItem('nutti.mock.scenario', 'job:fail')     // GENERATION_FAILED
 localStorage.setItem('nutti.mock.scenario', 'job:safety')   // SAFETY_BLOCKED
 localStorage.setItem('nutti.mock.scenario', 'job:flaky')    // 생성 중 3~18초 503 → W-05가 화면을 헐지 않고 자력 복구
 localStorage.setItem('nutti.mock.scenario', 'job:slow')     // 150초 job → 60초에서 W-05 백그라운드 전환(FR-EDGE-02)
+localStorage.setItem('nutti.mock.scenario', 'job:queued')   // 워커가 안 집는 job — started_at=null 인 큐 대기(PR #60)
 localStorage.setItem('nutti.mock.scenario', 'credit:empty') // 잔액 0에서 시작 → 402 → 시트에서 받고 재시도
 localStorage.setItem('nutti.mock.scenario', 'session:expired') // 액세스 만료 — 게스트는 재발급 → 404, 회원은 리프레시 회전으로 조용히 복구(PR #57)
 localStorage.setItem('nutti.mock.scenario', 'refresh:fail')    // 만료 + 회전 401 — 회원 재로그인 안내(다른 기기 로그인·30일 초과와 같은 코드)
@@ -49,6 +50,14 @@ localStorage.removeItem('nutti.mock.scenario')              // 정상
 로컬 로그인 목: 비밀번호 `nutti1234`만 성공(그 외 401 `INVALID_CREDENTIALS`), 이메일
 `taken@nutti.co.kr`로 가입하면 409 `EMAIL_TAKEN`. 소셜·카페24 `authorize`는 프로바이더
 대신 **우리 콜백 라우트로 되돌려** 왕복 전체를 로컬에서 밟을 수 있게 합니다.
+
+회원 전용 경로(PR #58): 게스트로 보면 W-10 획득 목록 4행이 전부 `login_required` + "로그인"
+이고, 그 상태로 `POST /v1/credits/claim`·카페24 `authorize`를 부르면 **403 `MEMBER_ONLY`**
+입니다(401 아님 — 게스트 세션은 살아남습니다). 로그인하면 원래 상태로 돌아옵니다.
+
+커스텀 프롬프트는 **두 겹**으로 막힙니다: 화면 필터(`app/promptFilter.ts`)와 서버 필터
+(목은 `SERVER_PROMPT_BLOCKLIST`). 목록이 달라서 화면을 통과하고 서버에서 막히는 문장이
+있습니다 — "색깔만 바꿔줘"로 400 `input_filter_blocked` 안내를 밟아 볼 수 있습니다.
 
 ## 구조
 

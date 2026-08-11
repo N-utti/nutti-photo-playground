@@ -38,6 +38,25 @@ const EXAMPLE_CHIPS = ['눈 오는 날 산책', '80년대 앨범 커버', '도�
 /** 커스텀 프롬프트는 프리셋의 2배입니다(FR-W08-04). 서버도 같은 값으로 계산합니다. */
 const CUSTOM_PROMPT_COST = 2
 
+/**
+ * 서버 입력 필터에 걸린 400 을 사람 말로 옮깁니다 (PR #60, FR-EDGE-13).
+ *
+ * 2중 방어의 **두 번째 겹**이 실제로 켜졌습니다(`app/routers/jobs.py`
+ * `_CUSTOM_PROMPT_BLOCKLIST`). 두 목록은 일부러 다릅니다 — 화면 필터는 견종 이름 위주고
+ * 서버는 "색깔"·"갈색으로" 같은 표현을 더 봅니다. 그래서 화면을 통과한 문장이 서버에서
+ * 막히는 조합이 실제로 존재하고, 그때 서버 메시지("요청 형식이 올바르지 않습니다")를
+ * 그대로 띄우면 사용자는 **무엇을 고쳐야 하는지 알 수 없습니다**. 화면 필터가 쓰는 것과
+ * 같은 문구로 답해서, 어느 겹에서 막혔든 사용자가 보는 안내가 하나가 되게 합니다.
+ *
+ * 크레딧은 나가지 않았습니다 — 서버가 차감 트랜잭션 **앞에서** 막습니다(UC-08 A1-a).
+ */
+function serverRejection(error: unknown): string | null {
+  if (!isApiError(error, 'VALIDATION_ERROR')) return null
+  const detail = error.detail as { reason?: string } | undefined
+  if (detail?.reason !== 'input_filter_blocked') return null
+  return '품종 · 털색을 바꾸는 요청은 만들 수 없어요. 배경 · 의상 · 분위기로 바꿔 보세요. (크레딧은 차감되지 않았어요)'
+}
+
 export default function W08Creative() {
   const navigate = useNavigate()
   const createJob = useCreateJob()
@@ -208,7 +227,7 @@ export default function W08Creative() {
 
             {createJob.error && !isApiError(createJob.error, 'INSUFFICIENT_CREDIT') && (
               <p role="alert" className="mt-2 text-center text-sm text-danger">
-                {createJob.error.message}
+                {serverRejection(createJob.error) ?? createJob.error.message}
               </p>
             )}
 
