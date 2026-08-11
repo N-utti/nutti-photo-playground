@@ -76,11 +76,30 @@ export type SocialProvider = Extract<AuthProvider, 'kakao' | 'naver'>
  */
 export interface MemberSession {
   token: string
+  /**
+   * 회원 리프레시 토큰 **원문** — 이 응답에서 딱 한 번만 옵니다(PR #57, 이슈 #47).
+   *
+   * 서버는 sha256 해시만 들고 있어 다시 물어볼 수 없습니다. 받은 즉시 저장하지 않으면
+   * 액세스(1h)가 만료되는 순간 회원이 재로그인 말고는 방법이 없어집니다.
+   * 회원당 활성 1개 — 다른 기기에서 로그인하면 이쪽 리프레시는 그때 무효가 됩니다.
+   */
+  refresh_token: string
   member_id: string
   kind: 'member'
   /** true = 기존 회원 행에 병합(UC-07 분기 A), false = 게스트 행 승격(분기 B). */
   merged: boolean
   credit_balance: number
+}
+
+/**
+ * `POST /v1/auth/refresh` 응답 — 액세스·리프레시가 **둘 다** 새로 옵니다(회전).
+ *
+ * 구 리프레시는 이 응답이 나온 순간 서버에서 무효라, 새 값을 저장하지 못하면 세션이
+ * 그 자리에서 끊깁니다. 회전 실패(위조·만료·이미 쓴 토큰)는 401 UNAUTHORIZED.
+ */
+export interface MemberRefresh {
+  token: string
+  refresh_token: string
 }
 
 /** authorize 계열 응답. 302 가 아니라 200 인 이유는 §3 인증 노트 참고. */

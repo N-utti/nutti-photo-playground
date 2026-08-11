@@ -4,8 +4,10 @@
  * 게스트 재발급으로 조용히 회복되는 만료(→ app/guestSession.ts)와 달리, 여기 둘은
  * **회복이 안 되는 상태**라 사용자에게 말하고 행동을 받아야 합니다.
  *
- * - lost: 재발급으로 안 풀리는 401. 서버가 만료(TOKEN_EXPIRED)와 그 외 무효를 구분해
- *   내려주는데(app/auth.py), 병합된 게스트 토큰·kind 불일치가 후자입니다.
+ * - lost: 재발급·회전으로 안 풀리는 401. 서버가 만료(TOKEN_EXPIRED)와 그 외 무효를 구분해
+ *   내려주는데(app/auth.py), 병합된 게스트 토큰·kind 불일치가 후자입니다. 회원은
+ *   리프레시 회전까지 실패한 경우가 여기 더해집니다(PR #57) — 만료·위조·이미 쓴 토큰,
+ *   그리고 **다른 기기 로그인**(회원당 리프레시 1개라 이전 세션이 무효화됩니다).
  * - rateLimited: 게스트 발급이 IP 당 시간당 제한에 걸림. 토큰이 아예 없으므로 이후
  *   모든 요청이 실패하고, 알리지 않으면 사용자는 원인 없는 고장만 보게 됩니다.
  *
@@ -18,16 +20,22 @@ import {
   GUEST_RATE_LIMITED_EVENT,
   SESSION_LOST_EVENT,
   type GuestRateLimitedDetail,
+  type SessionLostDetail,
 } from '../api/client'
 
 export interface SessionStatus {
   lost: boolean
+  /**
+   * 끊긴 게 어떤 세션이었는지 (PR #57). 회원은 재로그인, 게스트는 새로 시작이라
+   * 배너가 제안하는 행동 자체가 달라집니다. `lost` 가 false 면 의미 없는 값입니다.
+   */
+  lostKind: 'guest' | 'member' | null
   rateLimited: boolean
   /** 429 의 `Retry-After`(초). 헤더가 없으면 null — 화면은 "잠시 뒤"로 폴백합니다. */
   retryAfter: number | null
 }
 
-let state: SessionStatus = { lost: false, rateLimited: false, retryAfter: null }
+let state: SessionStatus = { lost: false, lostKind: null, rateLimited: false, retryAfter: null }
 const subscribers = new Set<(status: SessionStatus) => void>()
 
 function update(patch: Partial<SessionStatus>): void {
@@ -35,7 +43,10 @@ function update(patch: Partial<SessionStatus>): void {
   for (const notify of subscribers) notify(state)
 }
 
-window.addEventListener(SESSION_LOST_EVENT, () => update({ lost: true }))
+window.addEventListener(SESSION_LOST_EVENT, (event) => {
+  const detail = (event as CustomEvent<SessionLostDetail>).detail
+  update({ lost: true, lostKind: detail?.kind ?? null })
+})
 window.addEventListener(GUEST_RATE_LIMITED_EVENT, (event) => {
   const detail = (event as CustomEvent<GuestRateLimitedDetail>).detail
   update({ rateLimited: true, retryAfter: detail?.retryAfter ?? null })
@@ -57,5 +68,5 @@ export function useSessionStatus(): SessionStatus {
 
 /** 사용자가 새 세션을 받아 복구에 성공했을 때 배너를 내립니다. */
 export function clearSessionStatus(): void {
-  update({ lost: false, rateLimited: false, retryAfter: null })
+  update({ lost: false, lostKind: null, rateLimited: false, retryAfter: null })
 }

@@ -10,6 +10,7 @@
  *   upload:warn | upload:nodog | upload:multi | upload:face | upload:face-block | upload:block
  *   job:fail | job:safety | job:flaky | job:slow | credit:empty
  *   session:expired | guest:ratelimited | session:lost | auth:statefail | cafe24:linked
+ *   refresh:fail
  *
  * 로컬 로그인 목 규칙: 비밀번호 `nutti1234` 만 성공(그 외 401), 이메일
  * `taken@nutti.co.kr` 로 가입하면 409 EMAIL_TAKEN.
@@ -107,17 +108,35 @@ interface MockJob {
  */
 const PERSIST_KEY = 'nutti.mock.state'
 
-function restored(): { credits: Credits; me: Omit<Me, 'credit_balance'> } | null {
+interface PersistedState {
+  credits: Credits
+  me: Omit<Me, 'credit_balance'>
+  /**
+   * 살아 있는 리프레시 토큰 (PR #57).
+   *
+   * 이걸 안 남기면 목이 **새로고침 한 번에 모든 회원을 로그아웃시킵니다** — 브라우저의
+   * 리프레시는 localStorage 라 살아 돌아오는데 목의 대조본만 사라져서, 첫 만료가
+   * 무조건 401 이 됩니다. 실서버는 해시를 DB 에 들고 있으므로 그런 일이 없습니다.
+   */
+  refreshToken?: string | null
+}
+
+function restored(): PersistedState | null {
   try {
     const raw = sessionStorage.getItem(PERSIST_KEY)
-    return raw ? (JSON.parse(raw) as { credits: Credits; me: Omit<Me, 'credit_balance'> }) : null
+    return raw ? (JSON.parse(raw) as PersistedState) : null
   } catch {
     return null
   }
 }
 
 function persist(): void {
-  sessionStorage.setItem(PERSIST_KEY, JSON.stringify({ credits: state.credits, me: state.me }))
+  const snapshot: PersistedState = {
+    credits: state.credits,
+    me: state.me,
+    refreshToken: state.refreshToken,
+  }
+  sessionStorage.setItem(PERSIST_KEY, JSON.stringify(snapshot))
 }
 
 /**
@@ -201,6 +220,14 @@ const state = {
   deletedResults: restoredDeleted(),
   /** session:expired 시나리오에서 "만료된 것으로 칠" Authorization 헤더 값. */
   expiredToken: null as string | null,
+  /**
+   * 지금 살아 있는 회원 리프레시 토큰 **하나** (PR #57).
+   *
+   * 서버가 회원당 활성 1개만 두고 회전할 때마다 구 토큰을 버리므로(이슈 #47 B안),
+   * 목도 값 하나로 흉내 냅니다 — 배열로 두면 «이미 쓴 토큰 재사용 = 401» 이라는
+   * 이 계약의 핵심이 목에서만 통과해 버립니다. 로그아웃은 null.
+   */
+  refreshToken: snapshot?.refreshToken ?? null,
   /** `/auth/me` 의 원본. 로그인·연동이 이 값을 바꾸므로 화면 분기가 실제로 움직입니다. */
   me:
     snapshot?.me ??
@@ -244,9 +271,12 @@ function promoteToMember(options: {
   if (!state.me.providers.includes(options.provider)) state.me.providers.push(options.provider)
   if (options.email) state.me.email = options.email.trim().toLowerCase()
   if (options.nickname && state.me.nickname === null) state.me.nickname = options.nickname
+  // 새 로그인은 이전 리프레시를 무효화합니다(회원당 1개) — 덮어쓰기가 그 규칙입니다.
+  state.refreshToken = `mock-refresh.${crypto.randomUUID()}`
   persist()
   return {
     token: `mock-member-jwt.${crypto.randomUUID()}`,
+    refresh_token: state.refreshToken,
     member_id: state.me.member_id,
     kind: 'member' as const,
     merged: options.merged ?? false,
@@ -335,7 +365,8 @@ function apiError(status: number, code: string, message: string, detail: unknown
  * 만나므로(이슈 #5), 같은 판정을 두 곳이 나눠 씁니다.
  */
 function expiredSession(request: Request): 'expired' | 'reissued' | null {
-  if (scenario() !== 'session:expired') return null
+  // refresh:fail 도 «만료된 액세스»에서 출발합니다 — 회전은 그다음에야 시도됩니다.
+  if (scenario() !== 'session:expired' && scenario() !== 'refresh:fail') return null
   const token = request.headers.get('Authorization') ?? ''
   // 토큰 없는 요청 = 발급 그 자체. 이걸 판정에 넣으면 첫 방문(토큰 없이 시작)에서
   // 빈 문자열이 «만료 대상»으로 굳어, 아직 만료된 적 없는 세션이 만료로 보입니다.
@@ -591,7 +622,45 @@ export const handlers = [
     return HttpResponse.json(promoteToMember({ provider: 'local', email, merged: true }))
   }),
 
-  http.post(`${BASE}/auth/logout`, () => new HttpResponse(null, { status: 204 })),
+  /*
+    액세스 재발급 (PR #57, 이슈 #47).
+
+    Authorization 을 **읽지 않습니다** — 만료된 액세스 상태에서 부르는 엔드포인트라
+    헤더가 불요이고(§3), 그래서 위 만료 가드도 이 요청은 그냥 통과시킵니다.
+
+    회전을 실제로 구현하는 게 이 목의 요점입니다. 새 값을 주기만 하고 구 값을 살려
+    두면 «이미 회전된 토큰 재사용 = 401» 이 브라우저에서 한 번도 밟히지 않고, 그
+    401 이야말로 프론트가 SESSION_LOST 로 갈라져야 하는 지점입니다.
+  */
+  http.post(`${BASE}/auth/refresh`, async ({ request }) => {
+    await delay(200)
+    const { refresh_token } = (await request.json()) as { refresh_token?: string }
+    /*
+      `refresh:fail` — 회전이 막힌 회원. 다른 기기 로그인·30일 초과·이미 쓴 토큰이
+      전부 같은 401 로 오므로(§3) 하나로 묶어 재현합니다. 시나리오 값이 하나뿐이라
+      만료도 이 시나리오가 함께 겁니다(`expiredSession`) — 그래야 «만료 → 회전 시도 →
+      실패 → 재로그인 안내» 한 줄이 브라우저에서 이어집니다.
+    */
+    if (scenario() === 'refresh:fail') {
+      return apiError(401, 'UNAUTHORIZED', '다시 로그인해 주세요')
+    }
+    if (!refresh_token || refresh_token !== state.refreshToken) {
+      return apiError(401, 'UNAUTHORIZED', '다시 로그인해 주세요')
+    }
+    state.refreshToken = `mock-refresh.${crypto.randomUUID()}`
+    persist()
+    return HttpResponse.json({
+      token: `mock-member-jwt.${crypto.randomUUID()}`,
+      refresh_token: state.refreshToken,
+    })
+  }),
+
+  // 회원이면 서버가 리프레시를 폐기합니다(PR #57) — 지운 뒤엔 그 값으로 회전할 수 없습니다.
+  http.post(`${BASE}/auth/logout`, () => {
+    state.refreshToken = null
+    persist()
+    return new HttpResponse(null, { status: 204 })
+  }),
 
   // ------------------------------------------------------------ 스타일
   http.get(`${BASE}/styles`, async ({ request }) => {

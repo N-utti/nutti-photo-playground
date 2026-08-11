@@ -10,9 +10,23 @@
  */
 
 import { useLogout } from '../api/queries'
+import { clearSessionStatus } from '../app/sessionStatus'
 
 export default function LogoutConfirm({ onClose }: { onClose: () => void }) {
   const logout = useLogout()
+
+  /*
+    로그아웃 중에 세션 배너가 뜨는 경우가 있습니다 (PR #57).
+
+    액세스가 만료된 채로 로그아웃을 누르면 client.ts 가 먼저 리프레시를 회전시켜
+    서버 폐기까지 마치려 하는데(그래야 30일짜리 리프레시가 남지 않습니다), 그 회전이
+    401 이면 «로그인이 만료됐어요» 배너가 올라옵니다. 사용자가 스스로 끝낸 세션을
+    두고 만료를 통보하는 꼴이라, 새 게스트로 다시 선 시점에 내립니다.
+  */
+  function finish() {
+    clearSessionStatus()
+    onClose()
+  }
 
   return (
     <div className="fixed inset-0 z-30 flex items-end justify-center desktop:items-center">
@@ -39,7 +53,7 @@ export default function LogoutConfirm({ onClose }: { onClose: () => void }) {
         <button
           type="button"
           disabled={logout.isPending}
-          onClick={() => logout.mutate(undefined, { onSuccess: onClose })}
+          onClick={() => logout.mutate(undefined, { onSuccess: finish })}
           className="mt-4 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper disabled:opacity-50"
         >
           {logout.isPending ? '로그아웃 중…' : '로그아웃'}
