@@ -8,7 +8,7 @@
  *
  * 시나리오 강제: localStorage 에 `nutti.mock.scenario` 를 넣으면 해당 케이스로 고정됩니다.
  *   upload:warn | upload:nodog | upload:multi | upload:face | upload:face-block | upload:block
- *   job:fail | job:safety | job:flaky | job:slow | credit:empty
+ *   job:fail | job:safety | job:flaky | job:slow | job:queued | credit:empty
  *   session:expired | guest:ratelimited | session:lost | auth:statefail | cafe24:linked
  *   refresh:fail
  *
@@ -246,6 +246,18 @@ function mockAuthorizeUrl(provider: string): string {
   return `${location.origin}/auth/callback/${provider}?code=mock-code&state=mock-state-${crypto.randomUUID()}`
 }
 
+/**
+ * 게스트에게는 획득 목록 4행이 전부 `login_required` 로 갑니다 (PR #58, 이슈 #52).
+ *
+ * 상태를 저장본에 쓰지 않고 **응답에서만** 갈아 끼웁니다 — 로그인하면 원래 상태
+ * (done·tomorrow 포함)가 그대로 돌아와야 하기 때문입니다. 목이 이걸 안 하면 게스트
+ * 화면에 «받기» 가 그대로 보이고, 프론트의 로그인 CTA 분기를 브라우저에서 못 밟습니다.
+ */
+function guestAware(rows: Credits['earn_actions']): Credits['earn_actions'] {
+  if (state.me.kind === 'member') return rows
+  return rows.map((row) => ({ ...row, status: 'login_required' as const, cta: '로그인' }))
+}
+
 /** 획득 행 1건을 지급 처리. 연동 +3 처럼 claim 을 거치지 않는 경로가 씁니다. */
 function grantEarnAction(action: EarnAction): void {
   const row = state.credits.earn_actions.find((entry) => entry.action === action)
@@ -283,6 +295,32 @@ function promoteToMember(options: {
     credit_balance: state.credits.balance,
   }
 }
+
+/**
+ * `app/routers/jobs.py` `_CUSTOM_PROMPT_BLOCKLIST` 를 그대로 옮긴 것 (PR #60).
+ *
+ * 화면 필터와 합치지 않습니다 — 두 겹이 같은 목록을 보면 방어가 한 겹으로 줄고,
+ * 무엇보다 서버가 자기 목록을 바꿔도 목은 옛 규칙으로 통과시키게 됩니다. 서버 쪽이
+ * 바뀌면 이 배열도 같이 갱신하는 게 이 파일의 일입니다.
+ */
+const SERVER_PROMPT_BLOCKLIST = [
+  '품종',
+  '털색',
+  '색깔',
+  '색으로',
+  '종으로',
+  '푸들로',
+  '말티즈로',
+  '치와와로',
+  '골든리트리버로',
+  '리트리버로',
+  '포메라니안으로',
+  '흰둥이로',
+  '검은둥이로',
+  '갈색으로',
+  '하얀색으로',
+  '검은색으로',
+]
 
 /** 생성에 걸리는 시간. W-03 "평균 24초"보다 짧게 잡아 개발 반복을 빠르게 합니다. */
 const JOB_DURATION_MS = 12_000
@@ -380,10 +418,33 @@ function projectJob(job: MockJob): Job {
   const elapsed = Date.now() - job.createdAt
   const duration = jobDuration()
   const sourceImageUrl = placeholderImage('원본')
-  // 어느 상태에서든 실립니다 — W-06 "다시 만들기"는 실패한 job 에서도 눌리기 때문입니다.
-  const materials = { style_id: job.styleId, upload_id: job.uploadId }
+  /*
+    어느 상태에서든 실립니다 — W-06 "다시 만들기"는 실패한 job 에서도 눌리기 때문입니다.
 
-  if (elapsed >= duration) {
+    시각 두 개는 PR #60(이슈 #41) 착지분입니다. 목의 «큐 구간»은 아래 1.5초라,
+    `started_at` 은 그 뒤부터 값이 생깁니다 — 큐에 있는 동안 null 인 게 이 계약의
+    핵심이고(FR-EDGE-02 판정 기준), 목이 처음부터 값을 주면 W-05 의 대기/처리 구분이
+    브라우저에서 한 번도 갈라지지 않습니다.
+  */
+  /*
+    `job:queued` — 워커가 집지 않아 **큐에 머무는** job.
+
+    이 상태는 PR #60 이 만들어 낸 새 엣지입니다. 그전에는 시각이 아예 없어 대기와
+    처리를 구분할 수단도 없었는데, 이제 `started_at: null` 이 «아직 시작 안 함»을
+    분명히 말합니다. 화면이 그때 무엇을 할지(§3 판정 기준은 started_at, 그런데
+    대기도 60초를 넘으면 «약 24초»가 거짓말이 됨)를 브라우저에서 밟아 보려면 목이
+    이 상태를 만들 수 있어야 합니다.
+  */
+  const QUEUE_MS = scenario() === 'job:queued' ? Number.POSITIVE_INFINITY : 1_500
+  const materials = {
+    style_id: job.styleId,
+    upload_id: job.uploadId,
+    queued_at: new Date(job.createdAt).toISOString(),
+    started_at:
+      elapsed >= QUEUE_MS ? new Date(job.createdAt + QUEUE_MS).toISOString() : null,
+  }
+
+  if (elapsed >= duration && Number.isFinite(QUEUE_MS)) {
     if (job.forcedError) {
       return {
         job_id: job.id,
@@ -411,7 +472,7 @@ function projectJob(job: MockJob): Job {
     }
   }
 
-  if (elapsed < 1_500) {
+  if (elapsed < QUEUE_MS) {
     return {
       job_id: job.id,
       status: 'queued',
@@ -492,6 +553,10 @@ function seededJob(jobId: string): Job | null {
     status: 'succeeded',
     style_id: null,
     upload_id: `upload-${item.result_id}`,
+    // 시드는 이미 끝난 job 이라 두 시각이 같습니다 — 보관함에서 여는 결과의 경과는
+    // 아무도 세지 않습니다(W-05 를 거치지 않음).
+    queued_at: item.created_at,
+    started_at: item.created_at,
     progress: 100,
     eta_seconds: 0,
     status_message: null,
@@ -557,8 +622,9 @@ export const handlers = [
   */
   http.get(`${BASE}/auth/cafe24/authorize`, async () => {
     await delay(150)
+    // claim 과 같은 이유로 403 MEMBER_ONLY (PR #58) — 게스트 토큰은 멀쩡합니다.
     if (state.me.kind !== 'member') {
-      return apiError(401, 'UNAUTHORIZED', '회원만 연동할 수 있습니다')
+      return apiError(403, 'MEMBER_ONLY', '로그인이 필요합니다')
     }
     return HttpResponse.json({ authorize_url: mockAuthorizeUrl('cafe24') })
   }),
@@ -670,12 +736,28 @@ export const handlers = [
     const limit = Number(url.searchParams.get('limit')) || undefined
 
     let sections = styleCatalog.sections
-    if (section === 'popular') sections = sections.slice(0, 1)
-    else if (section) sections = sections.filter((s) => s.name === section)
+    if (section === 'popular') {
+      /*
+        `popular` 은 **예약 키워드**입니다 (PR #58, 이슈 #53).
+
+        저장된 섹션명과 매칭하는 게 아니라 public 전체에서 정렬 상위 N 을 뽑아
+        «인기» 한 섹션으로 돌려줍니다. 목이 예전처럼 «첫 번째 섹션»을 주면 W-01 의
+        인기 카드가 **한 섹션 안에서만** 뽑히므로, 실서버에서 다른 스타일이 오는데도
+        목에서는 아무 문제가 안 보입니다. `count` 도 자른 뒤 길이여야 화면의
+        "N개"가 실제로 그린 카드 수와 맞습니다.
+      */
+      const top = styleCatalog.sections.flatMap((s) => s.styles).slice(0, limit ?? 12)
+      return HttpResponse.json({
+        sections: [{ name: '인기', count: top.length, styles: top }],
+        total_count: styleCatalog.total_count,
+      })
+    }
+    if (section) sections = sections.filter((s) => s.name === section)
 
     if (limit) {
       sections = sections.map((s) => ({ ...s, styles: s.styles.slice(0, limit) }))
     }
+    // total_count 는 필터와 무관하게 **전체 public 수**입니다(§3) — W-02 하단 "전체 N개".
     return HttpResponse.json({ sections, total_count: styleCatalog.total_count })
   }),
 
@@ -789,6 +871,26 @@ export const handlers = [
       ? 2
       : (styleDetailFor(body.style_id ?? -1)?.credit_cost ?? 1)
 
+    /*
+      서버 입력 필터 (PR #60, FR-EDGE-13 (b) — `app/routers/jobs.py`).
+
+      2중 방어의 두 번째 겹이라 화면 필터(app/promptFilter.ts)와 목록이 **일부러**
+      다릅니다. 목이 이걸 빼면 화면 필터가 놓친 문장이 목에서는 그냥 만들어지고,
+      실서버에서만 400 이 나는 차이가 QA 에서 안 보입니다. 서버 목록 그대로 옮겨
+      두면 «화면은 통과, 서버는 거절» 조합을 브라우저에서 직접 밟을 수 있습니다
+      (예: "털을 갈색으로 바꿔줘" — 화면 필터는 색+털을 보고 걸지만, "색깔만 바꿔줘"
+      처럼 털 단어가 없으면 통과하고 서버가 잡습니다).
+
+      차감 판정보다 **앞**입니다 — 서버도 차감 트랜잭션 전에 막으므로 크레딧이
+      나가지 않습니다(UC-08 A1-a).
+    */
+    const normalized = body.custom_prompt?.trim().toLowerCase() ?? ''
+    if (normalized && SERVER_PROMPT_BLOCKLIST.some((word) => normalized.includes(word))) {
+      return apiError(400, 'VALIDATION_ERROR', '요청 형식이 올바르지 않습니다', {
+        reason: 'input_filter_blocked',
+      })
+    }
+
     applyEmptyScenario()
     if (state.credits.balance < cost) {
       return apiError(402, 'INSUFFICIENT_CREDIT', '크레딧이 부족합니다', {
@@ -881,7 +983,14 @@ export const handlers = [
     // 펫 진입(W-09 → W-07)과 시드 job 은 업로드를 되짚을 수 없어 정상 케이스로 둡니다.
     const breed = job ? breedForUpload(job.uploadId) : uploadOk.breed_estimate
 
-    const size = breed ? sizeForBreed(breed.code) : null
+    /*
+      `breed.code` 는 **null 이 될 수 있습니다** (PR #59 착지분 — 비전이 견종을 확신하지
+      못하면 필드가 빈 채로 옵니다). 코드가 없으면 크기표를 못 찾으므로 견종 자체를
+      모르는 것과 같이 다룹니다 — FR-EDGE-10 이 말하는 «세 필드 모두 null + URL 에서
+      breed 파라미터 생략» 이 그 상태입니다.
+    */
+    const breedCode = breed?.code ?? null
+    const size = breedCode ? sizeForBreed(breedCode) : null
     /*
       이름은 **저장된 강아지가 있을 때만** 붙습니다. 상수로 넣어 두면 펫을 고르지 않고
       만든 결과에도 «콩이는 하루 몇 g까지…»가 떠서, 배너가 남의 강아지 이름을 말합니다.
@@ -893,15 +1002,15 @@ export const handlers = [
     // 견종을 모르면 breed·size 파라미터 자체가 빠집니다(FR-EDGE-10).
     const query = [
       ...(petName ? [`name=${petName}`] : []),
-      ...(breed ? [`breed=${breed.code}`, `size=${size}`] : []),
+      ...(breedCode ? [`breed=${breedCode}`, `size=${size}`] : []),
       'utm_source=nutti_playground',
       'utm_medium=referral',
       'utm_campaign=calculator_handoff',
     ].join('&')
 
     return HttpResponse.json({
-      breed_code: breed?.code ?? null,
-      breed_label: breed?.label ?? null,
+      breed_code: breedCode,
+      breed_label: breedCode ? breed?.label ?? null : null,
       size_label: size,
       // 서버가 UTM 까지 붙여 완성해 내려주는 값입니다(FR-W07-03) — 프론트는 가공하지 않습니다.
       calculator_url: `https://nutti.co.kr/calculator.html?${query}`,
@@ -975,10 +1084,10 @@ export const handlers = [
       세션에서만 다르게 보이면 되고, 시나리오를 끄면 원래 잔액으로 돌아와야 합니다.
     */
     if (expiredSession(request) === 'reissued') {
-      return HttpResponse.json({ balance: 1, earn_actions: state.credits.earn_actions })
+      return HttpResponse.json({ balance: 1, earn_actions: guestAware(state.credits.earn_actions) })
     }
     applyEmptyScenario()
-    return HttpResponse.json(state.credits)
+    return HttpResponse.json({ ...state.credits, earn_actions: guestAware(state.credits.earn_actions) })
   }),
 
   http.post(`${BASE}/credits/claim`, async ({ request }) => {
@@ -987,18 +1096,15 @@ export const handlers = [
     const row = state.credits.earn_actions.find((a) => a.action === action)
 
     /*
-      게스트 거절을 목도 그대로 재현합니다(app/routers/credits.py `claim_credit`).
+      게스트 거절 — 이제 **403 MEMBER_ONLY** 입니다 (PR #58, 이슈 #52 확정분).
 
-      위 `GET /credits` 는 게스트에게도 follow_ig·daily 를 `available` + "받기" 로 주는데
-      실서버는 누르는 순간 401 로 막습니다. 목이 이 거절을 빼면 «받기 → 지급» 만 밟히고,
-      실서버에서만 나오는 경로(이슈 #52 — 401 을 세션 소실로 오해해 게스트 자산이 통째로
-      날아가던 자리)를 브라우저 QA 로 영영 못 만납니다.
-
-      claim 의 게스트 허용 여부는 아직 계약 미정입니다(이슈 #52 요청 1). 게스트도 받는
-      쪽으로 정해지면 이 가드와 실서버 가드를 함께 걷습니다.
+      401 이던 시절에는 이 한 줄이 게스트의 job·보관함·잔액을 통째로 날렸습니다.
+      화면은 401 을 «내 토큰이 죽었다»로 읽고 세션을 지우니까요. 코드가 갈린 지금
+      목이 옛 401 을 계속 주면, 프론트가 새로 붙인 분기(로그인 시트)가 브라우저에서
+      한 번도 안 밟히고 대신 사라진 예외 처리에 기대게 됩니다.
     */
     if (state.me.kind !== 'member') {
-      return apiError(401, 'UNAUTHORIZED', 'Invalid or missing authentication token')
+      return apiError(403, 'MEMBER_ONLY', '로그인이 필요합니다')
     }
 
     if (!row) return apiError(400, 'VALIDATION_ERROR', '알 수 없는 획득 경로입니다', { action })

@@ -20,6 +20,7 @@ import { isFatalJobError, useJobPolling, useStyles } from '../api/queries'
 import { useGuestSessionReset } from '../app/guestSession'
 import Thumbnail from '../app/Thumbnail'
 import JobUnavailable from './JobUnavailable'
+import type { Job } from '../api/types'
 
 /**
  * 여기를 넘기면 «백그라운드 전환»입니다 — FR-EDGE-02 · NFR-PERF-01(목표 20–40초,
@@ -93,25 +94,40 @@ function smooth(
  * 새어 나가지 않습니다.
  */
 /**
- * 경과를 재기 시작한 기준 시각.
+ * 경과를 재기 시작한 기준 시각 — **서버 우선**(PR #60).
  *
- * 이 브라우저에서 만든 job 이면 만든 순간이(api/jobContext.ts), 링크로 받은 job 이면
- * **이 화면에 도착한 순간**이 기준입니다. 후자는 실제 경과보다 짧게 재므로 판정이
- * 늦어질 뿐 없는 지연을 지어내지 않습니다 — 서버가 `created_at` 을 주기 시작하면
- * 그 값으로 갈아탈 자리이기도 합니다.
+ * 서버가 `started_at`(워커가 집은 시각)과 `queued_at`(큐에 들어간 시각)을 답하게
+ * 되면서 이 화면은 처음으로 «실제로 언제 시작했는지»를 알게 됐습니다. 그전에는 이
+ * 브라우저에서 만든 job 만 로컬 색인으로 알 수 있었고, 링크로 받은 job 은 화면에
+ * 도착한 순간부터 셌습니다.
+ *
+ * `started_at ?? queued_at` 인 이유: FR-EDGE-02 판정은 §3 이 **`started_at` 기준**으로
+ * 규정합니다(큐 대기는 «생성 처리» 시간이 아니라는 NFR-PERF-01 정의). 그래서 워커가
+ * 집은 뒤에는 오직 `started_at` 만 봅니다. 다만 아직 안 집힌 job 에 그 규칙을 그대로
+ * 적용하면 3분째 큐에 앉아 있어도 화면은 «약 24초»를 계속 띄웁니다 — 60초를 넘긴
+ * 뒤에도 «거의 다 됐어요»를 띄우지 않기로 한 것과 정확히 같은 종류의 거짓말이라,
+ * 대기 중에는 `queued_at` 으로 같은 판정을 겁니다. 어느 쪽이든 화면이 하는 말은
+ * "오래 걸리는 중이니 나가도 된다" 하나로 같습니다.
+ *
+ * 서버 값이 없으면(구버전 응답) 예전처럼 로컬 색인 → 화면 도착 시각 순으로 내려갑니다.
+ * 로컬 폴백은 실제보다 **늦게** 판정하는 쪽이라 없는 지연을 지어내지 않습니다.
  *
  * `resetKey`(job_id)가 바뀌면 다시 잽니다. "다시 만들기"로 이 화면이 재사용될 때
  * 이전 job 의 기준을 물려받으면 새 job 이 시작하자마자 초과로 보입니다.
  */
-function useStartedAt(jobId: string | undefined): number {
-  const [state, setState] = useState(() => ({ key: jobId, at: readJobStartedAt(jobId ?? '') ?? Date.now() }))
+function useStartedAt(jobId: string | undefined, job: Job | undefined): number {
+  const [state, setState] = useState(() => ({ key: jobId, at: fallbackStartedAt(jobId) }))
 
-  if (state.key !== jobId) {
-    const next = { key: jobId, at: readJobStartedAt(jobId ?? '') ?? Date.now() }
-    setState(next)
-    return next.at
-  }
-  return state.at
+  const local = state.key === jobId ? state.at : fallbackStartedAt(jobId)
+  if (state.key !== jobId) setState({ key: jobId, at: local })
+
+  const server = job?.started_at ?? job?.queued_at
+  const parsed = server != null ? Date.parse(server) : Number.NaN
+  return Number.isFinite(parsed) ? parsed : local
+}
+
+function fallbackStartedAt(jobId: string | undefined): number {
+  return readJobStartedAt(jobId ?? '') ?? Date.now()
 }
 
 function useMonotonic(value: number, resetKey: string | undefined): number {
@@ -151,7 +167,7 @@ export default function W05Waiting() {
   // 남은 초가 0 에 붙은 뒤에도 계속 «거의 다 됐어요»를 띄우면 그건 안심이 아니라
   // 멈춘 화면이고(노트1 이 스피너를 뺀 이유와 같습니다), 그 자리에서 해야 할 말은
   // "오래 걸리는 중이니 나가도 된다" 쪽으로 바뀝니다.
-  const startedAt = useStartedAt(jobId)
+  const startedAt = useStartedAt(jobId, job)
   const overdue = running && now - startedAt > OVERDUE_AFTER_MS
 
   // 종료 상태면 결과 화면이 주인입니다. replace 인 이유: 뒤로가기로 이미 끝난

@@ -45,16 +45,23 @@ export default function EarnActionList() {
   const claim = useClaimCredit()
   const authorize = useAuthorizeRedirect()
   const [granted, setGranted] = useState<{ action: EarnAction; amount: number } | null>(null)
-  const [loginSheet, setLoginSheet] = useState(false)
+  /**
+   * 로그인 시트를 왜 열었는지 (PR #58).
+   *
+   * 게스트에게는 이제 **네 줄 전부** 로그인 CTA 로 옵니다(`login_required`). 연동 줄만
+   * 시트를 띄우던 때는 문구가 하나여도 됐지만, 지금은 «연동하려고 눌렀나 크레딧을
+   * 받으려고 눌렀나»에 따라 시트가 다른 약속을 해야 합니다.
+   */
+  const [loginSheet, setLoginSheet] = useState<'link' | 'earn' | null>(null)
 
   /**
    * 연동 +3 은 두 단계입니다 — 카페24 연동은 **회원 전용**이라(ADR-11) 게스트는 먼저
-   * 로그인해야 합니다. 게스트에게 곧바로 연동을 걸면 authorize 가 401 이므로, 같은
-   * 버튼이 상태에 따라 다른 일을 합니다(§2 W-10 "게스트에게는 로그인 유도").
+   * 로그인해야 합니다. 게스트에게 곧바로 연동을 걸면 authorize 가 403 MEMBER_ONLY 이므로
+   * (PR #58), 같은 버튼이 상태에 따라 다른 일을 합니다(§2 W-10 "게스트에게는 로그인 유도").
    */
   function startLinkAccount() {
     if (me?.kind !== 'member') {
-      setLoginSheet(true)
+      setLoginSheet('link')
       return
     }
     rememberAuthReturn(`${location.pathname}${location.search}`)
@@ -108,6 +115,7 @@ export default function EarnActionList() {
               claiming={claim.isPending && claim.variables === row.action}
               onClaim={handleClaim}
               onLinkAccount={startLinkAccount}
+              onLogin={() => setLoginSheet('earn')}
               linking={authorize.isPending}
               memberKnown={me !== undefined}
             />
@@ -131,23 +139,27 @@ export default function EarnActionList() {
         <p role="alert" className="mt-2 text-center text-sm text-danger">
           {isApiError(claim.error, 'ALREADY_CLAIMED')
             ? '이미 받은 크레딧이에요.'
-            : isApiError(claim.error, 'UNAUTHORIZED')
+            : isApiError(claim.error, 'MEMBER_ONLY')
               ? /*
-                  서버가 게스트의 claim 을 401 로 막습니다(app/routers/credits.py). 서버
-                  메시지가 영문("Invalid or missing authentication token")이라 그대로 두면
-                  사용자가 뭘 해야 하는지 알 수 없습니다. 세션은 살아 있습니다 —
-                  client.ts `keepsSessionOn401` 이 이 경로를 예외로 둡니다(이슈 #52).
+                  게스트의 claim 은 403 MEMBER_ONLY 입니다(PR #58, 이슈 #52). 게스트에게는
+                  목록이 애초에 «로그인» 으로 내려오므로 여기까지 오는 건 화면과 서버가
+                  어긋난 경우(로그인 직후 캐시가 아직 게스트 목록)뿐이라, 문구보다 시트를
+                  띄우는 쪽이 사용자가 할 일에 가깝습니다.
                 */
-                '지금은 로그인한 회원만 받을 수 있어요.'
+                '로그인하면 받을 수 있어요.'
               : claim.error.message}
         </p>
       )}
 
       {loginSheet && (
         <AccountSheet
-          onClose={() => setLoginSheet(false)}
+          onClose={() => setLoginSheet(null)}
           title="먼저 로그인해 주세요"
-          description="쇼핑몰 계정 연동은 회원만 할 수 있어요. 로그인 후 연동하면 +3 크레딧을 받아요."
+          description={
+            loginSheet === 'link'
+              ? '쇼핑몰 계정 연동은 회원만 할 수 있어요. 로그인 후 연동하면 +3 크레딧을 받아요.'
+              : '크레딧 받기는 회원만 할 수 있어요. 로그인하면 지금까지 만든 결과도 그대로 이어집니다.'
+          }
         />
       )}
     </>
@@ -159,12 +171,14 @@ interface EarnRowProps {
   claiming: boolean
   onClaim: (action: ClaimableAction) => void
   onLinkAccount: () => void
+  /** `login_required` 줄이 눌렸을 때. 게스트에게는 네 줄 전부가 이 길입니다(PR #58). */
+  onLogin: () => void
   linking: boolean
   /** `/me` 가 아직 안 왔으면 연동 버튼이 로그인/연동 중 무엇을 할지 모릅니다. */
   memberKnown: boolean
 }
 
-function EarnRow({ row, claiming, onClaim, onLinkAccount, linking, memberKnown }: EarnRowProps) {
+function EarnRow({ row, ...rest }: EarnRowProps) {
   const copy = EARN_COPY[row.action] ?? { title: row.action, note: '' }
   const best = row.action === 'order'
 
@@ -181,19 +195,33 @@ function EarnRow({ row, claiming, onClaim, onLinkAccount, linking, memberKnown }
         </p>
         <p className="truncate text-xs text-ink-3">{copy.note}</p>
       </div>
-      <EarnCta
-        row={row}
-        claiming={claiming}
-        onClaim={onClaim}
-        onLinkAccount={onLinkAccount}
-        linking={linking}
-        memberKnown={memberKnown}
-      />
+      <EarnCta row={row} {...rest} />
     </div>
   )
 }
 
-function EarnCta({ row, claiming, onClaim, onLinkAccount, linking, memberKnown }: EarnRowProps) {
+function EarnCta({ row, claiming, onClaim, onLinkAccount, onLogin, linking, memberKnown }: EarnRowProps) {
+  /*
+    게스트 — 서버가 네 줄 전부 `login_required` + `cta: "로그인"` 으로 내려줍니다
+    (PR #58, 이슈 #52). 주문 줄까지 포함해 **먼저** 갈라내는 게 맞습니다:
+
+    주문 보상은 연동한 회원에게 배치가 지급하므로(order_reward_cutoff 이후 주문만),
+    게스트를 쇼핑몰로 그냥 보내면 받지 못할 보상을 걸어 두고 «주문 1건당 +20» 을
+    약속하는 셈입니다. 쇼핑몰로 나가는 길 자체는 탭바의 «누띠샵» 이 늘 열어 두므로
+    이 줄이 로그인으로 바뀐다고 매출 경로가 닫히지 않습니다.
+  */
+  if (row.status === 'login_required') {
+    return (
+      <button
+        type="button"
+        onClick={onLogin}
+        className="shrink-0 rounded-lg border border-rule-strong px-3 py-2 text-xs font-semibold"
+      >
+        {row.cta ?? '로그인'}
+      </button>
+    )
+  }
+
   // 노트2 — 주문 보상은 클레임이 아니라 **자동 지급**입니다(카페24 주문 동기화 배치).
   // 이 줄이 하는 일은 쇼핑몰로 보내는 것뿐이라 상태와 무관하게 링크입니다.
   if (row.action === 'order') {

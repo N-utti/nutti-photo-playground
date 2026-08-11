@@ -23,6 +23,15 @@ export type ErrorCode =
   | 'UNAUTHORIZED' // 401
   | 'TOKEN_EXPIRED' // 401
   | 'INVALID_CREDENTIALS' // 401 — 로컬 로그인 실패. 이메일 존재 여부를 구분하지 않습니다
+  /**
+   * 403 — **살아 있는 게스트 토큰**으로 회원 전용 기능 접근(PR #58, 이슈 #52).
+   *
+   * 401 과 갈라 놓은 게 이 코드의 존재 이유입니다. 권한 부족을 401 로 받으면 클라이언트는
+   * "내 토큰이 죽었다"로 읽고 세션을 지우는데, 게스트는 그 순간 job·보관함·크레딧을 전부
+   * 잃습니다 — 화면이 권한 뒤에 누르라고 제안한 버튼이 세션을 지우는 사고였습니다.
+   * 이 코드를 받으면 세션은 그대로 두고 로그인 시트를 띄웁니다.
+   */
+  | 'MEMBER_ONLY' // 403
   | 'NOT_FOUND' // 404
   | 'RATE_LIMITED' // 429
   | 'INSUFFICIENT_CREDIT' // 402
@@ -179,14 +188,24 @@ export interface StyleDetail {
 export interface UploadIssue {
   code: IssueCode
   message: string
-  detail?: { issues?: string[] } & Record<string, unknown>
+  /** `QUALITY_WARNING` 만 `{issues}` 를 채우고 나머지는 **명시적 null**(PR #59). */
+  detail?: ({ issues?: string[] } & Record<string, unknown>) | null
 }
 
+/**
+ * 견종 추정 (PR #59 구현 착지분).
+ *
+ * 세 필드가 **각각** null 이 될 수 있습니다 — 서버가 비전 응답을 그대로 흘려보내므로
+ * 모델이 확신하지 못하면 값이 빈 채로 옵니다(`app/routers/uploads.py` `BreedEstimate`).
+ * 지금 화면은 이 값을 직접 그리지 않고 `GET /v1/calculator-link` 가 조립해 주는
+ * `breed_label` 만 쓰므로 표시에 영향은 없습니다. 나중에 직접 그릴 때 «null» 이라고
+ * 적힌 화면이 나오지 않도록 여기서 미리 사실대로 적어 둡니다.
+ */
 export interface BreedEstimate {
   /** 계산기 견종 42종 코드표와 값 도메인을 공유(§2 W-07 계약 노트). */
-  code: string
-  label: string
-  confidence: number
+  code: string | null
+  label: string | null
+  confidence: number | null
 }
 
 export interface UploadResult {
@@ -248,11 +267,21 @@ export interface Job {
    * "이 사진으로 다른 스타일"(FR-W06-07)이 이 둘로 `POST /v1/jobs` 를 재조립합니다.
    * 커스텀 프롬프트 job 은 `style_id: null`.
    *
-   * `Pet.latest_upload_id` 와 같은 이유로 옵셔널입니다 — 백엔드 미구현 구간에서는
-   * api/jobContext.ts 의 localStorage 색인이 대신 답합니다(resolveJobContext).
+   * PR #60 으로 백엔드 구현이 착지해 옵셔널을 뗐습니다 — 이제 모든 job 응답이
+   * 답합니다. 로컬 색인(api/jobContext.ts)에 남은 용도는 `customPrompt` 하나입니다.
    */
-  style_id?: number | null
-  upload_id?: string
+  style_id: number | null
+  upload_id: string
+  /**
+   * 큐에 들어간 시각(ISO 8601). 워커가 집기 전까지 `started_at` 은 null 입니다(PR #60).
+   *
+   * FR-EDGE-02(60초 초과 → 백그라운드 전환) 판정은 **`started_at` 기준**입니다 — 큐
+   * 대기는 «생성 처리» 시간이 아니라는 게 NFR-PERF-01 의 정의입니다(§3). 다만 화면이
+   * 대기 자체를 못 본 척할 수는 없어서, `started_at` 이 아직 없는 동안은 `queued_at`
+   * 으로 같은 판정을 겁니다(screens/W05Waiting.tsx 주석).
+   */
+  queued_at: string
+  started_at: string | null
   /** 진행 중에만 값이 있고 실패 시 null. */
   progress: number | null
   eta_seconds: number | null
@@ -325,8 +354,15 @@ export type ClaimableAction = Exclude<EarnAction, 'order'>
 export interface EarnActionRow {
   action: EarnAction
   amount: number
-  /** done = 1회 한정 완료, tomorrow = daily 를 오늘 이미 받음. */
-  status: 'available' | 'done' | 'tomorrow'
+  /**
+   * done = 1회 한정 완료, tomorrow = daily 를 오늘 이미 받음,
+   * login_required = **게스트**(PR #58, 이슈 #52).
+   *
+   * 게스트에게는 서버가 4행 전부 `login_required` + `cta: "로그인"` 으로 내려줍니다 —
+   * 크레딧 획득이 회원 전용이라는 사실을 목록 자체가 말하게 됐습니다. 그전에는 게스트도
+   * "받기" 가 보였고, 누르면 401 이었습니다.
+   */
+  status: 'available' | 'done' | 'tomorrow' | 'login_required'
   cta: string | null
 }
 

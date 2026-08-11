@@ -45,6 +45,20 @@ import { clearUploadDraft, readUploadDraft, writeUploadDraft } from '../api/uplo
 import type { Pet, UploadIssue, UploadResult } from '../api/types'
 import InsufficientCreditOverlay from './InsufficientCreditOverlay'
 
+/** `app/routers/uploads.py` 의 `_ALLOWED_CONTENT_TYPES`·`_MAX_FILE_SIZE` 와 같은 값입니다. */
+const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+const MAX_FILE_BYTES = 10 * 1024 * 1024
+
+function fileRejection(file: File): string | null {
+  if (!ACCEPTED_TYPES.includes(file.type)) {
+    return 'JPG · PNG · WEBP 사진만 올릴 수 있어요.'
+  }
+  if (file.size > MAX_FILE_BYTES) {
+    return '사진은 10MB까지 올릴 수 있어요. 더 작은 사진으로 다시 골라 주세요.'
+  }
+  return null
+}
+
 export default function W04Upload() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -57,6 +71,8 @@ export default function W04Upload() {
 
   const [petId, setPetId] = useState<string | null>(null)
   const [upload, setUpload] = useState<UploadResult | null>(null)
+  /** 올리기 전에 걸러낸 파일(형식·용량). 서버 왕복이 없으므로 mutation 에 안 남습니다. */
+  const [fileError, setFileError] = useState<string | null>(null)
   const [insufficient, setInsufficient] = useState<{ required: number; balance: number } | null>(
     null,
   )
@@ -109,6 +125,22 @@ export default function W04Upload() {
   function handleFile(file: File | undefined) {
     if (!file) return
     setInsufficient(null)
+    /*
+      서버가 받는 조건을 **올리기 전에** 확인합니다 (PR #59 착지분).
+
+      `POST /v1/uploads` 는 jpeg/png/webp 와 10MB 를 넘으면 400 으로 돌려보냅니다
+      (`app/routers/uploads.py`). 조건을 알면서도 그냥 올리면, 모바일 데이터로 10MB 를
+      다 태운 뒤에야 "파일 크기는 10MB 이하여야 합니다"를 보게 됩니다. 판정 기준은
+      서버와 같은 값이라 여기서 통과한 파일이 서버에서 형식으로 막히는 일은 없습니다.
+
+      최종 판단은 여전히 서버입니다 — 확장자만 바꾼 파일은 여기서 못 걸러냅니다.
+    */
+    const localError = fileRejection(file)
+    if (localError) {
+      setFileError(localError)
+      return
+    }
+    setFileError(null)
     uploadPhoto.mutate(
       { file, petId },
       {
@@ -226,7 +258,9 @@ export default function W04Upload() {
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          // 서버가 받는 세 형식만(PR #59). `image/*` 는 HEIC·GIF 까지 고르게 해 놓고
+          // 서버에서 400 으로 되돌려보내는 길이었습니다 — 못 쓰는 파일은 애초에 회색으로.
+          accept={ACCEPTED_TYPES.join(',')}
           className="hidden"
           onChange={(event) => handleFile(event.currentTarget.files?.[0])}
         />
@@ -255,7 +289,7 @@ export default function W04Upload() {
             onSelectPet={selectPet}
             onOpenPicker={() => fileInputRef.current?.click()}
             uploading={uploadPhoto.isPending}
-            uploadError={uploadPhoto.error?.message ?? null}
+            uploadError={fileError ?? uploadPhoto.error?.message ?? null}
           />
         )}
       </main>
