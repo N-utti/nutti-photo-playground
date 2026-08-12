@@ -21,6 +21,7 @@ import type {
   Paginated,
   Pet,
   PetSummary,
+  ShareResult,
   SocialProvider,
   StyleCatalog,
   StyleDetail,
@@ -138,8 +139,15 @@ export const jobs = {
 
   get: (jobId: string, signal?: AbortSignal) => request<Job>(`/jobs/${jobId}`, { signal }),
 
+  /**
+   * `channel` 은 서버가 받기만 하고 검증도 저장도 하지 않습니다(PR #73) — 값 도메인
+   * 제약이 §3 에 없어서입니다. 응답 URL 은 채널과 무관하게 같은 결과 이미지입니다.
+   *
+   * FR-W06-12 의 share_click 지표는 이 호출이 아니라 `POST /v1/events` 비콘이
+   * 기록합니다(W06Result.tsx ShareRow) — 서버는 여기서 아무 지표도 남기지 않습니다.
+   */
   share: (jobId: string, channel = 'instagram') =>
-    request<{ share_image_url: string }>(`/jobs/${jobId}/share`, {
+    request<ShareResult>(`/jobs/${jobId}/share`, {
       method: 'POST',
       json: { channel },
     }),

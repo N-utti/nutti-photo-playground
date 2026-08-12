@@ -319,6 +319,26 @@ export interface CreateJobBody {
   custom_prompt: string | null
 }
 
+/**
+ * `POST /v1/jobs/{job_id}/share` 응답 (PR #73 착지분).
+ *
+ * **`share_image_url` 은 `results[0].image_url` 과 같은 URL 입니다** — 서버는 공유용
+ * 사본을 따로 만들지 않고 결과 JPEG 의 `public_url` 을 그대로 돌려줍니다
+ * (`app/routers/jobs.py` 의 238행과 276행이 같은 `public_url(storage_key)`).
+ * 워커가 생성 시점에 누띠 서명을 합성해 저장하므로 그 파일이 곧 «서명 포함 이미지»고,
+ * §3 예시 URL 의 `share/` 경로는 예시일 뿐 실제 경로가 아닙니다(PR #73 본문).
+ *
+ * 그래서 화면은 이 응답을 «새 이미지»로 소개하면 안 됩니다 — 사용자가 위에서 보고 있는
+ * 그 결과물입니다. 그럼에도 호출을 유지하는 이유는 인스타 전용 리사이즈·합성이 생기면
+ * 값이 갈라질 자리가 여기이기 때문입니다.
+ *
+ * 404 조건(모두 같은 `NOT_FOUND`): 없는 job · 다른 회원 소유 · 비UUID job_id ·
+ * **결과가 아직/영영 없는 job**(queued·processing·failed). 게스트도 호출할 수 있습니다.
+ */
+export interface ShareResult {
+  share_image_url: string
+}
+
 // ---------------------------------------------------------------- 계산기 연결
 
 export interface CalculatorLink {

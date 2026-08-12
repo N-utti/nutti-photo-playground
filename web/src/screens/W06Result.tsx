@@ -318,14 +318,30 @@ function ShareRow({ job }: { job: Job }) {
       )}
 
       {share.data && (
-        // 인스타그램은 웹에서 대신 게시할 수 없습니다 — 공유용 이미지를 내려받아
-        // 사용자가 직접 올리는 게 현재로선 유일한 경로입니다.
+        /*
+          인스타그램은 웹에서 대신 게시할 수 없습니다 — 이미지를 내려받아 사용자가 직접
+          올리는 게 현재로선 유일한 경로입니다.
+
+          이 이미지는 **위 슬라이더의 결과와 같은 파일**입니다(PR #73 — 서버는 공유용
+          사본을 만들지 않고 결과 `public_url` 을 그대로 돌려줍니다, api/types.ts
+          ShareResult). 그래서 «공유용 이미지» 라고 부르지 않습니다 — 새 그림이 생겼다고
+          읽히면 사용자는 서명·구도가 달라진 별도 결과물을 기대하게 되고, 실제로는 방금
+          본 그 사진이라 기대가 어긋납니다. 여기서 다시 그리는 이유는 슬라이더가 결과를
+          늘 반쪽만 보여 주기 때문입니다 — 올릴 그림 전체를 보는 자리는 여기뿐입니다.
+
+          `download` 속성은 **같은 오리진일 때만** 동작합니다. 서버 설정에 CDN이 붙으면
+          (app/storage.py `public_url`) 이 URL 은 크로스 오리진이 되고 브라우저가 속성을
+          무시해 «저장» 이 이미지로 이동이 됩니다 — 백엔드 CORS 확인이 필요한 사안입니다.
+        */
         <div className="mt-3 rounded-lg border border-rule bg-surface p-3">
           <img
             src={share.data.share_image_url}
-            alt="공유용 이미지"
+            alt="저장할 결과 이미지"
             className="w-full rounded-lg bg-canvas-2"
           />
+          <p className="mt-2 text-center text-xs text-ink-3">
+            누띠 서명이 이미 들어 있어요 — 저장해서 인스타그램에 올려 주세요
+          </p>
           <div className="mt-2 grid grid-cols-2 gap-2">
             <a
               href={share.data.share_image_url}
