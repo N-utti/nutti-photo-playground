@@ -8,7 +8,8 @@
  *
  * 시나리오 강제: localStorage 에 `nutti.mock.scenario` 를 넣으면 해당 케이스로 고정됩니다.
  *   upload:warn | upload:nodog | upload:multi | upload:face | upload:face-block | upload:block
- *   job:fail | job:safety | job:unknown-error | job:flaky | job:slow | job:queued | credit:empty
+ *   job:fail | job:safety | job:retries | job:unknown-error | job:flaky | job:slow | job:queued
+ *   credit:empty
  *   session:expired | guest:ratelimited | session:lost | auth:statefail | cafe24:linked
  *   refresh:fail | refresh:429
  *
@@ -364,10 +365,42 @@ const FLAKY_JOB_DURATION_MS = 35_000
  */
 const SLOW_JOB_DURATION_MS = 150_000
 
+/** 워커가 큐에서 집기까지. 재시도 타임라인이 이 값을 기준으로 쌓입니다. */
+const INITIAL_QUEUE_MS = 1_500
+
+/**
+ * `job:retries` — 재시도 3회를 다 태우고 `MAX_RETRIES_EXCEEDED` 로 끝나는 job.
+ *
+ * PR #70(이슈 #64) 전까지 이 코드는 **moderation 거부까지 받아 내는 자리**였습니다.
+ * 이제 안전 차단은 재시도 없이 `SAFETY_BLOCKED` 로 즉시 끝나므로(app/worker.py
+ * `_is_safety_block`), 여기 남는 건 «진짜로 세 번 다 실패한 일시적 오류» 하나뿐이고
+ * W-06 의 세 번째 문구("여러 번 시도했지만 실패했어요 · 잠시 뒤에 다시")가 정확히
+ * 그 경우에만 뜹니다. 그런데 목이 이 코드를 만들 수 없어서, 문서화된 실패 코드 3종
+ * 중 이것만 브라우저에서 **한 번도 뜨지 않았습니다**.
+ *
+ * 한 번 실패할 때마다 워커는 status 를 `queued` 로 되돌립니다(process_job 마지막
+ * else). 그래서 이 시나리오는 processing → queued → processing 을 실제로 오가고,
+ * W-05 가 그 되감기에서 막대를 뒤로 보내거나 «대기 중»으로 화면을 되돌리지 않는지도
+ * 여기서만 확인됩니다. `started_at` 은 재시도해도 최초 시각 그대로입니다(이슈 #41) —
+ * FR-EDGE-02 판정 시계는 재시도로 리셋되지 않습니다.
+ */
+const RETRY_ATTEMPTS = 3
+const RETRY_ATTEMPT_MS = 6_000
+const RETRY_REQUEUE_MS = 2_000
+const RETRY_TOTAL_MS =
+  INITIAL_QUEUE_MS + RETRY_ATTEMPTS * RETRY_ATTEMPT_MS + (RETRY_ATTEMPTS - 1) * RETRY_REQUEUE_MS
+
+/** 워커가 집은 뒤 경과분이 «실패하고 다시 큐에 앉아 있는» 구간인지. */
+function inRequeueGap(sincePickup: number): boolean {
+  const cycle = RETRY_ATTEMPT_MS + RETRY_REQUEUE_MS
+  return sincePickup % cycle >= RETRY_ATTEMPT_MS
+}
+
 function jobDuration(): number {
   const forced = scenario()
   if (forced === 'job:flaky') return FLAKY_JOB_DURATION_MS
   if (forced === 'job:slow') return SLOW_JOB_DURATION_MS
+  if (forced === 'job:retries') return RETRY_TOTAL_MS
   return JOB_DURATION_MS
 }
 
@@ -466,7 +499,7 @@ function projectJob(job: MockJob): Job {
     대기도 60초를 넘으면 «약 24초»가 거짓말이 됨)를 브라우저에서 밟아 보려면 목이
     이 상태를 만들 수 있어야 합니다.
   */
-  const QUEUE_MS = scenario() === 'job:queued' ? Number.POSITIVE_INFINITY : 1_500
+  const QUEUE_MS = scenario() === 'job:queued' ? Number.POSITIVE_INFINITY : INITIAL_QUEUE_MS
   const materials = {
     style_id: job.styleId,
     upload_id: job.uploadId,
@@ -518,12 +551,35 @@ function projectJob(job: MockJob): Job {
   }
 
   const ratio = elapsed / duration
+  const progress = Math.floor(ratio * 100)
+  const etaSeconds = Math.ceil((duration - elapsed) / 1000)
+
+  /*
+    재시도 사이의 큐 대기(job:retries). 상태만 `queued` 로 되돌리고 `started_at` 과
+    진행률은 그대로 둡니다 — 워커가 되돌리는 것도 status 하나뿐이고(process_job),
+    진행률을 0 으로 떨어뜨리면 서버 progress 가 단조 증가라는 W-05 의 전제를 목이
+    깨뜨려 «되감기는 막대»를 없는 계약으로 만들어 냅니다.
+  */
+  if (scenario() === 'job:retries' && inRequeueGap(elapsed - QUEUE_MS)) {
+    return {
+      job_id: job.id,
+      status: 'queued',
+      ...materials,
+      progress,
+      eta_seconds: etaSeconds,
+      status_message: '잠시 뒤 다시 시도할게요…',
+      source_image_url: sourceImageUrl,
+      results: null,
+      error_code: null,
+    }
+  }
+
   return {
     job_id: job.id,
     status: 'processing',
     ...materials,
-    progress: Math.floor(ratio * 100),
-    eta_seconds: Math.ceil((duration - elapsed) / 1000),
+    progress,
+    eta_seconds: etaSeconds,
     status_message: '레고 블록을 쌓는 중…',
     source_image_url: sourceImageUrl,
     results: null,
@@ -964,9 +1020,11 @@ export const handlers = [
           ? 'GENERATION_FAILED'
           : forced === 'job:safety'
             ? 'SAFETY_BLOCKED'
-            : forced === 'job:unknown-error'
-              ? 'PROVIDER_ERROR'
-              : null,
+            : forced === 'job:retries'
+              ? 'MAX_RETRIES_EXCEEDED'
+              : forced === 'job:unknown-error'
+                ? 'PROVIDER_ERROR'
+                : null,
     }
     state.jobs.set(job.id, job)
     state.idempotency.set(key, job.id)

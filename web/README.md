@@ -58,7 +58,8 @@ localStorage.setItem('nutti.mock.scenario', 'upload:face')  // 사람 얼굴 —
 localStorage.setItem('nutti.mock.scenario', 'upload:face-block') // 사람 얼굴 — policy=block (FR-EDGE-06)
 localStorage.setItem('nutti.mock.scenario', 'upload:block') // 고양이 감지(차단, FR-EDGE-07)
 localStorage.setItem('nutti.mock.scenario', 'job:fail')     // GENERATION_FAILED + 크레딧 반환
-localStorage.setItem('nutti.mock.scenario', 'job:safety')   // SAFETY_BLOCKED
+localStorage.setItem('nutti.mock.scenario', 'job:safety')   // SAFETY_BLOCKED — 안전 필터 차단, 재시도 없이 즉시 실패 + 크레딧 반환(PR #70)
+localStorage.setItem('nutti.mock.scenario', 'job:retries')  // MAX_RETRIES_EXCEEDED — 시도 3회를 태우며 processing↔queued 를 오간 뒤 실패
 localStorage.setItem('nutti.mock.scenario', 'job:flaky')    // 생성 중 3~18초 503 → W-05가 화면을 헐지 않고 자력 복구
 localStorage.setItem('nutti.mock.scenario', 'job:slow')     // 150초 job → 60초에서 W-05 백그라운드 전환(FR-EDGE-02)
 localStorage.setItem('nutti.mock.scenario', 'job:queued')   // 워커가 안 집는 job — started_at=null 인 큐 대기(PR #60)
