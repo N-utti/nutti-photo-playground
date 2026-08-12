@@ -37,6 +37,7 @@ import {
 } from '../api/queries'
 import { useGuestSessionReset } from '../app/guestSession'
 import { withReuse } from '../app/reuseFromJob'
+import { saveImage, type SaveImageOutcome } from '../app/saveImage'
 import Thumbnail from '../app/Thumbnail'
 import type { Job, JobErrorCode } from '../api/types'
 import AccountSheet from './AccountSheet'
@@ -271,6 +272,9 @@ function CompareSlider({ beforeUrl, afterUrl }: { beforeUrl: string; afterUrl: s
 function ShareRow({ job }: { job: Job }) {
   const share = useShareJob(job.job_id)
   const [accountSheet, setAccountSheet] = useState(false)
+  const [saving, setSaving] = useState(false)
+  // 'opened' 는 저장이 아니라 이미지가 새 탭에서 열렸다는 뜻입니다 — 그때만 안내합니다.
+  const [saveOutcome, setSaveOutcome] = useState<SaveImageOutcome | null>(null)
   // 서버가 보는 상태를 씁니다 — 시트에서 로그인하면 캐시가 무효화되면서 이 줄이
   // 곧바로 회원으로 바뀝니다. localStorage 의 kind 는 값이 바뀌어도 리렌더가 없습니다.
   const { data: me } = useMe()
@@ -329,9 +333,11 @@ function ShareRow({ job }: { job: Job }) {
           본 그 사진이라 기대가 어긋납니다. 여기서 다시 그리는 이유는 슬라이더가 결과를
           늘 반쪽만 보여 주기 때문입니다 — 올릴 그림 전체를 보는 자리는 여기뿐입니다.
 
-          `download` 속성은 **같은 오리진일 때만** 동작합니다. 서버 설정에 CDN이 붙으면
-          (app/storage.py `public_url`) 이 URL 은 크로스 오리진이 되고 브라우저가 속성을
-          무시해 «저장» 이 이미지로 이동이 됩니다 — 백엔드 CORS 확인이 필요한 사안입니다.
+          저장은 앵커에 URL 을 그대로 물리지 않고 `saveImage` 를 지납니다. `download`
+          속성이 같은 오리진에서만 먹어서, CDN 이 붙는 순간(app/storage.py `public_url`)
+          «이미지 저장» 이 이미지로 이동이 되기 때문입니다 — 이슈 #77, 그리고 그 조건을
+          배포 문서에 박은 PR #78. CORS 가 아직 안 열려 fetch 가 실패하면 예전 동작으로
+          물러나고, 그때만 길게 눌러 저장하라고 안내합니다.
         */
         <div className="mt-3 rounded-lg border border-rule bg-surface p-3">
           <img
@@ -343,13 +349,22 @@ function ShareRow({ job }: { job: Job }) {
             누띠 서명이 이미 들어 있어요 — 저장해서 인스타그램에 올려 주세요
           </p>
           <div className="mt-2 grid grid-cols-2 gap-2">
-            <a
-              href={share.data.share_image_url}
-              download
-              className="rounded-lg border border-rule-strong px-3 py-2 text-center text-sm font-semibold"
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => {
+                const url = share.data?.share_image_url
+                if (!url) return
+                setSaving(true)
+                setSaveOutcome(null)
+                void saveImage(url, `nutti-${job.job_id}.jpg`)
+                  .then(setSaveOutcome)
+                  .finally(() => setSaving(false))
+              }}
+              className="rounded-lg border border-rule-strong px-3 py-2 text-center text-sm font-semibold disabled:opacity-50"
             >
-              이미지 저장
-            </a>
+              {saving ? '저장 중…' : '이미지 저장'}
+            </button>
             <a
               href="https://www.instagram.com/"
               target="_blank"
@@ -359,6 +374,11 @@ function ShareRow({ job }: { job: Job }) {
               인스타그램 열기
             </a>
           </div>
+          {saveOutcome === 'opened' && (
+            <p className="mt-2 text-center text-xs text-ink-3">
+              새 탭에 이미지를 열었어요 — 이미지를 길게 눌러 저장해 주세요.
+            </p>
+          )}
         </div>
       )}
 
