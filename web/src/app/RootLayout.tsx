@@ -7,7 +7,7 @@
 
 import { useState } from 'react'
 import { Outlet } from 'react-router'
-import { ensureSession, isApiError, session } from '../api/client'
+import { ensureSession, isApiError, retryMemberRotation, session } from '../api/client'
 import { formatRetryAfter } from './retryAfter'
 import { clearSessionStatus, useSessionStatus } from './sessionStatus'
 
@@ -21,10 +21,18 @@ export default function RootLayout() {
 }
 
 function SessionBanner() {
-  const { lost, lostKind, rateLimited, retryAfter } = useSessionStatus()
+  const { lost, lostKind, rateLimited, retryAfter, refreshThrottled, refreshRetryAfter } =
+    useSessionStatus()
   const [retrying, setRetrying] = useState(false)
   const [retryError, setRetryError] = useState<string | null>(null)
 
+  /*
+    갱신 제한은 «세션이 끊긴» 상태가 아니라서 아래 배너와 섞지 않습니다 (이슈 #11 R3).
+    끊김이 함께 걸려 있으면 그쪽이 먼저입니다 — 저쪽은 기다려도 안 풀립니다.
+  */
+  if (!lost && !rateLimited && refreshThrottled) {
+    return <RefreshThrottledBanner seconds={refreshRetryAfter} />
+  }
   if (!lost && !rateLimited) return null
 
   /*
@@ -84,6 +92,54 @@ function SessionBanner() {
         className="mt-2 rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-paper disabled:opacity-50"
       >
         {retrying ? '시작하는 중…' : memberLost ? '계속하기' : '새로 시작하기'}
+      </button>
+    </div>
+  )
+}
+
+/**
+ * 회원 액세스 갱신이 429 로 막힌 동안의 배너 (이슈 #11 R3).
+ *
+ * 위 배너와 갈라놓은 이유는 문구가 아니라 **버튼이 하는 일**입니다. 저쪽의 복구는
+ * `session.clear()` + 새 세션인데, 여기서 그걸 하면 아직 살아 있는 리프레시를 버려
+ * 기다리면 될 일을 재로그인으로 만듭니다. 여기서는 회전만 한 번 더 시도합니다.
+ *
+ * 잃은 게 없으므로 «데이터가 사라진다» 는 말도 하지 않습니다 — 지금 상태는 잠시
+ * 새로고침이 안 되는 것뿐이고, 사용자가 알아야 할 건 «언제 다시 되나» 하나입니다.
+ */
+function RefreshThrottledBanner({ seconds }: { seconds: number | null }) {
+  const [retrying, setRetrying] = useState(false)
+  const [failed, setFailed] = useState(false)
+
+  async function retry() {
+    setRetrying(true)
+    setFailed(false)
+    // 성공하면 배너는 이벤트로 내려갑니다(sessionStatus). 화면들은 만료된 액세스로
+    // 이미 실패해 있으므로 새로고침으로 한 번에 다시 세웁니다.
+    if (await retryMemberRotation()) {
+      window.location.reload()
+      return
+    }
+    setFailed(true)
+    setRetrying(false)
+  }
+
+  return (
+    <div role="alert" className="border-b border-rule-strong bg-surface px-5 py-3 text-sm">
+      <p className="font-semibold">지금은 로그인을 갱신할 수 없어요</p>
+      <p className="mt-1 text-ink-2">
+        {`같은 네트워크에서 갱신 요청이 너무 많았어요. 로그인은 그대로 살아 있으니 ${formatRetryAfter(seconds)} 다시 시도하면 이어서 쓸 수 있어요.`}
+      </p>
+      {/* 실패해도 문구를 새로 만들지 않습니다 — 서버가 새 Retry-After 를 주면 위 문장의
+          시간이 이미 갱신돼 있고, 여기서 또 말하면 서로 다른 두 숫자가 같이 보입니다. */}
+      {failed && <p className="mt-1 text-danger">아직 풀리지 않았어요.</p>}
+      <button
+        type="button"
+        onClick={() => void retry()}
+        disabled={retrying}
+        className="mt-2 rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-paper disabled:opacity-50"
+      >
+        {retrying ? '시도하는 중…' : '다시 시도'}
       </button>
     </div>
   )

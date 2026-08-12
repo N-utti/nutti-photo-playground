@@ -37,6 +37,7 @@ localStorage.setItem('nutti.mock.scenario', 'job:queued')   // 워커가 안 집
 localStorage.setItem('nutti.mock.scenario', 'credit:empty') // 잔액 0에서 시작 → 402 → 시트에서 받고 재시도
 localStorage.setItem('nutti.mock.scenario', 'session:expired') // 액세스 만료 — 게스트는 재발급 → 404, 회원은 리프레시 회전으로 조용히 복구(PR #57)
 localStorage.setItem('nutti.mock.scenario', 'refresh:fail')    // 만료 + 회전 401 — 회원 재로그인 안내(다른 기기 로그인·30일 초과와 같은 코드)
+localStorage.setItem('nutti.mock.scenario', 'refresh:429')     // 만료 + 회전 429 — 공유 IP 에서 남이 태운 버킷에 걸린 회원(이슈 #11 R3). 세션은 살아 있고 기다리면 풀림
 localStorage.setItem('nutti.mock.scenario', 'session:lost')    // 재발급으로 안 풀리는 401 — 앱바 크레딧이 어느 화면에서나 부름
 localStorage.setItem('nutti.mock.scenario', 'guest:ratelimited') // 게스트 발급 429 (이슈 #15)
 localStorage.setItem('nutti.mock.scenario', 'auth:statefail')  // 소셜 콜백 state 검증 실패(401)
