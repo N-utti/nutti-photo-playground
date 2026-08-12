@@ -165,6 +165,9 @@ export default function W04Upload() {
     const next = pet.id === petId ? null : pet.id
     setPetId(next)
     setInsufficient(null)
+    // 거절당한 파일의 문구는 그 선택에만 붙습니다. 강아지를 고른 순간 다른 사진을
+    // 고른 것이므로, 남겨 두면 "10MB 초과" 빨간 줄이 성공한 선택 위에 계속 뜹니다.
+    setFileError(null)
     if (next === null || !pet.latest_upload_id) return
 
     const reused: UploadResult = {
@@ -183,6 +186,9 @@ export default function W04Upload() {
   function pickAnother() {
     setUpload(null)
     setInsufficient(null)
+    // 확인 단계에서 되돌아온 선택 화면은 처음 상태여야 합니다 — 지난 거절 문구가
+    // 남으면 방금 잘 쓰던 사진을 두고 실패한 것처럼 보입니다.
+    setFileError(null)
     uploadPhoto.reset()
     clearUploadDraft()
     // 같은 파일을 다시 고를 때 change 이벤트가 안 뜨는 문제를 막습니다.
