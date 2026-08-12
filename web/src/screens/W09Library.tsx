@@ -35,6 +35,7 @@ import { useDeleteLibraryItems, useLibrary, useMe, usePets } from '../api/querie
 import { CreditBadge } from '../app/CreditBadge'
 import { TabBar } from '../app/TabBar'
 import { useGuestSessionReset } from '../app/guestSession'
+import { saveImage } from '../app/saveImage'
 import type { LibraryItem, LibraryMonth } from '../api/types'
 import AccountSheet from './AccountSheet'
 
@@ -467,7 +468,10 @@ function SelectionBar({
   onDelete: () => void
 }) {
   const [confirming, setConfirming] = useState(false)
-  const disabled = items.length === 0 || pending
+  const [saving, setSaving] = useState(false)
+  // 한 장이라도 저장이 아니라 «열기» 로 끝났으면 안내합니다 (saveImage 참고).
+  const [opened, setOpened] = useState(false)
+  const disabled = items.length === 0 || pending || saving
 
   return (
     <>
@@ -476,10 +480,16 @@ function SelectionBar({
           <button
             type="button"
             disabled={disabled}
-            onClick={() => void saveAll(items)}
+            onClick={() => {
+              setSaving(true)
+              setOpened(false)
+              void saveAll(items)
+                .then(setOpened)
+                .finally(() => setSaving(false))
+            }}
             className="flex-1 rounded-xl border border-rule-strong px-4 py-3 text-sm font-semibold disabled:opacity-50"
           >
-            저장
+            {saving ? '저장 중…' : '저장'}
           </button>
           <button
             type="button"
@@ -493,6 +503,11 @@ function SelectionBar({
         {failed && (
           <p role="alert" className="mt-2 text-center text-sm text-danger">
             삭제하지 못했어요. 잠시 뒤 다시 시도해 주세요.
+          </p>
+        )}
+        {opened && (
+          <p className="mt-2 text-center text-xs text-ink-3">
+            일부는 새 탭에 열었어요 — 이미지를 길게 눌러 저장해 주세요.
           </p>
         )}
       </div>
@@ -544,28 +559,24 @@ function SelectionBar({
 }
 
 /**
- * 일괄 저장.
+ * 일괄 저장. 한 장이라도 저장이 아니라 «새 탭에 열기» 로 끝났으면 true.
  *
- * 브라우저에는 "여러 파일을 한 번에 받기"가 없어서 앵커를 순서대로 누르는 게 전부입니다.
+ * 브라우저에는 "여러 파일을 한 번에 받기"가 없어서 한 장씩 순서대로 받는 게 전부입니다.
  * 사이에 간격을 두는 이유는 연속 클릭을 팝업 차단이 묶어서 막기 때문입니다.
  *
- * **한계**: `download` 속성은 같은 출처(또는 `data:`)에서만 먹습니다. 결과 이미지가
- * 다른 출처의 CDN 에서 오면 브라우저가 저장 대신 그냥 엽니다 — `_blank` 를 붙인 건
- * 그 경우에 최소한 앱이 통째로 날아가지 않게 하려는 것입니다. 제대로 저장하려면
- * CDN 이 CORS 를 허용하거나 서버가 묶어서 내려줘야 합니다(백엔드 확인 필요).
+ * 앵커에 원본 URL 을 그대로 물리지 않고 `saveImage` 를 지나는 이유는 이슈 #77 —
+ * `download` 는 같은 출처에서만 먹어서 CDN 이 붙으면 저장이 «열기» 가 됩니다. 이제
+ * fetch → blob 으로 받아 저장하고, CORS 가 아직 안 열려 실패한 것만 예전처럼 엽니다
+ * (PR #78 이 CDN 설정 시 CORS 를 필수 조건으로 문서에 박아 뒀습니다).
  */
-async function saveAll(items: LibraryItem[]): Promise<void> {
+async function saveAll(items: LibraryItem[]): Promise<boolean> {
+  let opened = false
   for (const item of items) {
-    const anchor = document.createElement('a')
-    anchor.href = item.image_url
-    anchor.download = `nutti-${item.result_id}.jpg`
-    anchor.target = '_blank'
-    anchor.rel = 'noopener'
-    document.body.append(anchor)
-    anchor.click()
-    anchor.remove()
+    const outcome = await saveImage(item.image_url, `nutti-${item.result_id}.jpg`)
+    if (outcome === 'opened') opened = true
     await new Promise((resolve) => window.setTimeout(resolve, 300))
   }
+  return opened
 }
 
 // ---------------------------------------------------------------- 빈 상태 · 게스트
