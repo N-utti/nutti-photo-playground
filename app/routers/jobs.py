@@ -7,7 +7,6 @@ from pydantic import BaseModel
 from tortoise.transactions import in_transaction
 
 from app.auth import get_current_member
-from app.common import not_implemented
 from app.credits import charge_credits
 from app.models import (
     AppSetting,
@@ -259,5 +258,19 @@ async def get_job(job_id: str, member: Member = Depends(get_current_member)):
 
 
 @router.post("/{job_id}/share")
-async def share_result(job_id: str, body: ShareRequest):
-    not_implemented()
+async def share_result(
+    job_id: str,
+    body: ShareRequest,
+    member: Member = Depends(get_current_member),
+):
+    try:
+        parsed_job_id = uuid.UUID(job_id)
+    except ValueError as exc:
+        raise _not_found() from exc
+    job = await GenerationJob.get_or_none(id=parsed_job_id, member_id=member.id)
+    if job is None:
+        raise _not_found()
+    result = await GenerationResult.filter(job_id=job.id).order_by("seq").first()
+    if result is None:
+        raise _not_found()
+    return {"share_image_url": public_url(result.storage_key)}

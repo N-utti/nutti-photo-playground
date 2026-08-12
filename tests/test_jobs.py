@@ -422,3 +422,67 @@ def test_get_job_hides_other_members_job_and_requires_authentication(client: Tes
     assert foreign.json()["error"]["code"] == "NOT_FOUND"
     assert anonymous.status_code == 401
     assert anonymous.json()["error"]["code"] == "UNAUTHORIZED"
+
+
+def test_share_result_returns_existing_result_public_url(client: TestClient):
+    member_id, upload_id, headers = _session(client)
+    job_ids = client.portal.call(_create_jobs_for_statuses, member_id, upload_id)
+
+    response = client.post(
+        f"/v1/jobs/{job_ids['succeeded']}/share",
+        headers=headers,
+        json={"channel": "instagram"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "share_image_url": "https://cdn.nutti.test/results/succeeded.jpg"
+    }
+
+
+def test_share_result_hides_other_members_job(client: TestClient):
+    owner_id, upload_id, _ = _session(client)
+    _, _, other_headers = _session(client)
+    job_ids = client.portal.call(_create_jobs_for_statuses, owner_id, upload_id)
+
+    response = client.post(
+        f"/v1/jobs/{job_ids['succeeded']}/share",
+        headers=other_headers,
+        json={"channel": "instagram"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "NOT_FOUND"
+
+
+def test_share_result_returns_not_found_when_job_has_no_result(client: TestClient):
+    member_id, upload_id, headers = _session(client)
+    job_ids = client.portal.call(_create_jobs_for_statuses, member_id, upload_id)
+
+    responses = [
+        client.post(
+            f"/v1/jobs/{job_ids[status]}/share",
+            headers=headers,
+            json={"channel": "instagram"},
+        )
+        for status in ("queued", "failed")
+    ]
+
+    assert [response.status_code for response in responses] == [404, 404]
+    assert all(response.json()["error"]["code"] == "NOT_FOUND" for response in responses)
+
+
+def test_share_result_returns_not_found_for_missing_or_invalid_job_id(client: TestClient):
+    _, _, headers = _session(client)
+
+    responses = [
+        client.post(
+            f"/v1/jobs/{job_id}/share",
+            headers=headers,
+            json={"channel": "instagram"},
+        )
+        for job_id in (uuid.uuid4(), "not-a-uuid")
+    ]
+
+    assert [response.status_code for response in responses] == [404, 404]
+    assert all(response.json()["error"]["code"] == "NOT_FOUND" for response in responses)
