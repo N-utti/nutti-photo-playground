@@ -5,10 +5,13 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import httpx
+
 os.environ.setdefault("DATABASE_URL", "sqlite://:memory:")
 os.environ.setdefault("APP_ENV", "development")
 
 import pytest
+from openai import BadRequestError
 from PIL import Image
 from tortoise import Tortoise, connections
 
@@ -31,6 +34,12 @@ from conftest import reset_tortoise_executor_cache
 
 
 TEST_PG_DATABASE_URL = os.getenv("TEST_PG_DATABASE_URL")
+
+
+def _bad_request(code: str) -> BadRequestError:
+    request = httpx.Request("POST", "https://api.openai.com/v1/images/edits")
+    response = httpx.Response(400, request=request)
+    return BadRequestError("blocked", response=response, body={"code": code})
 
 
 @pytest.fixture(autouse=True)
@@ -136,6 +145,44 @@ async def test_provider_failure_requeues_without_refund(monkeypatch: pytest.Monk
     assert saved_job.status == JobStatus.QUEUED
     assert saved_job.attempt_count == 1
     assert not await CreditLedger.filter(reason="generation_refund").exists()
+
+
+async def test_safety_block_fails_immediately_with_refund(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    _, job, _ = await _preset_job(attempt_count=0)
+
+    async def blocked(*_args):
+        raise _bad_request("moderation_blocked")
+
+    monkeypatch.setattr(worker, "_generate_image", blocked)
+    await worker.process_job({"id": str(job.id)})
+
+    saved_job = await GenerationJob.get(id=job.id)
+    refunds = await CreditLedger.filter(
+        reason="safety_block_refund", dedupe_key=f"refund:{job.id}"
+    ).all()
+    assert saved_job.status == JobStatus.FAILED
+    assert saved_job.error_code == "SAFETY_BLOCKED"
+    assert saved_job.attempt_count == 1
+    assert saved_job.finished_at is not None
+    assert len(refunds) == 1
+    assert refunds[0].amount == 2
+    assert not await CreditLedger.filter(reason="generation_refund").exists()
+
+
+async def test_non_safety_bad_request_still_retries(monkeypatch: pytest.MonkeyPatch):
+    _, job, _ = await _preset_job(attempt_count=0)
+
+    async def invalid_image(*_args):
+        raise _bad_request("invalid_image")
+
+    monkeypatch.setattr(worker, "_generate_image", invalid_image)
+    await worker.process_job({"id": str(job.id)})
+
+    saved_job = await GenerationJob.get(id=job.id)
+    assert saved_job.status == JobStatus.QUEUED
+    assert await CreditLedger.all().count() == 0
 
 
 async def test_third_failure_is_terminal_and_refund_is_deduplicated(
