@@ -27,7 +27,10 @@ dev = [
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 # var/ holds runtime artifacts (local media fallback storage, etc.), never test sources.
-norecursedirs = ["var", ".git", ".venv"]
+# ponytail: explicitly listing norecursedirs replaces pytest's built-in default (which
+# already excludes dot-dirs via ".*") instead of extending it — keep ".*" here too so
+# stray dot-prefixed dirs (broken-permission leftovers included) never break collection.
+norecursedirs = ["var", ".*"]
 
 [tool.aerich]
 tortoise_orm = "app.settings.TORTOISE_ORM"
