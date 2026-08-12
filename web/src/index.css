@@ -145,6 +145,7 @@
 
 :root {
   color-scheme: light;
+  scroll-behavior: smooth;
 }
 
 html,
@@ -175,4 +176,29 @@ img {
   outline: 2px solid var(--color-brand);
   outline-offset: 2px;
   border-radius: 2px;
+}
+
+/* 터치와 클릭의 피드백은 짧고 절제되게 제공합니다. 모션 민감 사용자는
+   시스템 설정을 우선합니다. */
+@media (prefers-reduced-motion: no-preference) {
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']) {
+    transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  button:not(:disabled):active,
+  [role='button']:not([aria-disabled='true']):active {
+    transform: scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }

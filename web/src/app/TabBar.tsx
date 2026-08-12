@@ -59,9 +59,9 @@ export function TabBar() {
       aria-label="주요 메뉴"
       // z-20 — W-03 시트·삭제 확인(z-30)보다 아래입니다. 모달이 떠 있는데 탭바가
       // 그 위에 뜨면 모달 밖으로 나가는 길이 열려 모달이 아니게 됩니다.
-      className="fixed inset-x-0 bottom-0 z-20 border-t border-rule bg-surface pb-[env(safe-area-inset-bottom)]"
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-20 px-3 pb-[env(safe-area-inset-bottom)]"
     >
-      <ul className="mx-auto flex w-full max-w-md">
+      <ul className="pointer-events-auto mx-auto mb-3 flex w-full max-w-md rounded-2xl border border-rule/80 bg-surface/95 p-1 shadow-[0_10px_28px_rgba(51,46,42,0.13)] backdrop-blur-md">
         {TABS.map((tab) => {
           const active = isActive(pathname, tab.to)
           return (
@@ -69,8 +69,8 @@ export function TabBar() {
               <Link
                 to={tab.to}
                 aria-current={active ? 'page' : undefined}
-                className={`flex flex-col items-center gap-0.5 py-2 text-[11px] ${
-                  active ? 'font-semibold text-brand' : 'text-ink-3'
+                className={`flex flex-col items-center gap-0.5 rounded-xl py-2 text-[11px] transition ${
+                  active ? 'bg-brand-soft/75 font-semibold text-brand' : 'text-ink-3 hover:bg-surface-2 hover:text-ink-2'
                 }`}
               >
                 <tab.icon />
@@ -91,7 +91,7 @@ export function TabBar() {
             onClick={() =>
               void events.track({ event_type: 'shop_exit_click', properties: { from: 'tabbar' } })
             }
-            className="flex flex-col items-center gap-0.5 py-2 text-[11px] text-ink-3"
+            className="flex flex-col items-center gap-0.5 rounded-xl py-2 text-[11px] text-ink-3 transition hover:bg-surface-2 hover:text-ink-2"
           >
             <BagIcon />
             누띠샵

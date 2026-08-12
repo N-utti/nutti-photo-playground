@@ -44,7 +44,7 @@ export default function W01Landing() {
   return (
     <div className="min-h-full bg-paper">
       {/* 노트3 — 이 사이트가 누띠의 것임을 처음부터 밝힙니다. */}
-      <header className="flex items-center gap-2 border-b border-rule bg-surface px-4 py-3">
+        <header className="flex items-center gap-2 border-b border-rule/80 bg-surface/90 px-4 py-3 backdrop-blur-md">
         {/*
           쇼핑몰 헤더에 걸린 것과 같은 NUTTi 워드마크입니다(출처·라이선스는
           public/brand/NOTICE.md). 서체로 흉내 내지 않고 로고 원본을 씁니다 —
@@ -92,16 +92,24 @@ export default function W01Landing() {
 
       <main className="mx-auto w-full max-w-(--container-canvas) px-4 pb-16">
         {/* 모바일은 헤드라인 → 슬라이더 → CTA 세로 순서, 데스크톱은 좌(문구·CTA)/우(슬라이더). */}
-        <section className="grid gap-4 pt-6 desktop:grid-cols-2 desktop:items-center desktop:gap-12 desktop:pt-14">
-          {/* 히어로만 display 서체를 씁니다. Ohsquare 는 굵고 둥글어서 큰 글씨에서만
-              브랜드로 읽히고, 앱바 h1(text-base)에 쓰면 밀도만 나빠집니다. */}
-          <h1 className="font-display text-3xl leading-tight desktop:col-start-1 desktop:row-start-1 desktop:self-end desktop:text-5xl">
+        <section className="relative grid gap-5 pt-7 desktop:grid-cols-2 desktop:items-center desktop:gap-12 desktop:pt-14">
+          <div aria-hidden className="absolute -top-8 left-1/3 -z-0 size-40 rounded-full bg-gold-soft/70 blur-3xl" />
+          <div className="relative z-10 desktop:col-start-1 desktop:row-start-1 desktop:self-end">
+            <p className="mb-3 inline-flex items-center gap-2 rounded-full border border-brand-2/25 bg-surface/80 px-3 py-1 text-xs font-semibold tracking-[0.12em] text-brand-2">
+              <span aria-hidden className="size-1.5 rounded-full bg-gold" />
+              NUTTI PHOTO PLAYGROUND
+            </p>
+            {/* 히어로만 display 서체를 씁니다. Ohsquare 는 굵고 둥글어서 큰 글씨에서만
+                브랜드로 읽히고, 앱바 h1(text-base)에 쓰면 밀도만 나빠집니다. */}
+            <h1 className="font-display text-3xl leading-[1.28] tracking-[-0.03em] desktop:text-5xl">
             우리 애를 레고로,
             <br />
             초상화로, 우주비행사로
-          </h1>
+            </h1>
+          </div>
 
-          <div className="desktop:col-start-2 desktop:row-span-2 desktop:row-start-1">
+          <div className="relative z-10 desktop:col-start-2 desktop:row-span-2 desktop:row-start-1">
+            <div aria-hidden className="absolute -right-3 -top-3 hidden size-16 rounded-full border border-brand-2/20 bg-gold-soft desktop:block" />
             <BeforeAfterSlider />
           </div>
 
@@ -109,24 +117,30 @@ export default function W01Landing() {
               각 행이 기본값(center)이면 헤드라인과 CTA 가 자기 행 한가운데로 흩어져
               사이가 화면 높이만큼 벌어집니다 — 헤드라인은 아래로, CTA 는 위로 붙여
               가운데에서 만나게 합니다. 모바일(1열)에는 영향이 없습니다. */}
-          <div className="desktop:col-start-1 desktop:row-start-2 desktop:self-start">
+          <div className="relative z-10 desktop:col-start-1 desktop:row-start-2 desktop:self-start">
             {/* 노트2 — 조사한 모든 서비스가 가입을 먼저 요구했습니다. 여기서 웹의 우위를 씁니다. */}
             <Link
               to="/upload"
               onClick={trackCtaClick}
-              className="block rounded-xl bg-brand px-5 py-3.5 text-center text-base font-semibold text-paper desktop:inline-block desktop:px-7"
+              className="group inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-brand px-5 py-3.5 text-center text-base font-semibold text-paper shadow-[0_12px_28px_rgba(92,61,36,0.22)] transition duration-200 hover:-translate-y-0.5 hover:bg-brand-deep active:translate-y-0 desktop:w-auto desktop:px-7"
             >
               사진 올리고 무료로 1장 만들기
+              <span aria-hidden className="transition-transform duration-200 group-hover:translate-x-0.5">→</span>
             </Link>
             {/* 노트4 — 고양이 보호자가 업로드했다가 실망하기 전에 여기서 말합니다. */}
             <p className="mt-2 text-center text-sm text-ink-3 desktop:text-left">
               가입 없이 · 전부 무료 · 강아지 전용
             </p>
+            <div className="mt-5 grid max-w-md grid-cols-3 gap-2 text-center text-[11px] text-ink-2">
+              <span className="rounded-xl border border-rule/80 bg-surface/70 px-2 py-2">01 · 사진</span>
+              <span className="rounded-xl border border-rule/80 bg-surface/70 px-2 py-2">02 · 스타일</span>
+              <span className="rounded-xl border border-rule/80 bg-surface/70 px-2 py-2">03 · 완성</span>
+            </div>
           </div>
         </section>
 
         {/* 노트5 — 카탈로그를 암시하되 스크롤을 잡아먹지 않게 한 줄로 제한. */}
-        <section className="pt-10 desktop:pt-16">
+        <section className="relative z-10 pt-12 desktop:pt-16">
           <div className="flex items-baseline justify-between gap-2">
             <h2 className="text-base font-bold">지금 인기 스타일</h2>
             <Link to="/styles" className="text-sm text-ink-2 underline">
@@ -172,7 +186,7 @@ function PreviewCard({ style }: { style: StyleCard }) {
   return (
     <Link
       to={`/styles/${style.id}`}
-      className="block overflow-hidden rounded-lg border border-rule bg-surface"
+      className="group block overflow-hidden rounded-2xl border border-rule/80 bg-surface shadow-[0_8px_18px_rgba(51,46,42,0.04)] transition duration-200 hover:-translate-y-1 hover:border-brand-2/45 hover:shadow-[0_14px_28px_rgba(51,46,42,0.1)]"
     >
       {/* 이름이 바로 아래 있으므로 이미지가 없을 때 자리 표시자에 글자를 넣지 않습니다. */}
       <Thumbnail
@@ -180,10 +194,11 @@ function PreviewCard({ style }: { style: StyleCard }) {
         alt={style.name}
         loading="lazy"
         decoding="async"
-        className="aspect-square w-full bg-surface-2 object-cover"
+        className="aspect-square w-full bg-surface-2 object-cover transition duration-300 group-hover:scale-[1.03]"
       />
-      <div className="px-2 py-1.5">
+      <div className="flex items-center justify-between gap-2 px-2.5 py-2">
         <span className="block truncate text-xs font-semibold">{style.name}</span>
+        <span aria-hidden className="text-xs text-brand-2">↗</span>
       </div>
     </Link>
   )
@@ -271,7 +286,7 @@ function BeforeAfterSlider() {
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerEnd}
       onPointerCancel={handlePointerEnd}
-      className="relative aspect-[4/3] w-full touch-pan-y overflow-hidden rounded-xl border border-rule bg-surface-2 select-none"
+      className="relative aspect-[4/3] w-full touch-pan-y overflow-hidden rounded-[1.4rem] border border-rule bg-surface-2 shadow-[0_18px_36px_rgba(92,61,36,0.12)] select-none"
     >
       <img
         src={HERO_AFTER}
@@ -289,11 +304,14 @@ function BeforeAfterSlider() {
         />
       </div>
 
-      <span className="absolute bottom-2 left-2 rounded-full bg-ink/70 px-2 py-0.5 text-xs text-paper">
+      <span className="absolute top-3 left-3 rounded-full bg-ink/72 px-2.5 py-1 text-[11px] font-semibold text-paper backdrop-blur-sm">
         원본
       </span>
-      <span className="absolute right-2 bottom-2 rounded-full bg-ink/70 px-2 py-0.5 text-xs text-paper">
+      <span className="absolute top-3 right-3 rounded-full bg-brand/88 px-2.5 py-1 text-[11px] font-semibold text-paper backdrop-blur-sm">
         변환
+      </span>
+      <span className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-surface/85 px-3 py-1 text-[11px] font-semibold text-ink-2 shadow-sm backdrop-blur-sm">
+        좌우로 밀어 비교해 보세요
       </span>
 
       <div
@@ -312,7 +330,7 @@ function BeforeAfterSlider() {
         aria-valuetext={`원본 ${rounded}%`}
         onKeyDown={handleKeyDown}
         style={{ left: `${position}%` }}
-        className="absolute top-1/2 grid size-11 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-rule-strong bg-paper text-sm text-ink-2 shadow-md"
+        className="absolute top-1/2 grid size-11 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-rule-strong bg-paper text-sm text-ink-2 shadow-[0_6px_16px_rgba(51,46,42,0.18)]"
       >
         <span aria-hidden>↔</span>
       </button>

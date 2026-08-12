@@ -240,7 +240,7 @@ export default function W04Upload() {
 
   return (
     <div className="min-h-full bg-paper pb-16">
-      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
+      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-rule/80 bg-surface/92 px-4 py-3 backdrop-blur-md">
         <button
           type="button"
           onClick={() => (confirming ? pickAnother() : navigate(-1))}
@@ -253,7 +253,7 @@ export default function W04Upload() {
         <CreditBadge />
       </header>
 
-      <main className="mx-auto w-full max-w-md px-4 py-4">
+      <main className="mx-auto w-full max-w-md px-4 py-5">
         <StyleContext
           styleId={styleId}
           styleName={style?.name}
@@ -344,7 +344,7 @@ function StyleContext({
     // 띄우면 정상 경로를 실수처럼 보이게 만듭니다.
     if (afterUpload) return null
     return (
-      <div className="mb-4 flex items-center justify-between gap-2 text-sm text-ink-3">
+      <div className="mb-5 flex items-center justify-between gap-2 rounded-xl border border-rule/80 bg-surface/70 px-3 py-2 text-sm text-ink-3">
         <span className="truncate">스타일은 사진을 올린 뒤에 골라도 됩니다</span>
         <Link to={withReuse('/styles', fromJobId)} className="shrink-0 underline">
           먼저 고르기
@@ -353,8 +353,8 @@ function StyleContext({
     )
   }
   return (
-    <div className="mb-4 flex items-center justify-between gap-2 text-sm text-ink-3">
-      <span className="truncate">선택한 스타일 · {styleName ?? '불러오는 중…'}</span>
+    <div className="mb-5 flex items-center justify-between gap-2 rounded-xl border border-brand-2/20 bg-brand-soft/45 px-3 py-2 text-sm text-ink-2">
+      <span className="truncate"><span className="mr-1 text-brand">선택한 스타일</span>· {styleName ?? '불러오는 중…'}</span>
       <Link to={withReuse('/styles', fromJobId)} className="shrink-0 underline">
         변경
       </Link>
@@ -383,13 +383,23 @@ function SelectPanel({
 }: SelectPanelProps) {
   return (
     <>
+      <div className="mb-3 flex items-center justify-between">
+        <div>
+          <p className="text-xs font-semibold tracking-[0.12em] text-brand-2">STEP 01</p>
+          <h2 className="mt-0.5 text-lg font-bold">우리 강아지 사진을 골라 주세요</h2>
+        </div>
+        <span className="rounded-full bg-gold-soft px-3 py-1 text-xs font-semibold text-brand">약 10초</span>
+      </div>
       <button
         type="button"
         onClick={onOpenPicker}
         disabled={uploading}
-        className="grid aspect-[4/3] w-full place-items-center rounded-xl border-2 border-dashed border-rule-strong bg-surface text-sm text-ink-2"
+        className="group relative grid aspect-[4/3] w-full place-items-center overflow-hidden rounded-[1.35rem] border-2 border-dashed border-rule-strong bg-surface text-sm text-ink-2 transition hover:border-brand-2 hover:bg-gold-soft/40 disabled:cursor-wait"
       >
-        {uploading ? '사진을 확인하는 중…' : '탭해서 사진 올리기'}
+        <span aria-hidden className="absolute -right-9 -top-9 size-32 rounded-full bg-gold-soft/70 transition group-hover:scale-110" />
+        <span aria-hidden className="relative grid size-14 place-items-center rounded-2xl bg-brand text-2xl text-paper shadow-[0_10px_20px_rgba(92,61,36,0.18)]">+</span>
+        <span className="relative mt-3 block font-semibold text-ink">{uploading ? '사진을 확인하는 중…' : '탭해서 사진 올리기'}</span>
+        <span className="relative mt-1 block text-xs text-ink-3">JPG · PNG · WEBP · 최대 10MB</span>
       </button>
 
       {uploadError && (
@@ -401,9 +411,15 @@ function SelectPanel({
       <SavedPets pets={pets} petId={petId} onSelectPet={onSelectPet} onAdd={onOpenPicker} />
 
       {/* 노트1 — 사후 환불보다 사전 안내가 쌉니다. */}
-      <p className="mt-5 rounded-lg border border-rule bg-surface px-3 py-2 text-sm text-ink-2">
-        ✓ 정면 · 밝은 곳 · 얼굴이 큰 사진일수록 잘 나와요
-      </p>
+      <div className="mt-5 rounded-2xl border border-rule/80 bg-surface px-4 py-3">
+        <p className="text-sm font-semibold">잘 나오는 사진의 작은 팁</p>
+        <p className="mt-1 text-sm text-ink-2">밝은 곳에서 얼굴이 크게 보이도록 찍은 정면 사진이 좋아요.</p>
+        <div className="mt-3 flex flex-wrap gap-2 text-xs text-ink-2">
+          <span className="rounded-full bg-good-soft px-2.5 py-1 text-good">✓ 한 마리</span>
+          <span className="rounded-full bg-good-soft px-2.5 py-1 text-good">✓ 또렷한 얼굴</span>
+          <span className="rounded-full bg-good-soft px-2.5 py-1 text-good">✓ 밝은 조명</span>
+        </div>
+      </div>
     </>
   )
 }
@@ -542,7 +558,7 @@ function ConfirmPanel({
         <img
           src={upload.image_url}
           alt="업로드한 사진"
-          className="aspect-square w-full rounded-xl bg-surface-2 object-cover"
+          className="aspect-square w-full rounded-[1.35rem] bg-surface-2 object-cover shadow-[0_12px_28px_rgba(51,46,42,0.10)]"
         />
       )}
 
@@ -558,7 +574,7 @@ function ConfirmPanel({
       <button
         type="button"
         onClick={onPickAnother}
-        className="mt-4 w-full rounded-xl border border-rule-strong bg-surface px-4 py-3 text-sm font-semibold"
+        className="mt-4 w-full rounded-2xl border border-rule-strong bg-surface px-4 py-3 text-sm font-semibold transition hover:border-brand-2 hover:text-brand"
       >
         다른 사진 고르기
       </button>
@@ -569,7 +585,7 @@ function ConfirmPanel({
         <>
           <Link
             to={withReuse('/styles', fromJobId)}
-            className="mt-2 block w-full rounded-xl bg-brand px-4 py-3 text-center text-sm font-semibold text-paper"
+            className="mt-3 block w-full rounded-2xl bg-brand px-4 py-3 text-center text-sm font-semibold text-paper shadow-[0_10px_22px_rgba(92,61,36,0.18)] transition hover:bg-brand-deep"
           >
             스타일 고르기 →
           </Link>
@@ -594,7 +610,7 @@ function ConfirmPanel({
             type="button"
             onClick={onStart}
             disabled={starting || creditCost === null}
-            className="mt-2 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper disabled:opacity-50"
+            className="mt-3 w-full rounded-2xl bg-brand px-4 py-3 text-sm font-semibold text-paper shadow-[0_10px_22px_rgba(92,61,36,0.18)] transition hover:bg-brand-deep disabled:opacity-50"
           >
             {starting
               ? '만드는 중…'

@@ -80,7 +80,7 @@ export default function W03StyleDetail() {
         aria-modal="true"
         aria-labelledby="style-sheet-title"
         tabIndex={-1}
-        className="relative max-h-[85vh] w-full overflow-y-auto rounded-t-2xl bg-surface px-4 pt-2 pb-6 outline-none desktop:max-w-lg desktop:rounded-2xl desktop:pt-3"
+        className="relative max-h-[88vh] w-full overflow-y-auto rounded-t-[1.75rem] bg-surface px-4 pt-2 pb-7 shadow-[0_-18px_48px_rgba(51,46,42,0.18)] outline-none desktop:max-w-lg desktop:rounded-[1.75rem] desktop:pt-3"
       >
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-rule" aria-hidden />
 
@@ -118,11 +118,14 @@ function SheetBody({
       {/* 노트2 — 예시는 서로 다른 견종으로 채워집니다(어떤 사진을 넣을지는 운영이 W-11 에서 정함). */}
       <ExampleCarousel images={style.examples} styleName={style.name} />
 
-      <div className="mt-3 flex items-baseline justify-between gap-2">
-        <h2 id="style-sheet-title" className="text-lg font-bold">
-          {style.name}
-        </h2>
-        <span className="shrink-0 rounded-full border border-rule bg-surface-2 px-2 py-0.5 font-mono text-xs tabular-nums">
+      <div className="mt-4 flex items-baseline justify-between gap-2">
+        <div>
+          <p className="mb-1 text-[11px] font-semibold tracking-[0.12em] text-brand-2">STYLE PREVIEW</p>
+          <h2 id="style-sheet-title" className="text-xl font-bold tracking-[-0.02em]">
+            {style.name}
+          </h2>
+        </div>
+        <span className="shrink-0 rounded-full border border-brand-2/25 bg-gold-soft px-2.5 py-1 font-mono text-xs font-semibold tabular-nums text-brand">
           {style.credit_cost} 크레딧
         </span>
       </div>
@@ -141,9 +144,9 @@ function SheetBody({
       {/* 재사용 중이면 `from_job` 을 그대로 넘겨 W-04 가 업로드 단계를 건너뜁니다. */}
       <Link
         to={withReuse(`/upload?style_id=${style.id}`, reuseJobId)}
-        className="mt-5 block rounded-xl bg-brand px-4 py-3 text-center text-sm font-semibold text-paper"
+        className="group mt-5 flex items-center justify-center gap-2 rounded-2xl bg-brand px-4 py-3.5 text-center text-sm font-semibold text-paper shadow-[0_10px_24px_rgba(92,61,36,0.22)] transition hover:bg-brand-deep"
       >
-        이 스타일로 만들기
+        이 스타일로 만들기 <span aria-hidden className="transition-transform group-hover:translate-x-0.5">→</span>
       </Link>
 
       {/*
@@ -199,7 +202,7 @@ function ExampleCarousel({ images, styleName }: { images: string[]; styleName: s
           const track = event.currentTarget
           setActive(Math.round(track.scrollLeft / track.clientWidth))
         }}
-        className="flex snap-x snap-mandatory overflow-x-auto rounded-xl"
+        className="flex snap-x snap-mandatory overflow-x-auto rounded-[1.35rem] bg-surface-2 shadow-[0_12px_28px_rgba(51,46,42,0.10)]"
       >
         {images.map((src, index) => (
           <li key={index} className="w-full shrink-0 snap-center">
@@ -225,8 +228,8 @@ function ExampleCarousel({ images, styleName }: { images: string[]; styleName: s
               const track = trackRef.current
               track?.scrollTo({ left: index * track.clientWidth, behavior: 'smooth' })
             }}
-            className={`size-1.5 rounded-full transition-colors ${
-              active === index ? 'bg-brand' : 'bg-rule-strong'
+            className={`h-1.5 rounded-full transition-all ${
+              active === index ? 'w-5 bg-brand' : 'w-1.5 bg-rule-strong'
             }`}
           />
         ))}

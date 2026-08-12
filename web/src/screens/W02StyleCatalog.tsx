@@ -92,7 +92,7 @@ export default function W02StyleCatalog() {
     <Shell sheetOpen={sheetOpen}>
       <div className="min-h-full bg-paper pb-24">
         {/* 앱바 — 크레딧 배지의 표시 규칙(ADR-02 음수·미상 처리)은 app/CreditBadge.tsx 에 있습니다. */}
-        <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
+        <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-rule/80 bg-surface/92 px-4 py-3 backdrop-blur-md">
           {/*
             앱바의 마크는 파비콘과 같은 발바닥입니다 — apple-touch-icon 으로 이미
             받아 둔 파일을 그대로 재사용하므로(index.html) 요청이 늘지 않습니다.
@@ -109,7 +109,7 @@ export default function W02StyleCatalog() {
         {/* 앵커바 — 점프 전용(노트2). 눌러도 다른 섹션을 숨기지 않습니다. */}
         <nav
           aria-label="섹션 바로가기"
-          className="sticky top-[57px] z-10 flex gap-2 overflow-x-auto border-b border-rule bg-paper/95 px-4 py-2 backdrop-blur"
+          className="sticky top-[57px] z-10 flex gap-2 overflow-x-auto border-b border-rule/80 bg-paper/95 px-4 py-2.5 backdrop-blur-md"
         >
           {sectionNames.map((name) => (
             <a
@@ -118,8 +118,8 @@ export default function W02StyleCatalog() {
               aria-current={activeSection === name ? 'true' : undefined}
               className={`shrink-0 rounded-full border px-3 py-1 text-sm transition-colors ${
                 activeSection === name
-                  ? 'border-brand bg-brand text-paper'
-                  : 'border-rule bg-surface text-ink-2'
+                  ? 'border-brand bg-brand text-paper shadow-sm'
+                  : 'border-rule/80 bg-surface/80 text-ink-2 hover:border-brand-2/45 hover:text-brand'
               }`}
             >
               {name}
@@ -128,6 +128,19 @@ export default function W02StyleCatalog() {
         </nav>
 
         <main className="mx-auto w-full max-w-(--container-canvas) px-4">
+          {!reuse.context && (
+            <section className="relative overflow-hidden pt-6 pb-2">
+              <div aria-hidden className="absolute -right-12 -top-8 size-32 rounded-full bg-gold-soft/85 blur-2xl" />
+              <p className="relative text-xs font-semibold tracking-[0.12em] text-brand-2">STYLE CATALOG</p>
+              <div className="relative mt-1 flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h2 className="font-display text-2xl leading-tight tracking-[-0.025em]">오늘은 어떤 모습으로<br className="desktop:hidden" /> 만나볼까요?</h2>
+                  <p className="mt-1 text-sm text-ink-2">마음에 드는 결과 예시를 먼저 골라 보세요.</p>
+                </div>
+                <span className="rounded-full border border-brand-2/25 bg-surface/75 px-3 py-1.5 text-xs font-semibold text-brand">{catalog.total_count}가지 스타일</span>
+              </div>
+            </section>
+          )}
           {reuse.context && <ReuseBanner context={reuse.context} />}
 
           {catalog.sections.map((section) => (
@@ -165,9 +178,10 @@ export default function W02StyleCatalog() {
               배너가 "사진 그대로"라고 말해 놓고 W-08 에서 사진을 다시 요구합니다. */}
           <Link
             to={withReuse('/creative', reuse.jobId)}
-            className="mt-4 mb-8 block rounded-xl border border-rule px-4 py-3 text-center text-sm text-ink-2"
+            className="group mt-6 mb-8 flex items-center justify-between rounded-2xl border border-dashed border-brand-2/45 bg-gold-soft/45 px-4 py-3.5 text-sm text-ink-2 transition hover:border-brand hover:bg-gold-soft"
           >
-            원하는 걸 직접 써서 만들기 · 2 크레딧
+            <span><span className="block font-semibold text-ink">원하는 장면을 직접 만들고 싶다면</span><span className="mt-0.5 block text-xs">크리에이티브 모드 · 2 크레딧</span></span>
+            <span aria-hidden className="grid size-8 place-items-center rounded-full bg-surface text-brand transition group-hover:translate-x-0.5">→</span>
           </Link>
         </main>
       </div>
@@ -228,19 +242,25 @@ function StyleCardItem({ style, reuseJobId }: { style: StyleCard; reuseJobId: st
   return (
     <Link
       to={withReuse(`/styles/${style.id}`, reuseJobId)}
-      className="block overflow-hidden rounded-lg border border-rule bg-surface"
+      className="group block overflow-hidden rounded-2xl border border-rule/80 bg-surface shadow-[0_8px_18px_rgba(51,46,42,0.04)] transition duration-200 hover:-translate-y-1 hover:border-brand-2/50 hover:shadow-[0_16px_26px_rgba(51,46,42,0.11)] focus-visible:-translate-y-1"
     >
-      <Thumbnail
-        src={style.thumbnail_url}
-        alt={style.name}
-        // 68장이 한 페이지에 있으므로(카탈로그는 페이지네이션 없음) 지연 로드가 필수입니다.
-        loading="lazy"
-        decoding="async"
-        className="aspect-square w-full bg-surface-2 object-cover"
-      />
-      <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+      <div className="relative overflow-hidden">
+        <Thumbnail
+          src={style.thumbnail_url}
+          alt={style.name}
+          // 68장이 한 페이지에 있으므로(카탈로그는 페이지네이션 없음) 지연 로드가 필수입니다.
+          loading="lazy"
+          decoding="async"
+          className="aspect-square w-full bg-surface-2 object-cover transition duration-300 group-hover:scale-[1.045]"
+        />
+        <span className="absolute top-2 right-2 rounded-full bg-surface/90 px-2 py-1 text-[11px] font-semibold text-brand shadow-sm backdrop-blur-sm">
+          {style.credit_cost} 크레딧
+        </span>
+        <span aria-hidden className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-ink/18 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
+      </div>
+      <div className="flex items-center justify-between gap-2 px-3 py-2.5">
         <span className="truncate text-sm font-semibold">{style.name}</span>
-        <span className="shrink-0 font-mono text-xs text-ink-3">{style.credit_cost}</span>
+        <span aria-hidden className="text-sm text-brand-2 transition-transform duration-200 group-hover:translate-x-0.5">→</span>
       </div>
     </Link>
   )
