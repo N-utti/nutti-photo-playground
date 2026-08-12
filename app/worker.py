@@ -18,7 +18,7 @@ import io
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, BadRequestError
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 from tortoise import Tortoise
 from tortoise.exceptions import DoesNotExist
@@ -58,6 +58,17 @@ LIMIT 1;
 
 class _MissingPromptError(RuntimeError):
     pass
+
+
+_SAFETY_BLOCK_CODES = {"moderation_blocked", "content_policy_violation"}
+
+
+def _is_safety_block(exc: Exception) -> bool:
+    return (
+        isinstance(exc, BadRequestError)
+        and isinstance(exc.code, str)
+        and exc.code in _SAFETY_BLOCK_CODES
+    )
 
 
 async def _generate_image(original: bytes, prompt: str, style_name: str) -> bytes:
@@ -105,11 +116,13 @@ def _sign_and_encode_jpeg(image_bytes: bytes) -> bytes:
     return output.getvalue()
 
 
-async def _refund(generation_job: GenerationJob) -> None:
+async def _refund(
+    generation_job: GenerationJob, reason: str = "generation_refund"
+) -> None:
     await grant_credits(
         generation_job.member_id,
         generation_job.credit_cost,
-        "generation_refund",
+        reason,
         f"refund:{generation_job.id}",
         ref_id=str(generation_job.id),
     )
@@ -183,8 +196,15 @@ async def process_job(job: dict, *, lease: bool = True) -> None:
         generation_job.finished_at = datetime.now(timezone.utc)
         await generation_job.save(update_fields=["status", "error_code", "finished_at"])
         await _refund(generation_job)
-    except Exception:
-        if generation_job.attempt_count >= MAX_ATTEMPTS:
+    except Exception as exc:
+        if _is_safety_block(exc):
+            # ponytail: moderation 거부는 재시도해도 같은 결과 — 즉시 종결(FR-EDGE-13)
+            generation_job.status = JobStatus.FAILED
+            generation_job.error_code = "SAFETY_BLOCKED"
+            generation_job.finished_at = datetime.now(timezone.utc)
+            await generation_job.save(update_fields=["status", "error_code", "finished_at"])
+            await _refund(generation_job, reason="safety_block_refund")
+        elif generation_job.attempt_count >= MAX_ATTEMPTS:
             generation_job.status = JobStatus.FAILED
             generation_job.error_code = "MAX_RETRIES_EXCEEDED"
             generation_job.finished_at = datetime.now(timezone.utc)
