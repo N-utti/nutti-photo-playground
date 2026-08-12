@@ -13,10 +13,27 @@ ponytail: lease/처리 함수는 스텁. 실제 구현 시 채울 것 —
 """
 
 import asyncio
+import base64
+import io
+import uuid
+from datetime import datetime, timedelta, timezone
 
+from openai import AsyncOpenAI
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 from tortoise import Tortoise
+from tortoise.exceptions import DoesNotExist
+from tortoise.transactions import in_transaction
 
+from app.credits import grant_credits
+from app.models import (
+    CustomPromptLog,
+    GenerationJob,
+    GenerationResult,
+    JobStatus,
+    StylePromptVersion,
+)
 from app.settings import settings
+from app.storage import load_bytes, save_bytes
 
 POLL_INTERVAL_SECONDS = 2
 LEASE_SECONDS = 90
@@ -39,25 +56,150 @@ LIMIT 1;
 """
 
 
+class _MissingPromptError(RuntimeError):
+    pass
+
+
+async def _generate_image(original: bytes, prompt: str, style_name: str) -> bytes:
+    if settings.openai_api_key:
+        response = await AsyncOpenAI(
+            api_key=settings.openai_api_key,
+            base_url=settings.openai_base_url,
+        ).images.edit(
+            model=settings.openai_image_model,
+            image=("source.jpg", original, "image/jpeg"),
+            prompt=prompt,
+            size="1024x1024",
+            n=1,
+        )
+        if not response.data or not response.data[0].b64_json:
+            raise ValueError("OpenAI image response did not contain image data")
+        return base64.b64decode(response.data[0].b64_json)
+
+    # ponytail: dev-only visual fallback; an API key switches generation to OpenAI.
+    with Image.open(io.BytesIO(original)) as source:
+        image = ImageOps.posterize(ImageOps.exif_transpose(source).convert("RGB"), 3).convert("RGBA")
+    overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    ImageDraw.Draw(overlay).text(
+        (12, 12), style_name, fill=(255, 255, 255, 190), font=ImageFont.load_default()
+    )
+    image.alpha_composite(overlay)
+    output = io.BytesIO()
+    image.convert("RGB").save(output, format="PNG")
+    return output.getvalue()
+
+
+def _sign_and_encode_jpeg(image_bytes: bytes) -> bytes:
+    with Image.open(io.BytesIO(image_bytes)) as source:
+        image = ImageOps.exif_transpose(source).convert("RGBA")
+    font = ImageFont.load_default()
+    overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+    left, top, right, bottom = draw.textbbox((0, 0), "Nutti", font=font)
+    position = (image.width - (right - left) - 12, image.height - (bottom - top) - 12)
+    draw.text((position[0] + 1, position[1] + 1), "Nutti", fill=(0, 0, 0, 160), font=font)
+    draw.text(position, "Nutti", fill=(255, 255, 255, 200), font=font)
+    image.alpha_composite(overlay)
+    output = io.BytesIO()
+    image.convert("RGB").save(output, format="JPEG")
+    return output.getvalue()
+
+
+async def _refund(generation_job: GenerationJob) -> None:
+    await grant_credits(
+        generation_job.member_id,
+        generation_job.credit_cost,
+        "generation_refund",
+        f"refund:{generation_job.id}",
+        ref_id=str(generation_job.id),
+    )
+
+
 async def fetch_next_job() -> dict | None:
-    conn = Tortoise.get_connection("default")
-    rows = await conn.execute_query_dict(FETCH_NEXT_JOB_SQL)
-    return rows[0] if rows else None
+    # ponytail: 락 공백 제거 — 멀티 워커 스케일아웃 대비(06-arch §2.4)
+    async with in_transaction() as connection:
+        rows = await connection.execute_query_dict(FETCH_NEXT_JOB_SQL)
+        if not rows:
+            return None
+        await lease_job(rows[0]["id"], connection=connection)
+        return rows[0]
 
 
-async def lease_job(job_id: str) -> None:
-    """job을 'processing'으로 표시하고 lease를 연장한다. ponytail: 스텁."""
+async def lease_job(job_id: str, connection=None) -> None:
+    query = GenerationJob.get(id=job_id)
+    generation_job = await (query.using_db(connection) if connection is not None else query)
+    now = datetime.now(timezone.utc)
+    generation_job.status = JobStatus.PROCESSING
+    generation_job.lease_expires_at = now + timedelta(seconds=LEASE_SECONDS)
+    generation_job.attempt_count += 1
+    update_fields = ["status", "lease_expires_at", "attempt_count"]
+    if generation_job.started_at is None:
+        # ponytail: 재시도에도 최초 시작 시각 유지 — 이슈 #41.
+        generation_job.started_at = now
+        update_fields.append("started_at")
+    await generation_job.save(update_fields=update_fields, using_db=connection)
 
 
-async def process_job(job: dict) -> None:
-    """1장 생성(Q4) → 서명 합성 → R2 업로드 → 상태 갱신. ponytail: 스텁."""
+async def process_job(job: dict, *, lease: bool = True) -> None:
+    job_id = job["id"]
+    if lease:
+        await lease_job(job_id)
+    generation_job = await GenerationJob.get(id=job_id)
+    await generation_job.fetch_related("style", "source_image")
+
+    try:
+        if generation_job.style_id is not None:
+            if generation_job.prompt_version_id is None:
+                raise _MissingPromptError("preset job has no prompt version")
+            prompt = (
+                await StylePromptVersion.get(id=generation_job.prompt_version_id)
+            ).prompt_text
+            style_name = generation_job.style.name
+        else:
+            if generation_job.custom_prompt_id is None:
+                raise _MissingPromptError("custom job has no prompt log")
+            try:
+                prompt_log = await CustomPromptLog.get(id=generation_job.custom_prompt_id)
+            except DoesNotExist as exc:
+                raise _MissingPromptError("custom prompt log does not exist") from exc
+            prompt = (
+                f"강아지 사진을 다음 지시로 변환: {prompt_log.raw_text}. "
+                "품종·털색·무늬는 원본 유지."
+            )
+            style_name = "커스텀"
+
+        original = await load_bytes(generation_job.source_image.storage_key)
+        generated = await _generate_image(original, prompt, style_name)
+        jpeg_bytes = _sign_and_encode_jpeg(generated)
+        key = f"results/{uuid.uuid4()}.jpg"
+        await save_bytes(key, jpeg_bytes, "image/jpeg")
+        await GenerationResult.create(job=generation_job, seq=1, storage_key=key)
+        generation_job.status = JobStatus.SUCCEEDED
+        generation_job.finished_at = datetime.now(timezone.utc)
+        await generation_job.save(update_fields=["status", "finished_at"])
+    except _MissingPromptError:
+        generation_job.status = JobStatus.FAILED
+        generation_job.error_code = "GENERATION_FAILED"
+        generation_job.finished_at = datetime.now(timezone.utc)
+        await generation_job.save(update_fields=["status", "error_code", "finished_at"])
+        await _refund(generation_job)
+    except Exception:
+        if generation_job.attempt_count >= MAX_ATTEMPTS:
+            generation_job.status = JobStatus.FAILED
+            generation_job.error_code = "MAX_RETRIES_EXCEEDED"
+            generation_job.finished_at = datetime.now(timezone.utc)
+            await generation_job.save(update_fields=["status", "error_code", "finished_at"])
+            await _refund(generation_job)
+        else:
+            generation_job.status = JobStatus.QUEUED
+            await generation_job.save(update_fields=["status"])
 
 
 async def run_worker_loop() -> None:
     while True:
         job = await fetch_next_job()
         if job is not None:
-            await process_job(job)
+            await process_job(job, lease=False)
         else:
             await asyncio.sleep(POLL_INTERVAL_SECONDS)
 

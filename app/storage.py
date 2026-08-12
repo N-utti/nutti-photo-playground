@@ -32,6 +32,24 @@ async def save_bytes(key: str, data: bytes, content_type: str) -> None:
     await asyncio.to_thread(Path(path).write_bytes, data)
 
 
+async def load_bytes(key: str) -> bytes:
+    if settings.r2_endpoint_url:
+        client = boto3.client(
+            "s3",
+            endpoint_url=settings.r2_endpoint_url,
+            aws_access_key_id=settings.r2_access_key_id,
+            aws_secret_access_key=settings.r2_secret_access_key,
+        )
+        response = await asyncio.to_thread(
+            client.get_object,
+            Bucket=settings.r2_bucket_name,
+            Key=key,
+        )
+        return await asyncio.to_thread(response["Body"].read)
+
+    return await asyncio.to_thread(Path(os.path.join(MEDIA_ROOT, key)).read_bytes)
+
+
 def public_url(key: str) -> str:
     if settings.cdn_base_url:
         return f"{settings.cdn_base_url}/{key}"

@@ -12,6 +12,7 @@ from app.auth import hash_password
 from app.main import app
 from app.models import Member, MemberKind
 from app.routers import auth as auth_router
+from conftest import reset_tortoise_executor_cache
 
 
 TEST_PG_DATABASE_URL = os.getenv("TEST_PG_DATABASE_URL")
@@ -32,6 +33,7 @@ async def _truncate_members() -> None:
 @pytest.fixture
 async def pg_database():
     assert TEST_PG_DATABASE_URL is not None
+    reset_tortoise_executor_cache()
     await Tortoise.init(
         db_url=TEST_PG_DATABASE_URL,
         modules={"models": ["app.models"]},
@@ -49,6 +51,7 @@ async def pg_database():
     yield
     await _truncate_members()
     await Tortoise.close_connections()
+    reset_tortoise_executor_cache()
 
 
 async def test_concurrent_local_logins_do_not_return_500(pg_database):
