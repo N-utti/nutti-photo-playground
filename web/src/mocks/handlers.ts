@@ -10,7 +10,7 @@
  *   upload:warn | upload:nodog | upload:multi | upload:face | upload:face-block | upload:block
  *   job:fail | job:safety | job:unknown-error | job:flaky | job:slow | job:queued | credit:empty
  *   session:expired | guest:ratelimited | session:lost | auth:statefail | cafe24:linked
- *   refresh:fail
+ *   refresh:fail | refresh:429
  *
  * 로컬 로그인 목 규칙: 비밀번호 `nutti1234` 만 성공(그 외 401), 이메일
  * `taken@nutti.co.kr` 로 가입하면 409 EMAIL_TAKEN.
@@ -391,8 +391,22 @@ function applyEmptyScenario() {
   }
 }
 
-function apiError(status: number, code: string, message: string, detail: unknown = {}) {
-  return HttpResponse.json({ error: { code, message, detail } }, { status })
+/**
+ * `retryAfter` 는 429 전용입니다 (§1). 헤더 없이 429 만 주면 화면이 늘 "잠시 뒤"로
+ * 폴백해, 실서버가 초를 내려줄 때만 나오는 문구("약 N분 뒤")를 목에서 한 번도 볼 수
+ * 없습니다 — 제한 안내는 그 숫자가 있고 없고가 사용자 경험의 전부입니다.
+ */
+function apiError(
+  status: number,
+  code: string,
+  message: string,
+  detail: unknown = {},
+  retryAfter?: number,
+) {
+  return HttpResponse.json(
+    { error: { code, message, detail } },
+    { status, headers: retryAfter === undefined ? undefined : { 'Retry-After': String(retryAfter) } },
+  )
 }
 
 /**
@@ -413,8 +427,11 @@ function apiError(status: number, code: string, message: string, detail: unknown
  * 떨어지는 사고가 나도 화면이 성공했을 때와 똑같아, 회귀를 화면으로 판정할 수 없습니다.
  */
 function expiredSession(request: Request): 'expired' | 'reissued' | null {
-  // refresh:fail 도 «만료된 액세스»에서 출발합니다 — 회전은 그다음에야 시도됩니다.
-  if (scenario() !== 'session:expired' && scenario() !== 'refresh:fail') return null
+  // refresh:fail·refresh:429 도 «만료된 액세스»에서 출발합니다 — 회전은 그다음에야 시도됩니다.
+  const forced = scenario()
+  if (forced !== 'session:expired' && forced !== 'refresh:fail' && forced !== 'refresh:429') {
+    return null
+  }
   const token = request.headers.get('Authorization') ?? ''
   // 토큰 없는 요청 = 발급 그 자체. 이걸 판정에 넣으면 첫 방문(토큰 없이 시작)에서
   // 빈 문자열이 «만료 대상»으로 굳어, 아직 만료된 적 없는 세션이 만료로 보입니다.
@@ -607,7 +624,9 @@ export const handlers = [
     await delay(120)
     // IP 당 시간당 발급 제한(app/routers/auth.py `_check_guest_rate_limit`, 이슈 #15).
     if (scenario() === 'guest:ratelimited') {
-      return apiError(429, 'RATE_LIMITED', '게스트 발급 한도를 초과했습니다')
+      // 실서버는 `Retry-After` 를 함께 내려줍니다(PR #21). 목이 빼먹으면 배너가 늘
+      // "잠시 뒤"만 그려서, 시간을 말해 주는 쪽 문구가 검증되지 않습니다.
+      return apiError(429, 'RATE_LIMITED', '게스트 발급 한도를 초과했습니다', {}, 900)
     }
     // 새 게스트 발급 = 다른 사람이 되는 것. 유지 중인 `/auth/me` 를 게스트로 되돌리지
     // 않으면 토큰을 지우고 새로 시작해도 화면이 계속 회원으로 보입니다.
@@ -723,6 +742,16 @@ export const handlers = [
     */
     if (scenario() === 'refresh:fail') {
       return apiError(401, 'UNAUTHORIZED', '다시 로그인해 주세요')
+    }
+    /*
+      `refresh:429` — 공유 IP 에서 남이 태운 실패 버킷에 정상 사용자가 걸린 경우
+      (이슈 #11 R3). 401 과 겉모습만 비슷하고 정반대 상태라 시나리오를 나눕니다 —
+      토큰은 살아 있고 시간이 지나면 풀립니다. 이걸 목이 못 만들면 «갱신만 막힌 회원»
+      을 브라우저에서 한 번도 못 밟고, 그 사이 화면들이 무엇을 보여 주는지도 모릅니다.
+      만료는 `expiredSession` 이 함께 걸어 줍니다 — 만료가 있어야 회전을 시도합니다.
+    */
+    if (scenario() === 'refresh:429') {
+      return apiError(429, 'RATE_LIMITED', '요청이 너무 많습니다', {}, 900)
     }
     if (!refresh_token || refresh_token !== state.refreshToken) {
       return apiError(401, 'UNAUTHORIZED', '다시 로그인해 주세요')

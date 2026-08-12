@@ -135,6 +135,30 @@ export interface GuestRateLimitedDetail {
   retryAfter: number | null
 }
 
+/**
+ * 회원의 리프레시 회전이 **429** 로 막혔을 때 발행됩니다 (이슈 #11 R3).
+ *
+ * 서버의 `/refresh` 실패 버킷은 IP 단위라, 사무실 NAT·CGNAT 처럼 주소를 나눠 쓰는
+ * 곳에서는 오작동 클라이언트 하나가 한도를 태우면 같은 IP 의 **정상 사용자 갱신까지**
+ * 최대 1시간 막힙니다. 백엔드가 잔여 위험으로 수용한 성질이라(#11 R3) 화면이 흡수합니다.
+ *
+ * 401 과 정반대로 다뤄야 하는 상태입니다 — 토큰은 멀쩡하고 시간이 지나면 그대로
+ * 풀립니다. 그래서 세션을 버리지 않고(재로그인은 필요 없는데 시키는 꼴이 됩니다),
+ * 대신 «지금은 안 되고 언제 풀린다»를 말해 줍니다. 알리지 않으면 화면마다 «토큰이
+ * 만료되었습니다» 만 뜨고, 사용자는 같은 실패를 부르는 «다시 시도» 를 1시간 동안
+ * 반복하게 됩니다.
+ *
+ * `detail.throttled: false` 는 회전이 다시 성공했다는 뜻입니다 — 막힘이 저절로 풀린
+ * 경우가 정상 경로라, 배너를 내리는 신호가 없으면 멀쩡해진 앱에 경고만 남습니다.
+ */
+export const MEMBER_REFRESH_THROTTLED_EVENT = 'nutti:member-refresh-throttled'
+
+export interface MemberRefreshThrottledDetail {
+  throttled: boolean
+  /** 429 의 `Retry-After`(초). 없으면 null — 화면은 "잠시 뒤"로 폴백합니다. */
+  retryAfter: number | null
+}
+
 // ---------------------------------------------------------------- 요청
 
 interface RequestOptions {
@@ -318,6 +342,22 @@ function dropSession(kind: 'guest' | 'member' | null): void {
  */
 let rotateInFlight: Promise<boolean> | null = null
 
+/**
+ * 마지막 회전이 429 로 막혀 있는지. 배너를 **내리기** 위해서만 있는 값입니다 —
+ * 성공할 때마다 이벤트를 쏘면 평소에도 매 시간 빈 알림이 흐르므로, 막힌 적이 있을
+ * 때만 «풀렸다»를 알립니다.
+ */
+let refreshThrottled = false
+
+function announceThrottle(throttled: boolean, retryAfter: number | null): void {
+  refreshThrottled = throttled
+  window.dispatchEvent(
+    new CustomEvent<MemberRefreshThrottledDetail>(MEMBER_REFRESH_THROTTLED_EVENT, {
+      detail: { throttled, retryAfter },
+    }),
+  )
+}
+
 function rotateMemberSession(sentRefresh: string): Promise<boolean> {
   if (session.refreshToken !== sentRefresh) return Promise.resolve(true)
   rotateInFlight ??= (async () => {
@@ -329,6 +369,7 @@ function rotateMemberSession(sentRefresh: string): Promise<boolean> {
         _retried: true,
       })
       session.set(rotated.token, 'member', rotated.refresh_token)
+      if (refreshThrottled) announceThrottle(false, null)
       return true
     } catch (error) {
       /*
@@ -337,12 +378,31 @@ function rotateMemberSession(sentRefresh: string): Promise<boolean> {
         안 되는 것이라 토큰을 버리지 않습니다. 버리면 잠깐의 단절이 로그아웃이 됩니다.
       */
       if (isApiError(error) && error.status === 401) dropSession('member')
+      /*
+        429 는 «지금만 안 된다» 중에서도 유일하게 **끝을 아는** 실패라 따로 알립니다
+        (이슈 #11 R3). 토큰을 그대로 두는 건 위와 같지만, 조용히 두면 만료된 액세스로
+        보내는 모든 요청이 화면마다 제각각의 «불러오지 못했어요» 로 흩어집니다.
+      */
+      if (isApiError(error) && error.status === 429) announceThrottle(true, error.retryAfter)
       return false
     } finally {
       rotateInFlight = null
     }
   })()
   return rotateInFlight
+}
+
+/**
+ * 막혔던 회전을 사용자 요청으로 한 번 더 시도합니다 (이슈 #11 R3 배너 전용).
+ *
+ * 세션 상실 배너의 «새로 시작하기» 와 **절대 같은 동작이면 안 됩니다** — 저쪽은
+ * `session.clear()` 로 시작하는데, 여기서 그러면 아직 30일이 남은 멀쩡한 리프레시를
+ * 버리는 것이라 «기다리면 풀릴 일» 이 «재로그인해야 할 일» 로 악화됩니다.
+ */
+export function retryMemberRotation(): Promise<boolean> {
+  const refresh = session.refreshToken
+  if (!refresh) return Promise.resolve(false)
+  return rotateMemberSession(refresh)
 }
 
 /**
