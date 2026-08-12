@@ -1073,9 +1073,31 @@ export const handlers = [
     return HttpResponse.json(projected)
   }),
 
-  http.post(`${BASE}/jobs/:jobId/share`, async ({ params }) => {
+  /*
+    PR #73 착지분. 그전까지 이 목은 «공유 {jobId}» 라고 적힌 **별도 이미지**를 항상 200
+    으로 돌려줬는데, 서버는 정반대입니다 — 공유용 사본을 만들지 않고 결과 JPEG 의
+    `public_url` 을 그대로 돌려줍니다(app/routers/jobs.py 238행과 276행이 같은 함수).
+    목이 다른 그림을 주는 동안 브라우저에는 «공유하면 새 이미지가 생긴다»는, 계약에
+    없는 화면이 떠 있었습니다. 그래서 결과 이미지를 **그대로** 돌려줍니다.
+
+    404 도 마찬가지로 목이 만들 수 없던 상태였습니다. 서버는 없는 job·남의 job·비UUID
+    뿐 아니라 **결과가 없는 job**(queued·processing·failed)에도 404 를 줍니다. 아래
+    조회가 그 넷을 한 번에 만듭니다 — 결과가 없으면 `results[0]` 이 비니까요.
+  */
+  http.post(`${BASE}/jobs/:jobId/share`, async ({ params, request }) => {
     await delay(400)
-    return HttpResponse.json({ share_image_url: placeholderImage(`공유 ${params.jobId}`, '#F9E5EC') })
+    const jobId = String(params.jobId)
+    const notFound = () => apiError(404, 'NOT_FOUND', '작업을 찾을 수 없습니다')
+
+    // `/jobs/{id}` 와 같은 소유권 판정 — 재발급된 게스트에게 이 job 은 남의 것입니다(§3).
+    if (expiredSession(request) === 'reissued') return notFound()
+
+    const own = state.jobs.get(jobId)
+    const job = own ? projectJob(own) : seededJob(jobId)
+    const result = job?.results?.[0]
+    if (!result) return notFound()
+
+    return HttpResponse.json({ share_image_url: result.image_url })
   }),
 
   // ------------------------------------------------------------ 계산기 연결
