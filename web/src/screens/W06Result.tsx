@@ -53,6 +53,22 @@ const SHOP_BANNER = {
   note: '5만원 이상 무료배송',
 }
 
+/**
+ * 실패 문구는 **문서화된 코드에만** 있습니다(§1). 그 밖의 값이 오면 여기서 막습니다.
+ *
+ * 표를 그대로 인덱싱하면 처음 보는 코드에서 `undefined.title` 이 터지고, 그러면
+ * 사라지는 건 문구 한 줄이 아니라 화면 전체입니다 — 크레딧이 돌아왔다는 안내도,
+ * 사진을 살려 주는 "다시 시도"도 같이 날아가고 라우터 기본 에러 화면만 남습니다.
+ * 크레딧이 나갔다 돌아온 사람에게 그 화면은 «돈만 나가고 사진도 잃었다»로 읽힙니다.
+ *
+ * 폴백이 `GENERATION_FAILED` 인 이유: 모르는 코드에 대해 우리가 확실히 아는 건
+ * «만들기가 실패했고 크레딧은 돌아왔다» 뿐이고, 그게 정확히 이 문구입니다. 반대로
+ * SAFETY_BLOCKED 로 폴백하면 사진 탓이 아닌 실패에 사진 탓을 하게 됩니다.
+ */
+function failureCopy(code: Job['error_code']): { title: string; body: string } {
+  return FAILURE_COPY[code as JobErrorCode] ?? FAILURE_COPY.GENERATION_FAILED
+}
+
 const FAILURE_COPY: Record<JobErrorCode, { title: string; body: string }> = {
   GENERATION_FAILED: {
     title: '만들기에 실패했어요',
@@ -131,7 +147,7 @@ export default function W06Result() {
 // ---------------------------------------------------------------- 실패 (FR-EDGE-01)
 
 function FailurePanel({ job }: { job: Job }) {
-  const copy = FAILURE_COPY[job.error_code ?? 'GENERATION_FAILED']
+  const copy = failureCopy(job.error_code)
 
   return (
     <>
