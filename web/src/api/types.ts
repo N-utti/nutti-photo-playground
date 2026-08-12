@@ -52,7 +52,15 @@ export type IssueCode =
   | 'QUALITY_WARNING' // 경고
   | 'HUMAN_FACE_DETECTED' // app_setting.human_face_policy 에 따라 경고 또는 차단
 
-/** generation_job.error_code 로만 등장하는 코드. */
+/**
+ * generation_job.error_code 로만 등장하는 코드 — **§1 이 문서화한 셋**입니다.
+ *
+ * 이게 전부라는 보장은 없습니다. 서버 쪽 컬럼은 자유 텍스트(`TextField`)라 스키마가
+ * 값을 제한하지 않고, 실제로 백엔드 테스트가 `PROVIDER_ERROR` 를 심어 둡니다
+ * (tests/test_jobs.py). 그래서 이 유니온은 «올 수 있는 값 전부»가 아니라 «우리가
+ * 화면 문구를 준비해 둔 값»으로 읽어야 하고, 읽는 쪽은 항상 폴백을 둡니다
+ * (screens/W06Result.tsx `failureCopy`).
+ */
 export type JobErrorCode = 'GENERATION_FAILED' | 'SAFETY_BLOCKED' | 'MAX_RETRIES_EXCEEDED'
 
 /** 커서 페이지네이션 (§1). next_cursor 가 null 이면 마지막 페이지. */
@@ -294,7 +302,13 @@ export interface Job {
    * 같은 결정으로 §3 에서 삭제됐습니다.
    */
   results: JobResultImage[] | null
-  error_code: JobErrorCode | null
+  /**
+   * 실패 사유. `(string & {})` 를 섞은 건 자동완성은 살리면서 **유니온 밖 값도 타입
+   * 상 가능**하게 만들기 위해서입니다 — 서버 컬럼이 자유 텍스트라 그게 사실이고,
+   * `JobErrorCode` 로만 좁혀 두면 문구 표를 그냥 인덱싱해도 컴파일러가 통과시켜
+   * 알 수 없는 코드 하나에 결과 화면이 통째로 죽습니다(실측: W-06 FailurePanel).
+   */
+  error_code: JobErrorCode | (string & {}) | null
 }
 
 export interface CreateJobBody {

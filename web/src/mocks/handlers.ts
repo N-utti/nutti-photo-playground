@@ -8,7 +8,7 @@
  *
  * 시나리오 강제: localStorage 에 `nutti.mock.scenario` 를 넣으면 해당 케이스로 고정됩니다.
  *   upload:warn | upload:nodog | upload:multi | upload:face | upload:face-block | upload:block
- *   job:fail | job:safety | job:flaky | job:slow | job:queued | credit:empty
+ *   job:fail | job:safety | job:unknown-error | job:flaky | job:slow | job:queued | credit:empty
  *   session:expired | guest:ratelimited | session:lost | auth:statefail | cafe24:linked
  *   refresh:fail
  *
@@ -23,7 +23,6 @@ import type {
   Credits,
   EarnAction,
   Job,
-  JobErrorCode,
   LibraryItem,
   LibraryMonth,
   Me,
@@ -94,7 +93,12 @@ interface MockJob {
    * 필터가 방금 만든 결과를 영영 «전체»에만 두게 됩니다.
    */
   petId?: string | null
-  forcedError: JobErrorCode | null
+  /**
+   * `Job['error_code']` 를 그대로 씁니다 — **`JobErrorCode` 로 좁히지 않습니다**.
+   * 서버 컬럼이 자유 텍스트라 문서화된 셋 밖의 값이 실제로 올 수 있고(§1 주석),
+   * 목이 그 값을 만들 수 없으면 화면의 폴백을 브라우저에서 한 번도 밟지 못합니다.
+   */
+  forcedError: Job['error_code']
 }
 
 /**
@@ -907,8 +911,23 @@ export const handlers = [
       styleId: body.style_id,
       uploadId: body.upload_id,
       petId: body.pet_id ?? null,
+      /*
+        `job:unknown-error` — 문서(§1)에 없는 코드로 실패하는 job.
+
+        지어낸 상황이 아닙니다. `generation_job.error_code` 는 값을 제한하지 않는
+        자유 텍스트라 워커가 새 사유를 하나 추가하면 그날로 프론트에 도착하고,
+        백엔드 테스트가 이미 `PROVIDER_ERROR` 를 심어 둡니다. 화면이 그때 문구를
+        모른다는 건 괜찮지만 화면째 죽는 건 다른 문제라(실측: FailurePanel 크래시),
+        폴백이 살아 있는지를 목 위에서 계속 밟을 수 있어야 합니다.
+      */
       forcedError:
-        forced === 'job:fail' ? 'GENERATION_FAILED' : forced === 'job:safety' ? 'SAFETY_BLOCKED' : null,
+        forced === 'job:fail'
+          ? 'GENERATION_FAILED'
+          : forced === 'job:safety'
+            ? 'SAFETY_BLOCKED'
+            : forced === 'job:unknown-error'
+              ? 'PROVIDER_ERROR'
+              : null,
     }
     state.jobs.set(job.id, job)
     state.idempotency.set(key, job.id)
