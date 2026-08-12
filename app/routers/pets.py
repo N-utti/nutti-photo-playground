@@ -7,7 +7,7 @@ from tortoise.transactions import in_transaction
 
 from app.auth import get_current_member
 from app.models import Member, PetProfile, SourceImage
-from app.settings import settings
+from app.storage import public_url
 
 router = APIRouter(prefix="/pets", tags=["pets"])
 
@@ -47,7 +47,7 @@ def _not_found() -> HTTPException:
 
 
 def _thumbnail_url(pet: PetProfile) -> str | None:
-    return f"{settings.cdn_base_url}/{pet.thumbnail_key}" if pet.thumbnail_key else None
+    return public_url(pet.thumbnail_key) if pet.thumbnail_key else None
 
 
 def _pet_response(pet: PetProfile) -> dict:

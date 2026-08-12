@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import BaseModel
 
 from app.models import Style, StyleStatus
-from app.settings import settings
+from app.storage import public_url
 
 router = APIRouter(prefix="/styles", tags=["styles"])
 
@@ -71,7 +71,7 @@ async def list_styles(
                         code=style.code,
                         name=style.name,
                         thumbnail_url=(
-                            f"{settings.cdn_base_url}/{style.example_keys[0]}" if style.example_keys else None
+                            public_url(style.example_keys[0]) if style.example_keys else None
                         ),
                         credit_cost=style.credit_cost,
                     )
@@ -106,7 +106,7 @@ async def get_style(style_id: int):
         code=style.code,
         name=style.name,
         credit_cost=style.credit_cost,
-        examples=[f"{settings.cdn_base_url}/{key}" for key in style.example_keys],
+        examples=[public_url(key) for key in style.example_keys],
         fit_tags=style.fit_tags,
         avg_duration_seconds=style.avg_seconds,
         output_count=style.output_count,
