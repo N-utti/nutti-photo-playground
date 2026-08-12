@@ -14,9 +14,37 @@ npm run build    # tsc -b && vite build
 npm run lint
 ```
 
-백엔드 전 엔드포인트가 501 스텁이므로(PR #2) 기본값은 **목 켜짐**입니다.
-로컬 백엔드에 붙이려면 `.env.development`의 `VITE_ENABLE_MOCKS=false` — `vite.config.ts`의
-dev proxy가 `/v1`을 `localhost:8000`으로 넘깁니다.
+기본값은 **목 켜짐**입니다. 로컬 백엔드에 붙이려면 `.env.development`의
+`VITE_ENABLE_MOCKS=false` — `vite.config.ts`의 dev proxy가 `/v1`과 `/media`를
+`localhost:8000`으로 넘깁니다.
+
+`/media`도 반드시 함께 넘어가야 합니다. 로컬 백엔드는 R2 자격증명이 없으면 파일을
+`var/media/`에 쓰고 이미지 URL을 **`/media/...`로 내려주는데**(`app/storage.py`의
+`public_url`), 그 경로는 응답 본문에 그대로 실려 와서 `<img src>`가 되는 순간 프론트
+오리진(:5173)에 붙습니다. API는 200인데 화면에 이미지가 하나도 안 뜨는 상태가 되어
+«백엔드가 아직 안 됐나»로 오진하기 쉽습니다.
+
+### 실서버로 지금 밟을 수 있는 범위 (2026-08-12 실측)
+
+「전 엔드포인트 501」은 옛말입니다. 다만 **부분 전환**이라 목을 끄면 못 밟는 화면이 있습니다.
+
+| 구간 | 엔드포인트 | 상태 |
+|---|---|---|
+| 게스트·로그인·연동 | `/auth/*` | 구현 |
+| 스타일 카탈로그·상세 | `/styles`, `/styles/{id}` | 구현 |
+| 업로드(품질·비전·견종) | `POST /uploads` | 구현 |
+| 펫 CRUD | `/pets*` | 구현 |
+| 크레딧·클레임·원장 | `/credits*` | 구현 |
+| 생성 요청·조회 | `POST /jobs`, `GET /jobs/{id}` | 구현 |
+| 실제 생성(워커) | `app/worker.py` | 구현 — 별도 프로세스로 띄워야 job이 진행됩니다 |
+| **보관함** | `GET·DELETE /library` | **501** — W-09 |
+| **계산기 연결** | `GET /calculator-link` | **501** — W-06 배너·W-07 |
+| **공유 이미지** | `POST /jobs/{id}/share` | **501** — W-06 공유 |
+| **이벤트 비콘** | `POST /events` | **501** (실패를 삼키므로 화면은 안 막힘) |
+
+비전 검사(고양이 차단·견종 추정)와 실제 이미지 생성은 `OPENAI_API_KEY`가 있어야
+켜집니다. 키가 없으면 업로드는 경고 없이 통과하고, 워커는 포스터라이즈 폴백 이미지를
+만듭니다 — 배선 검증에는 충분하지만 «결과물 품질»은 그 그림으로 판단할 수 없습니다.
 
 ### 목 시나리오 강제
 
@@ -107,13 +135,13 @@ src/
 | [#3](https://github.com/N-utti/nutti-photo-playground/issues/3) | `CORSMiddleware` 미배선 | 실서버 연결 시작 즉시 | 해결 (PR #6) |
 | [#4](https://github.com/N-utti/nutti-photo-playground/issues/4) | `response_model` 없이 §3 삭제 금지 | 타입 생성으로 전환할 때 | 해결 (PR #6) |
 | [#5](https://github.com/N-utti/nutti-photo-playground/issues/5) | Q7 게스트 결과 복원 한계 | Phase 2 (W-05/W-06) | 결정 B+A · 프론트 반영 완료 |
-| [#9](https://github.com/N-utti/nutti-photo-playground/issues/9) | job/펫 응답에 `style_id`·`upload_id` 참조 없음 | W-06 다시 만들기·다른 스타일, W-04 펫 스킵 | A안 확정 · §3 반영 · 프론트 배선 완료. **백엔드 구현 대기**(라우터가 아직 `not_implemented`)라 서버 값이 올 때까지 localStorage 색인 폴백 유지 |
+| [#9](https://github.com/N-utti/nutti-photo-playground/issues/9) | job/펫 응답에 `style_id`·`upload_id` 참조 없음 | W-06 다시 만들기·다른 스타일, W-04 펫 스킵 | 해결. `GET /jobs/{id}`가 `style_id`·`upload_id`를, `GET /pets`가 `latest_upload_id`를 실제로 답합니다. `api/jobContext.ts` 로컬 색인에 남은 용도는 **`customPrompt` 하나**입니다 — 커스텀 job의 문구는 응답에 없어서 «다시 만들기»가 그것만 로컬에서 가져옵니다 |
 | [#10](https://github.com/N-utti/nutti-photo-playground/issues/10) | 카카오 `kakao_token` 획득 경로 미정 | W-06 B 계정 연동 | 해결 (ADR-11 A안 → PR #21, `POST /v1/auth/kakao` 삭제) |
 | [#14](https://github.com/N-utti/nutti-photo-playground/issues/14) | `authorize` 가 헤더를 요구하는 302 라 브라우저 이동 불가 | 로그인 시트·콜백 전부 | 해결 (PR #21 — 200 `{authorize_url}`) |
 | [#17](https://github.com/N-utti/nutti-photo-playground/issues/17) | 로컬 계정 복구 불가(비밀번호 재설정·이메일 인증 없음) · 로그인 수단 추가 미지원 | 로컬 가입 | 해결 (PR #21 — 409 `ALREADY_MEMBER`·복구 불가 명시·검증 정책). **가입 시트의 사전 고지는 그대로 둡니다** — 계약이 명시됐을 뿐 비밀번호 재설정이 생긴 건 아닙니다 |
 | [#22](https://github.com/N-utti/nutti-photo-playground/issues/22) | 회원 탈퇴 — `DELETE /v1/auth/me` 와 데이터 파기 정책 미설계 | W-12 탈퇴 버튼 | 대기 (§3 에 엔드포인트 없음). FR-W12-06 이 "자리만 확보"라 화면은 막히지 않습니다 |
 | [#33](https://github.com/N-utti/nutti-photo-playground/issues/33) | 보관함 항목 `pet_id` 가 `null` 일 수 있는지 §3 에 없음 | W-09 강아지 필터 | 해결 (PR #51 — §3 에 `pet_id: uuid \| null` 명시). 삭제된 펫과 «펫 없이 만든 결과»를 클라이언트가 구분하지 않는 것도 확정이고, **삭제된 펫을 가리키는 `?pet_id=` 조회는 404 가 아니라 빈 목록**이라 W-09 는 그 필터를 «전체»로 걷습니다 |
-| [#41](https://github.com/N-utti/nutti-photo-playground/issues/41) | job 응답에 시작 시각(`created_at`) 없음 | W-05 FR-EDGE-02 판정 | 대기. `jobContext.startedAt`(localStorage) 로 버티는 중 — 링크로 받은 job 은 화면 도착 시각으로 재므로 실제보다 늦게 판정합니다 |
+| [#41](https://github.com/N-utti/nutti-photo-playground/issues/41) | job 응답에 시작 시각(`created_at`) 없음 | W-05 FR-EDGE-02 판정 | 해결. 응답이 `queued_at`·`started_at`을 답하고 W-05가 **서버 우선**으로 잽니다(`useStartedAt`). 워커가 재시도할 때도 최초 `started_at`을 유지하므로 판정 기준이 재시도마다 리셋되지 않습니다(`app/worker.py` `lease_job`) |
 
 [#11](https://github.com/N-utti/nutti-photo-playground/issues/11)(auth 보안 후속 M3~M6·L1~L6)은 **프론트가 막히는 지점이 없어** 위 표에 넣지 않습니다 — 확인 근거는
 이슈 코멘트에 남겼습니다(오픈 리다이렉트는 `app/authReturn.ts` 가 이미 막고, 동시 가입 경합을
