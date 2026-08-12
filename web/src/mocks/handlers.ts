@@ -405,6 +405,12 @@ function apiError(status: number, code: string, message: string, detail: unknown
  * **보관함으로 들어온 사용자가 겪는 경로를 목이 만들 수 없었습니다**. 게스트가 결과를
  * 잃는 사고는 job URL 로 직접 들어온 사람보다 탭바로 보관함을 여는 사람이 먼저
  * 만나므로(이슈 #5), 같은 판정을 두 곳이 나눠 씁니다.
+ *
+ * `reissued` 는 **게스트 재발급**만 뜻합니다 — 아래 분기들(크레딧 1·빈 보관함·job 404)이
+ * 전부 «다른 사람이 됐다»를 그리기 때문입니다. 회원의 리프레시 회전(PR #57)은 정반대로
+ * 같은 회원이 그대로 이어지는 것이라, 회전한 회원 토큰을 여기로 보내면 목이 **성공한
+ * 회전을 데이터 유실로 그립니다**. 그러면 회전이 실제로 깨져 회원이 새 게스트로
+ * 떨어지는 사고가 나도 화면이 성공했을 때와 똑같아, 회귀를 화면으로 판정할 수 없습니다.
  */
 function expiredSession(request: Request): 'expired' | 'reissued' | null {
   // refresh:fail 도 «만료된 액세스»에서 출발합니다 — 회전은 그다음에야 시도됩니다.
@@ -414,7 +420,11 @@ function expiredSession(request: Request): 'expired' | 'reissued' | null {
   // 빈 문자열이 «만료 대상»으로 굳어, 아직 만료된 적 없는 세션이 만료로 보입니다.
   if (!token) return null
   state.expiredToken ??= token
-  return token === state.expiredToken ? 'expired' : 'reissued'
+  if (token === state.expiredToken) return 'expired'
+  // 만료 대상이 아닌 **회원** 토큰 = 회전이 성공한 같은 회원. 실서버는 member_id 가
+  // 그대로라 크레딧도 보관함도 그대로이므로, 목도 아무 일 없었던 것처럼 통과시킵니다.
+  if (token.includes('mock-member-jwt.')) return null
+  return 'reissued'
 }
 
 /** 경과 시간으로 job 상태를 계산 — 타이머 없이 폴링만으로 진행이 보입니다. */
