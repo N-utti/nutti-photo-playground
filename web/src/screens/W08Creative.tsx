@@ -106,7 +106,9 @@ export default function W08Creative() {
           clearJobAttempt()
           clearUploadDraft()
           // 문구까지 남겨야 W-06 "다시 만들기"가 같은 커스텀 생성을 2 크레딧으로
-          // 다시 돌립니다(응답에 style_id·upload_id 가 없어서 생긴 우회, 이슈 #9).
+          // 다시 돌립니다. `style_id`·`upload_id` 는 이제 서버가 주지만(이슈 #9 착지)
+          // `custom_prompt` 는 아직 job 응답에 없어서 이 색인이 유일한 출처입니다
+          // (이슈 #81). 그래서 이 브라우저 밖에서는 그 버튼이 사라집니다.
           rememberJobContext(job_id, {
             styleId: null,
             uploadId: intent.upload_id,
