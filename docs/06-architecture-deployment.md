@@ -190,7 +190,7 @@ AWS 표준 아웃바운드 요율(프리티어 소진 후 일반적으로 알려
 | `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | Cloudflare R2 접근 키 | S3 호환 API 사용 |
 | `R2_BUCKET_NAME` | R2 버킷명 | |
 | `R2_ENDPOINT_URL` | R2 S3 호환 엔드포인트 | |
-| `CDN_BASE_URL` | Cloudflare CDN 커스텀 도메인(이미지 서빙용) | |
+| `CDN_BASE_URL` | Cloudflare CDN 커스텀 도메인(이미지 서빙용) | **설정 시 버킷/CDN에 웹 오리진 CORS 헤더(`Access-Control-Allow-Origin`) 필수** — W-06 "이미지 저장"이 크로스 오리진 fetch→blob 다운로드에 의존(이슈 #77). 미설정 시 저장 버튼이 조용히 이미지 페이지 이동으로 변함 |
 | `CAFE24_CLIENT_ID` / `CAFE24_CLIENT_SECRET` | 카페24 OAuth 앱 자격증명 | |
 | `CAFE24_MALL_ID` | 카페24 몰 ID | `cafe24_oauth_token.mall_id`와 매칭 |
 | `CAFE24_REDIRECT_URI` | OAuth 콜백 URL | |
