@@ -65,6 +65,8 @@ class JobResponse(BaseModel):
     job_id: str
     status: str
     style_id: int | None
+    custom_prompt: str | None
+    credit_cost: int
     upload_id: str
     progress: int | None
     eta_seconds: int | None
@@ -214,6 +216,10 @@ async def get_job(job_id: str, member: Member = Depends(get_current_member)):
     if job is None:
         raise _not_found()
     await job.fetch_related("source_image", "style")
+    custom_prompt = None
+    if job.custom_prompt_id is not None:
+        log = await CustomPromptLog.get_or_none(id=job.custom_prompt_id)
+        custom_prompt = log.raw_text if log is not None else None
 
     progress = eta_seconds = status_message = results = error_code = None
     if job.status == JobStatus.QUEUED:
@@ -245,6 +251,8 @@ async def get_job(job_id: str, member: Member = Depends(get_current_member)):
         "job_id": str(job.id),
         "status": job.status.value,
         "style_id": job.style_id,
+        "custom_prompt": custom_prompt,
+        "credit_cost": job.credit_cost,
         "upload_id": str(job.source_image.id),
         "progress": progress,
         "eta_seconds": eta_seconds,
