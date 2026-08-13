@@ -253,3 +253,26 @@ def test_style_detail_exposes_public_and_ab_but_hides_draft_and_retired(client: 
             "message": "Style not found",
             "detail": {},
         }
+
+
+def test_image_urls_fall_back_to_media_prefix_without_cdn(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    # 이슈 #71 — CDN_BASE_URL이 빈 값(로컬)일 때 public_url() 폴백을 거쳐 /media/가 붙어야 한다.
+    monkeypatch.setattr(settings, "cdn_base_url", "")
+    client.portal.call(_create_styles)
+
+    listing = client.get("/v1/styles").json()
+    by_code = {
+        style["code"]: style
+        for section in listing["sections"]
+        for style in section["styles"]
+    }
+    assert by_code["popular-first"]["thumbnail_url"] == "/media/styles/popular-first.jpg"
+    assert by_code["popular-second"]["thumbnail_url"] == "/media/styles/popular-second.jpg"
+
+    detail = client.get("/v1/styles/3").json()
+    assert detail["examples"] == [
+        "/media/styles/popular-first.jpg",
+        "/media/styles/popular-first-2.jpg",
+    ]
