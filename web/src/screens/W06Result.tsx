@@ -411,8 +411,9 @@ function Regenerate({ job, label, hint }: { job: Job; label: string; hint?: stri
   )
 
   // 재료를 모르면 재생성 자체가 불가능합니다. 서버 값이 왔더라도 **커스텀 job 인데
-  // 문구를 모르는 경우**(style_id: null + 로컬 색인 없음)가 남습니다 — job 응답에
-  // custom_prompt 가 없어서(§3) 스타일도 문구도 없는 요청이 나가기 때문입니다.
+  // 문구를 모르는 경우**(style_id: null + 문구도 null)가 남습니다 — 스타일도 문구도
+  // 없는 요청이 나가기 때문입니다. PR #83 이 착지하면 이 경우는 «이 브라우저에서 만든
+  // job 이 아님»이 아니라 **로그가 지워진 job** 으로 좁혀집니다(`on_delete=SET_NULL`).
   //
   // 다만 그 둘은 남은 재료가 다릅니다. 문구만 모르는 쪽은 `upload_id` 를 이미 알고
   // 있으므로 **사진까지 버릴 이유가 없습니다** — `from_job` 을 떼고 카탈로그로 보내면
@@ -432,10 +433,15 @@ function Regenerate({ job, label, hint }: { job: Job; label: string; hint?: stri
     )
   }
 
-  // W-08 커스텀은 프리셋의 2배입니다(FR-W08-04). 스타일이 없으면 style?.credit_cost
-  // 가 undefined 라 그냥 1 로 보이는데, 그러면 버튼이 값을 잘못 말합니다.
+  // 값을 지어내지 않고 **이 job 이 실제로 낸 값**을 그대로 씁니다(PR #83 `credit_cost`).
+  // 실패한 job 도 0 이 되지 않으므로(자동 반환은 트랜잭션만 쌓습니다 — app/worker.py
+  // `_refund`) 실패 화면의 버튼도 같은 값을 말합니다.
+  //
+  // 폴백은 #83 착지 전의 실서버용입니다. W-08 커스텀은 프리셋의 2배 고정이고
+  // (FR-W08-04), 스타일이 없으면 `style?.credit_cost` 가 undefined 라 그냥 1 로
+  // 보이는데 그러면 버튼이 값을 잘못 말합니다 — 그래서 문구 여부를 먼저 봅니다.
   const customPrompt = context.customPrompt ?? null
-  const cost = customPrompt ? 2 : (style?.credit_cost ?? 1)
+  const cost = job.credit_cost ?? (customPrompt ? 2 : (style?.credit_cost ?? 1))
 
   function regenerate() {
     if (!context) return

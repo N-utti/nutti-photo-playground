@@ -84,7 +84,21 @@ function sizeForBreed(code: string): string {
 interface MockJob {
   id: string
   createdAt: number
+  /**
+   * 이 job 이 차감한 크레딧. **실패해도 줄이지 않습니다** — 서버의 자동 반환은 크레딧
+   * 트랜잭션을 따로 쌓을 뿐 `generation_job.credit_cost` 를 건드리지 않습니다
+   * (`app/worker.py` `_refund`). 예전 목은 반환 표시로 이 값을 0 으로 만들었는데,
+   * 그 값이 이제 `credit_cost` 로 응답에 실리므로(PR #83) 그대로 두면 실패한 job 의
+   * «다시 만들기»가 «0 크레딧»이라고 말합니다. 반환 여부는 아래 `refunded` 가 셉니다.
+   */
   creditCost: number
+  /** 크레딧 자동 반환을 이미 했는지(§4 시나리오2 5단계) — 1회만 돌려주기 위한 표시. */
+  refunded?: boolean
+  /**
+   * 커스텀 job 의 문구 원문(PR #83 `custom_prompt`). 프리셋 job 은 null.
+   * 서버는 `CustomPromptLog.raw_text` 를 그대로 주므로 **앞뒤 공백까지 원문**입니다.
+   */
+  customPrompt?: string | null
   /** 재료 참조(이슈 #9 A안) — 스펙 §3 이 job 응답에 그대로 싣기로 확정한 값입니다. */
   styleId: number | null
   uploadId: string
@@ -503,6 +517,17 @@ function projectJob(job: MockJob): Job {
   const materials = {
     style_id: job.styleId,
     upload_id: job.uploadId,
+    /*
+      PR #83 착지 예정분(이슈 #81). `style_id` 와 같은 자리에 두는 이유는 이 둘이
+      **같은 성격의 값**이기 때문입니다 — job 을 다시 조립하는 재료입니다. 이게 없는
+      동안 커스텀 job 의 «다시 만들기»는 문구를 만든 브라우저에서만 보였습니다.
+
+      옛 저장분에는 `customPrompt` 가 없습니다(나중에 추가된 필드) — 그때는 프리셋
+      job 과 구분할 방법이 없으니 `null`, 즉 서버가 «로그가 지워졌다»고 답한 것과 같은
+      모양이 됩니다. 화면은 그 경우 문구 없는 재생성 대신 «다른 스타일»로 보냅니다.
+    */
+    custom_prompt: job.customPrompt ?? null,
+    credit_cost: job.creditCost,
     queued_at: new Date(job.createdAt).toISOString(),
     started_at:
       elapsed >= QUEUE_MS ? new Date(job.createdAt + QUEUE_MS).toISOString() : null,
@@ -640,6 +665,14 @@ function seededJob(jobId: string): Job | null {
     status: 'succeeded',
     style_id: null,
     upload_id: `upload-${item.result_id}`,
+    /*
+      시드는 «옛날에 만든 결과»라 무엇으로 만들었는지 기록이 남아 있지 않습니다.
+      `style_id: null` 과 짝이 맞는 값은 «커스텀인데 문구를 모름» 하나뿐이라(#83 의
+      로그 삭제 케이스와 같은 모양) W-06 이 재생성 버튼 대신 «이 사진으로 다른
+      스타일»을 그립니다 — 보관함에서 연 결과의 실제 동선이 그쪽입니다.
+    */
+    custom_prompt: null,
+    credit_cost: 1,
     // 시드는 이미 끝난 job 이라 두 시각이 같습니다 — 보관함에서 여는 결과의 경과는
     // 아무도 세지 않습니다(W-05 를 거치지 않음).
     queued_at: item.created_at,
@@ -1003,6 +1036,10 @@ export const handlers = [
       id: crypto.randomUUID(),
       createdAt: Date.now(),
       creditCost: cost,
+      // 서버는 `CustomPromptLog.raw_text` 에 **정규화 전 원문**을 남기고 응답에도 그걸
+      // 그대로 싣습니다(PR #83 테스트가 `"  우주복을 입혀줘  "` 로 못 박음). 여기서
+      // trim 하면 목만 다듬은 문구를 주게 되고, 화면이 그 차이를 못 밟습니다.
+      customPrompt: body.custom_prompt,
       styleId: body.style_id,
       uploadId: body.upload_id,
       petId: body.pet_id ?? null,
@@ -1063,11 +1100,16 @@ export const handlers = [
 
     const projected = projectJob(job)
     // 실패 확정 시 크레딧 자동 반환(§4 시나리오2 5단계) — 1회만.
-    if (projected.status === 'failed' && job.creditCost > 0) {
+    //
+    // 반환 표시는 `refunded` 입니다. 예전에는 `creditCost` 를 0 으로 만들어 겸했는데,
+    // 그 값이 이제 응답의 `credit_cost` 라(PR #83) 실패한 job 이 «0 크레딧짜리»로
+    // 보이게 됩니다 — 서버는 반환해도 이 컬럼을 줄이지 않습니다(app/worker.py `_refund`).
+    // 옛 저장분(`refunded` 없음, `creditCost === 0`)은 이미 돌려준 것으로 봅니다.
+    if (projected.status === 'failed' && !(job.refunded ?? job.creditCost === 0)) {
       state.credits.balance += job.creditCost
-      job.creditCost = 0
+      job.refunded = true
       persist()
-      // creditCost 를 0 으로 만든 사실까지 남겨야 리로드 후 같은 job 이 또 반환하지 않습니다.
+      // 돌려줬다는 사실까지 남겨야 리로드 후 같은 job 이 또 반환하지 않습니다.
       persistJobs()
     }
     return HttpResponse.json(projected)

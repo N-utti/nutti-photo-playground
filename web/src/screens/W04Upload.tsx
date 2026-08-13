@@ -213,8 +213,9 @@ export default function W04Upload() {
         onSuccess: ({ job_id }) => {
           clearJobAttempt()
           clearUploadDraft()
-          // GET /v1/jobs/{id} 가 style_id·upload_id 를 안 주므로 여기서 남겨 둡니다
-          // (api/jobContext.ts — W-06 "다시 만들기"·"다른 스타일"이 이걸 씁니다).
+          // 서버가 이미 style_id·upload_id 를 주므로(PR #60) 이 색인은 폴백입니다 —
+          // 응답이 오기 전에도 W-06 "다시 만들기"·"다른 스타일"이 성립하게 합니다.
+          // 마지막 남은 갭인 custom_prompt 가 착지하면 통째로 지웁니다(이슈 #81/PR #83).
           rememberJobContext(job_id, {
             styleId,
             uploadId: intent.upload_id,
