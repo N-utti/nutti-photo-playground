@@ -54,8 +54,19 @@ export default function W01Landing() {
           "누띠 놀이터"로 읽습니다. width/height 는 고유비(35:9) 그대로 — 로고가
           늦게 와도 헤더가 밀리지 않게 자리를 미리 잡습니다.
         */}
-        <img src="/brand/nutti-wordmark.svg" alt="누띠" width={70} height={18} className="h-3.5 w-auto" />
-        <span className="font-display text-base">놀이터</span>
+        {/*
+          워드마크 + "놀이터"를 통째로 홈 링크로 묶습니다. 이 화면이 이미 `/` 라서
+          누르면 제자리지만, 로고가 눌리는 게 웹의 관습이고 W-02 앱바 마크와도
+          같은 규칙이 됩니다(그쪽은 실제로 여기로 옵니다).
+
+          img 하나가 아니라 둘 다 감싸는 이유는 접근성 이름입니다 — 링크 이름은
+          내용에서 계산되므로 이렇게 묶어야 "누띠 놀이터" 한 덩어리로 읽힙니다.
+          img 만 감싸면 "누띠" 링크 옆에 "놀이터"가 떨어져 나옵니다.
+        */}
+        <Link to="/" className="-m-2 flex items-center gap-2 p-2">
+          <img src="/brand/nutti-wordmark.svg" alt="누띠" width={70} height={18} className="h-3.5 w-auto" />
+          <span className="font-display text-base">놀이터</span>
+        </Link>
         <nav className="ml-auto flex items-center gap-4" aria-label="주요">
           <Link to="/styles" className="hidden text-sm text-ink-2 hover:text-ink desktop:block">
             스타일

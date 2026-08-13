@@ -96,9 +96,20 @@ export default function W02StyleCatalog() {
             앱바의 마크는 파비콘과 같은 발바닥입니다 — apple-touch-icon 으로 이미
             받아 둔 파일을 그대로 재사용하므로(index.html) 요청이 늘지 않습니다.
             워드마크가 아니라 마크인 이유: 옆에 "스타일" 제목과 크레딧 배지가
-            붙는 자리라 정사각 마크가 폭을 덜 먹습니다. 장식이라 alt 는 빈 값.
+            붙는 자리라 정사각 마크가 폭을 덜 먹습니다.
+
+            누르면 랜딩(W-01)으로 갑니다 — 헤더 로고가 홈으로 가는 건 웹의 관습이고,
+            탭바 4칸에는 랜딩이 없어서(«스타일»·«만들기»·«보관함»·누띠샵) 여기 말고는
+            앱 안에서 랜딩으로 돌아갈 길이 없습니다.
+
+            이름은 img 의 alt 가 아니라 링크의 aria-label 로 답니다. 마크 자체는 여전히
+            장식이고(옆에 «스타일» 제목이 있습니다) 스크린리더가 읽어야 하는 건 그림이
+            아니라 **이 링크가 어디로 가는지**입니다. -m-2 p-2 는 24px 마크의 탭 영역만
+            40px 로 넓히고 여백은 되돌려 앱바 배치를 그대로 둡니다.
           */}
-          <img src="/brand/favicon-180.png" alt="" width={24} height={24} className="size-6" />
+          <Link to="/" aria-label="누띠 놀이터 홈" className="-m-2 shrink-0 p-2">
+            <img src="/brand/favicon-180.png" alt="" width={24} height={24} className="size-6" />
+          </Link>
           <h1 className="text-base font-bold">스타일</h1>
           <CreditBadge showUnit />
           {/* 숫자 = 크레딧 받기(W-10), 아바타 = 계정(W-12). 역할을 겹치지 않게 나눕니다. */}
