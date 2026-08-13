@@ -15,7 +15,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { ApiError } from '../api/client'
-import { readJobContext, readJobStartedAt } from '../api/jobContext'
 import { isFatalJobError, useJobPolling, useStyles } from '../api/queries'
 import { useGuestSessionReset } from '../app/guestSession'
 import Thumbnail from '../app/Thumbnail'
@@ -109,25 +108,23 @@ function smooth(
  * 대기 중에는 `queued_at` 으로 같은 판정을 겁니다. 어느 쪽이든 화면이 하는 말은
  * "오래 걸리는 중이니 나가도 된다" 하나로 같습니다.
  *
- * 서버 값이 없으면(구버전 응답) 예전처럼 로컬 색인 → 화면 도착 시각 순으로 내려갑니다.
- * 로컬 폴백은 실제보다 **늦게** 판정하는 쪽이라 없는 지연을 지어내지 않습니다.
+ * **첫 응답이 오기 전**에만 화면 도착 시각으로 대신 잽니다. 그건 실제보다 늦게
+ * 판정하는 쪽이라 없는 지연을 지어내지 않습니다. 예전에는 그 자리에 로컬 색인
+ * (`api/jobContext.ts`)이 하나 더 있었는데, 서버 시각이 착지하면서(PR #60) 이
+ * 브라우저에서 만든 job 에만 답하던 그 값이 할 일이 없어져 지웠습니다(이슈 #81).
  *
  * `resetKey`(job_id)가 바뀌면 다시 잽니다. "다시 만들기"로 이 화면이 재사용될 때
  * 이전 job 의 기준을 물려받으면 새 job 이 시작하자마자 초과로 보입니다.
  */
 function useStartedAt(jobId: string | undefined, job: Job | undefined): number {
-  const [state, setState] = useState(() => ({ key: jobId, at: fallbackStartedAt(jobId) }))
+  const [state, setState] = useState(() => ({ key: jobId, at: Date.now() }))
 
-  const local = state.key === jobId ? state.at : fallbackStartedAt(jobId)
-  if (state.key !== jobId) setState({ key: jobId, at: local })
+  const arrival = state.key === jobId ? state.at : Date.now()
+  if (state.key !== jobId) setState({ key: jobId, at: arrival })
 
   const server = job?.started_at ?? job?.queued_at
   const parsed = server != null ? Date.parse(server) : Number.NaN
-  return Number.isFinite(parsed) ? parsed : local
-}
-
-function fallbackStartedAt(jobId: string | undefined): number {
-  return readJobStartedAt(jobId ?? '') ?? Date.now()
+  return Number.isFinite(parsed) ? parsed : arrival
 }
 
 function useMonotonic(value: number, resetKey: string | undefined): number {
@@ -195,8 +192,6 @@ export default function W05Waiting() {
     )
   }
 
-  const context = jobId ? readJobContext(jobId) : null
-
   return (
     <div className="min-h-full bg-paper pb-16">
       <header className="sticky top-0 z-20 flex items-center border-b border-rule bg-surface px-4 py-3">
@@ -205,9 +200,9 @@ export default function W05Waiting() {
 
       <main className="mx-auto w-full max-w-md px-4 py-4">
         {/* 원본은 흐리게 — 결과를 미리 본 것 같은 착각을 주지 않으면서 맥락은 남깁니다. */}
-        {(job?.source_image_url ?? context?.sourceImageUrl) && (
+        {job?.source_image_url && (
           <img
-            src={job?.source_image_url ?? context?.sourceImageUrl ?? ''}
+            src={job.source_image_url}
             alt=""
             className="aspect-square w-full rounded-xl bg-surface-2 object-cover blur-sm"
           />

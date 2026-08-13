@@ -276,24 +276,22 @@ export interface Job {
    * 커스텀 프롬프트 job 은 `style_id: null`.
    *
    * PR #60 으로 백엔드 구현이 착지해 옵셔널을 뗐습니다 — 이제 모든 job 응답이
-   * 답합니다. 로컬 색인(api/jobContext.ts)에 남은 용도는 `customPrompt` 하나입니다.
+   * 답합니다(맥락 조립은 app/reuseFromJob.ts `contextFromJob`).
    */
   style_id: number | null
   upload_id: string
   /**
    * 커스텀 job 이면 W-08 에서 보낸 문구 원문, 프리셋 job 이면 `null` (이슈 #81).
    *
-   * **옵셔널인 이유는 PR #83 이 아직 열려 있기 때문입니다** — 착지하기 전의 실서버는
-   * 이 키를 아예 보내지 않습니다. `?? local` 로 로컬 색인까지 내려가는 판정이
-   * `resolveJobContext` 한 곳에 모여 있고, 착지하면 여기서 `?` 를 떼면서 그 폴백과
-   * `api/jobContext.ts` 를 함께 지웁니다(PR #83 본문의 «프론트 후속»).
+   * PR #83 으로 백엔드 구현이 착지해 옵셔널을 뗐습니다 — 이 필드가 로컬 색인
+   * (`api/jobContext.ts`)의 마지막 존재 이유였고, 착지와 함께 그 파일을 지웠습니다.
    *
    * 원문이라 **앞뒤 공백이 그대로 옵니다**(PR #83 테스트가 `"  우주복을 입혀줘  "` 로
    * 못 박음). 정규화본이 아니므로 재생성에 그대로 실어 보내면 됩니다 — 서버가 만들 때
    * 쓴 값과 같습니다. 로그가 먼저 지워진 job(`on_delete=SET_NULL`)은 커스텀이었어도
-   * `null` 로 옵니다.
+   * `null` 로 옵니다 — 그 경우는 서버도 문구를 모르는 것이라 재생성이 불가능합니다.
    */
-  custom_prompt?: string | null
+  custom_prompt: string | null
   /**
    * 이 job 이 실제로 차감한 크레딧(이슈 #81). 스타일 비용은 스타일마다 다르고
    * 커스텀은 2 라(FR-W08-04) 화면이 «다시 만들기»의 값을 지어내지 않으려면 이 값이
@@ -302,10 +300,8 @@ export interface Job {
    * **실패해도 0 이 되지 않습니다** — 자동 반환은 크레딧 트랜잭션을 따로 쌓을 뿐
    * `generation_job.credit_cost` 를 건드리지 않습니다(`app/worker.py` `_refund`).
    * 그래서 실패 화면의 «다시 만들기»도 이 값을 그대로 말할 수 있습니다.
-   *
-   * `custom_prompt` 와 같은 이유로 옵셔널입니다(PR #83 미착지).
    */
-  credit_cost?: number
+  credit_cost: number
   /**
    * 큐에 들어간 시각(ISO 8601). 워커가 집기 전까지 `started_at` 은 null 입니다(PR #60).
    *

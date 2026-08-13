@@ -25,7 +25,6 @@ import {
   type JobIntent,
 } from '../api/idempotency'
 import { useCreateJob } from '../api/queries'
-import { rememberJobContext } from '../api/jobContext'
 import { clearUploadDraft, readUploadDraft } from '../api/uploadDraft'
 import { CreditBadge } from '../app/CreditBadge'
 import { promptRejectionReason } from '../app/promptFilter'
@@ -105,17 +104,9 @@ export default function W08Creative() {
         onSuccess: ({ job_id }) => {
           clearJobAttempt()
           clearUploadDraft()
-          // 문구까지 남겨야 W-06 "다시 만들기"가 같은 커스텀 생성을 2 크레딧으로
-          // 다시 돌립니다. `style_id`·`upload_id` 는 이제 서버가 주고(이슈 #9 착지)
-          // `custom_prompt` 도 PR #83 이 착지하면 서버가 답합니다 — **그때까지는** 이
-          // 색인이 유일한 출처라, 지금은 이 브라우저 밖에서 그 버튼이 사라집니다.
-          // #83 이 머지되면 이 호출과 api/jobContext.ts 를 함께 지웁니다(이슈 #81).
-          rememberJobContext(job_id, {
-            styleId: null,
-            uploadId: intent.upload_id,
-            sourceImageUrl,
-            customPrompt: intent.custom_prompt,
-          })
+          // 문구를 따로 남기지 않습니다 — job 응답의 `custom_prompt` 가 답합니다
+          // (PR #83, 이슈 #81). 예전에는 여기서 localStorage 색인에 적어 뒀고, 그래서
+          // W-06 "다시 만들기"가 **이 브라우저에서만** 살아 있었습니다.
           navigate(`/jobs/${job_id}/waiting`)
         },
         onError: (error) => {

@@ -168,7 +168,6 @@ function persist(): void {
  *
  * sessionStorage 가 아니라 localStorage 인 이유도 같습니다 — 탭을 닫았다 URL 로
  * 돌아오는 게 바로 Q7 이 말하는 시나리오라, 탭 수명에 묶으면 절반만 재현됩니다.
- * (`nutti.job-context` 가 localStorage 인 것도 같은 이유입니다.)
  *
  * `placeholderImage` 는 label 이 같으면 같은 data URI 를 내는 결정론적 함수라,
  * 되살린 job 도 이미지까지 원래대로 그려집니다.

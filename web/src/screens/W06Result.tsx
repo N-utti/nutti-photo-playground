@@ -21,7 +21,6 @@ import { ApiError, isApiError } from '../api/client'
 import { calculatorHeadline, estimateSummary } from '../api/calculatorLink'
 import { events } from '../api/endpoints'
 import { beginJobAttempt, clearJobAttempt, resumeJobAttempt } from '../api/idempotency'
-import { rememberJobContext, resolveJobContext } from '../api/jobContext'
 import { CreditBadge } from '../app/CreditBadge'
 import { NUTTI_SHOP_URL } from '../app/externalLinks'
 import {
@@ -32,11 +31,10 @@ import {
   useJobPolling,
   useMe,
   useShareJob,
-  useStyleDetail,
   useStyles,
 } from '../api/queries'
 import { useGuestSessionReset } from '../app/guestSession'
-import { withReuse } from '../app/reuseFromJob'
+import { contextFromJob, withReuse } from '../app/reuseFromJob'
 import { saveImage, type SaveImageOutcome } from '../app/saveImage'
 import Thumbnail from '../app/Thumbnail'
 import type { Job, JobErrorCode } from '../api/types'
@@ -402,18 +400,18 @@ function ShareRow({ job }: { job: Job }) {
 
 function Regenerate({ job, label, hint }: { job: Job; label: string; hint?: string }) {
   const navigate = useNavigate()
-  // 서버가 style_id·upload_id 를 주면 그 값이, 아직이면 로컬 색인이 답합니다(이슈 #9).
-  const context = resolveJobContext(job.job_id, job)
-  const { data: style } = useStyleDetail(context?.styleId ?? null)
+  // 재생성 재료는 job 응답이 전부 답합니다(이슈 #9 · #81).
+  const context = contextFromJob(job)
   const createJob = useCreateJob()
   const [insufficient, setInsufficient] = useState<{ required: number; balance: number } | null>(
     null,
   )
 
-  // 재료를 모르면 재생성 자체가 불가능합니다. 서버 값이 왔더라도 **커스텀 job 인데
-  // 문구를 모르는 경우**(style_id: null + 문구도 null)가 남습니다 — 스타일도 문구도
-  // 없는 요청이 나가기 때문입니다. PR #83 이 착지하면 이 경우는 «이 브라우저에서 만든
-  // job 이 아님»이 아니라 **로그가 지워진 job** 으로 좁혀집니다(`on_delete=SET_NULL`).
+  // 재료를 모르면 재생성 자체가 불가능합니다. 서버가 답해도 **커스텀 job 인데 문구를
+  // 모르는 경우**(style_id: null + 문구도 null)가 남습니다 — 프롬프트 로그가 job 보다
+  // 먼저 지워진 경우고(`on_delete=SET_NULL`), 그대로 보내면 스타일도 문구도 없는
+  // 요청이 나갑니다. PR #83 전에는 여기가 «이 브라우저에서 만든 job 이 아님»까지
+  // 포함해 훨씬 넓었습니다.
   //
   // 다만 그 둘은 남은 재료가 다릅니다. 문구만 모르는 쪽은 `upload_id` 를 이미 알고
   // 있으므로 **사진까지 버릴 이유가 없습니다** — `from_job` 을 떼고 카탈로그로 보내면
@@ -435,13 +433,10 @@ function Regenerate({ job, label, hint }: { job: Job; label: string; hint?: stri
 
   // 값을 지어내지 않고 **이 job 이 실제로 낸 값**을 그대로 씁니다(PR #83 `credit_cost`).
   // 실패한 job 도 0 이 되지 않으므로(자동 반환은 트랜잭션만 쌓습니다 — app/worker.py
-  // `_refund`) 실패 화면의 버튼도 같은 값을 말합니다.
-  //
-  // 폴백은 #83 착지 전의 실서버용입니다. W-08 커스텀은 프리셋의 2배 고정이고
-  // (FR-W08-04), 스타일이 없으면 `style?.credit_cost` 가 undefined 라 그냥 1 로
-  // 보이는데 그러면 버튼이 값을 잘못 말합니다 — 그래서 문구 여부를 먼저 봅니다.
-  const customPrompt = context.customPrompt ?? null
-  const cost = job.credit_cost ?? (customPrompt ? 2 : (style?.credit_cost ?? 1))
+  // `_refund`) 실패 화면의 버튼도 같은 값을 말합니다. 스타일 상세를 따로 불러
+  // `credit_cost` 를 되짚던 조회는 이 값이 생기면서 없어졌습니다.
+  const customPrompt = context.customPrompt
+  const cost = job.credit_cost
 
   function regenerate() {
     if (!context) return
@@ -467,7 +462,6 @@ function Regenerate({ job, label, hint }: { job: Job; label: string; hint?: stri
       {
         onSuccess: ({ job_id }) => {
           clearJobAttempt()
-          rememberJobContext(job_id, context)
           navigate(`/jobs/${job_id}/waiting`)
         },
         onError: (error) => {
