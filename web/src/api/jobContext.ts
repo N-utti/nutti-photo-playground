@@ -11,6 +11,12 @@
  * 용도는 예고대로 `customPrompt` 하나뿐이며(아래 주석 참고) 그것까지 응답에 실리면
  * 이 파일과 `rememberJobContext` 호출부를 함께 지웁니다 — **이슈 #81**.
  *
+ * 그 응답이 **PR #83 으로 올라와 있고 아직 미머지**입니다. `resolveJobContext` 는
+ * 이미 `job.custom_prompt` 를 먼저 보므로, 착지하는 순간 이 파일 없이도 커스텀
+ * job 의 «다시 만들기»가 성립합니다. 그때 남는 일은 삭제뿐입니다 — 아래 세 값이
+ * 전부 서버 값의 폴백일 뿐이라(`sourceImageUrl`←`source_image_url`,
+ * `startedAt`←`queued_at`/`started_at`) 지울 때 잃는 건 «옛 브라우저 저장분» 하나입니다.
+ *
  * localStorage 인 이유: 게스트 복원 자체가 **동일 브라우저 한정**이고(이슈 #5 PO
  * 결정, 30일) 세션 토큰도 localStorage 에 있습니다. 탭을 닫았다 URL 로 돌아오는 게
  * 바로 Q7 이 약속한 시나리오라 sessionStorage 로는 부족합니다.
@@ -82,14 +88,24 @@ export function readJobContext(jobId: string): JobContext | null {
  * job 에만 있으므로, 서버가 답하기 시작하면 다른 기기·다른 탭에서 연 결과도
  * 재생성할 수 있게 됩니다.
  *
- * `customPrompt` 만 예외적으로 로컬을 계속 봅니다 — job 응답에 `custom_prompt` 가
- * 없어서(§3) 서버 값만으로는 W-08 커스텀 job 을 같은 문구로 다시 돌릴 수도, 비용
- * 2크레딧을 맞게 표시할 수도 없습니다. 이 갭은 **이슈 #81** 입니다(원래 이슈 #9 에
- * 있었는데, #9 가 `style_id`·`upload_id` 착지분으로 닫히면서 이 필드만 남아 옮겼습니다).
+ * `customPrompt` 도 이제 **서버가 먼저**입니다 — PR #83 이 `custom_prompt` 를 응답에
+ * 실으면서(이슈 #81) 다른 기기·다른 탭에서 연 커스텀 job 도 같은 문구로 다시 돌릴 수
+ * 있게 됩니다. 다만 그 PR 이 아직 미머지라 **키가 아예 없는 응답**이 실서버에서 오고,
+ * 그때는 예전처럼 로컬 색인으로 내려갑니다.
+ *
+ * `?? null` 이 아니라 `undefined` 만 폴백으로 치는 이유: 서버가 **명시적 `null`** 을
+ * 주는 건 «프리셋 job 이라 문구가 없다» 또는 «로그가 지워졌다»는 **답**입니다(#83 본문).
+ * 그걸 로컬 값으로 덮으면, 서버가 «없다»고 말한 job 에 이 브라우저의 옛 기억을 얹어
+ * 스타일 job 을 커스텀으로 되돌리는 요청이 나갑니다.
  */
 export function resolveJobContext(
   jobId: string,
-  job?: { style_id?: number | null; upload_id?: string; source_image_url?: string } | null,
+  job?: {
+    style_id?: number | null
+    upload_id?: string
+    source_image_url?: string
+    custom_prompt?: string | null
+  } | null,
 ): JobContext | null {
   const local = readJobContext(jobId)
   if (!job?.upload_id) return local
@@ -98,7 +114,7 @@ export function resolveJobContext(
     styleId: job.style_id ?? null,
     uploadId: job.upload_id,
     sourceImageUrl: job.source_image_url ?? local?.sourceImageUrl ?? null,
-    customPrompt: local?.customPrompt ?? null,
+    customPrompt: job.custom_prompt !== undefined ? job.custom_prompt : (local?.customPrompt ?? null),
     startedAt: local?.startedAt,
   }
 }

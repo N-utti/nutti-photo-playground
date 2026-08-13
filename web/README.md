@@ -101,7 +101,8 @@ src/
     idempotency.ts  Idempotency-Key 수명 (규칙이 두 방향으로 갈리는 지점)
     uploadDraft.ts  402 후 돌아왔을 때 업로드 결과 이어받기 (sessionStorage)
     jobContext.ts   job_id → 재생성 재료 로컬 색인. 서버 우선 · 로컬 폴백.
-                    남은 이유는 `custom_prompt` 하나 (이슈 #81) — 실리면 이 파일째 삭제
+                    남은 이유는 `custom_prompt` 하나 (이슈 #81) — PR #83 이 머지되면
+                    폴백이 전부 죽은 코드가 되므로 이 파일과 호출부째 삭제
   mocks/            MSW — 프로덕션 번들에서 완전히 제외됨
   screens/          화면. 구현된 것만 개별 파일, 나머지는 placeholders.tsx
   app/
@@ -146,7 +147,7 @@ src/
 | [#41](https://github.com/N-utti/nutti-photo-playground/issues/41) | job 응답에 시작 시각(`created_at`) 없음 | W-05 FR-EDGE-02 판정 | 해결. 응답이 `queued_at`·`started_at`을 답하고 W-05가 **서버 우선**으로 잽니다(`useStartedAt`). 워커가 재시도할 때도 최초 `started_at`을 유지하므로 판정 기준이 재시도마다 리셋되지 않습니다(`app/worker.py` `lease_job`) |
 | [#71](https://github.com/N-utti/nutti-photo-playground/issues/71) | 스타일·펫 썸네일 URL이 `public_url()` 을 안 거쳐 로컬에서 404 | W-02 카탈로그·W-04 펫 목록 (목을 끈 로컬 한정) | 대기 — 백엔드 PR #74 가 고쳤으나 **아직 미머지**. 프론트는 무변경(`/media` dev proxy 는 PR #72 로 이미 있음) |
 | [#77](https://github.com/N-utti/nutti-photo-playground/issues/77) | 결과 이미지 스토리지에 CORS 헤더 없음 | `CDN_BASE_URL` 을 채우는 배포 시점 | 대기 — **코드로 닫히지 않습니다**(R2/CDN 운영 설정). 프론트는 `app/saveImage.ts` 로 fetch→blob 저장하고 CORS 가 없으면 새 탭 폴백. **CORS 가 열려도 그 우회는 걷어내지 않습니다**(PR #80) |
-| [#81](https://github.com/N-utti/nutti-photo-playground/issues/81) | job 응답에 `custom_prompt`·`credit_cost` 없음 | W-06 «다시 만들기» — W-08 커스텀 job 한정 | 대기 (2026-08-13 등록). 문구를 만든 브라우저의 localStorage 에서만 알 수 있어, **다른 기기에서 연 커스텀 결과는 버튼이 사라집니다**(`W06Result.tsx:423`). 실리면 `api/jobContext.ts` 를 통째로 삭제 |
+| [#81](https://github.com/N-utti/nutti-photo-playground/issues/81) | job 응답에 `custom_prompt`·`credit_cost` 없음 | W-06 «다시 만들기» — W-08 커스텀 job 한정 | 대기 — 백엔드 PR #83 이 고쳤으나 **아직 미머지**. 프론트는 **읽는 쪽만 먼저 붙였습니다**: 두 필드를 옵셔널로 두고 `resolveJobContext` 가 `custom_prompt` 를, `W06Result` 가 `credit_cost` 를 **서버 우선**으로 봅니다 — 착지하는 순간 다른 기기에서 연 커스텀 결과도 버튼이 살아납니다. 머지되면 옵셔널을 떼고 `api/jobContext.ts` 를 호출부째 삭제 |
 
 [#11](https://github.com/N-utti/nutti-photo-playground/issues/11)(auth 보안 후속 M3~M6·L1~L6)은 **프론트가 막히는 지점이 없어** 위 표에 넣지 않습니다 — 확인 근거는
 이슈 코멘트에 남겼습니다(오픈 리다이렉트는 `app/authReturn.ts` 가 이미 막고, 동시 가입 경합을
