@@ -212,7 +212,7 @@ function ResultPanel({ job }: { job: Job }) {
             properties: { job_id: job.job_id },
           })
         }
-        className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-brand-2 bg-brand-soft px-3 py-3"
+        className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-brand-2 bg-brand-soft px-3 py-3 hover:border-brand hover:bg-gold-soft"
       >
         <span>
           <span className="block text-sm font-semibold">{SHOP_BANNER.title}</span>
@@ -291,7 +291,7 @@ function ShareRow({ job }: { job: Job }) {
         <button
           type="button"
           onClick={handleSave}
-          className="rounded-xl border border-rule-strong bg-surface px-4 py-3 text-sm font-semibold"
+          className="rounded-xl border border-rule-strong bg-surface px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
         >
           저장
         </button>
@@ -305,7 +305,7 @@ function ShareRow({ job }: { job: Job }) {
             })
             share.mutate()
           }}
-          className="rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper disabled:opacity-50"
+          className="rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99] disabled:opacity-50"
         >
           {share.isPending ? '준비 중…' : '인스타 공유'}
         </button>
@@ -314,7 +314,7 @@ function ShareRow({ job }: { job: Job }) {
       {isMember && (
         <p className="mt-2 text-center text-xs text-ink-3">
           보관함에 저장돼 있어요.{' '}
-          <Link to="/library" className="underline">
+          <Link to="/library" className="underline hover:text-brand">
             보관함 보기
           </Link>
         </p>
@@ -360,7 +360,7 @@ function ShareRow({ job }: { job: Job }) {
                   .then(setSaveOutcome)
                   .finally(() => setSaving(false))
               }}
-              className="rounded-lg border border-rule-strong px-3 py-2 text-center text-sm font-semibold disabled:opacity-50"
+              className="rounded-lg border border-rule-strong px-3 py-2 text-center text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
             >
               {saving ? '저장 중…' : '이미지 저장'}
             </button>
@@ -368,7 +368,7 @@ function ShareRow({ job }: { job: Job }) {
               href="https://www.instagram.com/"
               target="_blank"
               rel="noreferrer"
-              className="rounded-lg bg-brand px-3 py-2 text-center text-sm font-semibold text-paper"
+              className="rounded-lg bg-brand px-3 py-2 text-center text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99]"
             >
               인스타그램 열기
             </a>
@@ -425,7 +425,7 @@ function Regenerate({ job, label, hint }: { job: Job; label: string; hint?: stri
     return (
       <Link
         to={keepsPhoto ? withReuse('/styles', job.job_id) : '/styles'}
-        className="mt-2 block rounded-xl border border-rule px-4 py-3 text-center text-sm text-ink-2"
+        className="mt-2 block rounded-xl border border-rule px-4 py-3 text-center text-sm text-ink-2 hover:border-rule-strong hover:bg-surface-2 hover:text-ink"
       >
         {keepsPhoto ? '이 사진으로 다른 스타일 고르기' : '다른 사진으로 만들기'}
       </Link>
@@ -481,7 +481,7 @@ function Regenerate({ job, label, hint }: { job: Job; label: string; hint?: stri
         type="button"
         onClick={regenerate}
         disabled={createJob.isPending}
-        className="mt-2 w-full rounded-xl border border-rule-strong bg-surface px-4 py-3 text-sm font-semibold disabled:opacity-50"
+        className="mt-2 w-full rounded-xl border border-rule-strong bg-surface px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
       >
         {createJob.isPending ? '보내는 중…' : `${label} · ${cost} 크레딧`}
       </button>
@@ -529,7 +529,7 @@ function CalculatorBanner({ jobId }: { jobId: string }) {
           properties: { job_id: jobId, breed_code: link.breed_code },
         })
       }
-      className="mt-4 block rounded-xl border border-rule-strong bg-surface px-3 py-3"
+      className="mt-4 block rounded-xl border border-rule-strong bg-surface px-3 py-3 hover:border-rule-strong hover:bg-surface-2"
     >
       <span className="block text-sm font-semibold">{calculatorHeadline(link)}</span>
       <span className="mt-0.5 block text-xs text-ink-2">{estimateSummary(link).text}</span>
@@ -557,7 +557,7 @@ function OtherStyles({ jobId }: { jobId: string }) {
         */}
         <Link
           to={`/styles?from_job=${jobId}`}
-          className="shrink-0 text-xs text-ink-3 underline underline-offset-2"
+          className="shrink-0 text-xs text-ink-3 underline underline-offset-2 hover:text-brand"
         >
           전체 스타일 보기
         </Link>
@@ -568,7 +568,7 @@ function OtherStyles({ jobId }: { jobId: string }) {
             {/* from_job 이 있으면 W-04 가 업로드 단계를 건너뜁니다. */}
             <Link
               to={`/upload?style_id=${style.id}&from_job=${jobId}`}
-              className="block overflow-hidden rounded-lg border border-rule bg-surface"
+              className="block overflow-hidden rounded-lg border border-rule bg-surface hover:border-brand-2"
             >
               <Thumbnail
                 src={style.thumbnail_url}

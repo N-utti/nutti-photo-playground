@@ -141,7 +141,7 @@ function SheetBody({
       {/* 재사용 중이면 `from_job` 을 그대로 넘겨 W-04 가 업로드 단계를 건너뜁니다. */}
       <Link
         to={withReuse(`/upload?style_id=${style.id}`, reuseJobId)}
-        className="mt-5 block rounded-xl bg-brand px-4 py-3 text-center text-sm font-semibold text-paper"
+        className="mt-5 block rounded-xl bg-brand px-4 py-3 text-center text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99]"
       >
         이 스타일로 만들기
       </Link>
@@ -226,7 +226,7 @@ function ExampleCarousel({ images, styleName }: { images: string[]; styleName: s
               track?.scrollTo({ left: index * track.clientWidth, behavior: 'smooth' })
             }}
             className={`size-1.5 rounded-full transition-colors ${
-              active === index ? 'bg-brand' : 'bg-rule-strong'
+              active === index ? 'bg-brand' : 'bg-rule-strong hover:bg-brand-2'
             }`}
           />
         ))}
@@ -248,7 +248,7 @@ function SheetError({ message, onClose }: { message: string; onClose: () => void
       <button
         type="button"
         onClick={onClose}
-        className="mt-4 rounded-full border border-rule-strong px-4 py-2 text-sm"
+        className="mt-4 rounded-full border border-rule-strong px-4 py-2 text-sm hover:border-brand-2 hover:bg-surface-2 hover:text-brand"
       >
         다른 스타일 보기
       </button>

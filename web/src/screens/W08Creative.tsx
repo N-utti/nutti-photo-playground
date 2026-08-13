@@ -144,7 +144,7 @@ export default function W08Creative() {
             </p>
             <Link
               to="/upload"
-              className="mt-4 block rounded-xl bg-brand px-4 py-3 text-center text-sm font-semibold text-paper"
+              className="mt-4 block rounded-xl bg-brand px-4 py-3 text-center text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99]"
             >
               사진 올리기
             </Link>
@@ -190,7 +190,7 @@ export default function W08Creative() {
                   <button
                     type="button"
                     onClick={() => setPrompt(chip)}
-                    className="rounded-full border border-rule bg-surface px-3 py-1.5 text-sm text-ink-2"
+                    className="rounded-full border border-rule bg-surface px-3 py-1.5 text-sm text-ink-2 hover:border-brand-2 hover:bg-brand-soft/50 hover:text-brand"
                   >
                     {chip}
                   </button>
@@ -213,7 +213,7 @@ export default function W08Creative() {
               type="button"
               onClick={start}
               disabled={!prompt.trim() || rejection !== null || createJob.isPending}
-              className="mt-4 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper disabled:opacity-50"
+              className="mt-4 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99] disabled:opacity-50"
             >
               {createJob.isPending ? '만드는 중…' : `만들기 · ${CUSTOM_PROMPT_COST} 크레딧`}
             </button>

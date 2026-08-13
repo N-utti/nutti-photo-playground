@@ -46,7 +46,7 @@ export default function BackButton({ fallback }: { fallback: string }) {
   const goBack = useGoBack(fallback)
 
   return (
-    <button type="button" onClick={goBack} aria-label="뒤로" className="text-ink-2">
+    <button type="button" onClick={goBack} aria-label="뒤로" className="text-ink-2 hover:text-ink">
       ←
     </button>
   )

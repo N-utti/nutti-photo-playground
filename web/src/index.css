@@ -90,7 +90,7 @@
   /* --- 브랜드 (nutti.co.kr 실측) --- */
   --color-brand: #5c3d24; /* 주조 브라운 · paper 위 9.06:1 AAA */
   --color-brand-2: #8c6239; /* 로고 브라운 · 4.96:1 — 큰 글씨·아이콘·테두리용 */
-  --color-brand-deep: #3a2a1c; /* 눌린 상태(:active)와 오버레이 */
+  --color-brand-deep: #3a2a1c; /* brand 버튼의 hover · 오버레이 (paper 위 14.65:1) */
   --color-brand-soft: #eee0d0; /* 브라운 계열 연한 배경(칩·선택 상태) */
 
   /* --- 액센트 골드 ---
@@ -182,6 +182,41 @@ img {
   button:not(:disabled),
   [role='button']:not([aria-disabled='true']) {
     cursor: pointer;
+  }
+}
+
+/* 누를 수 있는 것의 색 변화는 끊기지 말고 이어질 것.
+
+   PR #87(커서)·#90(W-04 업로드 자리)에 이어 hover 반응을 앱 전체로 넓히면서, 요소마다
+   `transition ...` 을 반복해 붙이는 대신 여기서 한 번에 깝니다. 커서 규칙과 같은
+   이유입니다 — 앞으로 추가되는 버튼이 클래스를 빠뜨려도 같은 구멍이 다시 안 생깁니다.
+
+   `transition-property` 를 일일이 나열하는 이유는 `all` 이 레이아웃 속성(width·height)
+   까지 애니메이션시키기 때문입니다. 로딩 스켈레톤이 실제 내용으로 바뀌거나 목록이
+   늘어날 때 요소가 의도치 않게 미끄러집니다. hover·:active 에서 실제로 바뀌는 것만
+   적었습니다.
+
+   `<a>` 는 `href` 가 있는 것만 받습니다 — react-router 의 `<Link>` 는 `href` 를 내므로
+   포함되고, 앵커 없는 `<a>` 는 누를 수 있는 게 아니라 빠집니다.
+
+   prefers-reduced-motion 에서는 `transform` 만 뺍니다. 그 설정이 막으려는 건 움직임
+   이지 색이 아니고, 색 전환까지 없애면 hover 가 «켜짐/꺼짐»으로 튀어서 더 거칩니다. */
+@layer base {
+  button:not(:disabled),
+  a[href],
+  [role='button']:not([aria-disabled='true']) {
+    transition-property: color, background-color, border-color, box-shadow, opacity, filter,
+      transform;
+    transition-duration: 150ms;
+    transition-timing-function: ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    button:not(:disabled),
+    a[href],
+    [role='button']:not([aria-disabled='true']) {
+      transition-property: color, background-color, border-color, box-shadow, opacity, filter;
+    }
   }
 }
 

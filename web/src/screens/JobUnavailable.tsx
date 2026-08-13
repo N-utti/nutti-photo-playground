@@ -54,7 +54,7 @@ export default function JobUnavailable({
 
       <Link
         to="/styles"
-        className="mt-6 block rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper"
+        className="mt-6 block rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99]"
       >
         새로 만들기
       </Link>
@@ -76,7 +76,7 @@ export default function JobUnavailable({
           <button
             type="button"
             onClick={() => setLoginSheet(true)}
-            className="mt-2 text-xs font-semibold text-ink-2 underline"
+            className="mt-2 text-xs font-semibold text-ink-2 underline hover:text-brand"
           >
             로그인하기
           </button>

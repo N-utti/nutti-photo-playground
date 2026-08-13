@@ -24,8 +24,8 @@ const PASSWORD_MIN = 8
 const PASSWORD_MAX = 128
 
 const SOCIAL: { provider: SocialProvider; label: string; className: string }[] = [
-  { provider: 'kakao', label: '카카오로 계속하기', className: 'bg-[#FEE500] text-[#191600]' },
-  { provider: 'naver', label: '네이버로 계속하기', className: 'bg-[#03C75A] text-white' },
+  { provider: 'kakao', label: '카카오로 계속하기', className: 'bg-[#FEE500] text-[#191600] hover:brightness-95 motion-safe:active:scale-[0.99]' },
+  { provider: 'naver', label: '네이버로 계속하기', className: 'bg-[#03C75A] text-white hover:brightness-95 motion-safe:active:scale-[0.99]' },
 ]
 
 /** 로그인 계열 실패를 사용자 언어로. 서버 message 는 영어라 그대로 보여줄 수 없습니다. */
@@ -118,7 +118,7 @@ export default function AccountSheet({
             <button
               type="button"
               onClick={onClose}
-              className="mt-4 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper"
+              className="mt-4 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99]"
             >
               계속하기
             </button>
@@ -172,7 +172,9 @@ export default function AccountSheet({
                     localAuth.reset()
                   }}
                   className={`flex-1 rounded-lg px-3 py-2 font-semibold ${
-                    mode === value ? 'bg-brand text-paper' : 'border border-rule text-ink-2'
+                    mode === value
+                      ? 'bg-brand text-paper'
+                      : 'border border-rule text-ink-2 hover:border-brand-2 hover:text-brand'
                   }`}
                 >
                   {value === 'login' ? '로그인' : '가입'}
@@ -223,7 +225,7 @@ export default function AccountSheet({
               <button
                 type="submit"
                 disabled={localAuth.isPending}
-                className="w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper disabled:opacity-50"
+                className="w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99] disabled:opacity-50"
               >
                 {localAuth.isPending
                   ? '처리 중…'
@@ -239,7 +241,7 @@ export default function AccountSheet({
               </p>
             )}
 
-            <button type="button" onClick={onClose} className="mt-2 w-full py-2 text-sm text-ink-3">
+            <button type="button" onClick={onClose} className="mt-2 w-full py-2 text-sm text-ink-3 hover:text-ink">
               나중에 하기
             </button>
           </>

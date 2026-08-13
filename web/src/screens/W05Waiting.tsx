@@ -274,10 +274,10 @@ export default function W05Waiting() {
             있는 건 «기다려 주세요»가 아니라 «나가도 됩니다» 쪽입니다. */}
         <Link
           to="/styles"
-          className={`mt-5 block rounded-xl px-4 py-3 text-center text-sm font-semibold ${
+          className={`mt-5 block rounded-xl px-4 py-3 text-center text-sm font-semibold motion-safe:active:scale-[0.99] ${
             overdue
-              ? 'bg-brand text-paper'
-              : 'border border-rule-strong bg-surface'
+              ? 'bg-brand text-paper hover:bg-brand-deep'
+              : 'border border-rule-strong bg-surface hover:border-brand-2 hover:bg-surface-2 hover:text-brand'
           }`}
         >
           나가서 둘러보기
@@ -297,7 +297,7 @@ export default function W05Waiting() {
                 <li key={style.id}>
                   <Link
                     to={`/styles/${style.id}`}
-                    className="block overflow-hidden rounded-lg border border-rule bg-surface"
+                    className="block overflow-hidden rounded-lg border border-rule bg-surface hover:border-brand-2"
                   >
                     <Thumbnail
                       src={style.thumbnail_url}
