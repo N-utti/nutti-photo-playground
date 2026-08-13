@@ -151,7 +151,7 @@ export default function AuthCallback() {
         <button
           type="button"
           onClick={() => navigate(outcome.returnTo, { replace: true })}
-          className="mt-4 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper"
+          className="mt-4 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99]"
         >
           계속하기
         </button>
@@ -200,7 +200,7 @@ function CallbackFrame({
         {!pending && !action && (
           <Link
             to="/"
-            className="mt-4 block rounded-xl border border-rule-strong px-4 py-3 text-sm font-semibold"
+            className="mt-4 block rounded-xl border border-rule-strong px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
           >
             처음으로
           </Link>

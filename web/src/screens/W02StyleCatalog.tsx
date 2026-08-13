@@ -78,7 +78,7 @@ export default function W02StyleCatalog() {
           <button
             type="button"
             onClick={() => refetch()}
-            className="mt-4 rounded-full border border-rule-strong px-4 py-2 text-sm"
+            className="mt-4 rounded-full border border-rule-strong px-4 py-2 text-sm hover:border-brand-2 hover:bg-surface-2 hover:text-brand"
           >
             다시 시도
           </button>
@@ -107,7 +107,7 @@ export default function W02StyleCatalog() {
             아니라 **이 링크가 어디로 가는지**입니다. -m-2 p-2 는 24px 마크의 탭 영역만
             40px 로 넓히고 여백은 되돌려 앱바 배치를 그대로 둡니다.
           */}
-          <Link to="/" aria-label="누띠 놀이터 홈" className="-m-2 shrink-0 p-2">
+          <Link to="/" aria-label="누띠 놀이터 홈" className="-m-2 shrink-0 p-2 hover:opacity-70">
             <img src="/brand/favicon-180.png" alt="" width={24} height={24} className="size-6" />
           </Link>
           <h1 className="text-base font-bold">스타일</h1>
@@ -129,7 +129,7 @@ export default function W02StyleCatalog() {
               className={`shrink-0 rounded-full border px-3 py-1 text-sm transition-colors ${
                 activeSection === name
                   ? 'border-brand bg-brand text-paper'
-                  : 'border-rule bg-surface text-ink-2'
+                  : 'border-rule bg-surface text-ink-2 hover:border-brand-2 hover:text-brand'
               }`}
             >
               {name}
@@ -175,7 +175,7 @@ export default function W02StyleCatalog() {
               배너가 "사진 그대로"라고 말해 놓고 W-08 에서 사진을 다시 요구합니다. */}
           <Link
             to={withReuse('/creative', reuse.jobId)}
-            className="mt-4 mb-8 block rounded-xl border border-rule px-4 py-3 text-center text-sm text-ink-2"
+            className="mt-4 mb-8 block rounded-xl border border-rule px-4 py-3 text-center text-sm text-ink-2 hover:border-rule-strong hover:bg-surface-2 hover:text-ink"
           >
             원하는 걸 직접 써서 만들기 · 2 크레딧
           </Link>
@@ -226,7 +226,7 @@ function ReuseBanner({ context }: { context: JobContext }) {
         <span className="block font-semibold">올린 사진 그대로 만들어요</span>
         <span className="block text-xs text-ink-2">스타일만 고르면 바로 확인 단계예요</span>
       </p>
-      <Link to="/styles" className="shrink-0 text-xs text-ink-3 underline underline-offset-2">
+      <Link to="/styles" className="shrink-0 text-xs text-ink-3 underline underline-offset-2 hover:text-brand">
         다른 사진 쓰기
       </Link>
     </div>
@@ -238,7 +238,7 @@ function StyleCardItem({ style, reuseJobId }: { style: StyleCard; reuseJobId: st
   return (
     <Link
       to={withReuse(`/styles/${style.id}`, reuseJobId)}
-      className="block overflow-hidden rounded-lg border border-rule bg-surface"
+      className="block overflow-hidden rounded-lg border border-rule bg-surface hover:border-brand-2"
     >
       <Thumbnail
         src={style.thumbnail_url}

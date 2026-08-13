@@ -112,7 +112,7 @@ function GuestPanel() {
         <button
           type="button"
           onClick={() => setLoginSheet(true)}
-          className="mt-4 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper"
+          className="mt-4 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99]"
         >
           로그인하고 이어서 쓰기
         </button>
@@ -120,7 +120,7 @@ function GuestPanel() {
 
       <Link
         to="/credits"
-        className="mt-3 flex items-center justify-between rounded-xl border border-rule bg-surface px-4 py-3 text-sm"
+        className="mt-3 flex items-center justify-between rounded-xl border border-rule bg-surface px-4 py-3 text-sm hover:border-rule-strong hover:bg-surface-2"
       >
         크레딧 받기
         <span aria-hidden className="text-ink-3">
@@ -198,13 +198,13 @@ function CreditSection() {
       <div className="mt-3 grid grid-cols-2 gap-2">
         <Link
           to="/credits"
-          className="rounded-lg border border-rule-strong px-3 py-2 text-center text-sm font-semibold"
+          className="rounded-lg border border-rule-strong px-3 py-2 text-center text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
         >
           크레딧 받기
         </Link>
         <Link
           to="/credits/ledger"
-          className="rounded-lg border border-rule px-3 py-2 text-center text-sm text-ink-2"
+          className="rounded-lg border border-rule px-3 py-2 text-center text-sm text-ink-2 hover:border-rule-strong hover:bg-surface-2 hover:text-ink"
         >
           전체 보기
         </Link>
@@ -289,7 +289,7 @@ function PetSection() {
         <h2 className="text-sm font-semibold">내 강아지</h2>
         {/* 프로필은 사진에서 만들어집니다(POST /v1/pets 가 upload_id 를 요구) — 그래서
             "추가"는 업로드 화면으로 보냅니다. */}
-        <Link to="/upload" className="text-sm text-ink-2 underline">
+        <Link to="/upload" className="text-sm text-ink-2 underline hover:text-brand">
           + 추가
         </Link>
       </div>
@@ -302,7 +302,7 @@ function PetSection() {
           <button
             type="button"
             onClick={() => refetch()}
-            className="mt-2 rounded-full border border-rule-strong px-4 py-1.5 text-sm"
+            className="mt-2 rounded-full border border-rule-strong px-4 py-1.5 text-sm hover:border-brand-2 hover:bg-surface-2 hover:text-brand"
           >
             다시 시도
           </button>
@@ -326,14 +326,14 @@ function PetSection() {
               <button
                 type="button"
                 onClick={() => setRenaming(pet)}
-                className="rounded-lg border border-rule px-2.5 py-1 text-xs"
+                className="rounded-lg border border-rule px-2.5 py-1 text-xs hover:border-rule-strong hover:bg-surface-2"
               >
                 수정
               </button>
               <button
                 type="button"
                 onClick={() => setDeleting(pet)}
-                className="rounded-lg border border-rule px-2.5 py-1 text-xs text-danger"
+                className="rounded-lg border border-rule px-2.5 py-1 text-xs text-danger hover:border-danger/40 hover:bg-danger-soft"
               >
                 삭제
               </button>
@@ -371,7 +371,7 @@ function RenamePetDialog({ pet, onClose }: { pet: Pet; onClose: () => void }) {
         onClick={() =>
           rename.mutate({ petId: pet.id, name: trimmed }, { onSuccess: onClose })
         }
-        className="mt-4 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper disabled:opacity-50"
+        className="mt-4 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99] disabled:opacity-50"
       >
         {rename.isPending ? '저장 중…' : '저장'}
       </button>
@@ -404,7 +404,7 @@ function DeletePetDialog({ pet, onClose }: { pet: Pet; onClose: () => void }) {
         type="button"
         disabled={remove.isPending}
         onClick={() => remove.mutate(pet.id, { onSuccess: onClose })}
-        className="mt-4 w-full rounded-xl bg-danger px-4 py-3 text-sm font-semibold text-paper disabled:opacity-50"
+        className="mt-4 w-full rounded-xl bg-danger px-4 py-3 text-sm font-semibold text-paper hover:brightness-95 motion-safe:active:scale-[0.99] disabled:opacity-50"
       >
         {remove.isPending ? '삭제 중…' : '삭제'}
       </button>
@@ -450,7 +450,7 @@ function ShopLinkSection({ me }: { me: Me }) {
             type="button"
             disabled={authorize.isPending}
             onClick={startLink}
-            className="mt-3 w-full rounded-xl border border-rule-strong px-4 py-2.5 text-sm font-semibold disabled:opacity-50"
+            className="mt-3 w-full rounded-xl border border-rule-strong px-4 py-2.5 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
           >
             {authorize.isPending ? '여는 중…' : '연동하고 +3 받기'}
           </button>
@@ -475,7 +475,7 @@ function DangerSection() {
       <button
         type="button"
         onClick={() => setLogoutConfirm(true)}
-        className="w-full py-3 text-left text-sm"
+        className="w-full py-3 text-left text-sm hover:text-brand"
       >
         로그아웃
       </button>
@@ -527,7 +527,7 @@ function Dialog({
           {title}
         </h2>
         {children}
-        <button type="button" onClick={onClose} className="mt-2 w-full py-2 text-sm text-ink-3">
+        <button type="button" onClick={onClose} className="mt-2 w-full py-2 text-sm text-ink-3 hover:text-ink">
           취소
         </button>
       </div>

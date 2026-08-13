@@ -336,7 +336,7 @@ function StyleContext({
     return (
       <div className="mb-4 flex items-center justify-between gap-2 text-sm text-ink-3">
         <span className="truncate">스타일은 사진을 올린 뒤에 골라도 됩니다</span>
-        <Link to={withReuse('/styles', fromJobId)} className="shrink-0 underline">
+        <Link to={withReuse('/styles', fromJobId)} className="shrink-0 underline hover:text-brand">
           먼저 고르기
         </Link>
       </div>
@@ -345,7 +345,7 @@ function StyleContext({
   return (
     <div className="mb-4 flex items-center justify-between gap-2 text-sm text-ink-3">
       <span className="truncate">선택한 스타일 · {styleName ?? '불러오는 중…'}</span>
-      <Link to={withReuse('/styles', fromJobId)} className="shrink-0 underline">
+      <Link to={withReuse('/styles', fromJobId)} className="shrink-0 underline hover:text-brand">
         변경
       </Link>
     </div>
@@ -476,7 +476,7 @@ function SavedPets({
             // 스타일 맥락(`?style_id=`)까지 담아 보냅니다 — W-12 의 ← 가 이 값으로
             // 돌아오지 않으면 고르던 스타일을 다시 고르게 됩니다.
             state={{ from: `${location.pathname}${location.search}` }}
-            className="text-xs text-ink-3 underline underline-offset-2"
+            className="text-xs text-ink-3 underline underline-offset-2 hover:text-brand"
           >
             관리
           </Link>
@@ -588,7 +588,7 @@ function ConfirmPanel({
       <button
         type="button"
         onClick={onPickAnother}
-        className="mt-4 w-full rounded-xl border border-rule-strong bg-surface px-4 py-3 text-sm font-semibold"
+        className="mt-4 w-full rounded-xl border border-rule-strong bg-surface px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
       >
         다른 사진 고르기
       </button>
@@ -599,7 +599,7 @@ function ConfirmPanel({
         <>
           <Link
             to={withReuse('/styles', fromJobId)}
-            className="mt-2 block w-full rounded-xl bg-brand px-4 py-3 text-center text-sm font-semibold text-paper"
+            className="mt-2 block w-full rounded-xl bg-brand px-4 py-3 text-center text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99]"
           >
             스타일 고르기 →
           </Link>
@@ -610,7 +610,7 @@ function ConfirmPanel({
               보조로만 두는 이유는 #p08 노트1(기본 그리드와 분리). */}
           <Link
             to={withReuse('/creative', fromJobId)}
-            className="mt-3 block text-center text-sm text-ink-2 underline"
+            className="mt-3 block text-center text-sm text-ink-2 underline hover:text-brand"
           >
             원하는 걸 직접 써서 만들기 · 2 크레딧
           </Link>
@@ -624,7 +624,7 @@ function ConfirmPanel({
             type="button"
             onClick={onStart}
             disabled={starting || creditCost === null}
-            className="mt-2 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper disabled:opacity-50"
+            className="mt-2 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99] disabled:opacity-50"
           >
             {starting
               ? '만드는 중…'
@@ -703,7 +703,7 @@ function SavePetForm({ uploadId, onSaved }: { uploadId: string; onSaved: (petId:
         <button
           type="submit"
           disabled={createPet.isPending || name.trim() === ''}
-          className="shrink-0 rounded-lg border border-rule-strong px-3 py-2 text-sm font-semibold disabled:opacity-50"
+          className="shrink-0 rounded-lg border border-rule-strong px-3 py-2 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
         >
           저장
         </button>

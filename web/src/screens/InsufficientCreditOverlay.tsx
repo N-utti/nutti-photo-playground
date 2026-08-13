@@ -76,7 +76,7 @@ export default function InsufficientCreditOverlay({
           <button
             type="button"
             onClick={onRetry}
-            className="mt-4 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper"
+            className="mt-4 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99]"
           >
             다시 시도 · {required} 크레딧
           </button>
@@ -84,7 +84,7 @@ export default function InsufficientCreditOverlay({
 
         {/* 여기서 다른 화면으로 나가는 링크는 두지 않습니다 — 인라인이어야 하는 이유가
             "생성 직전에 흐름을 끊지 않는다"인데, 내역 보기 하나로도 그게 깨집니다. */}
-        <button type="button" onClick={onClose} className="mt-2 w-full py-2 text-sm text-ink-3">
+        <button type="button" onClick={onClose} className="mt-2 w-full py-2 text-sm text-ink-3 hover:text-ink">
           닫기
         </button>
       </div>

@@ -63,7 +63,7 @@ export default function W01Landing() {
           내용에서 계산되므로 이렇게 묶어야 "누띠 놀이터" 한 덩어리로 읽힙니다.
           img 만 감싸면 "누띠" 링크 옆에 "놀이터"가 떨어져 나옵니다.
         */}
-        <Link to="/" className="-m-2 flex items-center gap-2 p-2">
+        <Link to="/" className="-m-2 flex items-center gap-2 p-2 hover:opacity-70">
           <img src="/brand/nutti-wordmark.svg" alt="누띠" width={70} height={18} className="h-3.5 w-auto" />
           <span className="font-display text-base">놀이터</span>
         </Link>
@@ -79,14 +79,14 @@ export default function W01Landing() {
           {me?.kind === 'member' ? (
             // 로그아웃·펫 관리·연동은 이제 마이페이지(W-12)의 것입니다. 랜딩 헤더는
             // 그 문으로만 남습니다 — 이 라벨이 곧바로 로그아웃이던 임시 상태를 끝냅니다.
-            <Link to="/me" className="max-w-32 truncate text-sm text-ink-2 underline">
+            <Link to="/me" className="max-w-32 truncate text-sm text-ink-2 underline hover:text-brand">
               {memberLabel(me)}
             </Link>
           ) : me?.kind === 'guest' ? (
             <button
               type="button"
               onClick={() => setLoginSheet(true)}
-              className="rounded-full border border-rule-strong px-3 py-1.5 text-sm font-semibold"
+              className="rounded-full border border-rule-strong px-3 py-1.5 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand"
             >
               로그인
             </button>
@@ -125,7 +125,7 @@ export default function W01Landing() {
             <Link
               to="/upload"
               onClick={trackCtaClick}
-              className="block rounded-xl bg-brand px-5 py-3.5 text-center text-base font-semibold text-paper desktop:inline-block desktop:px-7"
+              className="block rounded-xl bg-brand px-5 py-3.5 text-center text-base font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99] desktop:inline-block desktop:px-7"
             >
               사진 올리고 무료로 1장 만들기
             </Link>
@@ -140,7 +140,7 @@ export default function W01Landing() {
         <section className="pt-10 desktop:pt-16">
           <div className="flex items-baseline justify-between gap-2">
             <h2 className="text-base font-bold">지금 인기 스타일</h2>
-            <Link to="/styles" className="text-sm text-ink-2 underline">
+            <Link to="/styles" className="text-sm text-ink-2 underline hover:text-brand">
               전체 →
             </Link>
           </div>
@@ -183,7 +183,7 @@ function PreviewCard({ style }: { style: StyleCard }) {
   return (
     <Link
       to={`/styles/${style.id}`}
-      className="block overflow-hidden rounded-lg border border-rule bg-surface"
+      className="block overflow-hidden rounded-lg border border-rule bg-surface hover:border-brand-2"
     >
       {/* 이름이 바로 아래 있으므로 이미지가 없을 때 자리 표시자에 글자를 넣지 않습니다. */}
       <Thumbnail
@@ -323,7 +323,7 @@ function BeforeAfterSlider() {
         aria-valuetext={`원본 ${rounded}%`}
         onKeyDown={handleKeyDown}
         style={{ left: `${position}%` }}
-        className="absolute top-1/2 grid size-11 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-rule-strong bg-paper text-sm text-ink-2 shadow-md"
+        className="absolute top-1/2 grid size-11 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-rule-strong bg-paper text-sm text-ink-2 shadow-md hover:border-brand-2 hover:text-brand"
       >
         <span aria-hidden>↔</span>
       </button>

@@ -109,7 +109,11 @@ export default function W09Library() {
       <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
         {selected ? (
           <>
-            <button type="button" onClick={() => setSelected(null)} className="text-sm text-ink-2">
+            <button
+              type="button"
+              onClick={() => setSelected(null)}
+              className="text-sm text-ink-2 hover:text-ink"
+            >
               취소
             </button>
             <h1 className="text-base font-bold" aria-live="polite">
@@ -125,7 +129,7 @@ export default function W09Library() {
                 <button
                   type="button"
                   onClick={() => setSelected(new Set())}
-                  className="text-sm text-ink-2"
+                  className="text-sm text-ink-2 hover:text-ink"
                 >
                   선택
                 </button>
@@ -158,7 +162,7 @@ export default function W09Library() {
             <button
               type="button"
               onClick={() => library.refetch()}
-              className="mt-3 rounded-full border border-rule-strong px-4 py-2 text-sm"
+              className="mt-3 rounded-full border border-rule-strong px-4 py-2 text-sm hover:border-brand-2 hover:bg-surface-2 hover:text-brand"
             >
               다시 시도
             </button>
@@ -195,7 +199,7 @@ export default function W09Library() {
                 type="button"
                 onClick={() => void library.fetchNextPage()}
                 disabled={library.isFetchingNextPage}
-                className="mt-5 w-full rounded-xl border border-rule-strong px-4 py-3 text-sm font-semibold disabled:opacity-50"
+                className="mt-5 w-full rounded-xl border border-rule-strong px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
               >
                 {library.isFetchingNextPage ? '불러오는 중…' : '더 보기'}
               </button>
@@ -292,7 +296,7 @@ function PetFilter({
       {selectedPet && (
         <Link
           to={`/calculator?pet_id=${encodeURIComponent(selectedPet.id)}`}
-          className="mt-2 flex items-center justify-between rounded-xl border border-rule bg-surface px-4 py-2.5 text-sm"
+          className="mt-2 flex items-center justify-between rounded-xl border border-rule bg-surface px-4 py-2.5 text-sm hover:border-rule-strong hover:bg-surface-2"
         >
           이 강아지 간식량 계산하기
           <span aria-hidden className="text-ink-3">
@@ -318,8 +322,12 @@ function Chip({
       type="button"
       onClick={onClick}
       aria-pressed={active}
+      // 고른 칩은 hover 로 흔들지 않습니다 — 그건 상태 표시입니다. 안 고른 칩만
+      // 반응해야 «고를 수 있는 것 / 이미 고른 것» 이 구분됩니다.
       className={`shrink-0 rounded-full border px-3 py-1.5 text-sm ${
-        active ? 'border-brand bg-brand text-paper' : 'border-rule bg-surface text-ink-2'
+        active
+          ? 'border-brand bg-brand text-paper'
+          : 'border-rule bg-surface text-ink-2 hover:border-brand-2 hover:text-brand'
       }`}
     >
       {children}
@@ -410,7 +418,7 @@ function Tile({
         onClick={onToggle}
         aria-pressed={checked}
         aria-label={label}
-        className="relative block aspect-square w-full bg-canvas-2"
+        className="relative block aspect-square w-full bg-canvas-2 hover:brightness-95"
       >
         {image}
         <span
@@ -441,7 +449,9 @@ function Tile({
         // 결과 화면으로 넘어가 버립니다.
         if (longPress.fired.current) event.preventDefault()
       }}
-      className="block aspect-square bg-canvas-2"
+      // 사진 타일은 색을 얹을 자리가 없습니다(테두리도 배경도 사진에 가립니다).
+      // 밝기를 살짝 눌러 «지금 이 칸» 을 가리킵니다.
+      className="block aspect-square bg-canvas-2 hover:brightness-95"
     >
       {image}
     </Link>
@@ -487,7 +497,7 @@ function SelectionBar({
                 .then(setOpened)
                 .finally(() => setSaving(false))
             }}
-            className="flex-1 rounded-xl border border-rule-strong px-4 py-3 text-sm font-semibold disabled:opacity-50"
+            className="flex-1 rounded-xl border border-rule-strong px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
           >
             {saving ? '저장 중…' : '저장'}
           </button>
@@ -495,7 +505,7 @@ function SelectionBar({
             type="button"
             disabled={disabled}
             onClick={() => setConfirming(true)}
-            className="flex-1 rounded-xl bg-danger px-4 py-3 text-sm font-semibold text-paper disabled:opacity-50"
+            className="flex-1 rounded-xl bg-danger px-4 py-3 text-sm font-semibold text-paper hover:brightness-95 motion-safe:active:scale-[0.99] disabled:opacity-50"
           >
             삭제
           </button>
@@ -540,14 +550,14 @@ function SelectionBar({
                 setConfirming(false)
                 onDelete()
               }}
-              className="mt-4 w-full rounded-xl bg-danger px-4 py-3 text-sm font-semibold text-paper disabled:opacity-50"
+              className="mt-4 w-full rounded-xl bg-danger px-4 py-3 text-sm font-semibold text-paper hover:brightness-95 motion-safe:active:scale-[0.99] disabled:opacity-50"
             >
               {pending ? '삭제 중…' : '삭제'}
             </button>
             <button
               type="button"
               onClick={() => setConfirming(false)}
-              className="mt-2 w-full py-2 text-sm text-ink-3"
+              className="mt-2 w-full py-2 text-sm text-ink-3 hover:text-ink"
             >
               취소
             </button>
@@ -597,7 +607,7 @@ function EmptyState({
         <button
           type="button"
           onClick={onClearFilter}
-          className="mt-3 rounded-full border border-rule-strong px-4 py-2 text-sm"
+          className="mt-3 rounded-full border border-rule-strong px-4 py-2 text-sm hover:border-brand-2 hover:bg-surface-2 hover:text-brand"
         >
           전체 보기
         </button>
@@ -622,7 +632,7 @@ function EmptyState({
       </p>
       <Link
         to="/styles"
-        className="mt-4 inline-block rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper"
+        className="mt-4 inline-block rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99]"
       >
         스타일 고르러 가기
       </Link>
@@ -647,7 +657,7 @@ function GuestNotice({ onLogin }: { onLogin: () => void }) {
       <button
         type="button"
         onClick={onLogin}
-        className="mt-3 w-full rounded-xl border border-rule-strong px-4 py-2.5 text-sm font-semibold"
+        className="mt-3 w-full rounded-xl border border-rule-strong px-4 py-2.5 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
       >
         로그인하고 보관하기
       </button>
@@ -679,7 +689,7 @@ function GuestResetNotice({ onLogin }: { onLogin: () => void }) {
       <button
         type="button"
         onClick={onLogin}
-        className="mt-3 w-full rounded-xl border border-rule-strong px-4 py-2.5 text-sm font-semibold"
+        className="mt-3 w-full rounded-xl border border-rule-strong px-4 py-2.5 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
       >
         로그인하고 보관하기
       </button>

@@ -54,7 +54,7 @@ export default function LogoutConfirm({ onClose }: { onClose: () => void }) {
           type="button"
           disabled={logout.isPending}
           onClick={() => logout.mutate(undefined, { onSuccess: finish })}
-          className="mt-4 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper disabled:opacity-50"
+          className="mt-4 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99] disabled:opacity-50"
         >
           {logout.isPending ? '로그아웃 중…' : '로그아웃'}
         </button>
@@ -65,7 +65,7 @@ export default function LogoutConfirm({ onClose }: { onClose: () => void }) {
           </p>
         )}
 
-        <button type="button" onClick={onClose} className="mt-2 w-full py-2 text-sm text-ink-3">
+        <button type="button" onClick={onClose} className="mt-2 w-full py-2 text-sm text-ink-3 hover:text-ink">
           취소
         </button>
       </div>

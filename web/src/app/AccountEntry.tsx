@@ -32,7 +32,7 @@ export function AccountEntry() {
         <button
           type="button"
           onClick={() => setLoginSheet(true)}
-          className="rounded-full border border-rule-strong px-3 py-1.5 text-sm font-semibold"
+          className="rounded-full border border-rule-strong px-3 py-1.5 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand"
         >
           로그인
         </button>
@@ -53,7 +53,7 @@ export function AccountEntry() {
     <Link
       to="/me"
       aria-label={`마이페이지 · ${memberLabel(me)}`}
-      className="grid size-8 shrink-0 place-items-center rounded-full bg-surface-2 text-sm font-semibold ring-1 ring-rule-strong"
+      className="grid size-8 shrink-0 place-items-center rounded-full bg-surface-2 text-sm font-semibold ring-1 ring-rule-strong hover:bg-brand-soft hover:ring-brand-2"
     >
       <span aria-hidden>{memberInitial(me)}</span>
     </Link>

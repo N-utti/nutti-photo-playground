@@ -86,7 +86,7 @@ export default function EarnActionList() {
         <button
           type="button"
           onClick={() => refetch()}
-          className="mt-3 rounded-full border border-rule-strong px-4 py-2 text-sm"
+          className="mt-3 rounded-full border border-rule-strong px-4 py-2 text-sm hover:border-brand-2 hover:bg-surface-2 hover:text-brand"
         >
           다시 시도
         </button>
@@ -215,7 +215,7 @@ function EarnCta({ row, claiming, onClaim, onLinkAccount, onLogin, linking, memb
       <button
         type="button"
         onClick={onLogin}
-        className="shrink-0 rounded-lg border border-rule-strong px-3 py-2 text-xs font-semibold"
+        className="shrink-0 rounded-lg border border-rule-strong px-3 py-2 text-xs font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
       >
         {row.cta ?? '로그인'}
       </button>
@@ -231,7 +231,7 @@ function EarnCta({ row, claiming, onClaim, onLinkAccount, onLogin, linking, memb
         target="_blank"
         rel="noreferrer"
         onClick={() => void events.track({ event_type: 'shop_exit_click', properties: { from: 'W-10' } })}
-        className="shrink-0 rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-paper"
+        className="shrink-0 rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99]"
       >
         {row.cta ?? '쇼핑몰 →'}
       </a>
@@ -256,7 +256,7 @@ function EarnCta({ row, claiming, onClaim, onLinkAccount, onLogin, linking, memb
         type="button"
         onClick={onLinkAccount}
         disabled={linking || !memberKnown}
-        className="shrink-0 rounded-lg border border-rule-strong px-3 py-2 text-xs font-semibold disabled:opacity-50"
+        className="shrink-0 rounded-lg border border-rule-strong px-3 py-2 text-xs font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
       >
         {linking ? '여는 중…' : (row.cta ?? '연동하기')}
       </button>
@@ -281,7 +281,7 @@ function EarnCta({ row, claiming, onClaim, onLinkAccount, onLogin, linking, memb
           href={NUTTI_INSTAGRAM_URL}
           target="_blank"
           rel="noreferrer"
-          className="text-xs text-ink-3 underline"
+          className="text-xs text-ink-3 underline hover:text-brand"
         >
           열기
         </a>
@@ -290,7 +290,7 @@ function EarnCta({ row, claiming, onClaim, onLinkAccount, onLogin, linking, memb
         type="button"
         onClick={() => onClaim(action)}
         disabled={claiming}
-        className="rounded-lg border border-rule-strong px-3 py-2 text-xs font-semibold disabled:opacity-50"
+        className="rounded-lg border border-rule-strong px-3 py-2 text-xs font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
       >
         {claiming ? '받는 중…' : (row.cta ?? '받기')}
       </button>
