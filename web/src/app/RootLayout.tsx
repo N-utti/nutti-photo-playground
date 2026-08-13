@@ -7,8 +7,8 @@
  * 사용자가 그걸 잃습니다.
  */
 
-import { useState } from 'react'
-import { Outlet } from 'react-router'
+import { useEffect, useState } from 'react'
+import { Outlet, useMatches } from 'react-router'
 import { ensureSession, isApiError, retryMemberRotation, session } from '../api/client'
 import JobStatusBar from './JobStatusBar'
 import { formatRetryAfter } from './retryAfter'
@@ -17,6 +17,7 @@ import { clearSessionStatus, useSessionStatus } from './sessionStatus'
 export default function RootLayout() {
   return (
     <>
+      <DocumentTitle />
       <SessionBanner />
       <Outlet />
       {/* 화면 위에 떠 있는 것이라 흐름의 마지막에 둡니다 — 같은 z 인 탭바와 만나도
@@ -24,6 +25,39 @@ export default function RootLayout() {
       <JobStatusBar />
     </>
   )
+}
+
+const SITE_NAME = '누띠 사진 놀이터'
+
+/** 라우트가 `handle.title` 로 선언한 이름 (routes.tsx). */
+type TitleHandle = { title?: string }
+
+/**
+ * 주소가 바뀌면 `document.title` 도 바꿉니다.
+ *
+ * SPA 라 index.html 의 <title> 한 줄이 끝까지 갑니다 — 열두 화면이 전부
+ * "누띠 사진 놀이터" 였습니다. 그러면 세 군데가 같이 망가집니다:
+ *   - 뒤로가기 **길게 누르기** 목록이 전부 같은 줄이라 어디로 돌아가는지 못 고릅니다
+ *   - 탭을 여러 개 띄우면 어느 탭이 결과 화면인지 구분되지 않습니다
+ *   - 스크린리더는 화면 전환을 제목으로 알리는데, 매번 같은 말을 듣습니다
+ *
+ * 제목은 라우트에 붙여 둡니다(`handle.title`) — 화면 컴포넌트마다 useEffect 를
+ * 흩뿌리면 새 화면에서 빠뜨리기 쉽고, 빠뜨려도 티가 안 납니다.
+ */
+function DocumentTitle() {
+  const matches = useMatches()
+  // 가장 깊은 매치부터 거슬러 올라가 첫 title 을 씁니다 — W-03 시트처럼 자식이
+  // 제목을 안 가진 경우 부모(카탈로그)의 제목이 그대로 남습니다.
+  const label = [...matches]
+    .reverse()
+    .map((match) => (match.handle as TitleHandle | undefined)?.title)
+    .find((title): title is string => Boolean(title))
+
+  useEffect(() => {
+    document.title = label ? `${label} · ${SITE_NAME}` : SITE_NAME
+  }, [label])
+
+  return null
 }
 
 function SessionBanner() {

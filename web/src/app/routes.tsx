@@ -24,41 +24,51 @@ import W12MyPage from '../screens/W12MyPage'
 import AuthCallback from '../screens/AuthCallback'
 import { NotFound, W11Console } from '../screens/placeholders'
 
+/**
+ * `handle.title` 은 브라우저 탭·뒤로가기 목록·스크린리더가 읽는 이름입니다
+ * (app/RootLayout.tsx `DocumentTitle`). 여기 없으면 그 화면은 앞 화면의 제목을
+ * 그대로 달고 다닙니다 — 새 라우트를 추가할 때 같이 적어 주세요.
+ */
 export const router = createBrowserRouter([
   {
     // 세션 배너를 한 곳에서만 달기 위한 껍데기 라우트입니다(경로 없음).
     element: <RootLayout />,
     children: [
+      // 랜딩만 제목 없이 브랜드 이름 하나로 둡니다 — "누띠 사진 놀이터 · 누띠 사진 놀이터".
       { path: '/', element: <W01Landing /> },
       // W-03 은 W-02 의 **자식**입니다 — 시트가 떠도 뒤 그리드가 살아 있어야 하고
       // (#p03 노트1), /styles/101 로 직접 들어와도 닫으면 탐색이 이어져야 합니다.
       {
         path: '/styles',
         element: <W02StyleCatalog />,
+        handle: { title: '스타일' },
+        // 시트는 제목을 따로 갖지 않습니다 — 뒤의 카탈로그가 그대로 살아 있으므로
+        // 탭 제목까지 바뀌면 «다른 화면으로 갔다» 는 잘못된 신호가 됩니다.
         children: [{ path: ':styleId', element: <W03StyleDetail /> }],
       },
       // 스타일 맥락은 `?style_id=`. W-08(커스텀 프롬프트)도 스타일 없이 이 화면에 옵니다.
-      { path: '/upload', element: <W04Upload /> },
+      { path: '/upload', element: <W04Upload />, handle: { title: '사진 올리기' } },
       // job_id 가 경로에 있어야 재방문 시 복원됩니다(Q7).
-      { path: '/jobs/:jobId/waiting', element: <W05Waiting /> },
-      { path: '/jobs/:jobId', element: <W06Result /> },
+      { path: '/jobs/:jobId/waiting', element: <W05Waiting />, handle: { title: '만드는 중' } },
+      // 한 라우트가 완성·실패·열람 불가를 모두 렌더하므로 중립적인 이름을 씁니다.
+      { path: '/jobs/:jobId', element: <W06Result />, handle: { title: '결과' } },
       // 결과에서 넘기는 주 경로는 W-06 배너가 **직접** 계산기로 나갑니다(UC-06 (c),
       // 노트6 — 필수 경유지가 아님). 이 라우트는 결과가 눈앞에 없을 때의 진입
       // (`?pet_id=`)이고, W-09 보관함에서 강아지 필터를 걸면 그 링크가 나옵니다.
-      { path: '/calculator', element: <W07Calculator /> },
-      { path: '/creative', element: <W08Creative /> },
-      { path: '/library', element: <W09Library /> },
-      { path: '/credits', element: <W10Credits /> },
+      { path: '/calculator', element: <W07Calculator />, handle: { title: '간식량 계산기' } },
+      { path: '/creative', element: <W08Creative />, handle: { title: '직접 만들기' } },
+      { path: '/library', element: <W09Library />, handle: { title: '보관함' } },
+      { path: '/credits', element: <W10Credits />, handle: { title: '크레딧 받기' } },
       // W-10 B(받은 내역)는 자기 앱바·뒤로가기를 가진 별도 프레임입니다(#p10 B).
-      { path: '/credits/ledger', element: <W10Ledger /> },
+      { path: '/credits/ledger', element: <W10Ledger />, handle: { title: '받은 내역' } },
       // W-12 마이페이지(이슈 #12 신설). 앱바 아바타가 유일한 진입점입니다
       // (app/AccountEntry.tsx) — 탭바는 4칸을 유지합니다.
-      { path: '/me', element: <W12MyPage /> },
-      { path: '/admin', element: <W11Console /> },
+      { path: '/me', element: <W12MyPage />, handle: { title: '마이페이지' } },
+      { path: '/admin', element: <W11Console />, handle: { title: '프롬프트 운영 콘솔' } },
       // 화면이 아니라 OAuth 복귀 지점입니다 — 프로바이더 콘솔에 등록하는 redirect_uri 가
       // 이 주소라(§3 인증) 경로를 바꾸면 카카오·네이버·카페24 설정도 같이 바꿔야 합니다.
-      { path: '/auth/callback/:provider', element: <AuthCallback /> },
-      { path: '*', element: <NotFound /> },
+      { path: '/auth/callback/:provider', element: <AuthCallback />, handle: { title: '로그인 중' } },
+      { path: '*', element: <NotFound />, handle: { title: '페이지를 찾을 수 없어요' } },
     ],
   },
 ])
