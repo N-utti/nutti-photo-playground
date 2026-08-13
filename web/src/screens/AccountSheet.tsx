@@ -16,6 +16,7 @@ import { ApiError, isApiError } from '../api/client'
 import { useAuthorizeRedirect, useLocalAuth } from '../api/queries'
 import { rememberAuthReturn } from '../app/authReturn'
 import { formatRetryAfter } from '../app/retryAfter'
+import { useModalDialog } from '../app/useModalDialog'
 import type { SocialProvider } from '../api/types'
 
 /** 서버 제약과 같은 값(app/routers/auth.py RegisterRequest) — 왕복 없이 먼저 걸러 줍니다. */
@@ -62,6 +63,9 @@ export default function AccountSheet({
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
+  // 로그인 진입점이 세 곳(W-01 헤더 · W-06 저장 · W-10 연동)이라, 여기가 새면
+  // 세 화면 모두에서 가려진 배경 버튼에 키보드가 닿습니다.
+  const dialogRef = useModalDialog<HTMLDivElement>(onClose)
 
   const done = localAuth.data
 
@@ -97,10 +101,12 @@ export default function AccountSheet({
         className="absolute inset-0 cursor-default bg-ink/40"
       />
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="account-sheet-title"
-        className="relative max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-surface p-5 desktop:max-w-sm desktop:rounded-2xl"
+        tabIndex={-1}
+        className="relative max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-surface p-5 outline-none desktop:max-w-sm desktop:rounded-2xl"
       >
         {done ? (
           <>
