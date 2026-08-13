@@ -169,6 +169,22 @@ img {
   display: block;
 }
 
+/* 누를 수 있는 것에는 손가락 커서.
+
+   Tailwind v4 의 preflight 는 button 의 커서를 브라우저 기본(`default`, 화살표)으로
+   되돌려 놓습니다 — v3 와 달라진 점이고, 그래서 화면 코드는 그대로인데 버튼 위에서만
+   커서가 안 바뀝니다. 버튼마다 클래스를 붙이는 대신 여기서 한 번에 되돌립니다.
+
+   `:disabled` 는 제외합니다. 못 누르는 버튼(생성 중·이름 미입력 등)이 눌릴 것처럼
+   보이면 그게 더 나쁜 거짓말입니다. `[role="button"]` 은 지금 코드엔 없지만, 나중에
+   div 로 버튼을 만들어도 새는 구멍이 없도록 같이 받아 둡니다. */
+@layer base {
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']) {
+    cursor: pointer;
+  }
+}
+
 /* 포커스 링. 브라우저 기본값은 파란색이라 이 팔레트에서 유일하게 튀는 색이 됩니다.
    :focus 가 아니라 :focus-visible 이라 마우스 클릭에는 안 뜹니다. */
 :focus-visible {
