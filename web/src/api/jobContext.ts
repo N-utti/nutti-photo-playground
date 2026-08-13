@@ -9,7 +9,7 @@
  * **현재 상태**: PR #60 으로 `style_id`·`upload_id` 구현이 착지했습니다. 읽는 쪽은
  * `resolveJobContext` 로 **서버 값을 먼저 보고 없을 때만 이 색인**을 씁니다. 남은
  * 용도는 예고대로 `customPrompt` 하나뿐이며(아래 주석 참고) 그것까지 응답에 실리면
- * 이 파일과 `rememberJobContext` 호출부를 함께 지웁니다.
+ * 이 파일과 `rememberJobContext` 호출부를 함께 지웁니다 — **이슈 #81**.
  *
  * localStorage 인 이유: 게스트 복원 자체가 **동일 브라우저 한정**이고(이슈 #5 PO
  * 결정, 30일) 세션 토큰도 localStorage 에 있습니다. 탭을 닫았다 URL 로 돌아오는 게
@@ -84,7 +84,8 @@ export function readJobContext(jobId: string): JobContext | null {
  *
  * `customPrompt` 만 예외적으로 로컬을 계속 봅니다 — job 응답에 `custom_prompt` 가
  * 없어서(§3) 서버 값만으로는 W-08 커스텀 job 을 같은 문구로 다시 돌릴 수도, 비용
- * 2크레딧을 맞게 표시할 수도 없습니다. 이 갭은 이슈 #9 에 남겼습니다.
+ * 2크레딧을 맞게 표시할 수도 없습니다. 이 갭은 **이슈 #81** 입니다(원래 이슈 #9 에
+ * 있었는데, #9 가 `style_id`·`upload_id` 착지분으로 닫히면서 이 필드만 남아 옮겼습니다).
  */
 export function resolveJobContext(
   jobId: string,
