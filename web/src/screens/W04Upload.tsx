@@ -354,6 +354,32 @@ function StyleContext({
 
 // ---------------------------------------------------------------- A · 선택
 
+/**
+ * 업로드 자리의 사진 아이콘.
+ *
+ * 아이콘 라이브러리를 들이지 않고 인라인 SVG 로 둡니다 — 앱 전체에서 그림 아이콘이
+ * 필요한 곳이 아직 여기뿐이라, 한 개 때문에 의존성과 트리셰이킹 설정을 얹을 이유가
+ * 없습니다. `currentColor` 라서 버튼의 hover 색 변화를 그대로 따라갑니다.
+ */
+function PhotoIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden
+      className="size-8 transition-transform duration-200 ease-out motion-safe:group-hover:-translate-y-0.5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="4" width="18" height="16" rx="3" />
+      <circle cx="8.5" cy="9.5" r="1.5" />
+      <path d="M3.5 17.5 8 13a2 2 0 0 1 2.8 0l3.2 3.2 1.7-1.7a2 2 0 0 1 2.8 0l2 2" />
+    </svg>
+  )
+}
+
 interface SelectPanelProps {
   pets: Pet[]
   petId: string | null
@@ -377,9 +403,18 @@ function SelectPanel({
         type="button"
         onClick={onOpenPicker}
         disabled={uploading}
-        className="grid aspect-[4/3] w-full place-items-center rounded-xl border-2 border-dashed border-rule-strong bg-surface text-sm text-ink-2"
+        className="group grid aspect-[4/3] w-full place-items-center rounded-xl border-2 border-dashed border-rule-strong bg-surface text-sm text-ink-2 transition duration-200 ease-out enabled:hover:border-brand-2 enabled:hover:bg-surface-2 enabled:hover:text-brand motion-safe:enabled:active:scale-[0.99]"
       >
-        {uploading ? '사진을 확인하는 중…' : '탭해서 사진 올리기'}
+        {uploading ? (
+          // 올라가는 동안은 화면이 멈춘 게 아니라는 신호만 줍니다. 여기서 카메라를
+          // 계속 띄워 두면 "아직 안 눌렸나"로 읽힙니다.
+          <span className="animate-pulse">사진을 확인하는 중…</span>
+        ) : (
+          <span className="flex flex-col items-center gap-2">
+            <PhotoIcon />
+            탭해서 사진 올리기
+          </span>
+        )}
       </button>
 
       {uploadError && (
@@ -462,17 +497,22 @@ function SavedPets({
                   pet.latest_upload_id ? `${pet.name} — 최근 사진으로 바로 만들기` : pet.name
                 }
                 onClick={() => onSelectPet(pet)}
-                className="flex w-14 flex-col items-center gap-1"
+                className="group flex w-14 flex-col items-center gap-1"
               >
                 <Thumbnail
                   src={pet.thumbnail_url}
                   alt=""
                   fallbackLabel={initialOf(pet.name)}
-                  className={`size-14 rounded-full bg-surface-2 object-cover ${
-                    selected ? 'ring-2 ring-brand ring-offset-2 ring-offset-paper' : ''
+                  // 선택된 칩의 링은 상태 표시라 hover 로 흔들지 않습니다. 선택 안 된
+                  // 칩만 같은 자리에 옅은 링을 미리 보여 줘서 "누를 수 있는 것"임을
+                  // 알립니다 — 두 링의 굵기·간격이 같아야 hover 때 칩이 안 흔들립니다.
+                  className={`size-14 rounded-full bg-surface-2 object-cover ring-offset-2 ring-offset-paper transition duration-200 ease-out ${
+                    selected ? 'ring-2 ring-brand' : 'group-hover:ring-2 group-hover:ring-brand-2/60'
                   }`}
                 />
-                <span className="w-full truncate text-center text-xs text-ink-2">{pet.name}</span>
+                <span className="w-full truncate text-center text-xs text-ink-2 transition-colors duration-200 group-hover:text-ink">
+                  {pet.name}
+                </span>
               </button>
             </li>
           )
@@ -482,7 +522,7 @@ function SavedPets({
             type="button"
             onClick={onAdd}
             aria-label="강아지 추가"
-            className="grid size-14 place-items-center rounded-full border border-dashed border-rule-strong text-ink-3"
+            className="grid size-14 place-items-center rounded-full border border-dashed border-rule-strong text-ink-3 transition duration-200 ease-out hover:border-brand-2 hover:bg-brand-soft/50 hover:text-brand motion-safe:active:scale-95"
           >
             +
           </button>
