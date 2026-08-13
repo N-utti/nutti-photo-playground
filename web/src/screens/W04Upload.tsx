@@ -37,7 +37,7 @@ import {
   useStyleDetail,
   useUploadPhoto,
 } from '../api/queries'
-import { rememberJobContext, resolveJobContext } from '../api/jobContext'
+import { contextFromJob } from '../app/reuseFromJob'
 import { withReuse } from '../app/reuseFromJob'
 import { initialOf } from '../app/initials'
 import Thumbnail from '../app/Thumbnail'
@@ -84,13 +84,13 @@ export default function W04Upload() {
   // W-06 "이 사진으로 다른 스타일"(FR-W06-07)로 들어온 경우: 이미 올린 사진을
   // 그대로 재사용하므로 업로드 단계를 건너뜁니다.
   const fromJobId = searchParams.get('from_job')
-  // 재료는 서버가 우선입니다(이슈 #9 A안) — 로컬 색인은 이 브라우저에서 만든 job
-  // 에만 있어서, 링크를 다시 열거나 다른 탭에서 온 경우 답을 못 합니다.
+  // 재료는 job 응답이 전부 답합니다(이슈 #9 A안 · #81). 그래서 링크를 다시 열거나
+  // 다른 기기에서 온 경우에도 같은 사진으로 이어집니다.
   const { data: fromJob, isPending: fromJobPending } = useJob(fromJobId)
 
   useEffect(() => {
     if (fromJobId) {
-      const context = resolveJobContext(fromJobId, fromJob)
+      const context = contextFromJob(fromJob)
       if (context) {
         setUpload({
           upload_id: context.uploadId,
@@ -213,14 +213,6 @@ export default function W04Upload() {
         onSuccess: ({ job_id }) => {
           clearJobAttempt()
           clearUploadDraft()
-          // 서버가 이미 style_id·upload_id 를 주므로(PR #60) 이 색인은 폴백입니다 —
-          // 응답이 오기 전에도 W-06 "다시 만들기"·"다른 스타일"이 성립하게 합니다.
-          // 마지막 남은 갭인 custom_prompt 가 착지하면 통째로 지웁니다(이슈 #81/PR #83).
-          rememberJobContext(job_id, {
-            styleId,
-            uploadId: intent.upload_id,
-            sourceImageUrl: upload.image_url,
-          })
           navigate(`/jobs/${job_id}/waiting`)
         },
         onError: (error) => {

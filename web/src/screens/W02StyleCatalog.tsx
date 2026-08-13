@@ -19,10 +19,9 @@ import { Link, Outlet, useMatch } from 'react-router'
 import { useStyles } from '../api/queries'
 import { AccountEntry } from '../app/AccountEntry'
 import { CreditBadge } from '../app/CreditBadge'
-import { useReuseFromJob, withReuse } from '../app/reuseFromJob'
+import { useReuseFromJob, withReuse, type JobContext } from '../app/reuseFromJob'
 import { TabBar } from '../app/TabBar'
 import Thumbnail from '../app/Thumbnail'
-import type { JobContext } from '../api/jobContext'
 import type { StyleCard } from '../api/types'
 
 export default function W02StyleCatalog() {

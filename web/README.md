@@ -100,15 +100,13 @@ src/
     queries.ts      TanStack Query — 캐시 키·폴링 정책·무효화 지점
     idempotency.ts  Idempotency-Key 수명 (규칙이 두 방향으로 갈리는 지점)
     uploadDraft.ts  402 후 돌아왔을 때 업로드 결과 이어받기 (sessionStorage)
-    jobContext.ts   job_id → 재생성 재료 로컬 색인. 서버 우선 · 로컬 폴백.
-                    남은 이유는 `custom_prompt` 하나 (이슈 #81) — PR #83 이 머지되면
-                    폴백이 전부 죽은 코드가 되므로 이 파일과 호출부째 삭제
   mocks/            MSW — 프로덕션 번들에서 완전히 제외됨
   screens/          화면. 구현된 것만 개별 파일, 나머지는 placeholders.tsx
   app/
     routes.tsx      11개 화면 라우트 테이블 (W-03 은 W-02 의 자식 = 시트)
     TabBar.tsx      하단 탭바 4칸. W-02·W-09 **두 화면만** 붙입니다 (그 근거는 파일 주석)
-    reuseFromJob.ts `?from_job=` — "이 사진으로 다른 스타일"의 재사용 맥락 (W-02·W-03·W-04·W-08)
+    reuseFromJob.ts `?from_job=` — "이 사진으로 다른 스타일"의 재사용 맥락 (W-02·W-03·W-04·W-08).
+                    재생성 재료(`contextFromJob`)도 여기 — job 응답 하나가 전부 답합니다
     guestSession.ts 게스트 세션 초기화 감지 → 복원 실패 안내 분기 (이슈 #5)
     authReturn.ts   OAuth 왕복 동안 복귀 주소 보관 (sessionStorage, 내부 경로만)
     retryAfter.ts   429 Retry-After → 사람이 읽는 문구 (게스트 발급·로그인 공용)
@@ -138,16 +136,16 @@ src/
 | [#3](https://github.com/N-utti/nutti-photo-playground/issues/3) | `CORSMiddleware` 미배선 | 실서버 연결 시작 즉시 | 해결 (PR #6) |
 | [#4](https://github.com/N-utti/nutti-photo-playground/issues/4) | `response_model` 없이 §3 삭제 금지 | 타입 생성으로 전환할 때 | 해결 (PR #6) |
 | [#5](https://github.com/N-utti/nutti-photo-playground/issues/5) | Q7 게스트 결과 복원 한계 | Phase 2 (W-05/W-06) | 결정 B+A · 프론트 반영 완료 |
-| [#9](https://github.com/N-utti/nutti-photo-playground/issues/9) | job/펫 응답에 `style_id`·`upload_id` 참조 없음 | W-06 다시 만들기·다른 스타일, W-04 펫 스킵 | 해결. `GET /jobs/{id}`가 `style_id`·`upload_id`를, `GET /pets`가 `latest_upload_id`를 실제로 답합니다. `api/jobContext.ts` 로컬 색인에 남은 용도는 **`customPrompt` 하나**입니다 — 커스텀 job의 문구는 응답에 없어서 «다시 만들기»가 그것만 로컬에서 가져옵니다 |
+| [#9](https://github.com/N-utti/nutti-photo-playground/issues/9) | job/펫 응답에 `style_id`·`upload_id` 참조 없음 | W-06 다시 만들기·다른 스타일, W-04 펫 스킵 | 해결. `GET /jobs/{id}`가 `style_id`·`upload_id`를, `GET /pets`가 `latest_upload_id`를 실제로 답합니다. 남아 있던 `customPrompt` 용도는 #81 이 닫았고, `api/jobContext.ts` 로컬 색인은 **삭제됐습니다** |
 | [#10](https://github.com/N-utti/nutti-photo-playground/issues/10) | 카카오 `kakao_token` 획득 경로 미정 | W-06 B 계정 연동 | 해결 (ADR-11 A안 → PR #21, `POST /v1/auth/kakao` 삭제) |
 | [#14](https://github.com/N-utti/nutti-photo-playground/issues/14) | `authorize` 가 헤더를 요구하는 302 라 브라우저 이동 불가 | 로그인 시트·콜백 전부 | 해결 (PR #21 — 200 `{authorize_url}`) |
 | [#17](https://github.com/N-utti/nutti-photo-playground/issues/17) | 로컬 계정 복구 불가(비밀번호 재설정·이메일 인증 없음) · 로그인 수단 추가 미지원 | 로컬 가입 | 해결 (PR #21 — 409 `ALREADY_MEMBER`·복구 불가 명시·검증 정책). **가입 시트의 사전 고지는 그대로 둡니다** — 계약이 명시됐을 뿐 비밀번호 재설정이 생긴 건 아닙니다 |
 | [#22](https://github.com/N-utti/nutti-photo-playground/issues/22) | 회원 탈퇴 — `DELETE /v1/auth/me` 와 데이터 파기 정책 미설계 | W-12 탈퇴 버튼 | 대기 (§3 에 엔드포인트 없음). FR-W12-06 이 "자리만 확보"라 화면은 막히지 않습니다 |
 | [#33](https://github.com/N-utti/nutti-photo-playground/issues/33) | 보관함 항목 `pet_id` 가 `null` 일 수 있는지 §3 에 없음 | W-09 강아지 필터 | 해결 (PR #51 — §3 에 `pet_id: uuid \| null` 명시). 삭제된 펫과 «펫 없이 만든 결과»를 클라이언트가 구분하지 않는 것도 확정이고, **삭제된 펫을 가리키는 `?pet_id=` 조회는 404 가 아니라 빈 목록**이라 W-09 는 그 필터를 «전체»로 걷습니다 |
 | [#41](https://github.com/N-utti/nutti-photo-playground/issues/41) | job 응답에 시작 시각(`created_at`) 없음 | W-05 FR-EDGE-02 판정 | 해결. 응답이 `queued_at`·`started_at`을 답하고 W-05가 **서버 우선**으로 잽니다(`useStartedAt`). 워커가 재시도할 때도 최초 `started_at`을 유지하므로 판정 기준이 재시도마다 리셋되지 않습니다(`app/worker.py` `lease_job`) |
-| [#71](https://github.com/N-utti/nutti-photo-playground/issues/71) | 스타일·펫 썸네일 URL이 `public_url()` 을 안 거쳐 로컬에서 404 | W-02 카탈로그·W-04 펫 목록 (목을 끈 로컬 한정) | 대기 — 백엔드 PR #74 가 고쳤으나 **아직 미머지**. 프론트는 무변경(`/media` dev proxy 는 PR #72 로 이미 있음) |
+| [#71](https://github.com/N-utti/nutti-photo-playground/issues/71) | 스타일·펫 썸네일 URL이 `public_url()` 을 안 거쳐 로컬에서 404 | W-02 카탈로그·W-04 펫 목록 (목을 끈 로컬 한정) | 해결 (PR #74). 프론트는 무변경(`/media` dev proxy 는 PR #72 로 이미 있음) |
 | [#77](https://github.com/N-utti/nutti-photo-playground/issues/77) | 결과 이미지 스토리지에 CORS 헤더 없음 | `CDN_BASE_URL` 을 채우는 배포 시점 | 대기 — **코드로 닫히지 않습니다**(R2/CDN 운영 설정). 프론트는 `app/saveImage.ts` 로 fetch→blob 저장하고 CORS 가 없으면 새 탭 폴백. **CORS 가 열려도 그 우회는 걷어내지 않습니다**(PR #80) |
-| [#81](https://github.com/N-utti/nutti-photo-playground/issues/81) | job 응답에 `custom_prompt`·`credit_cost` 없음 | W-06 «다시 만들기» — W-08 커스텀 job 한정 | 대기 — 백엔드 PR #83 이 고쳤으나 **아직 미머지**. 프론트는 **읽는 쪽만 먼저 붙였습니다**: 두 필드를 옵셔널로 두고 `resolveJobContext` 가 `custom_prompt` 를, `W06Result` 가 `credit_cost` 를 **서버 우선**으로 봅니다 — 착지하는 순간 다른 기기에서 연 커스텀 결과도 버튼이 살아납니다. 머지되면 옵셔널을 떼고 `api/jobContext.ts` 를 호출부째 삭제 |
+| [#81](https://github.com/N-utti/nutti-photo-playground/issues/81) | job 응답에 `custom_prompt`·`credit_cost` 없음 | W-06 «다시 만들기» — W-08 커스텀 job 한정 | 해결 (PR #83). 커스텀 결과를 **다른 기기·링크로 열어도** 같은 문구·같은 비용으로 다시 만듭니다. 이 필드가 로컬 색인의 마지막 존재 이유였어서 `api/jobContext.ts` 를 호출부째 삭제했고, 맥락 조립은 `app/reuseFromJob.ts` `contextFromJob` 하나로 모였습니다. `credit_cost` 덕에 W-06 이 비용을 알아내려 스타일 상세를 따로 부르던 조회도 없어졌습니다 |
 
 [#11](https://github.com/N-utti/nutti-photo-playground/issues/11)(auth 보안 후속 M3~M6·L1~L6)은 **프론트가 막히는 지점이 없어** 위 표에 넣지 않습니다 — 확인 근거는
 이슈 코멘트에 남겼습니다(오픈 리다이렉트는 `app/authReturn.ts` 가 이미 막고, 동시 가입 경합을
