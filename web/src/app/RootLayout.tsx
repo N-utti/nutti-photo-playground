@@ -1,13 +1,16 @@
 /**
- * 전 화면 공통 껍데기. 지금 하는 일은 세션 배너 하나입니다.
+ * 전 화면 공통 껍데기. 지금 하는 일은 세션 배너와 job 상태 바 둘입니다.
  *
- * 세션 상실·발급 제한은 특정 화면의 문제가 아니라 앱 전체가 요청을 못 보내는 상태라
- * 화면마다 따로 처리하면 빠지는 곳이 생깁니다. 라우트 최상단에 한 번만 답니다.
+ * 둘 다 «특정 화면의 문제가 아닌 것»이라 여기 있습니다. 세션 상실·발급 제한은 앱
+ * 전체가 요청을 못 보내는 상태이고, 만드는 중인 job 은 어느 화면을 보고 있든 계속
+ * 진행 중입니다 — 화면마다 따로 처리하면 빠지는 곳이 생기고, 하필 빠진 화면에서
+ * 사용자가 그걸 잃습니다.
  */
 
 import { useState } from 'react'
 import { Outlet } from 'react-router'
 import { ensureSession, isApiError, retryMemberRotation, session } from '../api/client'
+import JobStatusBar from './JobStatusBar'
 import { formatRetryAfter } from './retryAfter'
 import { clearSessionStatus, useSessionStatus } from './sessionStatus'
 
@@ -16,6 +19,9 @@ export default function RootLayout() {
     <>
       <SessionBanner />
       <Outlet />
+      {/* 화면 위에 떠 있는 것이라 흐름의 마지막에 둡니다 — 같은 z 인 탭바와 만나도
+          이쪽이 위입니다. 붙이고 뗄 조건은 전부 그 안에 있습니다. */}
+      <JobStatusBar />
     </>
   )
 }

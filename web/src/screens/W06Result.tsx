@@ -21,6 +21,7 @@ import { ApiError, isApiError } from '../api/client'
 import { calculatorHeadline, estimateSummary } from '../api/calculatorLink'
 import { events } from '../api/endpoints'
 import { beginJobAttempt, clearJobAttempt, resumeJobAttempt } from '../api/idempotency'
+import { forgetActiveJob } from '../app/activeJob'
 import BackButton from '../app/BackButton'
 import { CreditBadge } from '../app/CreditBadge'
 import { NUTTI_SHOP_URL } from '../app/externalLinks'
@@ -105,6 +106,14 @@ export default function W06Result() {
   useEffect(() => {
     if (settled) void invalidateAfterJobSettled(client)
   }, [settled, client])
+
+  // 결과가 눈앞에 있으면 따라다니던 상태 바는 할 일이 끝났습니다(app/activeJob.ts).
+  // 안 놓아 주면 여기서 나가는 순간 «완성됐어요, 보러 가기»가 다시 떠서, 방금 본
+  // 결과를 보러 가라고 권합니다. 아직 만드는 중이면 놓지 않습니다 — 이 화면은 그
+  // 경우 대기 화면으로 되돌리는 중이고, 거기서 다시 기억하게 하는 건 낭비입니다.
+  useEffect(() => {
+    if (settled && jobId) forgetActiveJob(jobId)
+  }, [settled, jobId])
 
   // W-05 와 같은 판정입니다(같은 훅을 쓰므로 여기서 달라지면 두 화면이 같은 에러를
   // 다르게 말합니다). 이미 그려 둔 결과가 있는데 5xx 한 번에 화면을 헐면, 손에 쥔
