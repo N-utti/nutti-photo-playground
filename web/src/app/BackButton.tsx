@@ -45,8 +45,22 @@ function useGoBack(fallback: string): () => void {
 export default function BackButton({ fallback }: { fallback: string }) {
   const goBack = useGoBack(fallback)
 
+  /*
+    ← 글리프의 실제 상자는 14×25px 입니다. 모바일에서 여섯 화면(W-04·W-07·W-08·
+    W-10 A/B·W-12)의 유일한 «돌아가는 길» 인데, 손가락으로 14px 을 맞춰야 했습니다
+    — WCAG 2.5.8(AA)의 최소 24×24 도 못 넘깁니다.
+
+    글리프를 키우거나 padding 을 주면 앱바 제목이 통째로 밀립니다. 그래서 보이는
+    상자는 그대로 두고 ::after 로 탭 영역만 넓힙니다(레이아웃 영향 0). 결과는
+    46×45 — 가로·세로 모두 44 이상입니다.
+  */
   return (
-    <button type="button" onClick={goBack} aria-label="뒤로" className="text-ink-2 hover:text-ink">
+    <button
+      type="button"
+      onClick={goBack}
+      aria-label="뒤로"
+      className="relative text-ink-2 hover:text-ink after:absolute after:-inset-x-4 after:-inset-y-2.5 after:content-['']"
+    >
       ←
     </button>
   )
