@@ -16,6 +16,7 @@
 
 import { useEffect, useRef } from 'react'
 import { useCredits } from '../api/queries'
+import { useModalDialog } from '../app/useModalDialog'
 import EarnActionList from './EarnActionList'
 
 export default function InsufficientCreditOverlay({
@@ -34,6 +35,9 @@ export default function InsufficientCreditOverlay({
   // 클레임하면 이 쿼리가 무효화되므로(useClaimCredit) 잔액이 살아 움직입니다.
   const { data, dataUpdatedAt, refetch } = useCredits()
   const openedAt = useRef(Date.now())
+  // 여기가 새면 방금 402 를 낸 «이대로 만들기» 로 키보드가 되돌아갑니다 —
+  // 잔액은 그대로니 같은 402 를 다시 맞습니다.
+  const dialogRef = useModalDialog<HTMLDivElement>(onClose)
 
   // 캐시된 잔액은 402 를 받기 **전** 값일 수 있습니다(staleTime 30초). 그 값을 믿으면
   // "크레딧이 있는데 왜 안 되지" 화면이 되므로, 열릴 때 한 번 다시 읽고 그 전까지는
@@ -56,10 +60,12 @@ export default function InsufficientCreditOverlay({
         className="absolute inset-0 cursor-default bg-ink/40"
       />
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="credit-overlay-title"
-        className="relative max-h-[85vh] w-full overflow-y-auto rounded-t-2xl bg-surface p-5 desktop:max-w-sm desktop:rounded-2xl"
+        tabIndex={-1}
+        className="relative max-h-[85vh] w-full overflow-y-auto rounded-t-2xl bg-surface p-5 outline-none desktop:max-w-sm desktop:rounded-2xl"
       >
         <h2 id="credit-overlay-title" className="text-base font-bold">
           {enough ? '이제 만들 수 있어요' : '크레딧이 부족해요'}
