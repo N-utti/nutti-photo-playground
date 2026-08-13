@@ -10,12 +10,12 @@
  * 여기 남은 건 잔액·설명·받은 내역 진입점뿐입니다.
  */
 
-import { Link, useNavigate } from 'react-router'
+import { Link } from 'react-router'
 import { useCredits } from '../api/queries'
+import BackButton from '../app/BackButton'
 import EarnActionList from './EarnActionList'
 
 export default function W10Credits() {
-  const navigate = useNavigate()
   const { data, isPending, isError } = useCredits()
   // CreditBadge 와 같은 규칙 — 모르는 값을 0 으로 적으면 "크레딧이 없다"가 됩니다.
   const known = !isPending && !isError && data !== undefined
@@ -24,9 +24,7 @@ export default function W10Credits() {
   return (
     <div className="min-h-full bg-paper pb-16">
       <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
-        <button type="button" onClick={() => navigate(-1)} aria-label="뒤로" className="text-ink-2">
-          ←
-        </button>
+        <BackButton fallback="/styles" />
         <h1 className="text-base font-bold">크레딧 받기</h1>
       </header>
 
