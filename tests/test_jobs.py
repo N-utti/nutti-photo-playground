@@ -218,7 +218,10 @@ def test_custom_prompt_uses_default_cost_and_links_log_both_ways(client: TestCli
     assert log.job_id == job.id
     assert log.raw_text == "  우주복을 입혀줘  "
     assert log.normalized_text == "우주복을 입혀줘"
-    assert client.get(f"/v1/jobs/{job.id}", headers=headers).json()["style_id"] is None
+    body = client.get(f"/v1/jobs/{job.id}", headers=headers).json()
+    assert body["style_id"] is None
+    assert body["custom_prompt"] == "  우주복을 입혀줘  "
+    assert body["credit_cost"] == 2
 
 
 async def _blocked_prompt_state(member_id: str):
@@ -341,6 +344,8 @@ def test_get_job_returns_all_fields_and_status_specific_values(client: TestClien
         "job_id",
         "status",
         "style_id",
+        "custom_prompt",
+        "credit_cost",
         "upload_id",
         "progress",
         "eta_seconds",
@@ -354,6 +359,13 @@ def test_get_job_returns_all_fields_and_status_specific_values(client: TestClien
     assert all(set(body) == expected_keys for body in bodies.values())
     assert all(body["job_id"] == job_ids[status] for status, body in bodies.items())
     assert all(body["status"] == status for status, body in bodies.items())
+    assert all(body["custom_prompt"] is None for body in bodies.values())
+    assert {status: body["credit_cost"] for status, body in bodies.items()} == {
+        "queued": 1,
+        "processing": 1,
+        "succeeded": 1,
+        "failed": 2,
+    }
     assert all(body["upload_id"] == upload_id for body in bodies.values())
     assert all(
         body["source_image_url"].startswith("https://cdn.nutti.test/uploads/")
@@ -365,6 +377,8 @@ def test_get_job_returns_all_fields_and_status_specific_values(client: TestClien
         "job_id": None,
         "status": "queued",
         "style_id": 6,
+        "custom_prompt": None,
+        "credit_cost": 1,
         "upload_id": None,
         "progress": 0,
         "eta_seconds": 200,
