@@ -7,37 +7,15 @@
  *
  * 노트5 — **주문번호를 남깁니다**(`ref_label`). 어떤 주문으로 받았는지 보여야 자동
  * 지급이 신뢰를 얻고 CS 문의가 줄어듭니다. 노트6 — 실패 반환 줄도 그대로 남깁니다.
+ *
+ * 줄의 표기(사유 라벨·날짜·증감)는 `app/ledgerFormat` 에 있습니다 — W-12 마이페이지
+ * 미리보기가 같은 규칙을 씁니다.
  */
 
 import { useLedger } from '../api/queries'
 import BackButton from '../app/BackButton'
+import { amountTone, reasonLabel, shortDate, signedAmount } from '../app/ledgerFormat'
 import type { LedgerEntry } from '../api/types'
-
-/**
- * `reason` 은 서버가 주는 코드고 §3 예시에 5종이 등장합니다. 값 도메인이 명세로
- * 닫혀 있지 않으므로(관리자 조정 `cs_adjustment` 처럼 나중에 늘 수 있음) 모르는
- * 코드는 **코드 그대로 보여 줍니다** — 빈칸으로 두면 사용자가 왜 받았는지 모릅니다.
- */
-const REASON_LABEL: Record<string, string> = {
-  generation_charge: '생성',
-  generation_refund: '실패 반환',
-  // 세이프티 차단(SAFETY_BLOCKED)으로 되돌려준 줄. 서버가 실제로 내려주는 값인데
-  // (app/models.py CreditReason) 여기 없어서 표에 영문 코드가 그대로 찍혔습니다.
-  safety_block_refund: '안전 차단 반환',
-  order_reward: '주문 확인',
-  order_clawback: '주문 취소',
-  link_account: '계정 연동',
-  follow_ig: '인스타 팔로우',
-  daily_free: '매일 무료',
-  guest_trial: '첫 무료',
-  cs_adjustment: '고객센터 조정',
-}
-
-/** '2026-08-03' → '08-03'. 표가 좁고(4열) 연도는 같은 해 안에서 정보가 없습니다. */
-function shortDate(occurredOn: string): string {
-  const parts = occurredOn.split('-')
-  return parts.length === 3 ? `${parts[1]}-${parts[2]}` : occurredOn
-}
 
 export default function W10Ledger() {
   const { data, isPending, isError, error, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } =
@@ -95,17 +73,13 @@ export default function W10Ledger() {
             <tbody>
               {entries.map((entry, index) => (
                 <tr key={`${entry.reason}-${entry.occurred_on}-${index}`} className="border-b border-rule">
-                  <td className="py-2">{REASON_LABEL[entry.reason] ?? entry.reason}</td>
+                  <td className="py-2">{reasonLabel(entry.reason)}</td>
                   <td className="max-w-24 truncate py-2 text-ink-2">{entry.ref_label ?? '—'}</td>
                   <td className="py-2 font-mono text-xs text-ink-3 tabular-nums">
                     {shortDate(entry.occurred_on)}
                   </td>
-                  <td
-                    className={`py-2 text-right font-mono tabular-nums ${
-                      entry.amount < 0 ? 'text-danger' : 'text-good'
-                    }`}
-                  >
-                    {entry.amount > 0 ? `+${entry.amount}` : `−${Math.abs(entry.amount)}`}
+                  <td className={`py-2 text-right font-mono tabular-nums ${amountTone(entry.amount)}`}>
+                    {signedAmount(entry.amount)}
                   </td>
                 </tr>
               ))}

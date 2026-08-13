@@ -10,7 +10,9 @@
  * 반영한 결정:
  *   1. 표시명은 `nickname` → 이메일 앞부분 → "내 계정" 폴백, 아바타는 **이니셜 원형**
  *      (프로바이더 프로필 이미지는 만료·CORS 때문에 기각 — 결정1·5)
- *   2. B 는 **링크만** — 획득 경로·내역 UI 를 여기 복제하지 않습니다. 그건 W-10 입니다
+ *   2. B 에 **획득 경로는 없습니다** — 그건 W-10 입니다. 내역은 "링크만"이었던 결정2 를
+ *      완화해 **최근 3줄까지** 보여 줍니다(LedgerPreview 주석) — 잔액 옆에 이유가
+ *      없으면 왜 12 인지 보러 한 화면을 더 들어가야 합니다. 전체·페이지네이션은 W-10 B
  *   3. 펫 삭제는 FK NULL 이라 결과물이 보관함에 남습니다(결정4) — 확인 문구가 그 사실을
  *      말해야 "삭제하면 사진도 지워지나?"에 답이 됩니다
  *   4. 카페24 **연동 해제는 없습니다**(결정3) — 해제→재연동 반복 수급 경로를 열지 않기
@@ -25,12 +27,14 @@ import {
   useAuthorizeRedirect,
   useCredits,
   useDeletePet,
+  useLedger,
   useMe,
   usePets,
   useRenamePet,
 } from '../api/queries'
 import { rememberAuthReturn } from '../app/authReturn'
 import BackButton from '../app/BackButton'
+import { amountTone, reasonLabel, shortDate, signedAmount } from '../app/ledgerFormat'
 import { memberInitial, memberLabel, PROVIDER_LABEL } from '../app/memberIdentity'
 import { initialOf } from '../app/initials'
 import Thumbnail from '../app/Thumbnail'
@@ -188,6 +192,9 @@ function CreditSection() {
         <h2 className="text-sm font-semibold">보유 크레딧</h2>
         <span className="font-mono text-lg font-bold tabular-nums">{balance ?? '—'}</span>
       </div>
+
+      <LedgerPreview />
+
       <div className="mt-3 grid grid-cols-2 gap-2">
         <Link
           to="/credits"
@@ -199,10 +206,72 @@ function CreditSection() {
           to="/credits/ledger"
           className="rounded-lg border border-rule px-3 py-2 text-center text-sm text-ink-2"
         >
-          받은 내역
+          전체 보기
         </Link>
       </div>
     </section>
+  )
+}
+
+/**
+ * 받은 내역 미리보기 — 최근 3줄.
+ *
+ * 이슈 #12 결정2 는 "B 는 링크만, 내역 UI 를 여기 복제하지 않는다"였습니다. 링크만
+ * 두면 «잔액 12》 옆에 왜 12 인지가 없어서, 잔액을 확인하러 온 사용자가 이유를 보려면
+ * 한 화면을 더 들어가야 합니다. 그래서 **최근 몇 줄만** 여기서 답하고 나머지는 여전히
+ * W-10 B 로 보냅니다(결정2 완화, PO 확인).
+ *
+ * 복제가 아닌 이유: 줄의 표기는 `app/ledgerFormat` 한 곳이고, 페이지네이션·주문번호
+ * (`ref_label`)·에러 복구는 그대로 W-10 B 에만 있습니다. 여기 있는 건 3열 요약뿐입니다.
+ *
+ * 대가는 마이페이지 진입 시 `GET /credits/ledger` 한 번입니다 — 쿼리 키가 W-10 B 와
+ * 같아서(`queryKeys.ledger`) 이어서 «전체 보기»로 들어가면 그 응답을 그대로 씁니다.
+ */
+const PREVIEW_ROWS = 3
+
+function LedgerPreview() {
+  const { data, isPending, isError } = useLedger()
+  // 첫 페이지만 봅니다 — 「더 보기」로 뒤 페이지가 캐시에 쌓여 있어도 최근 줄은 여기 있습니다.
+  const entries = (data?.pages[0]?.items ?? []).slice(0, PREVIEW_ROWS)
+
+  if (isPending) {
+    return (
+      <ul className="mt-3 space-y-2">
+        {Array.from({ length: PREVIEW_ROWS }, (_, index) => (
+          <li key={index} className="h-6 animate-pulse rounded bg-rule/60" />
+        ))}
+      </ul>
+    )
+  }
+
+  // 실패는 조용히 접습니다. 아래 «전체 보기»가 살아 있어 막다른 길이 아니고, 잔액과
+  // 강아지 목록이 함께 있는 화면에서 부가 정보 하나 때문에 빨간 경고를 띄우면 계정에
+  // 문제가 생긴 것처럼 읽힙니다. 재시도 버튼이 필요한 자리는 W-10 B 입니다.
+  if (isError) return null
+
+  if (entries.length === 0) {
+    return <p className="mt-3 text-sm text-ink-3">아직 받은 내역이 없어요.</p>
+  }
+
+  return (
+    <ul className="mt-3 border-t border-rule">
+      {entries.map((entry, index) => (
+        <li
+          key={`${entry.reason}-${entry.occurred_on}-${index}`}
+          className="flex items-center gap-2 border-b border-rule py-2 text-sm"
+        >
+          <span className="min-w-0 flex-1 truncate">{reasonLabel(entry.reason)}</span>
+          <span className="font-mono text-xs text-ink-3 tabular-nums">
+            {shortDate(entry.occurred_on)}
+          </span>
+          {/* 폭을 고정해 증감이 한 열로 떨어지게 합니다 — +20 과 −1 이 들쭉날쭉하면
+              "얼마나 늘고 줄었나"를 세로로 훑을 수 없습니다. */}
+          <span className={`w-10 text-right font-mono tabular-nums ${amountTone(entry.amount)}`}>
+            {signedAmount(entry.amount)}
+          </span>
+        </li>
+      ))}
+    </ul>
   )
 }
 
