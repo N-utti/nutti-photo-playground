@@ -15,14 +15,14 @@
  * W-09 가 붙을 때 연결하면 됩니다.
  */
 
-import { Link, useNavigate, useSearchParams } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { calculatorHeadline, estimateSummary } from '../api/calculatorLink'
 import { events } from '../api/endpoints'
 import { useCalculatorLink } from '../api/queries'
+import BackButton from '../app/BackButton'
 import type { CalculatorLink } from '../api/types'
 
 export default function W07Calculator() {
-  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
   const petId = searchParams.get('pet_id') ?? undefined
@@ -34,9 +34,7 @@ export default function W07Calculator() {
   return (
     <div className="min-h-full bg-paper pb-16">
       <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
-        <button type="button" onClick={() => navigate(-1)} aria-label="뒤로" className="text-ink-2">
-          ←
-        </button>
+        <BackButton fallback="/styles" />
         <h1 className="text-base font-bold">간식량 계산기</h1>
       </header>
 

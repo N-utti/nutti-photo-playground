@@ -21,6 +21,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { isApiError } from '../api/client'
+import BackButton from '../app/BackButton'
 import { CreditBadge } from '../app/CreditBadge'
 import {
   beginJobAttempt,
@@ -234,14 +235,10 @@ export default function W04Upload() {
   return (
     <div className="min-h-full bg-paper pb-16">
       <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
-        <button
-          type="button"
-          onClick={() => (confirming ? pickAnother() : navigate(-1))}
-          aria-label="뒤로"
-          className="text-ink-2"
-        >
-          ←
-        </button>
+        {/* 확인 단계에서도 그냥 뒤로 갑니다 — 사진을 다시 고르는 길은 아래
+            «다른 사진 고르기» 입니다(ConfirmPanel). ← 가 화면 안 단계를 되감으면
+            같은 화살표가 어떤 때는 나가고 어떤 때는 안 나갑니다. */}
+        <BackButton fallback="/styles" />
         <h1 className="text-base font-bold">{confirming ? '확인' : '사진 선택'}</h1>
         <CreditBadge />
       </header>

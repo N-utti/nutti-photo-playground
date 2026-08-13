@@ -9,8 +9,8 @@
  * 지급이 신뢰를 얻고 CS 문의가 줄어듭니다. 노트6 — 실패 반환 줄도 그대로 남깁니다.
  */
 
-import { Link } from 'react-router'
 import { useLedger } from '../api/queries'
+import BackButton from '../app/BackButton'
 import type { LedgerEntry } from '../api/types'
 
 /**
@@ -48,11 +48,10 @@ export default function W10Ledger() {
   return (
     <div className="min-h-full bg-paper pb-16">
       <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
-        {/* navigate(-1) 이 아니라 A 로 고정합니다 — 402 오버레이에서 내역만 열고
-            돌아갈 때 뒤로가기가 생성 화면을 지나쳐 버립니다. */}
-        <Link to="/credits" aria-label="뒤로" className="text-ink-2">
-          ←
-        </Link>
+        {/* A 고정이었습니다. 402 오버레이에서 내역만 열고 돌아갈 때 A 를 지나치는 게
+            싫어서였는데, 그 경우 사용자가 있던 곳은 생성 화면입니다 — 거기로 돌려보내는
+            게 맞습니다. `/credits` 는 이제 뒤가 없을 때의 폴백입니다. */}
+        <BackButton fallback="/credits" />
         <h1 className="text-base font-bold">받은 내역</h1>
       </header>
 

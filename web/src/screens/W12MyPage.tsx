@@ -30,6 +30,7 @@ import {
   useRenamePet,
 } from '../api/queries'
 import { rememberAuthReturn } from '../app/authReturn'
+import BackButton from '../app/BackButton'
 import { memberInitial, memberLabel, PROVIDER_LABEL } from '../app/memberIdentity'
 import { initialOf } from '../app/initials'
 import Thumbnail from '../app/Thumbnail'
@@ -44,9 +45,7 @@ export default function W12MyPage() {
   return (
     <div className="min-h-full bg-paper pb-16">
       <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
-        <Link to={back} aria-label="뒤로" className="text-ink-2">
-          ←
-        </Link>
+        <BackButton fallback={back} />
         <h1 className="text-base font-bold">마이페이지</h1>
       </header>
 
@@ -68,16 +67,16 @@ export default function W12MyPage() {
 }
 
 /**
- * ← 의 목적지.
+ * ← 가 **뒤가 없을 때** 갈 곳(app/BackButton.tsx).
  *
- * 진입점이 두 곳입니다 — 앱바 아바타(어느 화면에서든)와 W-04 "저장된 강아지 · 관리".
- * 후자에서 왔으면 고르던 스타일(`?style_id=`)이 붙은 그 주소로 돌려보내야 합니다.
- * 그래서 링크가 `state.from` 에 자기 주소를 담아 보내고 여기서 그걸 씁니다.
+ * 평소에는 히스토리 한 칸 뒤로 갑니다. 이 값이 쓰이는 건 주소 직접 입력이나 OAuth
+ * 왕복 복귀처럼 뒤에 우리 화면이 없는 진입뿐입니다.
  *
- * `navigate(-1)` 을 쓰지 않는 이유: 주소로 직접 들어온 경우 앱 밖으로 나가고, OAuth
- * 왕복 복귀처럼 히스토리가 우리 것이 아닌 경우도 있습니다. 값도 `authReturn` 과 같은
- * 기준으로 **앱 내부 경로만** 통과시킵니다(`state` 는 히스토리에 실려 오는 값이라
- * 그대로 믿고 이동하면 안 됩니다).
+ * 그때 기댈 단서가 `state.from` 입니다. 진입점이 두 곳이라 — 앱바 아바타(어느
+ * 화면에서든)와 W-04 "저장된 강아지 · 관리" — 후자에서 왔으면 고르던 스타일
+ * (`?style_id=`)이 붙은 그 주소로 돌려보내야 하고, 그래서 링크가 자기 주소를 담아
+ * 보냅니다. 값은 `authReturn` 과 같은 기준으로 **앱 내부 경로만** 통과시킵니다
+ * (`state` 는 히스토리에 실려 오는 값이라 그대로 믿고 이동하면 안 됩니다).
  */
 function useBackTarget(): string {
   const from = useLocation().state?.from

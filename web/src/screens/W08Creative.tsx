@@ -26,6 +26,7 @@ import {
 } from '../api/idempotency'
 import { useCreateJob } from '../api/queries'
 import { clearUploadDraft, readUploadDraft } from '../api/uploadDraft'
+import BackButton from '../app/BackButton'
 import { CreditBadge } from '../app/CreditBadge'
 import { promptRejectionReason } from '../app/promptFilter'
 import { useReuseFromJob } from '../app/reuseFromJob'
@@ -125,9 +126,7 @@ export default function W08Creative() {
   return (
     <div className="min-h-full bg-paper pb-16">
       <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
-        <button type="button" onClick={() => navigate(-1)} aria-label="뒤로" className="text-ink-2">
-          ←
-        </button>
+        <BackButton fallback="/upload" />
         <h1 className="text-base font-bold">직접 만들기</h1>
         <CreditBadge />
       </header>

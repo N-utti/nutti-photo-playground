@@ -21,6 +21,7 @@ import { ApiError, isApiError } from '../api/client'
 import { calculatorHeadline, estimateSummary } from '../api/calculatorLink'
 import { events } from '../api/endpoints'
 import { beginJobAttempt, clearJobAttempt, resumeJobAttempt } from '../api/idempotency'
+import BackButton from '../app/BackButton'
 import { CreditBadge } from '../app/CreditBadge'
 import { NUTTI_SHOP_URL } from '../app/externalLinks'
 import {
@@ -123,9 +124,9 @@ export default function W06Result() {
   return (
     <div className="min-h-full bg-canvas pb-16">
       <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
-        <Link to="/styles" aria-label="스타일 목록" className="text-ink-2">
-          ←
-        </Link>
+        {/* 대기 화면(W-05)은 끝나는 순간 `replace` 로 여기 자리를 넘겼으므로,
+            한 칸 뒤는 만들기를 시작한 화면입니다 — 끝난 진행 막대로 되돌아가지 않습니다. */}
+        <BackButton fallback="/styles" />
         <h1 className="text-base font-bold">{job?.status === 'failed' ? '실패' : '완성'}</h1>
         <CreditBadge />
       </header>
