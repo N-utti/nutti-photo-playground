@@ -71,13 +71,27 @@ export default function W02StyleCatalog() {
     let frame = 0
     const pick = () => {
       frame = 0
-      const line = (anchorBarRef.current?.getBoundingClientRect().bottom ?? 0) + 1
+      const barBottom = anchorBarRef.current?.getBoundingClientRect().bottom ?? 0
       // 기준선을 지난 **마지막** 섹션이 화면 맨 위를 차지한 섹션입니다. 아직 아무것도
       // 지나지 않았으면(맨 위) 첫 섹션을 가리킵니다.
       let current = sectionNames[0]
       for (const name of sectionNames) {
         const element = sectionRefs.current.get(name)
-        if (element && element.getBoundingClientRect().top <= line) current = name
+        if (!element) continue
+        /*
+          기준선은 앵커바 아래 끝이 아니라 «섹션이 점프 후 **멈추는 자리**» 입니다.
+
+          바 아래 끝만 쓰면 칩을 눌러도 그 칩이 안 켜집니다 — `scroll-mt-28`(112px)이
+          바 아래 끝(측정값 104px)보다 8px 아래라, 점프가 끝난 순간 섹션 top 은 아직
+          기준선을 안 지난 상태입니다. 화면은 분명히 «컨셉 사진관» 을 보여 주는데 칩은
+          이전 섹션에 켜져 있고, 8px 을 더 굴려야 따라옵니다. 눌러도 아무 반응이 없는
+          것처럼 보이는 자리라 이 화면이 원래 고치려던 증상과 같은 얼굴입니다.
+
+          그래서 두 값 중 **아래쪽**을 씁니다. 여백 클래스를 바꿔도(scroll-mt-*) 여기를
+          같이 고칠 필요가 없도록 상수 대신 요소에서 읽습니다.
+        */
+        const resting = parseFloat(getComputedStyle(element).scrollMarginTop) || 0
+        if (element.getBoundingClientRect().top <= Math.max(barBottom, resting) + 1) current = name
       }
       setActiveSection(current)
     }
@@ -279,7 +293,7 @@ function StyleCardItem({ style, reuseJobId }: { style: StyleCard; reuseJobId: st
       <Thumbnail
         src={style.thumbnail_url}
         alt={style.name}
-        // 68장이 한 페이지에 있으므로(카탈로그는 페이지네이션 없음) 지연 로드가 필수입니다.
+        // 39장이 한 페이지에 있으므로(카탈로그는 페이지네이션 없음) 지연 로드가 필수입니다.
         loading="lazy"
         decoding="async"
         className="aspect-square w-full bg-surface-2 object-cover"
