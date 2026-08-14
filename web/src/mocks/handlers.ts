@@ -52,8 +52,11 @@ import {
 
 const BASE = '*/v1'
 
+/** 시나리오 강제 키(README «목 시나리오 강제»). 리셋이 같이 지웁니다. */
+const SCENARIO_KEY = 'nutti.mock.scenario'
+
 function scenario(): string {
-  return localStorage.getItem('nutti.mock.scenario') ?? ''
+  return localStorage.getItem(SCENARIO_KEY) ?? ''
 }
 
 /**
@@ -231,6 +234,37 @@ function persistDeletedResults(): void {
 const snapshot = restored()
 const jobSnapshot = restoredJobs()
 
+/**
+ * 아직 아무것도 안 한 사람. 리셋이 되돌아갈 지점이라 상수로 뺐습니다.
+ *
+ * `member_id` 가 고정값인 건 의도입니다 — 게스트도 job 주소를 갖고, 그 주소가 리셋마다
+ * 바뀌면 «URL 로 돌아오면 결과가 있다»(Q7)를 목 위에서 확인할 수 없습니다.
+ */
+const INITIAL_ME: Omit<Me, 'credit_balance'> = {
+  member_id: '8f14e457-4d09-41c2-9d70-1a2b3c4d5e6f',
+  kind: 'guest',
+  email: null,
+  nickname: null,
+  providers: [],
+  cafe24_linked: false,
+}
+
+/**
+ * `fixtures.ts` 의 가변 배열 원본.
+ *
+ * 픽스처는 «읽기용 시드» 처럼 생겼지만 핸들러가 **제자리에서 고칩니다** — 펫 추가는
+ * `petList.push`, 삭제는 `splice`, 이름 변경은 `pet.name =`, 그리고 펫을 지우면
+ * `libraryItems[].pet_id` 가 null 로 덮입니다(이슈 #12 결정4 의 FK NULL 을 흉내내는 것).
+ *
+ * 그래서 `state` 만 되돌리면 격리가 절반만 됩니다. 펫 삭제 테스트 하나가 프로세스
+ * 전체의 시드를 줄여 놓고, 그 뒤 «저장된 강아지로 바로 만들기» 칩을 세는 테스트가
+ * 뜬금없이 깨집니다(W04Upload.test.tsx 가 이 목록에 의존합니다).
+ *
+ * 로드 직후에 뜨므로 이 사본은 아직 아무도 건드리지 않은 상태입니다.
+ */
+const PRISTINE_PETS = structuredClone(petList)
+const PRISTINE_LIBRARY = structuredClone(libraryItems)
+
 const state = {
   credits: snapshot?.credits ?? (structuredClone(initialCredits) as Credits),
   jobs: new Map<string, MockJob>(Object.entries(jobSnapshot.jobs)),
@@ -249,16 +283,51 @@ const state = {
    */
   refreshToken: snapshot?.refreshToken ?? null,
   /** `/auth/me` 의 원본. 로그인·연동이 이 값을 바꾸므로 화면 분기가 실제로 움직입니다. */
-  me:
-    snapshot?.me ??
-    ({
-      member_id: '8f14e457-4d09-41c2-9d70-1a2b3c4d5e6f',
-      kind: 'guest',
-      email: null,
-      nickname: null,
-      providers: [],
-      cafe24_linked: false,
-    } as Omit<Me, 'credit_balance'>),
+  me: snapshot?.me ?? structuredClone(INITIAL_ME),
+}
+
+/**
+ * 목을 방금 켠 상태로 되돌립니다. **테스트 전용 진입점**입니다(src/test/setup.ts).
+ *
+ * 이게 없던 동안 `state` 는 모듈 수준이라 테스트 사이에 그대로 흘러갔습니다. 잔액을
+ * 읽기만 하는 테스트끼리는 티가 안 나지만, 클레임·삭제·생성처럼 **상태를 바꾸는**
+ * 테스트가 하나라도 끼면 그때부터 결과가 실행 순서에 달립니다 — 혼자 돌리면 통과하고
+ * 전체를 돌리면 깨지는(혹은 그 반대인) 종류라, 원인을 찾는 데 드는 시간이 테스트를
+ * 붙여서 아낀 시간을 넘깁니다.
+ *
+ * 저장본까지 지웁니다. jsdom 은 파일마다 새 환경이지만 같은 파일 안의 테스트끼리는
+ * `localStorage` 를 공유하고, 무엇보다 `state` 를 비워 놓고 저장본을 남기면 다음
+ * 모듈 로드가 그걸 되살려 «리셋했는데 안 지워지는» 상태가 됩니다.
+ *
+ * 시나리오 키도 함께 지웁니다 — `job:fail` 같은 걸 세워 둔 테스트가 뒷 테스트까지
+ * 실패 응답으로 끌고 가지 않도록.
+ */
+export function resetMockState(): void {
+  state.credits = structuredClone(initialCredits) as Credits
+  state.jobs.clear()
+  state.idempotency.clear()
+  state.deletedResults.clear()
+  state.expiredToken = null
+  state.refreshToken = null
+  state.me = structuredClone(INITIAL_ME)
+
+  /*
+    픽스처 배열은 **참조를 유지한 채** 내용만 갈아 끼웁니다(`splice`). 다른 모듈이
+    이미 이 배열을 import 해 놓았으므로 새 배열을 대입하면 그쪽은 옛 배열을 계속
+    들여다봅니다. 매번 새로 clone 하는 건 복원된 객체를 다음 테스트가 또 고치기
+    때문입니다 — 사본을 한 번만 만들어 돌려쓰면 두 번째 테스트부터 오염됩니다.
+  */
+  petList.splice(0, petList.length, ...structuredClone(PRISTINE_PETS))
+  libraryItems.splice(0, libraryItems.length, ...structuredClone(PRISTINE_LIBRARY))
+
+  // `credit:empty` 가 «한 번만 0으로 떨어뜨린다» 를 기억하는 플래그. 안 풀면 다음
+  // 테스트에서 시나리오를 다시 켜도 잔액이 0으로 안 떨어집니다.
+  emptyApplied = false
+
+  sessionStorage.removeItem(PERSIST_KEY)
+  localStorage.removeItem(JOBS_KEY)
+  localStorage.removeItem(DELETED_KEY)
+  localStorage.removeItem(SCENARIO_KEY)
 }
 
 /** 목 authorize_url — 프로바이더 대신 우리 콜백 라우트로 되돌립니다. */

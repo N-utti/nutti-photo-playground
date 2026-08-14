@@ -98,7 +98,10 @@ localStorage.removeItem('nutti.mock.scenario')              // 정상
 같은 방식으로 모듈을 풉니다. 목은 **브라우저와 같은 핸들러**를 node에서 재사용합니다
 (`src/test/server.ts` → `src/mocks/handlers.ts`).
 
-지금 있는 것은 커버리지가 아니라 **QA로 찾아 고친 것들의 회귀 방지**입니다(이슈 #94).
+목표는 커버리지 숫자가 아니라 **조용히 깨지는 것들의 회귀 방지**입니다(이슈 #94). 아래 표를
+읽는 방법: 왼쪽이 파일, 오른쪽이 **그 파일이 없으면 다시 일어날 일**입니다. 화면 커버리지는
+아직 W-05~W-12가 비어 있습니다 — 상태를 바꾸는 화면들이라 목 리셋(`resetMockState`)이 먼저
+필요했고, 그게 이제 있으니 다음 차례입니다.
 
 | 파일 | 막는 것 |
 |---|---|
@@ -108,6 +111,16 @@ localStorage.removeItem('nutti.mock.scenario')              // 정상
 | `app/BackButton.test.tsx` | ←가 화면마다 다른 곳으로 가는 것 · 탭 영역 확장이 떨어져 나가는 것 |
 | `app/routes.test.tsx` | 새 라우트를 추가하며 `handle.title`을 빠뜨리는 것 |
 | `app/RootLayout.test.tsx` | 제목 해석 규칙(가장 깊은 매치부터 거슬러 올라가기)이 깨지는 것 |
+| `test/mockReset.test.ts` | 목 상태가 테스트 사이로 새는 것 — **다른 테스트가 서 있는 바닥** |
+| `api/idempotency.test.ts` | 402 재시도가 새 키를 쓰는 것(이중 차감) · 「다시 만들기」가 같은 키를 쓰는 것(안 바뀜) |
+| `api/uploadDraft.test.ts` | 크레딧 받고 돌아왔을 때 사진을 다시 올리게 되는 것 |
+| `api/calculatorLink.test.ts` | W-06 배너와 W-07 화면이 같은 추정을 두고 다른 말을 하는 것 |
+| `app/ledgerFormat.test.ts` | 서버가 사유를 늘렸을 때 내역 표에 **영문 코드**가 찍히는 것 |
+| `app/promptFilter.test.ts` | 결제 전 관문이 넓어져 «검은 턱시도»가 막히는 것 · 좁아져 품종 변경이 새는 것 |
+| `app/retryAfter.test.ts` | 같은 429를 두고 화면마다 다른 시간을 말하는 것 |
+| `app/reuseFromJob.test.ts` | 재사용 맥락이 끊겨 같은 사진을 다시 올리게 되는 것(다섯 화면 공유) |
+| `screens/W10Ledger.test.tsx` | 위 `ledgerFormat` 규칙이 **화면에 실제로 닿는지** |
+| `screens/JobUnavailable.test.tsx` | 일시적 오류에 "이 결과는 돌아오지 않아요"를 띄워 사고를 과장하는 것 |
 
 ### 시트를 새로 만들 때
 
@@ -136,9 +149,11 @@ localStorage.removeItem('nutti.mock.scenario')              // 정상
 - **`offsetParent`가 항상 null입니다.** 포커스 가둠이 «보이는 것»을 이걸로 거르므로
   `src/test/setup.ts`에서 «붙어 있으면 보인다»로 근사합니다. 안 그러면 탭 대상 목록이 늘
   비어서, 순환 경로를 한 번도 밟지 않은 채 통과합니다.
-- **목 상태가 테스트 사이에 초기화되지 않습니다.** `mocks/handlers.ts`의 `state`가 모듈
-  수준이라 그렇습니다. 잔액·job을 **바꾸는** 테스트를 붙일 때는 `server.use(...)`로 그
-  테스트가 쓸 응답을 덮어쓰세요(`afterEach`의 `resetHandlers`가 걷어냅니다).
+- **목 상태는 매 테스트 뒤에 되돌아갑니다** — `src/test/setup.ts`의 `afterEach`가
+  `resetMockState()`를 부릅니다(`mocks/handlers.ts`). 잔액·job·펫·로그인 여부를 **바꾸는**
+  테스트를 순서 걱정 없이 붙일 수 있습니다. 다만 `server.use(...)`는 여전히 쓰세요 —
+  둘은 다른 층입니다. 리셋은 **데이터**를, `resetHandlers`는 **핸들러**를 되돌립니다.
+  `fixtures.ts`의 `petList`·`libraryItems`도 리셋 대상입니다(핸들러가 제자리에서 고칩니다).
 
 E2E(playwright)는 아직 없습니다. 위 항목들이 브라우저를 요구하므로 언젠가 필요하지만,
 도입·유지 비용이 따로라 이슈 #94 범위에서 뺐습니다.
