@@ -32,6 +32,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { useDeleteLibraryItems, useLibrary, useMe, usePets } from '../api/queries'
+import ConfirmDialog from '../app/ConfirmDialog'
 import { CreditBadge } from '../app/CreditBadge'
 import { TabBar } from '../app/TabBar'
 import { useGuestSessionReset } from '../app/guestSession'
@@ -523,46 +524,27 @@ function SelectionBar({
       </div>
 
       {confirming && (
-        <div className="fixed inset-0 z-30 flex items-end justify-center desktop:items-center">
+        <ConfirmDialog
+          title={`${items.length}장을 삭제할까요?`}
+          titleId="delete-library-title"
+          onClose={() => setConfirming(false)}
+        >
+          {/* 되돌릴 수 없다는 사실보다 "지금 받아 둘 수 있다"가 실제로 도움이 됩니다. */}
+          <p className="mt-2 text-sm text-ink-2">
+            지운 결과는 되돌릴 수 없어요. 필요하면 먼저 «저장»으로 사진을 받아 두세요.
+          </p>
           <button
             type="button"
-            aria-label="닫기"
-            onClick={() => setConfirming(false)}
-            className="absolute inset-0 cursor-default bg-ink/40"
-          />
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="delete-library-title"
-            className="relative w-full rounded-t-2xl bg-surface p-5 desktop:max-w-sm desktop:rounded-2xl"
+            disabled={pending}
+            onClick={() => {
+              setConfirming(false)
+              onDelete()
+            }}
+            className="mt-4 w-full rounded-xl bg-danger px-4 py-3 text-sm font-semibold text-paper hover:brightness-95 motion-safe:active:scale-[0.99] disabled:opacity-50"
           >
-            <h2 id="delete-library-title" className="text-base font-bold">
-              {items.length}장을 삭제할까요?
-            </h2>
-            {/* 되돌릴 수 없다는 사실보다 "지금 받아 둘 수 있다"가 실제로 도움이 됩니다. */}
-            <p className="mt-2 text-sm text-ink-2">
-              지운 결과는 되돌릴 수 없어요. 필요하면 먼저 «저장»으로 사진을 받아 두세요.
-            </p>
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => {
-                setConfirming(false)
-                onDelete()
-              }}
-              className="mt-4 w-full rounded-xl bg-danger px-4 py-3 text-sm font-semibold text-paper hover:brightness-95 motion-safe:active:scale-[0.99] disabled:opacity-50"
-            >
-              {pending ? '삭제 중…' : '삭제'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirming(false)}
-              className="mt-2 w-full py-2 text-sm text-ink-3 hover:text-ink"
-            >
-              취소
-            </button>
-          </div>
-        </div>
+            {pending ? '삭제 중…' : '삭제'}
+          </button>
+        </ConfirmDialog>
       )}
     </>
   )

@@ -102,13 +102,31 @@ localStorage.removeItem('nutti.mock.scenario')              // 정상
 
 | 파일 | 막는 것 |
 |---|---|
-| `app/useModalDialog.test.tsx` | 시트가 떠 있는데 Tab이 **뒤 화면 버튼**으로 나가는 것 (로그인 시트·402 오버레이) |
+| `app/modalContract.test.ts` | `role="dialog"`를 선언해 놓고 가둠을 안 거는 것 — **소스를 직접 훑습니다** |
+| `app/useModalDialog.test.tsx` | 시트가 떠 있는데 Tab이 **뒤 화면 버튼**으로 나가는 것 (로그인 시트·402 오버레이·확인 창) |
+| `screens/W03StyleDetail.test.tsx` | W-03 시트가 부모의 `inert` 없이는 못 서게 되는 것 · 예시 0장을 세는 것 |
 | `app/BackButton.test.tsx` | ←가 화면마다 다른 곳으로 가는 것 · 탭 영역 확장이 떨어져 나가는 것 |
 | `app/routes.test.tsx` | 새 라우트를 추가하며 `handle.title`을 빠뜨리는 것 |
 | `app/RootLayout.test.tsx` | 제목 해석 규칙(가장 깊은 매치부터 거슬러 올라가기)이 깨지는 것 |
 
-새 시트를 만들면 `useModalDialog.test.tsx`의 `CASES`에 한 줄 추가하세요. 포커스 가둠은
-시트 하나의 성질이 아니라 **모든 시트에 걸리는 규칙**이라 한 벌로 두었습니다.
+### 시트를 새로 만들 때
+
+**확인 창은 `app/ConfirmDialog.tsx`를 쓰세요.** 포커스 가둠·Escape·스크롤 잠금이 이미 들어
+있습니다. 제목과 «취소»만 껍데기가 갖고, 확인 버튼은 `children`으로 넘깁니다(문구도 색도
+화면마다 다릅니다).
+
+껍데기가 안 맞아 직접 `role="dialog"`를 그린다면 `useModalDialog`를 달고 그 엘리먼트에
+`tabIndex={-1}`을 주세요. 빠뜨리면 `modalContract.test.ts`가 잡습니다 — 이 파일은 등록을
+기다리지 않고 `src` 전체를 훑으므로, 새 시트가 어디에 생기든 대상이 됩니다.
+
+동작까지 보려면 `useModalDialog.test.tsx`의 `CASES`에 한 줄 더합니다. 다만 **거기 적는 건
+사람 몫이라 믿을 게 못 됩니다** — PR #93이 그 규칙을 남긴 뒤 생긴 확인 창 셋(로그아웃·보관함
+삭제·펫 프로필)은 전부 등록되지 않았고 전부 `aria-modal="true"`만 선언한 채 아무것도 가두지
+않았습니다. 마우스로는 차이가 없어 화면은 멀쩡해 보이고 키보드에서만 드러납니다. 그래서
+소스를 훑는 검사를 한 겹 더 두었습니다.
+
+`CASES`에 못 들어가는 시트도 있습니다. W-03은 `onClose`가 아니라 `navigate`로 닫히고
+`useParams()`를 읽어 라우트 매칭이 필요해서, 같은 검사를 자기 테스트 파일에서 따로 합니다.
 
 ### jsdom이 답해 주지 않는 것
 
@@ -144,6 +162,8 @@ src/
   screens/          화면. 구현된 것만 개별 파일, 나머지는 placeholders.tsx
   app/
     routes.tsx      11개 화면 라우트 테이블 (W-03 은 W-02 의 자식 = 시트)
+    useModalDialog.ts  `aria-modal` 을 **실제** 모달로 — 포커스 가둠·Escape·스크롤 잠금
+    ConfirmDialog.tsx  되돌릴 수 없는 동작의 확인 창 껍데기. 위 훅이 이미 들어 있습니다
     TabBar.tsx      하단 탭바 4칸. W-02·W-09 **두 화면만** 붙입니다 (그 근거는 파일 주석)
     reuseFromJob.ts `?from_job=` — "이 사진으로 다른 스타일"의 재사용 맥락 (W-02·W-03·W-04·W-08).
                     재생성 재료(`contextFromJob`)도 여기 — job 응답 하나가 전부 답합니다

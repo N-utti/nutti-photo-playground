@@ -11,7 +11,8 @@
  * 지금 실서버의 스타일은 **전부** 0 장입니다.
  */
 
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
 import { Route, Routes } from 'react-router'
 import { describe, expect, it } from 'vitest'
@@ -101,5 +102,83 @@ describe('W-03 · 이름이 들어가는 스타일 예고', () => {
 
     expect(await screen.findByRole('heading', { name: '레고 미니피겨' })).toBeInTheDocument()
     expect(screen.queryByText(/이름이 그림에 들어갑니다/)).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * 시트가 **혼자서** 모달인지 (app/useModalDialog.ts).
+ *
+ * 다른 시트들은 `app/useModalDialog.test.tsx` 의 `CASES` 에서 한 벌로 검사받는데 이건
+ * 거기 못 들어갑니다 — `onClose` 를 받지 않고 `navigate` 로 닫히며, `useParams()` 를
+ * 읽어야 해서 매칭되는 라우트도 필요합니다. 그래서 같은 질문을 여기서 따로 묻습니다.
+ *
+ * 원래 이 시트는 포커스 이동 · Escape · 스크롤 잠금만 손으로 하고 **Tab 가둠이
+ * 없었습니다.** 그래도 뒤 화면이 안 눌렸던 건 부모 W02StyleCatalog 이 본문을
+ * `<div inert={sheetOpen}>` 으로 감싸 줬기 때문인데, 그건 이 시트가 그 라우트의
+ * 자식일 때만 성립합니다. 아래 테스트가 부모 없이 세우는 이유가 그것입니다 —
+ * 부모에 기댄 상태로 되돌아가면 여기서 걸립니다.
+ */
+describe('W-03 시트의 모달 동작', () => {
+  /** 시트가 가리는 뒤 화면의 버튼. 부모가 `inert` 로 감싸 주지 않는 자리입니다. */
+  const BEHIND = '뒤 화면 버튼'
+
+  async function renderWithBackdrop() {
+    mockDetail([])
+    const user = userEvent.setup()
+    renderWithProviders(
+      <>
+        <button type="button">{BEHIND}</button>
+        <Routes>
+          <Route path="/styles/:styleId" element={<W03StyleDetail />} />
+        </Routes>
+      </>,
+      { route: '/styles/101' },
+    )
+
+    // 본문이 도착한 뒤에 눌러야 합니다 — 스켈레톤 단계에는 탭 대상이 없어서
+    // 가둠이 깨져 있어도 «나갈 곳이 없어» 통과할 수 있습니다.
+    await screen.findByRole('heading', { name: '레고 미니피겨' })
+    return { user, behind: screen.getByRole('button', { name: BEHIND }), dialog: screen.getByRole('dialog') }
+  }
+
+  it('열리면 포커스가 시트 안으로 들어온다', async () => {
+    const { dialog } = await renderWithBackdrop()
+
+    expect(dialog).toHaveFocus()
+  })
+
+  it('Tab 을 계속 눌러도 뒤 화면 버튼에 닿지 않는다', async () => {
+    const { user, dialog, behind } = await renderWithBackdrop()
+
+    for (let press = 0; press < 20; press += 1) {
+      await user.tab()
+      expect(behind).not.toHaveFocus()
+      expect(dialog).toContainElement(document.activeElement as HTMLElement)
+    }
+  })
+
+  it('Shift+Tab 으로도 뒤 화면 버튼에 닿지 않는다', async () => {
+    const { user, dialog, behind } = await renderWithBackdrop()
+
+    for (let press = 0; press < 20; press += 1) {
+      await user.tab({ shift: true })
+      expect(behind).not.toHaveFocus()
+      expect(dialog).toContainElement(document.activeElement as HTMLElement)
+    }
+  })
+
+  it('Escape 로 카탈로그로 돌아간다', async () => {
+    const { user } = await renderWithBackdrop()
+
+    await user.keyboard('{Escape}')
+
+    // 이 시트의 «닫기» 는 주소 이동입니다 — 라우트를 벗어나면 시트가 사라집니다.
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  })
+
+  it('떠 있는 동안 배경 스크롤이 잠긴다', async () => {
+    await renderWithBackdrop()
+
+    expect(document.body.style.overflow).toBe('hidden')
   })
 })

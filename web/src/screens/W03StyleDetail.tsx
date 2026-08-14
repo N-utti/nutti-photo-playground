@@ -14,10 +14,11 @@
  *   숨기는 것: 프롬프트 원문 — API(§3 GET /v1/styles/{id})가 애초에 내려주지 않습니다.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { isApiError } from '../api/client'
 import { useStyleDetail } from '../api/queries'
+import { useModalDialog } from '../app/useModalDialog'
 import { useReuseFromJob, withReuse } from '../app/reuseFromJob'
 import { PET_NAME_FALLBACK, usesPetName } from '../app/petNameStyles'
 import type { FitTag, StyleDetail } from '../api/types'
@@ -37,7 +38,6 @@ export default function W03StyleDetail() {
   const id = Number.isInteger(parsed) && parsed > 0 ? parsed : null
 
   const { data: style, isPending, error } = useStyleDetail(id)
-  const sheetRef = useRef<HTMLDivElement>(null)
 
   // 재사용 맥락(FR-W06-07)은 시트를 닫아도 살아 있어야 합니다 — 여기서 떨어뜨리면
   // 뒤의 카탈로그가 갑자기 평소 모드로 바뀌어 사진을 다시 올리게 됩니다.
@@ -47,23 +47,17 @@ export default function W03StyleDetail() {
     [navigate, reuse.jobId],
   )
 
-  useEffect(() => {
-    sheetRef.current?.focus()
+  /*
+    포커스 이동 · Escape · 배경 스크롤 잠금을 여기서 손으로 하고 있었습니다. 셋은 맞게
+    돌았지만 **Tab 가둠이 없었습니다** — 뒤 화면을 못 만지게 막는 건 부모
+    W02StyleCatalog 의 `<div inert={sheetOpen}>` 이 대신 해 주고 있었고, 그건 이 시트가
+    그 라우트의 자식일 때만 성립하는 전제입니다(app/useModalDialog.ts 헤더).
 
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') close()
-    }
-    document.addEventListener('keydown', onKeyDown)
-
-    // 시트가 떠 있는 동안 뒤 그리드가 같이 스크롤되면 안 됩니다.
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-
-    return () => {
-      document.removeEventListener('keydown', onKeyDown)
-      document.body.style.overflow = previousOverflow
-    }
-  }, [close])
+    앱 안에 모달 처리가 두 갈래로 갈려 있으면 다음 사람이 어느 쪽을 베낄지 알 수
+    없어서, 부모에 기대지 않고 혼자 서는 쪽으로 맞춥니다. 부모의 `inert` 는 그대로
+    둡니다 — 그쪽은 탭바까지 모달 밖으로 빼는 일도 겸하고 있습니다(W02 주석).
+  */
+  const sheetRef = useModalDialog<HTMLDivElement>(close)
 
   return (
     <div className="fixed inset-0 z-30 flex flex-col justify-end desktop:items-center desktop:justify-center">
