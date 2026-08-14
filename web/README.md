@@ -99,9 +99,11 @@ localStorage.removeItem('nutti.mock.scenario')              // 정상
 (`src/test/server.ts` → `src/mocks/handlers.ts`).
 
 목표는 커버리지 숫자가 아니라 **조용히 깨지는 것들의 회귀 방지**입니다(이슈 #94). 아래 표를
-읽는 방법: 왼쪽이 파일, 오른쪽이 **그 파일이 없으면 다시 일어날 일**입니다. 화면 커버리지는
-아직 W-05~W-12가 비어 있습니다 — 상태를 바꾸는 화면들이라 목 리셋(`resetMockState`)이 먼저
-필요했고, 그게 이제 있으니 다음 차례입니다.
+읽는 방법: 왼쪽이 파일, 오른쪽이 **그 파일이 없으면 다시 일어날 일**입니다.
+
+아직 비어 있는 화면: W-08 · W-09 · W-10 A · W-12 · AccountSheet · AuthCallback. 전부 목 상태를
+**바꾸는** 화면이라(펫 삭제가 시드를 splice하고, 로그인이 `state.me`를 회원으로 굳힙니다)
+`server.use(...)`로 응답을 덮어쓰는 쪽을 기본으로 잡아야 합니다.
 
 | 파일 | 막는 것 |
 |---|---|
@@ -121,6 +123,10 @@ localStorage.removeItem('nutti.mock.scenario')              // 정상
 | `app/reuseFromJob.test.ts` | 재사용 맥락이 끊겨 같은 사진을 다시 올리게 되는 것(다섯 화면 공유) |
 | `screens/W10Ledger.test.tsx` | 위 `ledgerFormat` 규칙이 **화면에 실제로 닿는지** |
 | `screens/JobUnavailable.test.tsx` | 일시적 오류에 "이 결과는 돌아오지 않아요"를 띄워 사고를 과장하는 것 |
+| `screens/W05Waiting.test.tsx` | 5xx 한 번에 화면을 헐어 **살아 있는 작업**을 포기시키는 것 · 1분을 넘겨 놓고 "거의 다 됐어요"라고 하는 것 |
+| `screens/W06Result.test.tsx` | 문서에 없는 `error_code` 하나에 결과 화면이 통째로 죽는 것(실측 이력) |
+| `screens/W07Calculator.test.tsx` | 견종을 모르는데 안다고 해서 **남의 강아지 기준 간식량**을 넘기는 것 |
+| `screens/EarnActionList.test.tsx` | 매출 직결 줄이 응답 순서에 밀리는 것 · 게스트에게 받지 못할 보상을 약속하는 것 |
 
 ### 시트를 새로 만들 때
 
