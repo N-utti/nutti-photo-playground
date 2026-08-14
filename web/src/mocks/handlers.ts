@@ -10,6 +10,7 @@
  *   upload:warn | upload:nodog | upload:multi | upload:face | upload:face-block | upload:block
  *   job:fail | job:safety | job:retries | job:unknown-error | job:flaky | job:slow | job:queued
  *   credit:empty
+ *   styles:filled
  *   session:expired | guest:ratelimited | session:lost | auth:statefail | cafe24:linked
  *   refresh:fail | refresh:429
  *
@@ -38,6 +39,7 @@ import {
   petList,
   placeholderImage,
   styleCatalog,
+  styleCatalogFilled,
   styleDetailFor,
   uploadBlocked,
   uploadHumanFaceBlocked,
@@ -866,7 +868,10 @@ export const handlers = [
     const section = url.searchParams.get('section')
     const limit = Number(url.searchParams.get('limit')) || undefined
 
-    let sections = styleCatalog.sections
+    // 예시 이미지는 시드 이후의 운영 작업이라 기본은 빈 상태입니다(mocks/fixtures.ts).
+    const catalog = scenario() === 'styles:filled' ? styleCatalogFilled : styleCatalog
+
+    let sections = catalog.sections
     if (section === 'popular') {
       /*
         `popular` 은 **예약 키워드**입니다 (PR #58, 이슈 #53).
@@ -877,10 +882,10 @@ export const handlers = [
         목에서는 아무 문제가 안 보입니다. `count` 도 자른 뒤 길이여야 화면의
         "N개"가 실제로 그린 카드 수와 맞습니다.
       */
-      const top = styleCatalog.sections.flatMap((s) => s.styles).slice(0, limit ?? 12)
+      const top = catalog.sections.flatMap((s) => s.styles).slice(0, limit ?? 12)
       return HttpResponse.json({
         sections: [{ name: '인기', count: top.length, styles: top }],
-        total_count: styleCatalog.total_count,
+        total_count: catalog.total_count,
       })
     }
     if (section) sections = sections.filter((s) => s.name === section)
@@ -889,12 +894,13 @@ export const handlers = [
       sections = sections.map((s) => ({ ...s, styles: s.styles.slice(0, limit) }))
     }
     // total_count 는 필터와 무관하게 **전체 public 수**입니다(§3) — W-02 하단 "전체 N개".
-    return HttpResponse.json({ sections, total_count: styleCatalog.total_count })
+    return HttpResponse.json({ sections, total_count: catalog.total_count })
   }),
 
   http.get(`${BASE}/styles/:styleId`, async ({ params }) => {
     await delay(120)
-    const detail = styleDetailFor(Number(params.styleId))
+    // 상세의 예시·궁합 태그도 카탈로그 썸네일과 같은 스위치를 봅니다(fixtures.ts).
+    const detail = styleDetailFor(Number(params.styleId), scenario() === 'styles:filled')
     if (!detail) return apiError(404, 'NOT_FOUND', '스타일을 찾을 수 없습니다')
     return HttpResponse.json(detail)
   }),
