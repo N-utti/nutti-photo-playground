@@ -22,8 +22,19 @@ import { MemoryRouter } from 'react-router'
 export function createTestQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {
-      queries: { retry: false, staleTime: 0 },
-      mutations: { retry: false },
+      queries: {
+        retry: false,
+        staleTime: 0,
+        /*
+          `retry: false` 로 못 막는 쿼리가 있습니다 — `useJobPolling` 은 자기 `retry` 를
+          직접 정의해서(5xx 는 3회) 이 기본값을 덮습니다. 그건 의도된 동작이라 테스트에서
+          끄면 안 되지만, 재시도 **간격**까지 실제값(1s·2s·4s)으로 둘 이유는 없습니다.
+          0 으로 낮춰야 «503 을 맞고도 화면이 안 헐린다» 같은 검사가 타임아웃 안에
+          끝납니다. 횟수는 그대로라 검사하려던 경로는 똑같이 밟습니다.
+        */
+        retryDelay: 0,
+      },
+      mutations: { retry: false, retryDelay: 0 },
     },
   })
 }
