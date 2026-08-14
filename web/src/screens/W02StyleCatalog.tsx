@@ -22,6 +22,7 @@ import { CreditBadge } from '../app/CreditBadge'
 import { useReuseFromJob, withReuse, type JobContext } from '../app/reuseFromJob'
 import { TabBar } from '../app/TabBar'
 import Thumbnail from '../app/Thumbnail'
+import { sectionAnchorIds } from './sectionAnchor'
 import type { StyleCard } from '../api/types'
 
 export default function W02StyleCatalog() {
@@ -37,6 +38,7 @@ export default function W02StyleCatalog() {
   const sheetOpen = useMatch('/styles/:styleId') !== null
 
   const sectionRefs = useRef(new Map<string, HTMLElement>())
+  const anchorBarRef = useRef<HTMLElement>(null)
   const [activeSection, setActiveSection] = useState<string | null>(null)
 
   const sectionNames = useMemo(
@@ -44,21 +46,54 @@ export default function W02StyleCatalog() {
     [catalog],
   )
 
-  // 노트3 — 스크롤 위치로 활성 칩을 정합니다. 앵커바 높이만큼 상단을 잘라내야
-  // 헤더가 바 뒤에 가려진 섹션이 활성으로 잡히지 않습니다.
+  // 칩과 섹션이 같은 자리를 읽습니다 — 왜 한 곳에서 만드는지는 screens/sectionAnchor.ts.
+  const anchorIds = useMemo(() => sectionAnchorIds(sectionNames), [sectionNames])
+
+  /*
+    노트3 — 스크롤 위치로 활성 칩을 정합니다.
+
+    «활성» 의 정의는 **고정 바 바로 아래 첫 줄을 차지한 섹션** 입니다. 사용자가 화면
+    맨 위에서 읽고 있는 것이 그것이고, 칩이 가리켜야 하는 것도 그것입니다.
+
+    원래는 IntersectionObserver 에 `rootMargin: '-96px 0px -70% 0px'` 를 걸어 «위에서
+    30% 안에 걸친 섹션» 을 활성으로 삼았습니다. 그 30% 는 뷰포트 높이에 비례하므로
+    창이 클수록 경계가 아래로 내려갑니다 — 1440×900 PC 에서 재 보면 다음 섹션이 아직
+    130px 아래에 있는데 칩은 이미 넘어가 있습니다. 화면 위쪽은 이전 섹션 카드인데 칩만
+    다음 것을 가리키니 «탭이 한 칸씩 밀린다» 로 읽힙니다.
+
+    그래서 비율 대신 **앵커바의 실제 아래 끝**을 기준선으로 씁니다. 앱바 높이가 글꼴
+    설정이나 배너 때문에 달라져도 같이 따라가므로, 여기에 57px 같은 상수를 다시 적어
+    넣지 않아도 됩니다.
+  */
   useEffect(() => {
     if (sectionNames.length === 0) return
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0]
-        if (visible) setActiveSection(visible.target.getAttribute('data-section'))
-      },
-      { rootMargin: '-96px 0px -70% 0px', threshold: 0 },
-    )
-    for (const element of sectionRefs.current.values()) observer.observe(element)
-    return () => observer.disconnect()
+
+    let frame = 0
+    const pick = () => {
+      frame = 0
+      const line = (anchorBarRef.current?.getBoundingClientRect().bottom ?? 0) + 1
+      // 기준선을 지난 **마지막** 섹션이 화면 맨 위를 차지한 섹션입니다. 아직 아무것도
+      // 지나지 않았으면(맨 위) 첫 섹션을 가리킵니다.
+      let current = sectionNames[0]
+      for (const name of sectionNames) {
+        const element = sectionRefs.current.get(name)
+        if (element && element.getBoundingClientRect().top <= line) current = name
+      }
+      setActiveSection(current)
+    }
+    // 스크롤마다 레이아웃을 읽으므로 프레임당 한 번으로 접습니다.
+    const schedule = () => {
+      if (frame === 0) frame = requestAnimationFrame(pick)
+    }
+
+    pick()
+    window.addEventListener('scroll', schedule, { passive: true })
+    window.addEventListener('resize', schedule)
+    return () => {
+      if (frame !== 0) cancelAnimationFrame(frame)
+      window.removeEventListener('scroll', schedule)
+      window.removeEventListener('resize', schedule)
+    }
   }, [sectionNames])
 
   if (isPending) {
@@ -118,13 +153,14 @@ export default function W02StyleCatalog() {
 
         {/* 앵커바 — 점프 전용(노트2). 눌러도 다른 섹션을 숨기지 않습니다. */}
         <nav
+          ref={anchorBarRef}
           aria-label="섹션 바로가기"
           className="sticky top-[57px] z-10 flex gap-2 overflow-x-auto border-b border-rule bg-paper/95 px-4 py-2 backdrop-blur"
         >
-          {sectionNames.map((name) => (
+          {sectionNames.map((name, index) => (
             <a
               key={name}
-              href={`#section-${name}`}
+              href={`#${anchorIds[index]}`}
               aria-current={activeSection === name ? 'true' : undefined}
               className={`shrink-0 rounded-full border px-3 py-1 text-sm transition-colors ${
                 activeSection === name
@@ -140,10 +176,10 @@ export default function W02StyleCatalog() {
         <main className="mx-auto w-full max-w-(--container-canvas) px-4">
           {reuse.context && <ReuseBanner context={reuse.context} />}
 
-          {catalog.sections.map((section) => (
+          {catalog.sections.map((section, index) => (
             <section
               key={section.name}
-              id={`section-${section.name}`}
+              id={anchorIds[index]}
               data-section={section.name}
               ref={(element) => {
                 if (element) sectionRefs.current.set(section.name, element)
