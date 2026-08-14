@@ -1,0 +1,155 @@
+/**
+ * 로그인 시트의 오류 문구와 모드 전환 (screens/AccountSheet.tsx).
+ *
+ * 포커스 가둠은 `app/useModalDialog.test.tsx` 가 이미 봅니다. 여기서는 **사용자가 막혔을
+ * 때 무엇을 읽는가**만 봅니다.
+ *
+ * 서버 오류 코드를 그대로 흘리면 영문 메시지가 시트에 뜨고, 사용자는 자기가 뭘 잘못했는지
+ * 알 수 없습니다. 특히 `RATE_LIMITED` 는 «얼마나 기다려야 하는가» 가 답의 전부인데 그
+ * 숫자는 `Retry-After` 헤더에만 있습니다 — 문구 조립이 어긋나면 "잠시 뒤"로 뭉개져
+ * 사용자가 30초마다 다시 눌러 보게 됩니다.
+ *
+ * 브라우저로 재현하기 가장 나쁜 종류이기도 합니다. 실제로 막히려면 요청을 수십 번 보내야
+ * 하고, 확인하고 나면 다음 시도까지 15분을 기다려야 합니다.
+ */
+
+import { screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { HttpResponse, http } from 'msw'
+import { describe, expect, it, vi } from 'vitest'
+import { renderWithProviders } from '../test/render'
+import { server } from '../test/server'
+import AccountSheet from './AccountSheet'
+
+/** 이메일·비밀번호를 채우고 제출합니다. 기본값은 클라이언트 검증을 통과하는 값입니다. */
+async function submitForm(
+  user: ReturnType<typeof userEvent.setup>,
+  { email = 'kong@nutti.co.kr', password = 'password123' } = {},
+) {
+  await user.type(screen.getByLabelText('이메일'), email)
+  await user.type(screen.getByLabelText(/비밀번호/), password)
+  // 제출 버튼 문구는 모드에 따라 «로그인» / «가입하고 시작하기» 로 갈립니다.
+  await user.click(screen.getByRole('button', { name: /^(로그인|가입하고 시작하기)$/ }))
+}
+
+describe('AccountSheet · 오류 문구', () => {
+  it('레이트리밋은 얼마나 기다려야 하는지 말한다', async () => {
+    /*
+      **이 파일의 핵심입니다.** 「잠시 뒤」로 뭉개면 사용자는 30초마다 다시 눌러 보고,
+      그때마다 같은 429 를 맞습니다. 서버가 초를 내려줄 때는 그걸 사람 말로 옮겨야
+      합니다(app/retryAfter.ts — 900초 → «약 15분 뒤»).
+    */
+    server.use(
+      http.post('*/v1/auth/login', () =>
+        HttpResponse.json(
+          { error: { code: 'RATE_LIMITED', message: 'too many requests' } },
+          { status: 429, headers: { 'Retry-After': '900' } },
+        ),
+      ),
+    )
+    const user = userEvent.setup()
+    renderWithProviders(<AccountSheet onClose={vi.fn()} />)
+
+    await submitForm(user)
+
+    const alert = await screen.findByText(/로그인 시도가 너무 많았어요/)
+    expect(alert).toHaveTextContent('약 15분 뒤')
+    // 서버 영문 메시지가 새어 나가면 안 됩니다.
+    expect(alert).not.toHaveTextContent('too many requests')
+  })
+
+  it('비밀번호가 틀리면 무엇이 틀렸는지만 말한다', async () => {
+    /*
+      «이메일 또는 비밀번호» 로 뭉치는 건 의도입니다 — 어느 쪽이 틀렸는지 알려 주면
+      가입 여부를 확인하는 통로가 됩니다.
+    */
+    server.use(
+      http.post('*/v1/auth/login', () =>
+        HttpResponse.json({ error: { code: 'INVALID_CREDENTIALS' } }, { status: 401 }),
+      ),
+    )
+    const user = userEvent.setup()
+    renderWithProviders(<AccountSheet onClose={vi.fn()} />)
+
+    await submitForm(user)
+
+    expect(await screen.findByText('이메일 또는 비밀번호가 맞지 않아요.')).toBeInTheDocument()
+  })
+
+  it('이미 가입된 이메일이면 로그인으로 가라고 안내한다', async () => {
+    // 막고 끝내면 사용자는 다른 이메일로 계정을 하나 더 만듭니다 — 계정 중복의 전형입니다.
+    server.use(
+      http.post('*/v1/auth/register', () =>
+        HttpResponse.json({ error: { code: 'EMAIL_TAKEN' } }, { status: 409 }),
+      ),
+    )
+    const user = userEvent.setup()
+    renderWithProviders(<AccountSheet onClose={vi.fn()} />)
+
+    await user.click(screen.getByRole('tab', { name: '가입' }))
+    await submitForm(user)
+
+    expect(await screen.findByText(/이미 가입된 이메일이에요/)).toBeInTheDocument()
+  })
+})
+
+describe('AccountSheet · 입력 검증', () => {
+  it('짧은 비밀번호는 서버에 보내지 않는다', async () => {
+    /*
+      왕복 한 번을 아끼는 것보다, **레이트리밋을 소진하지 않는 것**이 중요합니다.
+      8자 미만이 확실히 거절될 요청이라면 그걸로 시도 횟수를 쓸 이유가 없습니다.
+    */
+    const sent = vi.fn()
+    server.use(
+      http.post('*/v1/auth/login', () => {
+        sent()
+        return HttpResponse.json({})
+      }),
+    )
+    const user = userEvent.setup()
+    renderWithProviders(<AccountSheet onClose={vi.fn()} />)
+
+    await submitForm(user, { password: 'short' })
+
+    expect(await screen.findByText(/비밀번호는 8~/)).toBeInTheDocument()
+    expect(sent).not.toHaveBeenCalled()
+  })
+})
+
+describe('AccountSheet · 모드 전환', () => {
+  it('가입으로 넘어가도 쓰던 이메일이 남는다', async () => {
+    /*
+      탭이 아니라 «한 폼 + 모드 전환» 인 이유입니다. 여기서 이메일이 지워지면 사용자는
+      로그인에 실패한 뒤 가입으로 넘어가면서 방금 친 주소를 다시 칩니다.
+    */
+    const user = userEvent.setup()
+    renderWithProviders(<AccountSheet onClose={vi.fn()} />)
+
+    await user.type(screen.getByLabelText('이메일'), 'kong@nutti.co.kr')
+    await user.click(screen.getByRole('tab', { name: '가입' }))
+
+    expect(screen.getByLabelText('이메일')).toHaveValue('kong@nutti.co.kr')
+    expect(screen.getByRole('tab', { name: '가입' })).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('모드를 바꾸면 앞의 오류는 걷힌다', async () => {
+    /*
+      로그인 실패 문구가 가입 화면에 남아 있으면, 아직 눌러 보지도 않은 동작이 이미
+      실패한 것처럼 보입니다.
+    */
+    server.use(
+      http.post('*/v1/auth/login', () =>
+        HttpResponse.json({ error: { code: 'INVALID_CREDENTIALS' } }, { status: 401 }),
+      ),
+    )
+    const user = userEvent.setup()
+    renderWithProviders(<AccountSheet onClose={vi.fn()} />)
+
+    await submitForm(user)
+    await screen.findByText('이메일 또는 비밀번호가 맞지 않아요.')
+
+    await user.click(screen.getByRole('tab', { name: '가입' }))
+
+    expect(screen.queryByText('이메일 또는 비밀번호가 맞지 않아요.')).not.toBeInTheDocument()
+  })
+})
