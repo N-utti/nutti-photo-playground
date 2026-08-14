@@ -1,0 +1,71 @@
+# 프론트엔드(web/) 검사.
+#
+# 여기까지 테스트를 80개 만들어 두고도 **아무도 실행을 강제하지 않았습니다.** 로컬에서
+# `npm test` 를 돌리는 건 사람의 습관이라, 깨진 채로 올려도 머지가 그대로 통과합니다.
+# PR #103(모달 접근성)도 검사 없이 들어갔습니다.
+#
+# 백엔드(pytest)는 여기 넣지 않았습니다 — 이 파일은 프론트 담당이 관리하고, 백엔드
+# 잡을 같이 걸면 그쪽 실패가 프론트 PR 을 막고 반대도 마찬가지입니다. 필요해지면
+# 워크플로를 따로 두는 쪽이 맞습니다(`api-ci.yml`).
+
+name: web
+
+# `paths` 로 web/ 변경에만 겁니다. 백엔드만 고친 PR 에서 프론트 잡이 도는 건 시간
+# 낭비이고, 무엇보다 npm 레지스트리 장애 같은 **무관한 실패**가 백엔드 PR 을 막습니다.
+#
+# 다만 이걸 required check 로 걸 생각이라면 먼저 읽어야 할 함정이 있습니다: 경로가
+# 안 맞아 건너뛴 잡은 «성공» 이 아니라 **아예 보고되지 않아서**, required 로 지정하면
+# 백엔드 PR 이 영영 pending 에 걸립니다. 그때는 이 필터를 걷고 잡 안에서 갈라내거나,
+# 같은 이름의 빈 잡을 붙이는 우회가 필요합니다.
+#
+# 두 트리거에 각각 적어 줍니다 — `on` 아래 한 번만 쓰면 그 이벤트에만 붙습니다.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - '.github/workflows/web-ci.yml'
+  pull_request:
+    paths:
+      - 'web/**'
+      - '.github/workflows/web-ci.yml'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # 로컬 개발 환경과 같은 메이저입니다. 여기서만 버전을 올려 두면 "로컬에선
+          # 되는데 CI 에서 깨진다"가 생기고, 그 반대도 마찬가지입니다.
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # `install` 이 아니라 `ci` — lockfile 을 그대로 쓰고, 어긋나면 조용히 고치지 않고
+      # 실패합니다. 검사하는 자리에서 의존성이 로컬과 달라지면 검사의 의미가 없습니다.
+      - name: 의존성 설치
+        run: npm ci
+
+      # 셋을 나눠 두는 건 실패했을 때 **어디가 깨졌는지 로그를 안 봐도 알기 위해서**입니다.
+      # oxlint 는 타입을 안 보고, tsc 는 실행해 보지 않고, 테스트는 화면 동작만 봅니다.
+      - name: 린트
+        run: npm run lint
+
+      - name: 타입체크
+        run: npx tsc -b
+
+      - name: 테스트
+        run: npm test
+
+      # 빌드까지 미는 이유: `tsc -b` 가 통과해도 vite 단계에서 깨질 수 있습니다
+      # (해석되지 않는 import · 에셋 경로 · 플러그인). 배포 산출물이 실제로 나오는지는
+      # 여기서만 답합니다. 앞의 타입체크가 증분이라 이 스텝의 tsc 는 거의 즉시 끝납니다.
+      - name: 빌드
+        run: npm run build
