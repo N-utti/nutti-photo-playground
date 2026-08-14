@@ -111,7 +111,17 @@ export function styleDetailFor(styleId: number): StyleDetail | null {
     code: card.code,
     name: card.name,
     credit_cost: card.credit_cost,
-    examples: Array.from({ length: 6 }, (_, i) => placeholderImage(`${card.name} 예시 ${i + 1}`)),
+    /*
+      `thumbnail_url` 과 `examples` 는 **같은 `example_keys` 에서 나옵니다** —
+      전자는 `example_keys[0]`, 후자는 전부(app/routers/styles.py). 그러니 썸네일이
+      널인 스타일은 서버에서 예시도 반드시 0 장이고, 여기서 6 장을 주면 목이 서버가
+      낼 수 없는 조합을 만들어 냅니다. 카탈로그 픽스처가 널 썸네일을 한 건 남겨 둔
+      이유(위 주석)와 같은 이유로, 그 한 건이 W-03 의 «예시 없음» 경로도 같이 밟습니다.
+    */
+    examples:
+      card.thumbnail_url === null
+        ? []
+        : Array.from({ length: 6 }, (_, i) => placeholderImage(`${card.name} 예시 ${i + 1}`)),
     fit_tags: [
       { label: '소형견', score: 'good' },
       { label: '대형견', score: 'good' },
