@@ -15,6 +15,12 @@ export default defineConfig({
   server: {
     port: 5173,
     /**
+     * 0.0.0.0 바인딩 — `npm run dev` 가 Local 과 함께 Network URL 도 찍습니다.
+     * 같은 공유기에 붙은 휴대폰으로 실기기 확인을 하려면 이게 켜져 있어야 합니다.
+     * (프록시가 있으니 로컬 백엔드 붙일 때도 같은 주소 하나로 다 됩니다.)
+     */
+    host: true,
+    /**
      * 목을 끄고(VITE_ENABLE_MOCKS=false) 로컬 백엔드에 붙일 때 쓰는 프록시.
      *
      * 이건 개발 중 CORS 회피 수단일 뿐이고 배포 환경에서는 성립하지 않습니다 —
