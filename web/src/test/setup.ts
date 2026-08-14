@@ -8,6 +8,7 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll } from 'vitest'
+import { resetMockState } from '../mocks/handlers'
 import { server } from './server'
 
 /*
@@ -43,6 +44,14 @@ beforeAll(() => {
 afterEach(() => {
   cleanup()
   server.resetHandlers()
+  /*
+    목의 데이터도 되돌립니다(mocks/handlers.ts `resetMockState`).
+
+    `resetHandlers` 는 `server.use(...)` 로 덮어쓴 **핸들러**만 걷어낼 뿐, 핸들러들이
+    함께 읽고 쓰는 `state`(잔액 · job · 펫 · 로그인 여부)는 건드리지 않습니다. 그래서
+    크레딧을 받는 테스트 다음에 잔액을 세는 테스트가 오면 그 순서에서만 깨집니다.
+  */
+  resetMockState()
 })
 
 afterAll(() => {
