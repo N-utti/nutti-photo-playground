@@ -23,6 +23,7 @@ import { Link } from 'react-router'
 import { events } from '../api/endpoints'
 import { useMe, useStyles } from '../api/queries'
 import { memberLabel } from '../app/memberIdentity'
+import { TabBar } from '../app/TabBar'
 import Thumbnail from '../app/Thumbnail'
 import type { StyleCard } from '../api/types'
 import AccountSheet from './AccountSheet'
@@ -42,7 +43,10 @@ export default function W01Landing() {
   const popular = data?.sections[0]?.styles ?? []
 
   return (
-    <div className="min-h-full bg-paper">
+    // pb-24 — 아래 고정된 탭바가 페이지 마지막 줄을 덮지 않게 자리를 비웁니다
+    // (W-02·W-09 와 같은 값). 여백을 안 두면 "인기 스타일" 마지막 행이 탭바 뒤에
+    // 깔려 스크롤을 끝까지 내려도 안 보입니다.
+    <div className="min-h-full bg-paper pb-24">
       {/* 노트3 — 이 사이트가 누띠의 것임을 처음부터 밝힙니다. */}
       <header className="flex items-center gap-2 border-b border-rule bg-surface px-4 py-3">
         {/*
@@ -101,7 +105,7 @@ export default function W01Landing() {
         />
       )}
 
-      <main className="mx-auto w-full max-w-(--container-canvas) px-4 pb-16">
+      <main className="mx-auto w-full max-w-(--container-canvas) px-4">
         {/* 모바일은 헤드라인 → 슬라이더 → CTA 세로 순서, 데스크톱은 좌(문구·CTA)/우(슬라이더). */}
         <section className="grid gap-4 pt-6 desktop:grid-cols-2 desktop:items-center desktop:gap-12 desktop:pt-14">
           {/* 히어로만 display 서체를 씁니다. Ohsquare 는 굵고 둥글어서 큰 글씨에서만
@@ -166,6 +170,12 @@ export default function W01Landing() {
           )}
         </section>
       </main>
+
+      {/* 탭바의 «홈» 이 여기로 옵니다 — 목적지에 탭바가 없으면 탭을 누른 순간 나머지
+          탭이 사라집니다(app/TabBar.tsx 주석). 헤더의 «스타일» 링크가 데스크톱에만
+          보이는 것도 이걸로 메워집니다 — 모바일에서 카탈로그로 가는 길이 히어로
+          CTA 아래 «전체 →» 하나였습니다. */}
+      <TabBar />
     </div>
   )
 }

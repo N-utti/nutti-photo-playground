@@ -5,6 +5,10 @@
  * 보관함 **두 곳뿐**입니다. 02-requirements.md 가 이걸 "전역"이라 부르는 건 "여러
  * 화면에 반복 등장하니 FR 을 한 번만 쓴다"는 문서 규칙이지(§ 서두), 모든 화면에
  * 깔라는 뜻이 아닙니다 — 실제로 탭바 참조 행이 있는 화면 표도 W-09 하나입니다.
+ * 여기에 **W-01 랜딩이 뒤늦게 합류했습니다** — 탭바에 «홈» 이 생기면서 목적지가
+ * 됐기 때문입니다. 탭으로 도착한 화면에 탭바가 없으면 방금 누른 줄이 통째로 사라져
+ * 다음 탭으로 못 넘어갑니다. 아래 «만들기» 와 달리 여기서는 새는 것도 없습니다 —
+ * 랜딩은 만들기 흐름이 시작되기 **전**이라 지켜야 할 흐름이 아직 없습니다.
  *
  * 나머지가 빠진 데는 이유가 있습니다. W-04→W-05→W-06 은 만들기 흐름 한복판이라
  * 탭을 깔면 결제 직전에 나가는 문을 세 개 열어 주는 꼴이고, W-10 B·W-12 는 자기
@@ -39,13 +43,17 @@ import { events } from '../api/endpoints'
 import { NUTTI_SHOP_URL } from './externalLinks'
 
 /**
- * 4칸의 순서와 이름은 와이어프레임 표기 그대로입니다(#p02·#p09 탭바).
+ * 순서와 이름은 와이어프레임 표기(#p02·#p09 탭바)를 따르되, 맨 앞에 «홈» 을
+ * 더했습니다. 와이어프레임의 4칸에는 `/` 로 돌아오는 길이 **W-02 앱바의 24px 짜리
+ * 로고 마크 하나뿐**이었고(W-09 에는 그것도 없습니다), 로고가 홈이라는 건 웹의
+ * 관습이지 손가락에 보이는 문은 아닙니다.
  *
  * «만들기» 가 `/upload` 인 것은 FR-W01-02(사진이 먼저 — 랜딩 CTA 도 스타일 없이
  * 여기로 들어옵니다)와 FR-W08-01(크리에이티브 모드는 «만들기» 안의 보조 진입점)이
  * 같이 규정합니다. `/creative` 는 탭이 아니라 그 화면 안의 한 줄입니다.
  */
 const TABS = [
+  { key: 'home', label: '홈', to: '/', icon: HomeIcon },
   { key: 'styles', label: '스타일', to: '/styles', icon: GridIcon },
   { key: 'create', label: '만들기', to: '/upload', icon: CameraIcon },
   { key: 'library', label: '보관함', to: '/library', icon: PhotoStackIcon },
@@ -108,6 +116,10 @@ export function TabBar() {
  * `/styles` 는 자식 라우트가 있어서(`/styles/101` = W-03 시트) 정확히 일치로만
  * 보면 시트가 열린 순간 활성 표시가 꺼집니다. 시트는 여전히 카탈로그 위에 있는
  * 것이므로 접두사로 봅니다.
+ *
+ * «홈»(`/`)만은 접두사 규칙이 저절로 비껴갑니다 — 붙여 만든 접두사가 `//` 라 어떤
+ * 경로와도 안 맞고, 결국 정확히 일치할 때만 켜집니다. 원하던 결과입니다: 여기서
+ * 접두사로 봤다면 모든 화면에서 홈이 켜져 있었을 겁니다.
  */
 function isActive(pathname: string, to: string): boolean {
   return pathname === to || pathname.startsWith(`${to}/`)
@@ -118,8 +130,8 @@ function isActive(pathname: string, to: string): boolean {
 /**
  * 와이어프레임의 탭 아이콘은 빈 사각형(`<i></i>`)이고 아이콘 세트가 확정된 문서가
  * 없습니다. 그래서 여기 있는 건 **자리를 지키는 최소 도형**이지 브랜드 아이콘이
- * 아닙니다 — `currentColor` 로만 그려서 색은 테마를 따라가고, 확정되면 이 네 함수만
- * 갈아 끼우면 됩니다(index.css 의 색 토큰과 같은 취급).
+ * 아닙니다 — `currentColor` 로만 그려서 색은 테마를 따라가고, 확정되면 이 다섯
+ * 함수만 갈아 끼우면 됩니다(index.css 의 색 토큰과 같은 취급).
  */
 const iconProps = {
   width: 22,
@@ -132,6 +144,15 @@ const iconProps = {
   strokeLinejoin: 'round',
   'aria-hidden': true,
 } as const
+
+function HomeIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z" />
+      <path d="M9.5 20v-5.5h5V20" />
+    </svg>
+  )
+}
 
 function GridIcon() {
   return (

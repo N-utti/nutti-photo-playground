@@ -66,7 +66,7 @@ export const routes: RouteObject[] = [
       // W-10 B(받은 내역)는 자기 앱바·뒤로가기를 가진 별도 프레임입니다(#p10 B).
       { path: '/credits/ledger', element: <W10Ledger />, handle: { title: '받은 내역' } },
       // W-12 마이페이지(이슈 #12 신설). 앱바 아바타가 유일한 진입점입니다
-      // (app/AccountEntry.tsx) — 탭바는 4칸을 유지합니다.
+      // (app/AccountEntry.tsx) — 탭바에는 넣지 않습니다.
       { path: '/me', element: <W12MyPage />, handle: { title: '마이페이지' } },
       { path: '/admin', element: <W11Console />, handle: { title: '프롬프트 운영 콘솔' } },
       // 화면이 아니라 OAuth 복귀 지점입니다 — 프로바이더 콘솔에 등록하는 redirect_uri 가
