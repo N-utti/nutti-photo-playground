@@ -76,10 +76,6 @@ def extract_prompt_body(text: str) -> str:
     return text[matches[-1].end() :].strip() if matches else ""
 
 
-def has_unsupported_pet_placeholder(body: str) -> bool:
-    return "[pet name]" in body
-
-
 async def seed_from_dir(dir_path: Path) -> dict[str, int]:
     files = sorted(dir_path.glob("*.txt"), key=lambda path: path.name)
     fallback_codes = sorted(
@@ -89,7 +85,7 @@ async def seed_from_dir(dir_path: Path) -> dict[str, int]:
         code: len(_SORT_ORDER_BY_CODE) + index
         for index, code in enumerate(fallback_codes)
     }
-    summary = {"created": 0, "skipped": 0, "draft": 0}
+    summary = {"created": 0, "skipped": 0}
 
     for path in files:
         code = path.stem
@@ -106,11 +102,6 @@ async def seed_from_dir(dir_path: Path) -> dict[str, int]:
         section = _SECTION_BY_CODE.get(code, "일상 유머")
         if code not in _SECTION_BY_CODE:
             print(f"warning: {code} not in SECTION_MAP; using 일상 유머")
-        status = (
-            StyleStatus.DRAFT
-            if has_unsupported_pet_placeholder(body)
-            else StyleStatus.PUBLIC
-        )
         style = await Style.create(
             code=code,
             name=code.replace("_", " "),
@@ -121,7 +112,7 @@ async def seed_from_dir(dir_path: Path) -> dict[str, int]:
                 if code in _SORT_ORDER_BY_CODE
                 else fallback_sort_orders[code]
             ),
-            status=status,
+            status=StyleStatus.PUBLIC,
         )
         await StylePromptVersion.create(
             style=style,
@@ -133,7 +124,6 @@ async def seed_from_dir(dir_path: Path) -> dict[str, int]:
         )
         print(f"created: {code}")
         summary["created"] += 1
-        summary["draft"] += status == StyleStatus.DRAFT
 
     return summary
 
@@ -147,10 +137,7 @@ async def run(dir_path: Path) -> None:
         summary = await seed_from_dir(dir_path)
     finally:
         await Tortoise.close_connections()
-    print(
-        f"created {summary['created']}, skipped {summary['skipped']}, "
-        f"draft {summary['draft']}"
-    )
+    print(f"created {summary['created']}, skipped {summary['skipped']}")
 
 
 def main() -> None:
