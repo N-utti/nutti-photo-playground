@@ -1,0 +1,60 @@
+[사용법]
+1. ChatGPT에 반려견 사진 1장을 첨부하세요 (얼굴 정면, 밝은 사진!)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 테마 색만 고르면 완성!
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+■ 여기만 바꿔주세요
+테마 색: 크림 아이보리
+  (다른 예시 → 파스텔 핑크 / 민트 / 라벤더 / 소다 블루)
+
+──────────────────────
+
+Using the attached pet photo, create a photorealistic photo of a cute
+merchandise display shelf, where every product features this exact pet.
+Vertical 4:5 canvas.
+
+THE PET CHARACTER
+Turn the attached pet into one consistent chibi mascot character used
+across every single product: a big round head, tiny body, large glossy
+eyes with white highlights, small blush marks, soft simple shapes.
+Keep the pet's real coat colors, the exact placement of its markings, and
+its ear type and shape. The SAME character design must appear on every
+item — never vary the face between products.
+
+THE DISPLAY
+A soft wooden shelf unit with two levels, against a wall painted in the
+theme color specified above, styled like a cozy boutique gift shop.
+Everything neatly arranged with breathing room, softly lit.
+
+TOP SHELF
+- A plush doll of the pet standing in the center, soft and squishy
+- Two acrylic keyrings of the pet hanging from a small display stand,
+  showing different poses
+- A row of three enamel pin badges of the pet's face on a small card
+
+BOTTOM SHELF
+- A ceramic mug printed with the pet character, handle facing the camera
+- A canvas tote bag hanging on a hook, with a large print of the pet
+- A sheet of die-cut stickers of the pet in various poses, propped up
+- A small notebook with the pet's face on the cover
+- A tiny hand mirror with the pet printed on the back
+
+DECOR
+Small dried flowers in a tiny vase, a soft fabric flag garland along the
+shelf edge, and a small potted plant in the corner.
+
+TEXT
+No text, letters, numbers, logos or watermarks on any product or anywhere
+in the image. All products are illustration-only.
+
+STYLE
+Photorealistic product display photography, warm natural side lighting,
+soft shadows, shallow depth of field with the top shelf in sharp focus.
+Cozy, dreamy, boutique gift-shop atmosphere. Extremely cute, soft pastel
+palette.

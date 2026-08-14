@@ -1,0 +1,78 @@
+[사용법]
+1. ChatGPT에 반려동물 사진 1장을 첨부하세요 (얼굴 정면, 밝은 사진!)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 그대로 붙여넣기만 해도 완성!
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+──────────────────────
+
+Using the attached pet photo, create an extreme wide-angle close-up
+photograph of this exact pet sniffing directly into the camera lens.
+Vertical 4:5 canvas.
+
+THE LENS EFFECT — this is the entire point
+The camera has a very wide-angle lens and is placed only a few
+centimetres from the pet's nose. The resulting perspective distortion
+must be strong and physically correct:
+- The NOSE is the closest thing to the lens and is therefore hugely
+  exaggerated — it dominates the center of the frame, taking up roughly a
+  third of the image width
+- Because the eyes are further from the lens, they appear noticeably
+  SMALLER and are pushed back and outward, sitting high and wide apart on
+  either side of the enormous muzzle
+- The forehead and the top of the head recede sharply and appear narrow
+  and compressed
+- The body and front legs are far away and tiny at the bottom of the
+  frame, dropping off steeply
+- Everything falls away rapidly from the nose in all directions
+
+CRITICAL: the nose is not simply drawn larger. The whole head is
+distorted by proximity — near things huge, far things small. Keep this
+consistent across the entire face.
+
+IDENTITY LOCK
+The pet must be the SAME individual as the attached photo — identical
+coat color, identical markings and their exact placement, identical ear
+type, identical eye color, same muzzle shape. Never change the breed
+silhouette. Fully photorealistic.
+
+THE NOSE — the hero of the image, render it in full detail
+- Wet, glossy black or brown nose leather with a visible textured surface
+  of fine bumps and ridges, like tiny cobblestones
+- Two large nostrils, deep and dark, slightly asymmetrical
+- A clear vertical groove down the center, running into the philtrum
+- Small soft specular highlights across the wet surface
+- Fine whiskers sprouting from the muzzle, catching the light, some
+  crossing the frame edges
+
+THE FACE
+- The pet looks directly into the lens, eyes soft and curious
+- Slightly cross-eyed, focusing on the very close camera
+- Calm, gentle, inquisitive expression — mouth closed
+- Fine fur detail visible on the muzzle, individual hairs around the nose
+- Head positioned slightly off-center for a natural candid feel
+
+BACKGROUND AND LIGHT
+- A plain, clean, softly out-of-focus indoor wall in light neutral grey
+  or off-white, with nothing else in frame
+- Soft diffused natural window light from the front, gentle and even, no
+  harsh shadows
+- Natural muted color, slightly desaturated, no filters
+
+CAMERA
+Shot on a full-frame camera with a very wide lens at close focus. The
+nose is in sharp focus; the eyes and the top of the head fall slightly
+soft; the background is fully blurred. Visible fine grain. Slightly
+imperfect handheld framing, as if grabbed in the moment.
+
+TEXT
+No text, letters, numbers, logos or watermarks anywhere in the image.
+
+STYLE
+A real candid snapshot. Funny, intimate and slightly absurd — the kind of
+photo taken when a curious dog walks right up to the phone.

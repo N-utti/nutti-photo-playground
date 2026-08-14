@@ -1,0 +1,93 @@
+[사용법]
+1. ChatGPT에 반려동물 사진 1장을 첨부하세요 (얼굴 정면, 밝은 사진!)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 상황만 골라서 적으면 완성!
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+■ 여기만 바꿔주세요
+상황: 냉장고 털기
+
+[상황 고르기]
+① 냉장고 털기   ② 몰래 폰하기   ③ 간식 서랍 열기
+④ 소파에서 TV   ⑤ 새벽 라면     ⑥ 게임 중
+⑦ 택배 뜯기     ⑧ 화장대 화장품 ⑨ 아빠 의자 점령
+
+──────────────────────
+
+Using the attached pet photo, create a photograph of this exact pet
+caught doing the activity written above, alone at home in the middle of
+the night. Vertical 4:5 canvas.
+
+IDENTITY LOCK
+The pet must be the SAME individual as the attached photo — identical
+coat color, identical markings and their exact placement, identical ear
+type, shape and length, same muzzle length, same eye color, same face
+proportions. Never change the breed silhouette. Fully photorealistic.
+
+THE MOMENT — caught red-handed, this is the whole joke
+The pet has just been discovered. It is frozen mid-action, head snapped
+toward the camera, body still committed to what it was doing.
+- Eyes wide and locked directly on the lens, pupils large in the darkness
+- Mouth closed or slightly open, caught mid-motion
+- Ears pulled back slightly
+- The body has NOT moved — the paws are still exactly where they were
+- The expression is not guilty and not defiant. It is blank shock — the
+  face of someone who was absolutely not expecting company.
+
+BUILD THE SCENE — match the situation above
+· 냉장고 털기 — Standing on hind legs with the fridge door pulled open,
+  both front paws on a shelf, a food container half pulled out. Fridge
+  contents visible behind.
+· 몰래 폰하기 — Lying on its side on the sofa, a smartphone propped
+  against a cushion, one paw on the screen. Phone display glowing but
+  showing nothing readable.
+· 간식 서랍 열기 — A low drawer pulled open, front paws inside among
+  scattered treat bags, one bag already torn.
+· 소파에서 TV — Sprawled across the sofa, a remote control tucked under
+  one paw, a TV glowing off-frame in front.
+· 새벽 라면 — At a low table with a steaming instant noodle bowl,
+  chopsticks balanced across it, one paw resting on the table edge.
+· 게임 중 — Sitting in a desk chair facing a glowing monitor, a game
+  controller between the front paws, headphones sitting crooked on
+  the head.
+· 택배 뜯기 — Standing over a half-opened cardboard box, packing tape
+  hanging loose, bubble wrap and paper scattered across the floor.
+· 화장대 화장품 — At a dressing table, cosmetics knocked over and
+  scattered, one paw on an open compact, a lipstick rolled to the edge.
+· 아빠 의자 점령 — Sitting upright in a large leather armchair like it
+  owns it, front paws on the armrests, a newspaper draped across its lap.
+
+THE LIGHT — this is what makes it feel like 3am
+The room is almost completely dark. The only light comes from the source
+inside the scene itself — the open fridge, the phone screen, the monitor,
+the TV.
+- That single source lights the face and chest from one side or from
+  below, cool and slightly harsh
+- Everything else falls off into deep shadow. Large areas of the frame
+  are nearly black.
+- A faint warm glow from a distant streetlight through a window
+- No ceiling lights, no daylight, no lamps on
+
+THE SETTING
+An ordinary dark Korean apartment at night. Furniture reads as silhouettes
+in the shadows. Everyday and lived-in, softly blurred.
+
+CAMERA
+Shot handheld from a doorway at a slight distance, at standing height
+looking down a little — the point of view of someone who just walked in.
+35mm lens. Slightly imperfect framing. High ISO with visible sensor
+noise and grain in the shadows, as a real photo taken in a dark room.
+Sharp focus on the face. Natural color, no filters.
+
+TEXT
+No text, letters, numbers, logos or watermarks anywhere in the image.
+
+STYLE
+A real candid snapshot taken at 3am. Dark, grainy, deadpan and very
+funny. It must look like an actual photograph, never a digital
+illustration.

@@ -1,0 +1,82 @@
+[사용법]
+1. ChatGPT에 사진 2장을 첨부하세요
+   ① 어릴 적 내 사진 (혼자 나온 사진이 좋아요)
+   ② 우리 반려견 사진 (얼굴 정면, 전신샷 추천)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 장면만 골라서 적으면 완성!
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진 2장을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+■ 여기만 바꿔주세요
+장면: 마당에 앉아서
+  (다른 예시 → 툇마루에서 / 골목길에서 / 이불 위에서 /
+              공원 잔디밭에서 / 창가에서 / 눈 오는 날 마당에서)
+
+──────────────────────
+
+I have attached two photos:
+· PHOTO 1 — a childhood photo of a person
+· PHOTO 2 — a photo of my dog
+
+Create a single believable old film photograph in which the child from
+PHOTO 1 and the dog from PHOTO 2 are together, as if the dog had been
+there all along. Vertical 4:5 canvas.
+
+IDENTITY LOCK — both subjects
+· THE CHILD: keep the same face, hairstyle, clothing and approximate age
+  as PHOTO 1. Do not restyle, beautify, or age the child. Same person.
+· THE DOG: identical coat color, identical markings and their exact
+  placement, identical ear type, shape and length, same muzzle length,
+  same eye color. Never change the breed silhouette.
+Both must be clearly recognizable as the individuals in the attached
+photos.
+
+THE MOMENT
+Stage the scene written above as an ordinary, unposed everyday moment —
+not a formal portrait:
+- The child and the dog are physically close and touching: the child's
+  arm around the dog, a hand resting on its back, or the dog leaning
+  against the child's side
+- The child is looking at the dog, or laughing, or mid-motion — caught
+  naturally rather than posing for the camera
+- The dog is relaxed and happy, mouth slightly open, at ease
+- Their body language reads as a long-established friendship, completely
+  comfortable with each other
+- Scale is correct: the dog is sized realistically next to a child
+
+THE SETTING
+Build a modest Korean home environment from the 1990s appropriate to the
+scene: worn concrete or wooden surfaces, a low wall, laundry drying,
+potted plants, an old bicycle, simple everyday clutter. Nothing modern —
+no smartphones, no flat screens, no contemporary branding.
+
+UNIFYING THE TWO PHOTOS — most important
+The dog must look like it was photographed on the same day, on the same
+camera, in the same light as the child. Match the dog completely to the
+look of PHOTO 1:
+- Same direction, hardness and color of light falling on both subjects
+- Both cast shadows in the same direction onto the same ground
+- Apply the same film characteristics to the dog: the same grain size,
+  the same softness, the same color cast, the same level of contrast
+- The dog must NOT look sharper, cleaner or more modern than the child.
+  Pull it down to match — soft, grainy, slightly faded.
+
+FILM AND PRINT CHARACTER
+- Shot on 1990s consumer color film: warm reddish-orange cast, faded
+  blacks, gentle low contrast
+- Visible film grain throughout, soft focus overall, nothing tack sharp
+- Slight overexposure in the highlights, muddy shadow detail
+- The look of a physical print kept in an album for decades: faint
+  surface texture, subtle yellowing, a soft vignette
+
+TEXT
+No text, letters, numbers, dates, logos or watermarks anywhere.
+
+STYLE
+An authentic amateur family snapshot from the 1990s. Warm, ordinary,
+unstaged and quietly nostalgic. It must look like a real found
+photograph — never digitally composited, never polished, never modern.

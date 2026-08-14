@@ -1,0 +1,87 @@
+[사용법]
+1. ChatGPT에 반려동물 사진 1장을 첨부하세요 (얼굴 정면, 밝은 사진!)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 옷 색만 골라서 적으면 완성!
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+■ 여기만 바꿔주세요
+찜질복 색: 분홍
+  (다른 예시 → 하늘색 / 노랑 / 민트 / 주황 / 연보라)
+
+──────────────────────
+
+Using the attached pet photo, create a photograph of this exact pet
+relaxing at a Korean jjimjilbang (sauna spa), wearing the traditional
+towel headwrap. Vertical 4:5 canvas.
+
+IDENTITY LOCK
+The pet must be the SAME individual as the attached photo — identical
+coat color, identical markings and their exact placement, identical ear
+type, shape and length, same muzzle length, same eye color, same face
+proportions. Never change the breed silhouette. Fully photorealistic.
+
+THE TOWEL HEADWRAP — get the shape exactly right
+This is the classic Korean "sheep head" towel wrap. Its structure is
+specific:
+- A small white cotton towel folded and rolled so that TWO thick rounded
+  rolls sit on either side of the head, one above each ear, like two soft
+  doughnut shapes or ram horns
+- A flat band of the same towel runs across the forehead, connecting the
+  two rolls
+- The rolls are plump and puffy, made of terry cloth with a visible
+  looped texture and soft creases
+- It sits snugly on the head, slightly tilted, looking a little
+  precarious — charming and slightly silly
+- The pet's own ears remain visible and in their natural position, not
+  covered by the towel
+- This is NOT a turban, NOT a hood, NOT a flat towel draped over the head
+
+THE OUTFIT
+The standard jjimjilbang uniform: a short-sleeved cotton tee in the color
+specified above with a matching color trim at the collar, fitting the
+body naturally with real fabric creases and soft shadows where it meets
+the fur. Slightly loose and worn-in, never stiff or costume-like.
+
+THE POSE AND EXPRESSION
+Sitting upright behind a low table, chest facing the camera, head-on.
+Relaxed and thoroughly content — mouth open in a happy pant with the
+tongue out, eyes bright and squinting slightly with pleasure. The face of
+someone having a very good day.
+
+THE TABLE — foreground
+On a wooden tray directly in front of the pet, close to the camera and
+partly cropped by the bottom of the frame:
+- Two plastic bottles of sikhye (Korean sweet rice punch): cloudy pale
+  amber liquid with grains of rice settled at the bottom, blue screw
+  caps, colorful bent straws sticking out
+- A small ceramic bowl holding three or four baked brown sauna eggs
+- A folded paper napkin under the bowl
+These items are in sharp focus and slightly larger in the frame due to
+their closeness.
+
+THE SETTING
+A real jjimjilbang lounge behind the pet, softly out of focus: a row of
+beige massage chairs along the wall, warm wood paneling, a glossy tiled
+floor reflecting the ceiling lights, soft warm interior lighting. Cozy,
+slightly humid, everyday atmosphere.
+
+LIGHT AND CAMERA
+Warm indoor lighting, soft and even, with gentle reflections on the tiled
+floor. Shot at the pet's eye level with a 35mm lens from close range, so
+the foreground drinks loom slightly large. Sharp focus on the face, the
+background dissolved into soft bokeh. Natural warm color, fine grain,
+slightly imperfect handheld framing, no filters.
+
+TEXT
+No text, letters, numbers, brand labels, logos or watermarks anywhere in
+the image — the bottles and packaging are all blank.
+
+STYLE
+A real candid snapshot taken on a phone at a Korean sauna. Warm, funny
+and everyday. It must look like an actual photograph, never a digital
+illustration.

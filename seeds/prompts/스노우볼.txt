@@ -1,0 +1,87 @@
+[사용법]
+1. ChatGPT에 반려동물 사진 1장을 첨부하세요 (앉은 전신샷 추천!)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 테마만 골라서 적으면 완성!
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+■ 여기만 바꿔주세요
+테마: 겨울 숲
+  (다른 예시 → 크리스마스 마을 / 벚꽃길 / 등대와 바다 /
+              작은 집과 정원 / 별이 뜬 언덕)
+
+──────────────────────
+
+Create a photograph of a glass snow globe containing a miniature figurine
+of the pet in the attached photo. Vertical 4:5 canvas.
+
+THE PET FIGURINE INSIDE
+- A small hand-painted ceramic figurine of the pet, sitting upright in
+  the center of the globe's base, facing the viewer
+- Keep it recognizable: same coat colors, same markings in the same
+  positions, same ear type and shape, same muzzle length, same sitting
+  posture as the attached photo
+- Slightly simplified and softened as figurines are, with a subtle
+  hand-painted quality — visible brush texture, a soft glaze sheen,
+  tiny imperfections
+- Calm, gentle expression, eyes painted with small highlights
+
+THE GLASS — this is what makes it a snow globe, do not skip it
+The pet is seen THROUGH a thick sphere of glass filled with liquid.
+Everything inside must be optically affected:
+- Strong REFRACTION: the scene inside is magnified slightly in the center
+  and curves and compresses toward the edges of the sphere. Straight
+  lines inside bend.
+- A bright curved specular highlight arcs across the upper left of the
+  glass, where the light source reflects
+- A softer secondary reflection near the lower right
+- A thin bright ring of light traces the outer rim of the sphere
+- The very edge of the glass is darker and denser, with the interior
+  distorted into a thin compressed band
+- A faint cool blue-green tint through the water, slightly desaturating
+  the figurine compared to the world outside the globe
+- Tiny air bubbles clinging near the top inside surface
+- Faint dust and fingerprints on the outer glass
+
+THE SNOW
+- Hundreds of small white flakes suspended mid-fall throughout the water,
+  scattered at different depths
+- Flakes near the front of the sphere are larger and out of focus; those
+  further back are tiny and sharper
+- A few flakes have settled on the figurine's back and head, and on the
+  base
+- The flakes drift and swirl slightly, caught in motion
+
+THE MINIATURE SCENE
+Build the theme written above as a tiny diorama around the figurine,
+scaled to fit inside the globe — small sculpted trees, buildings, rocks
+or flowers, all in the same hand-painted ceramic style. Snow or ground
+cover across the base. Keep it uncluttered so the pet remains the focus.
+
+THE BASE
+A turned wooden base in warm walnut, with a simple decorative moulding
+and a small blank brass plaque on the front, with no text on it.
+
+THE SETTING
+The snow globe sits on a wooden table beside a window. Softly blurred in
+the background: a warm room, out-of-focus fairy lights, a mug, the
+suggestion of a windowsill.
+
+LIGHT AND CAMERA
+Warm directional window light from one side, plus soft fairy-light bokeh
+behind, creating rich reflections across the glass. Shot close at the
+globe's eye level with an 85mm lens. The figurine's face in sharp focus,
+the front surface of the glass and the background falling soft. Natural
+warm color, fine grain, no filters.
+
+TEXT
+No text, letters, numbers, logos or watermarks anywhere in the image.
+
+STYLE
+A real photograph of a real snow globe on a table. Warm, nostalgic and
+tactile. It must look like actual glass and water — never a digital
+illustration, never a flat composite of a dog with snow added.

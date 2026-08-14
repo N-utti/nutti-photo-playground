@@ -1,0 +1,113 @@
+[사용법]
+1. ChatGPT에 반려동물 사진 1장을 첨부하세요 (얼굴 정면, 밝은 사진!)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 이름이랑 의상만 고르면 완성!
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+■ 여기만 바꿔주세요
+반려견 이름 (3자 이내): 호프
+의상: 화이트 레이스
+
+[의상 고르기]
+① 화이트 레이스 — 순백 레이스 블라우스, 진주 장식
+② 블랙 걸크러시 — 가죽 재킷, 체인, 하네스
+③ 스쿨룩 — 체크 자켓, 리본 타이, 니트 조끼
+④ 골드 로열 — 금장 자수 재킷, 견장, 술 장식
+⑤ 데님 캐주얼 — 오버사이즈 데님, 크롭 후디
+⑥ 파스텔 요정 — 민트·핑크 튤, 반짝이 장식
+⑦ 레드 강렬 — 새틴 레드 슈트, 골드 버튼
+⑧ 실버 퓨처 — 메탈릭 은색, 홀로그램 소재
+
+──────────────────────
+
+Using the attached pet photo, create a YouTube thumbnail image of this
+exact pet performing on stage as a K-pop idol. Vertical 4:5 canvas.
+
+IDENTITY LOCK
+The pet must be the SAME individual as the attached photo — identical
+coat color, identical markings and their exact placement, identical ear
+type, shape and length, same muzzle length, same eye color, same face
+proportions. Never change the breed silhouette. Fully photorealistic.
+
+THE HEADSET MICROPHONE — the key prop
+A slim black wireless headset microphone worn on the head:
+- The thin boom arm curves forward along one side of the face, ending in
+  a small black windscreen ball just beside the muzzle
+- The headband loop runs behind the head, partly hidden in the fur, with
+  a small black earpiece visible near one ear
+- The wire runs down behind the neck and disappears into the costume
+- It sits naturally against the fur, pressing it down very slightly where
+  it makes contact
+
+THE COSTUME — match the 의상 chosen above
+
+· 화이트 레이스 — A pure white lace blouse with a ruffled high collar and
+  layered frills at the chest, small pearl and rhinestone details
+· 블랙 걸크러시 — A cropped black leather jacket with silver chain
+  detailing and a studded harness strap across the chest
+· 스쿨룩 — A navy and beige plaid blazer over a knit vest, with a large
+  ribbon tie at the collar and gold buttons
+· 골드 로열 — A structured jacket in deep navy with heavy gold
+  embroidery, epaulettes on the shoulders and gold tassels
+· 데님 캐주얼 — An oversized washed denim jacket over a cropped white
+  hoodie, casual and relaxed
+· 파스텔 요정 — Layered mint and pink tulle with iridescent sequins and
+  small fabric flowers at the shoulder
+· 레드 강렬 — A sharp crimson satin suit jacket with gold buttons and a
+  black silk lapel
+· 실버 퓨처 — A metallic silver jacket in holographic fabric with angular
+  panels, catching rainbow light
+
+Every garment must fit the body naturally with real fabric texture,
+visible weave, natural creases, and soft shadows where it meets the fur.
+Never flat, never sticker-like, never costume-shop stiff.
+
+THE POSE AND EXPRESSION
+- Head and chest filling the frame, body turned at a three-quarter angle,
+  head turned back toward the camera
+- Caught mid-performance: chin slightly lifted, a confident poised look
+- Mouth slightly open as if singing, eyes bright and locked on the lens
+- Ears in their natural relaxed position, one catching the light
+- Slightly off-center, a candid stage moment rather than a stiff pose
+
+THE STAGE
+- A blurred concert stage background in deep purple and magenta
+- Vertical strips of glowing stage lights and bokeh orbs behind
+- Soft haze in the air catching the beams
+- Everything heavily out of focus so the subject dominates
+
+LIGHTING
+Colorful stage lighting: a warm key light on the face, cool purple and
+pink rim light tracing the fur outline from behind, subtle lens flare.
+Rich saturated color, glowing highlights, deep shadows.
+
+THE TEXT OVERLAY — bottom left corner
+Two elements stacked, in the lower left of the frame:
+- A small rounded rectangle badge in bright cobalt blue with a small
+  triangular tail on its right side, containing the Korean text 입덕직캠
+  in white bold type
+- Directly beneath it, the 반려견 이름 written above, in very large bold
+  Korean type — white letters with a thick bright blue outline and a soft
+  drop shadow, dominating the lower left corner
+
+TEXT RENDERING — CRITICAL
+Render 입덕직캠 and the pet's name EXACTLY as written above, character for
+character. Do not translate, invent, shorten or alter any character. Both
+must be crisp and clearly legible.
+These two are the ONLY text in the image — no other words, no logos, no
+timestamps, no watermarks anywhere.
+
+CAMERA
+Shot with an 85mm lens at the pet's eye level, shallow depth of field,
+the eyes tack sharp, the stage dissolved into bokeh. Slight film grain,
+vivid color grading. It should look like a real frame from a fancam video.
+
+STYLE
+A real YouTube thumbnail from a K-pop fancam. Vivid, glossy and
+attention-grabbing. Photorealistic — never a digital illustration, never
+a cartoon.

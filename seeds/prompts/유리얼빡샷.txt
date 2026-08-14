@@ -1,0 +1,75 @@
+[사용법]
+1. ChatGPT에 반려동물 사진 1장을 첨부하세요 (얼굴 정면, 밝은 사진!)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 그대로 붙여넣기만 해도 완성!
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+──────────────────────
+
+Using the attached pet photo, create a photograph of this exact pet
+pressing its face and both front paws flat against a pane of glass,
+shot from the other side of the glass. Vertical 4:5 canvas.
+
+IDENTITY LOCK
+The pet must be the SAME individual as the attached photo — identical
+coat color, identical markings and their exact placement, identical ear
+type, shape and length, same muzzle length, same eye color.
+Never change the breed silhouette. Fully photorealistic.
+
+THE CONTACT — the entire point, get this right
+The pet is pushing hard against the glass. The camera is directly on the
+other side, very close. Everything touching the glass must be visibly
+COMPRESSED:
+- The NOSE is squashed flat against the pane, the nose leather spread
+  wide and pushed slightly upward, its wet surface smeared into contact
+- The CHEEKS and the fur around the muzzle splay outward where they meet
+  the glass, flattened and fanned
+- The LIPS are pressed and slightly distorted, with the tongue partly
+  squished against the pane
+- BOTH FRONT PAWS are planted flat on the glass on either side of the
+  face, toes spread wide, the paw pads mashed flat and pale where the
+  weight presses on them. Every pad and the fur between them is clearly
+  visible.
+- Wherever fur or skin touches the glass it turns slightly paler and
+  loses texture from the pressure
+
+THE GLASS
+- Smudges, nose prints and paw smears left on the pane around the contact
+  points, with faint moisture and condensation halos
+- A soft diagonal reflection streaking across the glass surface
+- Very slight haze and softening from the pane itself
+- Small dust specks and old fingerprints
+
+THE POSE AND EXPRESSION
+- Standing on hind legs, chest against the glass, head-on to the camera
+- Eyes wide, bright and eager, looking straight through the glass into
+  the lens
+- Mouth open, tongue out and squashed slightly sideways
+- Ears in their natural relaxed position, one slightly higher than the
+  other
+- Slightly off-center in the frame, head tilted a little — a candid
+  moment, never a symmetrical pose
+
+THE BACKGROUND
+Behind the pet, a softly blurred ordinary indoor room — a sofa, a
+doorway, warm daylight from a window. Completely out of focus so the
+pressed face dominates.
+
+LIGHT AND CAMERA
+Soft natural daylight from the pet's side, gently rim-lighting the fur
+along the edges. Shot very close with a 35mm lens, the glass filling the
+frame. Sharp focus on the nose and paw pads, falling soft toward the
+ears. Natural color, fine grain, slightly imperfect handheld framing,
+no filters.
+
+TEXT
+No text, letters, numbers, logos or watermarks anywhere in the image.
+
+STYLE
+A real candid snapshot taken through a window or a door. Funny, warm and
+immediate — the look of a dog desperate to come inside.

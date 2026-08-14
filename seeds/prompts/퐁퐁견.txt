@@ -1,0 +1,90 @@
+[사용법]
+1. ChatGPT에 반려동물 사진 1장을 첨부하세요 (얼굴 정면, 밝은 사진!)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 집안일만 골라서 적으면 완성!
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+■ 여기만 바꿔주세요
+집안일: 설거지
+
+[집안일 고르기]
+① 설거지     ② 빨래 널기   ③ 청소기 돌리기
+④ 요리       ⑤ 다림질      ⑥ 걸레질
+⑦ 분리수거   ⑧ 화분 물주기 ⑨ 침대 정리
+
+──────────────────────
+
+Using the attached pet photo, create a photograph of this exact pet doing
+the household chore written above. Vertical 4:5 canvas.
+
+IDENTITY LOCK
+The pet must be the SAME individual as the attached photo — identical
+coat color, identical markings and their exact placement, identical ear
+type, shape and length, same muzzle length, same eye color, same face
+proportions. Never change the breed silhouette. Fully photorealistic.
+
+THE EXPRESSION — this is the joke
+Completely blank and mildly put-upon. Mouth closed. Ears in their natural
+relaxed position. Eyes looking flatly at the camera, or off to the side,
+as if to say "this is my life now." Not happy, not sad, not proud — just
+resigned and getting on with it. Never smiling, never panting eagerly.
+
+THE POSE — mid-task, not posing
+The pet stands upright on its hind legs at the appropriate height, front
+paws engaged in the work. It is genuinely in the middle of doing it,
+caught by the camera rather than presenting itself.
+
+BUILD THE SCENE — match the chore above
+· 설거지 — Standing at the kitchen sink, front paws in soapy water,
+  holding a sponge against a plate. Suds on the paws and the counter, a
+  stack of dishes in the drying rack, running water.
+· 빨래 널기 — Reaching up to a drying rack, one paw pressing a clothespin
+  onto a hanging shirt. A laundry basket of folded towels at its feet,
+  damp clothes swaying.
+· 청소기 돌리기 — Both paws gripping the handle of an upright vacuum
+  cleaner, pushing it across the floor. Visible clean track lines behind
+  it, a bit of dust and fur ahead of it.
+· 요리 — At the stove wearing a small apron, one paw on a pan handle, the
+  other holding a wooden spatula over sizzling vegetables. Steam rising,
+  chopped ingredients on the counter.
+· 다림질 — At an ironing board, one paw pressing an iron down on a shirt.
+  Steam rising, a small stack of folded clothes beside it.
+· 걸레질 — Bent over a wet cloth on the floor, both front paws pressed on
+  it, mid-wipe. A bucket of water beside, a wet streak on the floor.
+· 분리수거 — Standing over an open recycling bin, dropping a crushed
+  plastic bottle in. Sorted bags of cans and paper stacked nearby.
+· 화분 물주기 — Holding a small watering can tilted over a potted plant,
+  water streaming out. Several plants lined up on a windowsill.
+· 침대 정리 — Standing on a bed, both paws gripping the edge of a duvet,
+  pulling it flat. Pillows half arranged, sheets rumpled.
+
+THE APRON
+The pet wears a small everyday cotton apron in a plain muted color,
+slightly wrinkled and worn-in, tied at the back. Real fabric texture with
+natural creases and soft shadows where it meets the fur. No text or
+patterns on it.
+
+THE SETTING
+An ordinary lived-in Korean apartment interior: pale flooring, white
+walls, everyday household items visible but not staged. Warm natural
+daylight from a window. Softly blurred behind the subject, clearly
+readable as a real home.
+
+LIGHT AND CAMERA
+Soft natural indoor daylight, gentle and even. Shot at the pet's eye
+level or slightly below with a 35mm lens. Sharp focus on the face and the
+paws doing the work, the background falling soft. Natural color, fine
+grain, slightly imperfect handheld framing, no filters.
+
+TEXT
+No text, letters, numbers, logos or watermarks anywhere in the image.
+
+STYLE
+A real candid phone snapshot taken at home. Deadpan, warm and quietly
+funny. It must look like an actual photograph, never a digital
+illustration.

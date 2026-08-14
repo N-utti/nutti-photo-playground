@@ -1,0 +1,78 @@
+[사용법]
+1. ChatGPT에 반려견 사진 1장을 첨부하세요 (얼굴 정면, 밝은 사진!)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 번호랑 이름만 바꾸면 완성!
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+■ 여기만 바꿔주세요
+번호 (4자리, 생년월일 월일): 0103
+반려견 이름 (4자 이내): 단지
+
+──────────────────────
+
+Using the attached pet photo, create a photograph of a collectible
+die-cut sticker card featuring this exact pet, in the style of Korean
+"띠부씰" trading stickers. Vertical 4:5 canvas.
+
+IDENTITY LOCK
+The pet must be the SAME individual as the attached photo — identical
+coat color, identical markings and their exact placement, identical ear
+type, shape and length, same muzzle length, same eye color, same face
+proportions. Never change the breed silhouette. Fully photorealistic.
+
+THE STICKER — this is a cut-out, not a rectangular photo
+- The pet is photographed against a pure white background, then cut out
+  along its outline as a die-cut sticker
+- A thick, clean WHITE BORDER of even width follows the entire silhouette
+  of the pet — around the head, the ears, the body, the legs. The border
+  traces the shape, it is not a rectangle.
+- The border edge is smooth and slightly rounded at the corners, with
+  small details simplified where they are too fine to cut
+- The pet's ENTIRE body fits inside the sticker. Nothing is cropped by
+  the frame edge. The whole animal is visible.
+- A soft drop shadow sits beneath the sticker, showing it is a physical
+  piece of vinyl resting on the card
+
+THE POSE
+The pet sits or stands facing the camera head-on, body compact and
+centered, looking directly into the lens with a bright cheerful
+expression. Mouth slightly open or closed, ears in their natural relaxed
+position. Simple and clear — the silhouette should read well as a cut-out
+shape.
+
+THE BACKING CARD
+- The sticker is mounted on a plain white rectangular backing card,
+  filling most of the frame with an even margin on all sides
+- The card has a very subtle paper texture and slightly rounded corners
+
+THE LABEL — top left of the backing card, outside the sticker
+- A small rounded rectangle "pill" shape in soft pastel green, containing
+  the 번호 above in white bold digits
+- Immediately to its right, on the bare white card, the 반려견 이름 above
+  in dark charcoal Korean text, in a rounded friendly sans-serif, at a
+  similar size to the number
+- Both sit on a single horizontal line near the top left corner
+- The label is printed on the CARD, not on the sticker itself
+
+TEXT RENDERING — CRITICAL
+Render the number and the name EXACTLY as written in the fields above,
+character for character. Do not translate, invent, shorten or alter any
+character. Both must be crisp and clearly legible.
+These two are the ONLY text in the image — no other words, no logos, no
+watermarks anywhere.
+
+LIGHT AND CAMERA
+Soft even studio lighting, bright and clean, with a gentle shadow under
+the sticker giving it dimension. Shot straight on from directly above.
+Slight glossy sheen on the sticker surface catching the light. Natural
+color, minimal grain, no filters.
+
+STYLE
+A real photograph of a real collectible sticker card. Clean, bright and
+collectible-looking. It must look like an actual physical sticker — never
+a digital illustration, never a flat graphic.

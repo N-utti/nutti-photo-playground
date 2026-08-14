@@ -1,0 +1,87 @@
+[사용법]
+1. ChatGPT에 반려동물 사진 1장을 첨부하세요 (얼굴 정면, 밝은 사진!)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 방식만 골라서 적으면 완성!
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+■ 여기만 바꿔주세요
+방식: 에칭 아트
+  ① 프리푸어 — 붓는 것만으로 만든 심플한 실루엣
+  ② 에칭 아트 — 꼬치로 그린 세밀한 얼굴 (제일 잘 나와요!)
+  ③ 3D 폼 아트 — 거품을 쌓아 만든 입체 강아지
+
+──────────────────────
+
+Create a photograph of a latte in a ceramic cup, where the surface art
+depicts the pet in the attached photo. Vertical 4:5 canvas.
+
+THIS IS MADE OF MILK FOAM — most important
+The image on the coffee is NOT drawn, printed, or stamped on. It is
+formed entirely from steamed milk foam sitting on espresso crema.
+- Only TWO tones exist: the warm caramel-brown of the crema, and the soft
+  off-white of the microfoam. Nothing else.
+- No black, no color, no fine shading, no gradients beyond what foam
+  naturally makes
+- Every edge where foam meets crema is soft and slightly feathered, never
+  a crisp printed line
+- The foam has real physical volume — subtle thickness, a faint sheen,
+  tiny bubbles visible in the surface texture
+- The whole design shifts and warps very slightly, as liquid does
+
+MATCH THE PET
+Keep the pet recognizable within these constraints:
+- The overall head shape, muzzle length and ear type must match the
+  attached photo
+- Large markings become simple brown patches in roughly the same
+  positions — a dark ear, a patch over one eye, a white blaze down the
+  face
+- Do not attempt fine fur detail. Simplify boldly. The likeness comes
+  from silhouette and patch placement, not detail.
+
+THE TECHNIQUE — build it according to the 방식 chosen above
+
+· 프리푸어 (free pour) — A flowing, minimal design created purely by
+  pouring. Soft rounded shapes, visible pour rings and layered ripples
+  radiating outward. The dog reads as a simple silhouette or a bold
+  two-tone face. Very few elements. Elegant and loose.
+
+· 에칭 아트 (etching) — A detailed portrait scratched into the foam with
+  a thin tool. Fine brown lines drawn through the white foam reveal the
+  crema beneath, defining the eyes, nose, mouth and fur direction. The
+  lines are slightly ragged and hand-drawn, with tiny foam ridges pushed
+  up along their edges. Warm brown lines on white, never black ink.
+
+· 3D 폼 아트 (3D foam) — A small sculpted dog built up in thick stiff
+  foam, rising several centimetres above the surface. Rounded soft
+  volumes, a fluffy cloud-like texture, tiny cocoa-powder dots for the
+  eyes and nose. It sits in the cup looking up. Slightly wobbly and
+  imperfect, clearly made of foam.
+
+THE CUP AND SCENE
+- A wide, shallow ceramic cup in plain matte cream or soft grey, on a
+  matching saucer
+- The cup fills most of the frame, shot from a high angle looking almost
+  straight down, tilted just enough to see the rim and a little of the
+  side
+- A small teaspoon resting on the saucer, a linen napkin, a few scattered
+  coffee beans on the wooden table
+- Warm light wood table surface
+
+LIGHT AND CAMERA
+Soft natural window light from one side, gentle highlights on the foam
+surface and a soft shadow from the cup. Shallow depth of field with the
+foam art in sharp focus and the table edges falling soft. Warm, cozy cafe
+atmosphere. Natural color, fine grain, no filters.
+
+TEXT
+No text, letters, numbers, logos or watermarks anywhere in the image.
+
+STYLE
+A real photograph of a real cup of coffee, shot by a cafe photographer.
+Warm and inviting. It must look like actual milk foam — never a printed
+image, never a sticker, never a digital illustration on top of coffee.

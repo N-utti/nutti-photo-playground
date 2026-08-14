@@ -1,0 +1,53 @@
+[사용법]
+1. ChatGPT에 반려동물 사진 1장을 첨부하세요 (전신 or 얼굴 잘 나온 사진)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 이름만 바꾸면 완성!
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+■ 여기만 바꿔주세요
+반려견 이름(영문): DANJI
+목걸이 색: 오렌지
+  (다른 예시 → 핑크 / 민트 / 라벤더 / 레드 / 스카이블루)
+
+──────────────────────
+
+Create a retro 2D side-scrolling MMORPG pixel-art scene featuring a
+pixel-art version of the pet in the attached photo.
+
+THE PET (main subject)
+- Convert the attached pet into a cute chibi pixel-art sprite:
+  oversized round head, tiny stubby body, large glossy black eyes with
+  white highlights, small pink blush marks on the cheeks
+- Keep the pet's real identity: same coat color, same markings and their
+  placement, same ear type, shape and position, same muzzle length
+- Wearing a small bandana in the color specified above
+- Standing on grass in the center-left of the scene, facing the viewer,
+  happy expression
+- Clean crisp pixels with a soft outline, hand-drawn sprite feel
+
+BACKGROUND — bright fantasy pixel town, warm and cheerful
+- Vivid blue sky with big soft fluffy white clouds
+- A round mushroom-roofed cottage on the right: orange cap roof with
+  cream spots, cream stucco walls, arched wooden door, glowing lantern,
+  climbing green vines, small stone steps
+- A large leafy tree on the left with a thick brown trunk
+- Rolling green hills and a waterfall in the far distance, soft haze
+- Foreground: a flat grass platform with a cobblestone wall below it,
+  hanging ivy, and a wooden ladder on the right side
+- Colorful little flowers scattered along the grass
+
+SIGNBOARD
+- A wooden signpost on the left standing in the grass
+- The pet's name is carved on it in blocky pixel lettering, English only,
+  spelled exactly as given above
+- A small mushroom icon under the name
+
+STYLE
+16-bit pixel art, thick black outlines, saturated storybook colors,
+crisp visible pixel grid, warm daylight, side-view flat perspective.
+Vertical 4:5 canvas. No other text anywhere in the image.

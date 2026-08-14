@@ -1,0 +1,74 @@
+[사용법]
+1. ChatGPT에 반려동물 사진 1장을 첨부하세요 (얼굴 정면, 밝은 사진!)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 그대로 붙여넣기만 해도 완성!
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+──────────────────────
+
+Using the attached pet photo, create a photograph of this exact pet lying
+in a hotel bed wearing a bathrobe and a sheet face mask, enjoying a spa
+day. Vertical 4:5 canvas.
+
+IDENTITY LOCK
+The pet must be the SAME individual as the attached photo — identical
+coat color, identical markings and their exact placement, identical ear
+type, shape and length, same muzzle length, same eye color, same face
+proportions. Never change the breed silhouette. Fully photorealistic.
+
+THE SHEET MASK — get the fit right, this is the tricky part
+A white cotton sheet face mask applied to the pet's face:
+- The wet sheet CLINGS to the face, following every contour — it dips
+  into the eye sockets, wraps over the brow ridge, and curves down along
+  the sides of the muzzle. It is not a flat card resting on top.
+- The fabric is damp and semi-translucent, glistening with serum, with
+  faint wrinkles and small creases where it folds against the face
+- Cut-out holes reveal the real face beneath: two openings for the eyes,
+  positioned exactly over the pet's actual eyes, and a large rounded
+  opening at the bottom center for the muzzle and nose, leaving the whole
+  nose and mouth exposed and uncovered
+- The edges of the sheet lie flat against the fur, slightly dampening and
+  darkening the hair where they touch
+- The mask covers only the face — the ears are completely free and
+  visible in their natural position, fluffy and dry
+
+THE BATHROBE
+A soft white waffle-textured hotel bathrobe, wrapped around the body with
+the collar folded neatly at the neck and the front paws emerging from the
+sleeves, resting on top of the duvet. Real terry fabric with visible
+texture, natural creases and soft shadows where it meets the fur.
+
+THE POSE AND EXPRESSION
+- Lying on the back, propped up on a stack of white pillows, body facing
+  the camera
+- The duvet pulled up to the chest, tucked neatly
+- Completely relaxed and content — eyes soft and half-closed with
+  pleasure, looking gently at the camera through the mask openings
+- Mouth closed or barely open. Serene, indulged, thoroughly at peace.
+
+THE HOTEL BED
+- Crisp white hotel bedding: a thick duvet, plump white pillows, smooth
+  cotton sheets with soft natural creases
+- A padded headboard in cream fabric behind
+- Optional: a small folded towel and a glass of water on a bedside table,
+  softly blurred at the edge of frame
+
+LIGHT AND CAMERA
+Soft warm morning light from a window to one side, gentle and diffused,
+with soft shadows in the folds of the bedding. Shot from slightly above,
+looking down at the pet, with a 50mm lens. Sharp focus on the face,
+the bedding falling soft. Warm natural color, fine grain, slightly
+imperfect handheld framing, no filters.
+
+TEXT
+No text, letters, numbers, logos or watermarks anywhere in the image.
+
+STYLE
+A real candid phone snapshot taken in a hotel room. Warm, cozy and
+gently funny. It must look like an actual photograph, never a digital
+illustration.

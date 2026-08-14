@@ -1,0 +1,76 @@
+[사용법]
+1. ChatGPT에 반려동물 사진 1장을 첨부하세요 (얼굴 정면, 밝은 사진!)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 그대로 붙여넣기만 해도 완성!
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+──────────────────────
+
+Using the attached pet photo, create a photograph taken from inside a
+heart-shaped hole dug in beach sand, looking straight up at this exact
+pet peering down into it. Vertical 4:5 canvas.
+
+THE CAMERA POSITION
+The camera lies at the bottom of a shallow hole in the sand, pointing
+straight up at the sky. The opening of the hole frames the view. The pet
+is above, leaning over the edge and looking down into the hole.
+
+THE SAND FRAME — the foreground
+- The hole's opening is a clear HEART SHAPE, hand-dug into wet beach sand
+- The heart reads unmistakably but is slightly irregular and imperfect,
+  as a hand-dug shape would be — soft uneven edges, a slightly lopsided
+  curve, small crumbling bits, a few grains falling inward
+- The sand walls of the hole fill the entire border of the frame, all the
+  way to every edge, in warm golden tan
+- Visible sand texture: individual grains, small shells, scoop marks and
+  finger grooves from digging
+- The near rim is heavily OUT OF FOCUS and slightly darker, since it sits
+  right against the lens. It must not be sharp — this softness is what
+  proves the camera is really down in the hole.
+- Warm light rakes across the sand from one side, casting soft shadows in
+  the grooves
+
+THE SKY — seen through the heart opening
+A bright clear blue sky filling the heart, with a few soft white clouds.
+Slightly overexposed compared to the sand, as a real camera would render
+it when metering for the shadowed foreground.
+
+THE PET — seen from below
+- The pet leans over the edge of the hole from above, its head and
+  shoulders entering the heart opening from the top, silhouetted against
+  the sky
+- Because we are directly beneath it, we see the UNDERSIDE of the head:
+  the underside of the chin and jaw, the nostrils visible from below, the
+  muzzle foreshortened. The eyes look down into the lens.
+- The ears hang down toward the camera on either side of the face
+- Whiskers catch the light, fanning outward
+- Keep the pet recognizable: identical coat color, identical markings in
+  the same positions, identical ear type and shape, same eye color.
+  Never change the breed silhouette.
+- Expression: curious and gentle, mouth closed or barely open, head
+  tilted slightly. Off-center rather than perfectly symmetrical.
+
+LIGHT
+The sun is above and behind the pet, so the face is in soft shade lit by
+light bouncing off the bright sand. A warm rim of light traces the fur
+outline where the sun burns through, and the finest hairs at the edge
+blow out slightly into the sky. Gentle warm haze in the upper part of the
+frame.
+
+CAMERA
+Shot with a wide lens from the bottom of the hole. Focus is on the pet's
+face; the sand rim in the immediate foreground is soft and creamy.
+Slightly imperfect handheld framing. Natural saturated color, visible
+grain, no filters.
+
+TEXT
+No text, letters, numbers, logos or watermarks anywhere in the image.
+
+STYLE
+A real candid beach snapshot. Bright, playful and warm — the kind of shot
+someone gets by putting their phone in a hole for fun.

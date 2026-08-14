@@ -1,0 +1,77 @@
+[사용법]
+1. ChatGPT에 반려동물 사진 1장을 첨부하세요 (전신샷 추천!)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 색상만 골라서 적으면 완성!
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+■ 여기만 바꿔주세요
+런너 색상: 크림 아이보리
+  (다른 예시 → 파스텔 핑크 / 민트 / 라벤더 / 소다 블루)
+
+──────────────────────
+
+Create a photograph of a plastic model kit sprue containing miniature
+figures of the pet in the attached photo. Vertical 4:5 canvas.
+
+WHAT IS ON THE SPRUE — read this first
+Every figure on the sprue is a COMPLETE, WHOLE miniature dog. Nothing is
+separated into body parts.
+- Absolutely NO detached heads, legs, tails, ears or body sections
+- Each dog piece is a single fully-formed figure, connected to the frame
+  only by two or three tiny plastic tabs at its base or back
+- This is a set of small complete figures, like a capsule-toy collection,
+  not an assembly kit of anatomical parts
+
+THE FIGURES — six complete miniature dogs
+Six small figures of the SAME pet, arranged in two columns of three:
+- Each is the same individual: identical coat color, identical markings
+  in the same positions, identical ear type and shape, same muzzle length
+- Each is molded in a different pose: sitting upright, lying down with
+  paws forward, standing alert, mid-walk, head tilted, and curled up
+  asleep
+- Molded in soft matte plastic, hand-painted in the pet's real colors
+  with slightly simplified detail and a gentle satin finish
+- Small and chunky, with rounded chibi-ish proportions
+
+THE ACCESSORY PARTS
+Along one edge of the sprue, a few small separate accessory pieces
+attached to the frame: a tiny food bowl, a small bone, a miniature ball,
+a little cushion, and a small collar. These are the only "parts" on the
+sprue — small props, never body parts.
+
+THE SPRUE FRAME
+- A rectangular plastic runner frame in the color specified above,
+  surrounding and connecting all the pieces
+- Thin connecting gates branching from the frame to each piece, with
+  visible small circular sprue marks
+- Realistic injection-molded plastic: a soft satin sheen, faint mold
+  parting lines along the frame, tiny ejector pin circles
+- Small raised letters on the frame are blurred and unreadable
+- The frame edges are slightly rounded, with a few tiny flash burrs
+
+THE SCENE
+The sprue lies flat on a clean light wooden desk. Beside it: a small pair
+of nippers, a hobby knife with the blade covered, and one already-clipped
+figure standing free on the desk in the foreground. A soft cutting mat
+partially visible at the edge of frame.
+
+LIGHT AND CAMERA
+Soft natural window light from one side, gentle highlights along the
+plastic edges and soft shadows under the frame. Shot from directly above
+at 90 degrees, the sprue filling most of the frame with an even margin on
+all sides. Shallow depth of field with the center of the sprue in sharp
+focus. Natural color, fine grain, no filters.
+
+TEXT
+No readable text, letters, numbers, logos or watermarks anywhere in the
+image.
+
+STYLE
+A real photograph of a real model kit sprue on a hobby desk. Clean,
+tactile and collectible. It must look like actual molded plastic — never
+a digital illustration, never a render.

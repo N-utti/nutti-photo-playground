@@ -1,0 +1,84 @@
+[사용법]
+1. ChatGPT에 반려견 사진 1장을 첨부하세요 (얼굴 정면, 밝은 사진!)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 직업만 골라서 적으면 완성!
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+■ 여기만 바꿔주세요
+직업: 바리스타
+
+[직업 고르기]
+① 바리스타      ② 셰프         ③ 의사
+④ 소방관        ⑤ 파일럿       ⑥ 사서
+⑦ 꽃집 사장     ⑧ 목수         ⑨ 어부
+⑩ 정비사        ⑪ 화가         ⑫ 야구선수
+⑬ 우체부        ⑭ 이발사       ⑮ 사장님
+※ 목록에 없는 직업도 자유롭게 적으셔도 됩니다!
+
+──────────────────────
+
+Using the attached pet photo, create a warm, realistic photograph of this
+exact pet working as the profession written above. Vertical 4:5 canvas.
+
+IDENTITY LOCK (most important)
+The pet must be the SAME individual as the attached photo — identical
+coat color, identical markings and their exact placement, identical ear
+type, shape and length, same muzzle length, same eye color, same face
+proportions. Never change the breed silhouette.
+Fully photorealistic, like a real photograph of a real dog.
+
+THE SETUP
+- The pet stands or sits upright behind a counter, desk, or workstation
+  appropriate to the job, with its front paws resting naturally on the
+  surface — as if it has been doing this job for years
+- Head and upper body fill the frame, shot at the pet's eye level
+- The face stays a completely normal, unmodified dog face: real canine
+  anatomy, normal eye size, natural expression. Never anthropomorphized,
+  never given human eyes or a human mouth.
+- Expression: focused and professional, but warm — mouth slightly open,
+  ears in their natural relaxed position, looking directly at the camera
+  as if a customer just walked in
+
+THE UNIFORM
+Dress the pet in real, well-fitted work clothing for that profession —
+the actual garments a person in that job would wear, tailored to a dog's
+body. Include the small authentic details that sell it: the apron and its
+ties, the collar and buttons, the badge or name tag, the rolled sleeves,
+the cap or helmet sitting slightly askew. The fabric should look worn-in
+and real, with natural creases and a little wear, not costume-shop new.
+
+THE WORKPLACE
+Build the actual environment of that job around the pet, filled with the
+real tools and clutter of the trade:
+- The equipment that profession uses, arranged as if genuinely in use
+  mid-shift — something in progress, not staged
+- Authentic background detail: shelves, hanging tools, notes pinned to a
+  board, worn surfaces, the small mess of a real working space
+- One or two tiny charming touches that hint a dog works here — a paw
+  print on a surface, a chew toy tucked beside the tools, a bone-shaped
+  keychain
+- The background falls softly out of focus, but stays clearly readable
+
+LIGHT AND MOOD
+Warm natural light — window light, or the practical lamps of that
+workspace. Soft shadows, gentle highlights on the fur. Cozy, lived-in,
+slightly nostalgic. It should feel like a documentary portrait of a
+craftsperson at work.
+
+CAMERA
+Shot on a full-frame camera with an 85mm lens at a wide aperture. Sharp
+focus on the eyes, creamy background bokeh. Natural color, subtle film
+grain, no filters.
+
+TEXT
+No text, letters, numbers, logos or watermarks anywhere in the image.
+
+STYLE
+Photorealistic environmental portrait photography. Warm, authentic and
+charming. It must look like a real photograph, not a digital
+illustration and not a cartoon.

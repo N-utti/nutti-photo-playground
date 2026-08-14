@@ -1,0 +1,89 @@
+[사용법]
+1. ChatGPT에 반려동물 사진 1장을 첨부하세요 (얼굴 정면, 밝은 사진!)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 그대로 붙여넣기만 해도 완성!
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+──────────────────────
+
+Using the attached pet photo, create an underwater photograph of this
+exact pet swimming beneath the surface of a bright turquoise pool,
+shot from below looking upward. Vertical 4:5 canvas.
+
+THE CAMERA POSITION
+The camera is deep in the water, angled up toward the surface. The pet is
+above us, swimming through the water between the camera and the light.
+- We see the pet mostly from below and slightly to one side
+- The rippling water surface is visible above, glowing bright with the
+  sun refracting through it into scattered moving highlights
+- The camera is close enough that the pet fills a good portion of the
+  frame
+
+IDENTITY LOCK
+The pet must be the SAME individual as the attached photo — identical
+coat color, identical markings and their exact placement, identical ear
+type, shape and length, same muzzle length, same eye color.
+Never change the breed silhouette. Fully photorealistic.
+
+THE POSE — natural and asymmetrical
+A live animal caught mid-stroke, never posed or mirrored.
+- The body angles diagonally through the frame, rotated a little off any
+  clean axis
+- All four legs are at DIFFERENT positions in the paddle cycle — one
+  front paw reaching forward, the other tucked back, the hind legs
+  offset from each other. Never symmetrical.
+- The head is turned slightly, chin lifted toward the surface
+- The tail streams behind and off to one side
+- The body has a gentle curve to it, mid-motion
+- Positioned OFF-CENTER in the frame, with uneven water on either side
+
+WATER PHYSICS — this is what makes it believable
+- The fur is WET and flattened against the body, darker and heavier than
+  when dry, clumping into pointed strands. It must NOT look fluffy, dry
+  or backlit-fuzzy.
+- Long soft fur, if the pet has it, drifts slowly and floats outward,
+  suspended by the water
+- A dense trail of small silver AIR BUBBLES streams from the fur, the
+  muzzle and behind the paws, rising toward the surface in an irregular
+  scattered pattern
+- A few larger bubbles escape from the nose
+- Where the paws push, faint swirls and distortion in the water
+
+LIGHT — sunlight through water
+- Bright sun above the surface, sending soft shifting caustic light
+  patterns rippling across the pet's back and body
+- The underside is in cooler shadow, lit only by blue light scattering up
+  from the pool floor
+- A bright bloom of light around the surface directly above the pet
+- Light rays fanning down through the water in soft visible shafts
+- Deep saturated turquoise water, growing darker and hazier toward the
+  frame edges
+
+UNDERWATER OPTICS — do not skip these
+- A distinct blue-cyan color cast over EVERYTHING, including the pet.
+  Warm tones are heavily muted; reds and oranges are nearly gone.
+- Reduced contrast and visible haze, especially toward the edges of the
+  frame — water scatters light and softens distance
+- Small suspended particles drifting in the water, catching the light
+- Slight refractive distortion at the frame edges
+- The pet is NOT sharper, brighter or more saturated than the water
+  around it. It is subject to the same haze and color cast.
+
+CAMERA
+Shot on an underwater housing with a wide lens. Fast shutter freezing the
+motion, with very slight blur at the paw tips. Sharp focus on the face,
+falling soft toward the tail. Visible grain, natural imperfect framing,
+as if grabbed in the moment. No filters.
+
+TEXT
+No text, letters, numbers, logos or watermarks anywhere in the image.
+
+STYLE
+A real underwater photograph. Bright, weightless and joyful. It must look
+like a genuine shot taken in a pool — never a composite, never a digital
+illustration.

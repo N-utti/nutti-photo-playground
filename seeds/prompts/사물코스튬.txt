@@ -1,0 +1,90 @@
+[사용법]
+1. ChatGPT에 반려동물 사진 1장을 첨부하세요 (얼굴 정면, 밝은 사진!)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 의상만 골라서 적으면 완성!
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+■ 여기만 바꿔주세요
+의상: 버섯
+
+[의상 고르기]
+① 버섯     ② 옥수수   ③ 딸기     ④ 아보카도
+⑤ 브로콜리 ⑥ 계란후라이 ⑦ 초밥    ⑧ 붕어빵
+⑨ 소화기   ⑩ 우체통   ⑪ 콘센트   ⑫ 김밥
+⑬ 참치캔   ⑭ 사약     ⑮ 컵라면
+※ 목록에 없는 것도 자유롭게 적으셔도 됩니다!
+
+──────────────────────
+
+Using the attached pet photo, create a photograph of this exact pet
+wearing a full-body plush costume shaped like the object written above.
+Vertical 4:5 canvas.
+
+IDENTITY LOCK
+The pet's FACE must be the SAME individual as the attached photo —
+identical fur color, identical markings and their exact placement,
+identical muzzle length, same eye color, same face proportions.
+Fully photorealistic.
+
+THE COSTUME STRUCTURE — this is the whole joke
+The pet is not wearing clothes. It is INSIDE a soft plush object costume.
+- The costume completely encases the entire body from the neck down,
+  forming the shape of the object. The body silhouette is gone — only the
+  object's shape remains.
+- A round OPENING at the front of the costume frames the pet's face
+  perfectly, like a porthole. Only the face is visible.
+- The ears are TUCKED INSIDE the costume, hidden. Just the face peeks out.
+- The soft padded edge of the opening presses gently into the cheek fur
+  all the way around, squishing it slightly outward
+- Four short stubby legs emerge from the bottom of the costume, covered
+  in the same fabric, standing on the floor
+- The costume is thickly stuffed and slightly too big — plump, rounded
+  and a little wobbly, clearly a homemade-looking plush item
+
+THE OBJECT DESIGN
+Build the costume as a simplified, cute, plush interpretation of the
+object written above:
+- Made of soft fleece or felt with visible fabric texture and seam lines
+- Rounded, chubby proportions — nothing sharp or angular
+- Simple flat color blocking, with the object's key identifying features
+  clearly readable (a mushroom's spotted cap, a corn's yellow kernels and
+  green husk, a fire extinguisher's red body and nozzle)
+- The top of the object usually forms a hood or cap sitting over the head,
+  above the face opening
+- Slightly imperfect and handmade: soft lumps, a crooked seam, uneven
+  stuffing
+
+THE POSE AND EXPRESSION
+- Standing upright on all four legs, facing the camera head-on, body
+  squared
+- Completely still, as if resigned to the situation
+- Expression: neutral and mildly unimpressed. Eyes looking straight into
+  the lens. Mouth closed or barely open. Not distressed, not excited —
+  simply enduring. This flat expression against the ridiculous costume is
+  the entire joke.
+
+THE SETTING
+An ordinary Korean apartment interior: pale wooden or vinyl flooring,
+plain white walls, a corner of furniture visible at the edge of frame.
+Everyday, uncluttered, softly blurred.
+
+LIGHT AND CAMERA
+Soft natural indoor daylight, even and gentle. Shot from LOW DOWN, near
+floor level, looking slightly up at the pet — this angle makes the
+costume look plumper and the legs shorter, which is essential to the
+comedy. Wide lens, mild distortion. Sharp focus on the face, the room
+falling soft. Natural color, fine grain, slightly imperfect handheld
+framing, no filters.
+
+TEXT
+No text, letters, numbers, logos or watermarks anywhere in the image.
+
+STYLE
+A real candid phone snapshot taken at home. Absurd, warm and completely
+deadpan. It must look like an actual photograph, never a digital
+illustration.

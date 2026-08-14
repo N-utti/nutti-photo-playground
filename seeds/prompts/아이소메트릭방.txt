@@ -1,0 +1,72 @@
+[사용법]
+1. ChatGPT에 반려동물 사진 1장을 첨부하세요 (전신 or 앉은 자세 추천!)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 테마 하나만 골라서 적으면 완성! (여러 개 만들어서 모아보세요)
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+■ 여기만 바꿔주세요
+테마: 핑크 공주방
+목걸이/스카프 색: 노랑
+
+[테마 고르기]
+① 핑크 공주방   ② 크리스마스 방   ③ 여름 바다 방
+④ 온천/사우나   ⑤ 학교 교실       ⑥ 아늑한 침실
+⑦ 캠핑 텐트     ⑧ 카페 사장님     ⑨ 게임방
+⑩ 벚꽃 툇마루   ⑪ 우주 정거장     ⑫ 레트로 버거 가게
+
+──────────────────────
+
+Create a cute isometric pixel-art diorama room featuring a pixel-art
+version of the pet in the attached photo.
+
+CANVAS — vertical 4:5 portrait format
+- Render the ENTIRE isometric room fully inside the frame. The complete
+  diorama must be visible: all four corners of the floor base, the full
+  height of both back walls, and the outer edges of every wall.
+- Nothing may touch or extend past the canvas edge. Leave clear empty
+  background margin on ALL FOUR sides — at least 10% of the canvas width
+  on the left and right, and 10% of the height on top and bottom.
+- Zoom out far enough that the room floats comfortably in the center with
+  visible breathing room around it, like an object photographed on a
+  plain backdrop.
+- Fill the vertical space by making the back walls TALL and decorating
+  them at multiple heights — not by enlarging or cropping the room.
+
+THE PET (main subject)
+- Convert the attached pet into a chibi pixel-art sprite: large round
+  head, small stubby body, big glossy eyes with white highlights,
+  tiny blush marks
+- KEEP THE PET'S IDENTITY: same coat color, same markings and their exact
+  placement, same ear type/shape/length, same muzzle length and face
+  proportions as the attached photo. Do not change the breed silhouette.
+- Sitting or lying in the center of the room floor, facing the viewer,
+  happy expression
+- Wearing a small bandana in the color specified above
+- The pet is clearly the largest character in the scene
+
+ROOM STRUCTURE
+- Isometric cutaway room: two visible walls forming a corner, plus a
+  floor — like a dollhouse viewed from above at a 45-degree angle
+- The room sits alone on a plain soft cream background, with a subtle
+  drop shadow beneath the floor base
+- Cozy, densely decorated but tidy — every surface has something cute
+- Use the tall walls fully: shelves, framed pictures, hanging ornaments,
+  wall lamps and curtains placed at multiple heights
+- Include pet furniture in every version: a small dog house, food and
+  water bowls, a bone on the floor, and a soft rug
+
+THEME
+Decorate the entire room — walls, floor, furniture, props, lighting and
+color palette — to match the theme written above. Everything in the room
+should feel like it belongs to that single theme.
+
+STYLE
+- Detailed 16-bit isometric pixel art, crisp visible pixel grid
+- Soft pastel-leaning palette with warm cozy lighting
+- Nostalgic early-2000s cute-game aesthetic, storybook charm
+- NO text, letters, numbers, logos or brand marks anywhere in the image
