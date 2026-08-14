@@ -12,6 +12,7 @@ npm install
 npm run dev      # http://localhost:5173 — MSW 목 위에서 동작
 npm run build    # tsc -b && vite build
 npm run lint
+npm run test     # vitest — 컴포넌트 회귀 테스트
 ```
 
 기본값은 **목 켜짐**입니다. 로컬 백엔드에 붙이려면 `.env.development`의
@@ -89,6 +90,40 @@ localStorage.removeItem('nutti.mock.scenario')              // 정상
 (목은 `SERVER_PROMPT_BLOCKLIST`). 목록이 달라서 화면을 통과하고 서버에서 막히는 문장이
 있습니다 — "색깔만 바꿔줘"로 400 `input_filter_blocked` 안내를 밟아 볼 수 있습니다.
 
+## 테스트
+
+`npm run test` (watch 는 `npm run test:watch`). vitest + @testing-library/react + jsdom이고,
+설정은 `vite.config.ts`의 `test` 블록입니다 — 별도 번들러 설정을 두지 않아 테스트가 앱과
+같은 방식으로 모듈을 풉니다. 목은 **브라우저와 같은 핸들러**를 node에서 재사용합니다
+(`src/test/server.ts` → `src/mocks/handlers.ts`).
+
+지금 있는 것은 커버리지가 아니라 **QA로 찾아 고친 것들의 회귀 방지**입니다(이슈 #94).
+
+| 파일 | 막는 것 |
+|---|---|
+| `app/useModalDialog.test.tsx` | 시트가 떠 있는데 Tab이 **뒤 화면 버튼**으로 나가는 것 (로그인 시트·402 오버레이) |
+| `app/BackButton.test.tsx` | ←가 화면마다 다른 곳으로 가는 것 · 탭 영역 확장이 떨어져 나가는 것 |
+| `app/routes.test.tsx` | 새 라우트를 추가하며 `handle.title`을 빠뜨리는 것 |
+| `app/RootLayout.test.tsx` | 제목 해석 규칙(가장 깊은 매치부터 거슬러 올라가기)이 깨지는 것 |
+
+새 시트를 만들면 `useModalDialog.test.tsx`의 `CASES`에 한 줄 추가하세요. 포커스 가둠은
+시트 하나의 성질이 아니라 **모든 시트에 걸리는 규칙**이라 한 벌로 두었습니다.
+
+### jsdom이 답해 주지 않는 것
+
+- **레이아웃이 없습니다.** `getBoundingClientRect()`가 전부 0이고 Tailwind 클래스도 적용되지
+  않습니다. 그래서 탭 타깃 46×45px 같은 **실제 치수는 여기서 잴 수 없고**, 넓히는 장치가
+  붙어 있는지까지만 봅니다. 픽셀 확인은 여전히 브라우저 몫입니다.
+- **`offsetParent`가 항상 null입니다.** 포커스 가둠이 «보이는 것»을 이걸로 거르므로
+  `src/test/setup.ts`에서 «붙어 있으면 보인다»로 근사합니다. 안 그러면 탭 대상 목록이 늘
+  비어서, 순환 경로를 한 번도 밟지 않은 채 통과합니다.
+- **목 상태가 테스트 사이에 초기화되지 않습니다.** `mocks/handlers.ts`의 `state`가 모듈
+  수준이라 그렇습니다. 잔액·job을 **바꾸는** 테스트를 붙일 때는 `server.use(...)`로 그
+  테스트가 쓸 응답을 덮어쓰세요(`afterEach`의 `resetHandlers`가 걷어냅니다).
+
+E2E(playwright)는 아직 없습니다. 위 항목들이 브라우저를 요구하므로 언젠가 필요하지만,
+도입·유지 비용이 따로라 이슈 #94 범위에서 뺐습니다.
+
 ## 구조
 
 ```
@@ -101,6 +136,10 @@ src/
     idempotency.ts  Idempotency-Key 수명 (규칙이 두 방향으로 갈리는 지점)
     uploadDraft.ts  402 후 돌아왔을 때 업로드 결과 이어받기 (sessionStorage)
   mocks/            MSW — 프로덕션 번들에서 완전히 제외됨
+  test/             vitest 준비 코드. 테스트는 대상 파일 옆에 `*.test.tsx` 로 둡니다
+    setup.ts        jest-dom · MSW 수명 · jsdom 이 답 못 하는 지점 메우기
+    server.ts       node 쪽 MSW — 브라우저와 **같은** 핸들러를 씁니다
+    render.tsx      QueryClient + 라우터를 두른 렌더 (시트는 혼자 서지 못합니다)
   screens/          화면. 구현된 것만 개별 파일, 나머지는 placeholders.tsx
   app/
     routes.tsx      11개 화면 라우트 테이블 (W-03 은 W-02 의 자식 = 시트)
