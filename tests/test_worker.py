@@ -24,6 +24,7 @@ from app.models import (
     JobStatus,
     Member,
     MemberKind,
+    PetProfile,
     PromptVersionStatus,
     SourceImage,
     Style,
@@ -75,12 +76,24 @@ def _image_bytes(color: tuple[int, int, int] = (121, 80, 40)) -> bytes:
     return output.getvalue()
 
 
-async def _preset_job(*, attempt_count: int = 0, prompt_version: bool = True):
+async def _preset_job(
+    *,
+    attempt_count: int = 0,
+    prompt_version: bool = True,
+    prompt_text: str = "수채화로 변환",
+    pet_name: str | None = None,
+):
     member = await Member.create(kind=MemberKind.MEMBER, credit_balance=0)
+    pet_profile = (
+        await PetProfile.create(member=member, name=pet_name)
+        if pet_name is not None
+        else None
+    )
     source_key = f"uploads/{uuid.uuid4()}.jpg"
     await storage.save_bytes(source_key, _image_bytes(), "image/jpeg")
     source = await SourceImage.create(
         member=member,
+        pet_profile=pet_profile,
         storage_key=source_key,
         quality_check={},
     )
@@ -96,7 +109,7 @@ async def _preset_job(*, attempt_count: int = 0, prompt_version: bool = True):
             id=1,
             style=style,
             version=1,
-            prompt_text="수채화로 변환",
+            prompt_text=prompt_text,
             model_config={"provider": "openai"},
             status=PromptVersionStatus.ACTIVE,
         )
@@ -133,6 +146,40 @@ async def test_preset_success_creates_signed_result(monkeypatch: pytest.MonkeyPa
     assert saved_job.finished_at is not None
     assert Path(storage.MEDIA_ROOT, result.storage_key).exists()
     assert result_bytes != original
+
+
+async def test_preset_replaces_pet_name(monkeypatch: pytest.MonkeyPatch):
+    _, job, original = await _preset_job(
+        prompt_text="[pet name]을 수채화로 변환",
+        pet_name="몽이",
+    )
+    prompts = []
+
+    async def capture_prompt(_original, prompt, _style_name):
+        prompts.append(prompt)
+        return original
+
+    monkeypatch.setattr(worker, "_generate_image", capture_prompt)
+    await worker.process_job({"id": str(job.id)})
+
+    assert "몽이" in prompts[0]
+    assert "[pet name]" not in prompts[0]
+
+
+async def test_preset_uses_fallback_without_pet_profile(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    _, job, original = await _preset_job(prompt_text="[pet name]을 수채화로 변환")
+    prompts = []
+
+    async def capture_prompt(_original, prompt, _style_name):
+        prompts.append(prompt)
+        return original
+
+    monkeypatch.setattr(worker, "_generate_image", capture_prompt)
+    await worker.process_job({"id": str(job.id)})
+
+    assert "우리 아이" in prompts[0]
 
 
 async def test_provider_failure_requeues_without_refund(monkeypatch: pytest.MonkeyPatch):

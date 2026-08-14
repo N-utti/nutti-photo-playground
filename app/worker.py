@@ -30,6 +30,7 @@ from app.models import (
     GenerationJob,
     GenerationResult,
     JobStatus,
+    PetProfile,
     StylePromptVersion,
 )
 from app.settings import settings
@@ -167,6 +168,16 @@ async def process_job(job: dict, *, lease: bool = True) -> None:
             prompt = (
                 await StylePromptVersion.get(id=generation_job.prompt_version_id)
             ).prompt_text
+            if "[pet name]" in prompt:
+                # ponytail: 프로필이나 이름이 없으면 별도 정책 없이 고정 호칭을 쓴다.
+                pet_name = "우리 아이"
+                if generation_job.source_image.pet_profile_id is not None:
+                    pet_name = (
+                        await PetProfile.get(
+                            id=generation_job.source_image.pet_profile_id
+                        )
+                    ).name or pet_name
+                prompt = prompt.replace("[pet name]", pet_name)
             style_name = generation_job.style.name
         else:
             if generation_job.custom_prompt_id is None:
