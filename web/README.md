@@ -65,6 +65,7 @@ localStorage.setItem('nutti.mock.scenario', 'job:flaky')    // 생성 중 3~18�
 localStorage.setItem('nutti.mock.scenario', 'job:slow')     // 150초 job → 60초에서 W-05 백그라운드 전환(FR-EDGE-02)
 localStorage.setItem('nutti.mock.scenario', 'job:queued')   // 워커가 안 집는 job — started_at=null 인 큐 대기(PR #60)
 localStorage.setItem('nutti.mock.scenario', 'credit:empty') // 잔액 0에서 시작 → 402 → 시트에서 받고 재시도
+localStorage.setItem('nutti.mock.scenario', 'styles:filled') // 예시 이미지·궁합 태그가 채워진 뒤의 카탈로그(기본 목은 지금 DB 그대로 빈 상태)
 localStorage.setItem('nutti.mock.scenario', 'session:expired') // 액세스 만료 — 게스트는 재발급 → 404, 회원은 리프레시 회전으로 조용히 복구(PR #57)
 localStorage.setItem('nutti.mock.scenario', 'refresh:fail')    // 만료 + 회전 401 — 회원 재로그인 안내(다른 기기 로그인·30일 초과와 같은 코드)
 localStorage.setItem('nutti.mock.scenario', 'refresh:429')     // 만료 + 회전 429 — 공유 IP 에서 남이 태운 버킷에 걸린 회원(이슈 #11 R3). 세션은 살아 있고 기다리면 풀림
@@ -226,8 +227,8 @@ src/
    `api/idempotency.ts`만 거치면 틀리지 않습니다.
 3. **크레딧 배지 무효화** — job 종료(성공·실패 둘 다), claim 성공, 로그인 후 병합.
    `invalidateAfterJobSettled`를 job이 종료 상태에 닿는 곳에서 반드시 호출하세요.
-4. **W-02는 68개를 한 페이지에** 받습니다(카탈로그 페이지네이션 없음). 썸네일
-   `loading="lazy"`는 옵션이 아니라 필수입니다.
+4. **W-02는 전체를 한 페이지에** 받습니다(카탈로그 페이지네이션 없음 — 시드 기준
+   39개, PR #95). 썸네일 `loading="lazy"`는 옵션이 아니라 필수입니다.
 5. **완료 알림을 약속하지 마세요.** W-05 문구에서 와이어프레임의 "알림 받고 나가기 /
    완성되면 알려드릴게요"를 뺐습니다 — 알림은 MVP 제외(FR-W05-04)이고, 지킬 수 없는
    약속이 이슈 #5의 출발점이었습니다. 지금 말할 수 있는 건 "같은 브라우저에서 이 주소로

@@ -32,78 +32,128 @@ export function placeholderImage(label: string, tone = '#E1E2DC'): string {
 
 // ---------------------------------------------------------------- 스타일
 
-/**
- * 섹션 구성. 앵커바 칩 목록(#p02 데스크톱 프레임)과 같은 7개이고,
- * 개수 합은 §3 `total_count: 68` · W-02 "전체 68개"에 맞춥니다.
- * '인기'는 아래에서 §3 예시 2건을 앞에 끼우므로 6 + 2 = 8 이 됩니다.
- */
-const SECTIONS = [
-  { name: '인기', generated: 6 },
-  { name: '여름', generated: 12 },
-  { name: '직업', generated: 10 },
-  { name: '영화', generated: 10 },
-  { name: '아트', generated: 10 },
-  { name: '시즌', generated: 8 },
-  { name: '동화', generated: 10 },
-] as const
+/*
+  스타일만 §3 예시가 아니라 **DB 실물**을 옮깁니다 (PR #95, scripts/seed_styles.py).
 
-/**
- * §3 예시의 2개 스타일을 포함하되, W-02 가 "전체 68개"라 그 규모를 재현합니다.
- * 생성 id 는 200 부터 — §3 예시가 쓰는 101·108 과 겹치면 안 됩니다.
- */
+  §3 의 `lego-minifig`·`ghibli-watercolor` 는 스펙을 쓰던 시점의 **가상 코드**였고,
+  시드가 착지한 지금 서버에는 없는 스타일입니다. 나머지 66 건은 애초에 규모만 맞추려고
+  지어낸 것이었습니다. 실데이터가 생긴 뒤로는 그 목이 «서버가 낼 수 없는 카탈로그»가
+  됩니다 — 섹션 7개(실제 4개), 전체 68개(실제 39개), 이름은 전부 "여름 스타일 3".
+
+  이 차이는 화면에 그대로 나타납니다: 섹션명에 공백·가운뎃점이 들어가고(앵커 id),
+  이름이 "어릴적나와우리아이" 처럼 띄어쓰기 없이 길고(카드 truncate), 비용은 전 스타일
+  1 크레딧입니다. 목이 지어낸 이름을 주는 동안에는 셋 다 목 위에서 안 드러납니다.
+*/
+const SEED_SECTIONS: { name: string; codes: string[] }[] = [
+  {
+    name: '피규어·장난감',
+    codes: [
+      '3D_피규어',
+      '레고',
+      '프라모델',
+      '인형뽑기',
+      '스노우볼',
+      '띠부씰',
+      '이모티콘',
+      '미니분신',
+      '우리아이굿즈샵',
+      '사물코스튬',
+    ],
+  },
+  {
+    name: '컨셉 사진관',
+    codes: [
+      '90년대가족사진관',
+      '조선시대',
+      '르네상스초상화',
+      '취업아이',
+      '갸루',
+      '입덕직캠',
+      '견생네컷',
+      '거울셀카',
+      '어릴적나와우리아이',
+      '반려견의인화',
+    ],
+  },
+  {
+    name: '아트',
+    codes: ['색연필드로잉', '하찮은크레파스', '메이플스토리', '아이소메트릭방', '우리아이라떼아트', '괴수'],
+  },
+  {
+    name: '일상 유머',
+    codes: [
+      '식빵',
+      '찜질방',
+      '청문회',
+      '퐁퐁견',
+      '호캉스',
+      '영화관',
+      '새벽에몰래',
+      '모래구멍',
+      '수중샷',
+      '반려견항공샷',
+      '손바닥위반려견',
+      '왕코클로즈업',
+      '유리얼빡샷',
+    ],
+  },
+]
+
+/*
+  id 는 **화면 순서와 다릅니다**.
+
+  시드는 `sorted(dir.glob("*.txt"))` 로 파일명 순회하며 행을 만들고(id = 그 순서),
+  `sort_order` 는 SECTION_MAP 순서로 따로 넣습니다. `GET /v1/styles` 는 sort_order 로
+  정렬하므로 둘이 갈립니다 — 화면 첫 카드 "3D 피규어" 의 id 는 1 이 아닙니다.
+  목이 id 를 화면 순서대로 매기면 «id 순 = 진열 순» 이라는 사실이 아닌 가정을
+  프론트가 밟아도 여기서는 안 걸립니다.
+*/
+const CODES_BY_FILENAME = SEED_SECTIONS.flatMap((section) => section.codes).sort()
+
 export const styleCatalog: StyleCatalog = (() => {
-  let nextId = 200
-  const sections = SECTIONS.map(({ name, generated }) => {
-    // StyleCard 로 명시합니다 — `thumbnail_url` 이 널 가능이라(§3) 아래에서 null 을
-    // 한 건 넣는데, 추론에 맡기면 이 배열이 `string` 으로 좁혀져 그게 막힙니다.
-    const items: StyleCard[] = Array.from({ length: generated }, (_, i) => {
-      const id = nextId++
-      return {
-        id,
-        code: `style-${id}`,
-        name: `${name} 스타일 ${i + 1}`,
-        thumbnail_url: placeholderImage(`${name} ${i + 1}`),
-        credit_cost: i % 4 === 3 ? 2 : 1,
-      }
-    })
-    return { name, count: items.length, styles: items }
+  const sections = SEED_SECTIONS.map(({ name, codes }) => {
+    const styles: StyleCard[] = codes.map((code) => ({
+      id: CODES_BY_FILENAME.indexOf(code) + 1,
+      code,
+      // 시드가 넣는 표시명은 파일명 그대로입니다 — `code.replace("_", " ")`.
+      name: code.replace(/_/g, ' '),
+      /*
+        전 스타일 null 입니다. `thumbnail_url` 은 서버가 `example_keys[0]` 으로 만드는
+        값인데(app/routers/styles.py) 시드는 프롬프트만 넣고 예시 이미지는 안 올립니다
+        (PR #95 "남은 것"). 즉 지금 실서버에 붙이면 카탈로그 39칸이 전부 회색 자리
+        표시자입니다 — 목이 이미지를 채워 주면 그 사실이 착지 직전까지 안 보입니다.
+        이미지가 올라간 뒤의 상태는 아래 `styleCatalogFilled`(시나리오 styles:filled).
+      */
+      thumbnail_url: null,
+      credit_cost: 1, // 시드는 전 스타일 1 로 넣습니다(운영이 DB 에서 조정).
+    }))
+    return { name, count: styles.length, styles }
   })
-
-  // §3 예시와 동일한 두 건을 인기 섹션 앞에 고정 배치.
-  sections[0].styles.unshift(
-    {
-      id: 101,
-      code: 'lego-minifig',
-      name: '레고 미니피겨',
-      thumbnail_url: placeholderImage('레고 미니피겨'),
-      credit_cost: 1,
-    },
-    {
-      id: 108,
-      code: 'ghibli-watercolor',
-      name: '지브리 수채',
-      thumbnail_url: placeholderImage('지브리 수채'),
-      credit_cost: 2,
-    },
-  )
-  sections[0].count = sections[0].styles.length
-
-  /*
-    썸네일 없는 스타일을 한 건 남깁니다.
-
-    `thumbnail_url` 은 서버가 `example_keys[0]` 으로 만드는 값이라 예시 이미지가 없는
-    행은 null 입니다(app/routers/styles.py). 목이 전부 이미지를 주면 app/Thumbnail.tsx
-    의 폴백 경로를 브라우저에서 한 번도 못 밟고, 그 자리가 깨지는지 여부를 코드로만
-    추측하게 됩니다. 인기 섹션 앞쪽에 두는 이유는 W-01(5장)·W-05·W-06(3장) 프리뷰에도
-    같이 잡히기 때문입니다.
-  */
-  sections[0].styles[2].thumbnail_url = null
 
   const total = sections.reduce((sum, s) => sum + s.styles.length, 0)
   return { sections, total_count: total }
 })()
 
-export function styleDetailFor(styleId: number): StyleDetail | null {
+/**
+ * 운영이 예시 이미지(`example_keys`)와 궁합 태그(`fit_tags`)를 채운 **뒤**의 카탈로그.
+ *
+ * 지금 DB 는 둘 다 비어 있지만 이건 시드의 후속 작업이지 계약의 변화가 아닙니다.
+ * 기본 목을 실제 상태(빈 값)에 맞추면서 이쪽을 같이 두는 이유는, 한쪽만 두면 나머지
+ * 한쪽을 브라우저에서 한 번도 못 밟기 때문입니다 — 비어 있는 쪽은 자리 표시자와
+ * 캐러셀 생략(W-03)을, 채워진 쪽은 카드 이미지 레이아웃과 6장 캐러셀을 각각 만듭니다.
+ */
+export const styleCatalogFilled: StyleCatalog = {
+  sections: styleCatalog.sections.map((section) => ({
+    ...section,
+    styles: section.styles.map((style) => ({
+      ...style,
+      thumbnail_url: placeholderImage(style.name),
+    })),
+  })),
+  total_count: styleCatalog.total_count,
+}
+
+export function styleDetailFor(styleId: number, filled = false): StyleDetail | null {
   const card = styleCatalog.sections.flatMap((s) => s.styles).find((s) => s.id === styleId)
   if (!card) return null
   return {
@@ -111,13 +161,24 @@ export function styleDetailFor(styleId: number): StyleDetail | null {
     code: card.code,
     name: card.name,
     credit_cost: card.credit_cost,
-    examples: Array.from({ length: 6 }, (_, i) => placeholderImage(`${card.name} 예시 ${i + 1}`)),
-    fit_tags: [
-      { label: '소형견', score: 'good' },
-      { label: '대형견', score: 'good' },
-      { label: '검은 털', score: 'caution' },
-    ],
-    avg_duration_seconds: 24,
+    /*
+      `thumbnail_url` 과 `examples` 는 **같은 `example_keys` 에서 나옵니다** —
+      전자는 `example_keys[0]`, 후자는 전부(app/routers/styles.py). 그러니 카탈로그가
+      널 썸네일을 주는 상태에서 상세만 6 장을 주면 목이 서버가 낼 수 없는 조합을
+      만들어 냅니다. 두 값이 같은 스위치(`filled`)를 보는 이유입니다.
+    */
+    examples: filled
+      ? Array.from({ length: 6 }, (_, i) => placeholderImage(`${card.name} 예시 ${i + 1}`))
+      : [],
+    // `fit_tags` 도 시드가 안 채운 컬럼입니다(모델 기본값 `[]`) — 지금 서버는 빈 배열.
+    fit_tags: filled
+      ? [
+          { label: '소형견', score: 'good' },
+          { label: '대형견', score: 'good' },
+          { label: '검은 털', score: 'caution' },
+        ]
+      : [],
+    avg_duration_seconds: 24, // 시드가 안 건드리는 컬럼 기본값(app/models.py avg_seconds).
     output_count: 1, // Q4 확정 — 1요청 1장(§3 예시도 1).
   }
 }
@@ -256,7 +317,12 @@ export const initialCredits: Credits = {
 export const ledgerEntries: LedgerEntry[] = [
   { reason: 'generation_charge', ref_label: '레고', occurred_on: '2026-08-03', amount: -1 },
   { reason: 'order_reward', ref_label: '#20260802', occurred_on: '2026-08-02', amount: 20 },
-  { reason: 'generation_refund', ref_label: '지브리', occurred_on: '2026-08-02', amount: 2 },
+  /*
+    ref_label 은 서버가 스타일명으로 채웁니다 — 시드에 없는 이름("지브리")을 쓰면 목에서만
+    존재하는 스타일이 원장에 남습니다. 금액도 2 → 1 입니다: 반환은 차감액과 같은 값이고,
+    시드가 넣은 39종은 전부 1 크레딧이라 2 가 나올 수 있는 스타일이 지금은 없습니다.
+  */
+  { reason: 'generation_refund', ref_label: '스노우볼', occurred_on: '2026-08-02', amount: 1 },
   { reason: 'link_account', ref_label: null, occurred_on: '2026-07-28', amount: 3 },
   { reason: 'daily_free', ref_label: null, occurred_on: '2026-07-28', amount: 1 },
   // §3 예시에는 없지만 서버가 실제로 내려주는 사유입니다(app/models.py CreditReason) —

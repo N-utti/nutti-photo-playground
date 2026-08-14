@@ -191,6 +191,17 @@ function ExampleCarousel({ images, styleName }: { images: string[]; styleName: s
   const trackRef = useRef<HTMLUListElement>(null)
   const [active, setActive] = useState(0)
 
+  /*
+    예시가 없으면 캐러셀 자체를 내립니다.
+
+    `examples[]` 는 서버가 `example_keys` 로 만드는 값이라 예시 사진을 아직 안 올린
+    스타일에서는 빈 배열입니다(app/routers/styles.py). 그래도 그리던 시절에는 트랙이
+    높이 0 으로 접혀 **화면에는 아무 변화가 없는데** 아래 라이브 영역만
+    "적용 예시 1 / 0" 을 읽었습니다 — 0 장인데 1 번째라는, 있지도 않은 사진을 세는
+    말입니다. 보이지 않는 곳이라 눈으로는 영영 안 걸립니다.
+  */
+  if (images.length === 0) return null
+
   return (
     <div>
       <ul
@@ -214,27 +225,32 @@ function ExampleCarousel({ images, styleName }: { images: string[]; styleName: s
         ))}
       </ul>
 
-      <div className="mt-2 flex justify-center gap-1.5">
-        {images.map((_, index) => (
-          <button
-            key={index}
-            type="button"
-            aria-label={`예시 ${index + 1}`}
-            aria-current={active === index ? 'true' : undefined}
-            onClick={() => {
-              const track = trackRef.current
-              track?.scrollTo({ left: index * track.clientWidth, behavior: 'smooth' })
-            }}
-            className={`size-1.5 rounded-full transition-colors ${
-              active === index ? 'bg-brand' : 'bg-rule-strong hover:bg-brand-2'
-            }`}
-          />
-        ))}
-      </div>
+      {/* 한 장뿐이면 점 하나짜리 페이저와 "1 / 1" 안내는 넘길 곳이 있다는 거짓말입니다. */}
+      {images.length > 1 && (
+        <>
+          <div className="mt-2 flex justify-center gap-1.5">
+            {images.map((_, index) => (
+              <button
+                key={index}
+                type="button"
+                aria-label={`예시 ${index + 1}`}
+                aria-current={active === index ? 'true' : undefined}
+                onClick={() => {
+                  const track = trackRef.current
+                  track?.scrollTo({ left: index * track.clientWidth, behavior: 'smooth' })
+                }}
+                className={`size-1.5 rounded-full transition-colors ${
+                  active === index ? 'bg-brand' : 'bg-rule-strong hover:bg-brand-2'
+                }`}
+              />
+            ))}
+          </div>
 
-      <p className="sr-only" aria-live="polite">
-        적용 예시 {active + 1} / {images.length}
-      </p>
+          <p className="sr-only" aria-live="polite">
+            적용 예시 {active + 1} / {images.length}
+          </p>
+        </>
+      )}
     </div>
   )
 }
