@@ -7,7 +7,7 @@
  * 있어 확인 중입니다(이슈 #5).
  */
 
-import { createBrowserRouter } from 'react-router'
+import { createBrowserRouter, type RouteObject } from 'react-router'
 import RootLayout from './RootLayout'
 import W01Landing from '../screens/W01Landing'
 import W02StyleCatalog from '../screens/W02StyleCatalog'
@@ -27,9 +27,13 @@ import { NotFound, W11Console } from '../screens/placeholders'
 /**
  * `handle.title` 은 브라우저 탭·뒤로가기 목록·스크린리더가 읽는 이름입니다
  * (app/RootLayout.tsx `DocumentTitle`). 여기 없으면 그 화면은 앞 화면의 제목을
- * 그대로 달고 다닙니다 — 새 라우트를 추가할 때 같이 적어 주세요.
+ * 그대로 달고 다닙니다 — 새 라우트를 추가할 때 같이 적어 주세요. 빠뜨리면
+ * `routes.test.tsx` 가 «$path 가 제목을 선언한다» 로 실패합니다.
+ *
+ * 표와 라우터를 갈라 둔 이유도 그것입니다 — `createBrowserRouter` 는 부르는 순간
+ * 실제 주소창에 붙어서, 표만 따로 있어야 화면을 띄우지 않고 표를 셀 수 있습니다.
  */
-export const router = createBrowserRouter([
+export const routes: RouteObject[] = [
   {
     // 세션 배너를 한 곳에서만 달기 위한 껍데기 라우트입니다(경로 없음).
     element: <RootLayout />,
@@ -71,4 +75,6 @@ export const router = createBrowserRouter([
       { path: '*', element: <NotFound />, handle: { title: '페이지를 찾을 수 없어요' } },
     ],
   },
-])
+]
+
+export const router = createBrowserRouter(routes)
