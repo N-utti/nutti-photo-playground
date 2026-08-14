@@ -19,6 +19,7 @@ import { Link, useNavigate, useParams } from 'react-router'
 import { isApiError } from '../api/client'
 import { useStyleDetail } from '../api/queries'
 import { useReuseFromJob, withReuse } from '../app/reuseFromJob'
+import { PET_NAME_FALLBACK, usesPetName } from '../app/petNameStyles'
 import type { FitTag, StyleDetail } from '../api/types'
 
 /**
@@ -126,6 +127,21 @@ function SheetBody({
           {style.credit_cost} 크레딧
         </span>
       </div>
+
+      {/*
+        PR #98 — 이 스타일은 그림 안에 아이 이름이 인쇄됩니다.
+
+        적합도 태그(노트3)와 같은 «기대치를 미리 낮추는 장치» 이지만 성격이 다릅니다:
+        태그는 결과가 나쁠 수 있다는 예고이고, 이건 **사용자가 지금 바꿀 수 있는
+        조건**의 예고입니다 — 저장된 강아지를 고르고 들어오면 그 이름이 박힙니다.
+        그래서 태그 위, 만들기 버튼 앞에 둡니다.
+      */}
+      {usesPetName(style.code) && (
+        <p className="mt-3 rounded-lg border border-rule bg-surface-2 px-3 py-2 text-sm text-ink-2">
+          <span className="font-semibold text-ink">아이 이름이 그림에 들어갑니다</span> — 저장된
+          강아지로 만들면 그 이름이, 아니면 «{PET_NAME_FALLBACK}» 가 인쇄됩니다.
+        </p>
+      )}
 
       {/* 노트3 — 적합도 태그. */}
       {style.fit_tags.length > 0 && (

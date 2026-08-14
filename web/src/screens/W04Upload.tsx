@@ -41,6 +41,7 @@ import {
 import { contextFromJob } from '../app/reuseFromJob'
 import { withReuse } from '../app/reuseFromJob'
 import { initialOf } from '../app/initials'
+import { PET_NAME_FALLBACK, usesPetName } from '../app/petNameStyles'
 import Thumbnail from '../app/Thumbnail'
 import { clearUploadDraft, readUploadDraft, writeUploadDraft } from '../api/uploadDraft'
 import type { Pet, UploadIssue, UploadResult } from '../api/types'
@@ -232,6 +233,16 @@ export default function W04Upload() {
   const confirming = upload !== null
   const blocked = upload?.blocking_issue ?? null
 
+  /*
+    PR #98 — 이 스타일은 워커가 프롬프트의 `[pet name]` 을 치환해 **그림에 이름을
+    인쇄합니다**(app/petNameStyles.ts). 어떤 이름이 박힐지는 이 화면에서 정해집니다:
+    `POST /v1/uploads` 의 `pet_id` 또는 `POST /v1/pets` 가 `source_image.pet_profile_id`
+    를 붙여 주면 그 이름, 아니면 «우리 아이» 입니다. 만들기 버튼을 누른 뒤에는 못
+    바꾸고 크레딧은 이미 나갑니다 — 그래서 버튼 **앞**에서 말해 줍니다.
+  */
+  const namesTheImage = usesPetName(style?.code)
+  const selectedPetName = petsData?.items.find((pet) => pet.id === petId)?.name ?? null
+
   return (
     <div className="min-h-full bg-paper pb-16">
       <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
@@ -265,6 +276,8 @@ export default function W04Upload() {
           <ConfirmPanel
             upload={upload}
             petId={petId}
+            petName={selectedPetName}
+            namesTheImage={namesTheImage}
             onPetSaved={setPetId}
             onPickAnother={pickAnother}
             onStart={startGeneration}
@@ -542,6 +555,10 @@ function SavedPets({
 interface ConfirmPanelProps {
   upload: UploadResult
   petId: string | null
+  /** 지금 선택된 강아지의 이름. 저장된 강아지를 안 골랐으면 null. */
+  petName: string | null
+  /** 이 스타일이 그림에 이름을 인쇄하는가 (PR #98). */
+  namesTheImage: boolean
   onPetSaved: (petId: string) => void
   onPickAnother: () => void
   onStart: () => void
@@ -555,6 +572,8 @@ interface ConfirmPanelProps {
 function ConfirmPanel({
   upload,
   petId,
+  petName,
+  namesTheImage,
   onPetSaved,
   onPickAnother,
   onStart,
@@ -565,6 +584,19 @@ function ConfirmPanel({
   fromJobId,
 }: ConfirmPanelProps) {
   const blocked = upload.blocking_issue
+
+  /*
+    이름 안내를 띄우는 자리에서 저장 폼도 같이 받습니다 — 아래쪽 기본 저장 폼과
+    **둘 다 뜨면 안 됩니다**. 두 개의 «이름» 입력이 한 화면에 있으면 어느 쪽이
+    그림에 들어가는 이름인지 화면이 스스로 헷갈리게 말하는 셈입니다.
+
+    재사용 경로(`from_job`)는 제외합니다: 그 사진이 이미 어떤 강아지에 붙어 있는지
+    프론트가 알 방법이 없습니다 — `GET /v1/jobs/{id}` 응답에 `pet_id` 가 없습니다(§3,
+    이슈 #101 로 요청해 둔 두 번째 필드).
+    모르면서 «우리 아이로 들어갑니다» 라고 단정하면 이름이 멀쩡히 박히는 경우에도
+    거짓말이 되므로, 그 경로에서는 단정하지 않고 아래 기본 저장 폼을 그대로 둡니다.
+  */
+  const askNameHere = namesTheImage && !blocked && !styleMissing && !petId && fromJobId === null
 
   return (
     <>
@@ -617,6 +649,26 @@ function ConfirmPanel({
         </>
       )}
 
+      {!blocked && !styleMissing && namesTheImage && (
+        <PetNameNotice
+          petName={petName}
+          /*
+            강아지가 붙어 있는데 이름을 아직 모르는 창이 실제로 있습니다.
+
+            초안 복원(402 왕복·재방문)은 `petId` 를 sessionStorage 에서 즉시 되살리는데
+            `GET /v1/pets` 는 그 뒤에 도착합니다. 그 사이를 «우리 아이» 로 그리면
+            화면이 **먼저 거짓말을 하고 나중에 정정**합니다 — 그 순간에 버튼을 누른
+            사용자에게는 정정이 오지 않습니다. 목록에서 사라진 강아지(다른 탭에서
+            삭제)라면 그 창이 아예 안 닫힙니다.
+          */
+          petAttached={petId !== null}
+          /* 재사용 경로에서는 이 사진에 붙은 강아지를 프론트가 모릅니다 — 위 주석 참조. */
+          certain={fromJobId === null}
+          uploadId={askNameHere ? upload.upload_id : null}
+          onPetSaved={onPetSaved}
+        />
+      )}
+
       {!blocked && !styleMissing && (
         <>
           {/* 노트3 — 경고가 있어도 이 버튼은 항상 눌립니다. 노트4 — 금액을 버튼에 박습니다. */}
@@ -646,7 +698,7 @@ function ConfirmPanel({
         </>
       )}
 
-      {!petId && upload.upload_id && (
+      {!petId && upload.upload_id && !askNameHere && (
         <SavePetForm uploadId={upload.upload_id} onSaved={onPetSaved} />
       )}
     </>
@@ -672,14 +724,94 @@ function WarningCard({ warning }: { warning: UploadIssue }) {
   )
 }
 
+/**
+ * 그림에 이름이 들어가는 스타일의 예고 (PR #98 · app/petNameStyles.ts).
+ *
+ * 세 가지 상태를 **말이 되는 만큼만** 구분합니다. 아는 것은 단정하고, 모르는 것은
+ * 모른다고 말합니다 — 재사용 경로에서 «우리 아이가 들어갑니다» 라고 단정하면 이름이
+ * 멀쩡히 박히는 사진에 대고 거짓말을 하는 셈입니다.
+ *
+ * 진행을 막지 않는 것은 W-04 의 경고 카드와 같은 원칙입니다(노트3) — 이름 없이 만드는
+ * 것도 정상 경로이고, 화면이 할 일은 결제 전에 사실을 알려 주는 것까지입니다.
+ */
+function PetNameNotice({
+  petName,
+  petAttached,
+  certain,
+  uploadId,
+  onPetSaved,
+}: {
+  petName: string | null
+  /** 이 사진에 강아지가 붙어 있는가. 붙어 있으면 이름을 모를 때도 폴백이 아닙니다. */
+  petAttached: boolean
+  /** 이 사진에 붙은 강아지를 프론트가 아는가. 재사용 경로에서는 모릅니다. */
+  certain: boolean
+  /** 값이 있으면 이 자리에서 이름도 받습니다 — 아래 기본 저장 폼은 내려갑니다. */
+  uploadId: string | null
+  onPetSaved: (petId: string) => void
+}) {
+  return (
+    <section className="mt-3 rounded-lg border border-rule bg-surface-2 px-3 py-3">
+      <p className="text-sm text-ink-2">
+        {petName !== null ? (
+          <>
+            그림에 <span className="font-semibold text-ink">«{petName}»</span> 라는 이름이
+            들어갑니다.
+          </>
+        ) : petAttached ? (
+          // 이름은 아직(또는 영영) 모르지만 «우리 아이» 가 아닌 것은 압니다.
+          <>저장된 강아지의 이름이 그림에 들어갑니다.</>
+        ) : certain ? (
+          <>
+            이대로 만들면 그림에{' '}
+            <span className="font-semibold text-ink">«{PET_NAME_FALLBACK}»</span> 라는 이름이
+            들어갑니다.
+          </>
+        ) : (
+          <>
+            이 사진에 저장된 강아지가 있으면 그 이름이, 없으면{' '}
+            <span className="font-semibold text-ink">«{PET_NAME_FALLBACK}»</span> 가 그림에
+            들어갑니다.
+          </>
+        )}
+      </p>
+
+      {uploadId && (
+        <SavePetForm
+          uploadId={uploadId}
+          onSaved={onPetSaved}
+          variant="inline"
+          title="이름 넣고 만들기"
+          hint="저장하면 그림에 이 이름이 들어가고, 다음에 올 때 이 사진으로 바로 시작할 수 있어요."
+        />
+      )}
+    </section>
+  )
+}
+
 /** 노트2 — 재방문 시 반복 사용률을 좌우하는 기능이라 업로드 직후 바로 물어봅니다. */
-function SavePetForm({ uploadId, onSaved }: { uploadId: string; onSaved: (petId: string) => void }) {
+function SavePetForm({
+  uploadId,
+  onSaved,
+  variant = 'standalone',
+  title = '이 강아지 저장하기',
+  hint = '다음에 올 때 이 사진으로 바로 시작할 수 있어요.',
+}: {
+  uploadId: string
+  onSaved: (petId: string) => void
+  /** `inline` 은 이미 카드 안에 들어가 있는 경우 — 테두리를 겹쳐 그리지 않습니다. */
+  variant?: 'standalone' | 'inline'
+  title?: string
+  hint?: string
+}) {
   const [name, setName] = useState('')
   const createPet = useCreatePet()
 
   return (
     <form
-      className="mt-6 rounded-lg border border-rule bg-surface p-3"
+      className={
+        variant === 'inline' ? 'mt-3' : 'mt-6 rounded-lg border border-rule bg-surface p-3'
+      }
       onSubmit={(event) => {
         event.preventDefault()
         const trimmed = name.trim()
@@ -687,13 +819,13 @@ function SavePetForm({ uploadId, onSaved }: { uploadId: string; onSaved: (petId:
         createPet.mutate({ name: trimmed, uploadId }, { onSuccess: (pet) => onSaved(pet.id) })
       }}
     >
-      <label htmlFor="pet-name" className="text-sm font-semibold">
-        이 강아지 저장하기
+      <label htmlFor={`pet-name-${variant}`} className="text-sm font-semibold">
+        {title}
       </label>
-      <p className="mt-0.5 text-xs text-ink-3">다음에 올 때 이 사진으로 바로 시작할 수 있어요.</p>
+      <p className="mt-0.5 text-xs text-ink-3">{hint}</p>
       <div className="mt-2 flex gap-2">
         <input
-          id="pet-name"
+          id={`pet-name-${variant}`}
           value={name}
           onChange={(event) => setName(event.currentTarget.value)}
           placeholder="이름 (예: 콩이)"

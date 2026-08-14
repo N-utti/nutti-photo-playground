@@ -19,12 +19,12 @@ import { renderWithProviders } from '../test/render'
 import { server } from '../test/server'
 import W03StyleDetail from './W03StyleDetail'
 
-function mockDetail(examples: string[]) {
+function mockDetail(examples: string[], code = 'lego-minifig') {
   server.use(
     http.get('*/v1/styles/:styleId', () =>
       HttpResponse.json({
         id: 101,
-        code: 'lego-minifig',
+        code,
         name: '레고 미니피겨',
         credit_cost: 1,
         examples,
@@ -75,5 +75,31 @@ describe('W-03 예시 캐러셀', () => {
 
     expect(await screen.findByText('적용 예시 1 / 3')).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: /^예시 \d$/ })).toHaveLength(3)
+  })
+})
+
+/**
+ * 이름이 그림에 인쇄되는 스타일의 예고 (PR #98 · app/petNameStyles.ts).
+ *
+ * 이 시트는 «이 스타일로 만들기» 직전의 마지막 설명 자리입니다. 재사용 경로에서는
+ * 여기서 W-04 확인 단계까지 한 번에 넘어가므로(FR-W06-07), 여기서 안 말하면 이름이
+ * 박힌다는 사실을 처음 보는 곳이 결과 화면이 됩니다.
+ */
+describe('W-03 · 이름이 들어가는 스타일 예고', () => {
+  it('해당 스타일이면 어떤 이름이 인쇄되는지 말한다', async () => {
+    mockDetail([], '식빵')
+    renderSheet()
+
+    // 정확 일치로 봅니다 — 정규식이면 강조 span 과 그걸 감싼 p 가 함께 걸립니다.
+    expect(await screen.findByText('아이 이름이 그림에 들어갑니다')).toBeInTheDocument()
+    expect(screen.getByText(/«우리 아이» 가 인쇄됩니다/)).toBeInTheDocument()
+  })
+
+  it('그 밖의 스타일에서는 없는 말을 하지 않는다', async () => {
+    mockDetail([], '찜질방')
+    renderSheet()
+
+    expect(await screen.findByRole('heading', { name: '레고 미니피겨' })).toBeInTheDocument()
+    expect(screen.queryByText(/이름이 그림에 들어갑니다/)).not.toBeInTheDocument()
   })
 })
