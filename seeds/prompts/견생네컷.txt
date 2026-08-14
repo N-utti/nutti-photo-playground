@@ -1,0 +1,80 @@
+[사용법]
+1. ChatGPT에 반려동물 사진 1장을 첨부하세요 (얼굴 정면, 밝은 사진!)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 이름과 배경색만 바꾸면 나만의 네컷 완성!
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+■ 여기만 바꿔주세요
+반려견 이름: 단지
+  (영문 이름으로 작성해주시는걸 추천드립니다.)
+배경색: 따뜻한 오렌지
+  (다른 예시 → 파스텔 핑크 / 민트 / 라벤더 / 크림 아이보리 / 소다 블루)
+
+──────────────────────
+
+Using the attached pet photo, create a Korean photo-booth style
+"life four cut" (인생네컷) print featuring this exact pet.
+
+LIKENESS (most important)
+All four frames must show the SAME individual pet from the attached photo —
+identical coat color, markings, ear shape, muzzle length and eye color.
+Photorealistic, not illustrated. Clearly recognizable as this specific pet
+in every frame.
+
+LAYOUT — vertical 4:5 canvas
+- Solid background in the color specified above, filling the whole canvas
+- A 2x2 grid of four square photo frames centered, evenly spaced with a
+  narrow uniform gap between them
+- Generous margin at the top and bottom
+
+TOP AREA
+- The pet's name centered at the top, in pure white.
+- Use an extra-bold rounded display font: very thick strokes, fully
+  rounded soft terminals, slightly condensed, playful and friendly.
+- If the name is written in Korean, render it in Korean using a heavy
+  rounded Korean display typeface, spelled EXACTLY as given, character
+  for character. Do not translate or alter it.
+- No other text at the top.
+
+BOTTOM AREA
+- The text "nutti.co.kr" centered at the bottom, pure white, smaller than
+  the name at the top
+- Use the same extra-bold rounded bubbly font style — thick strokes,
+  soft rounded terminals, chunky and cute
+- Nothing else in the bottom area. No dots, no decorations, no icons.
+
+THE FOUR FRAMES
+Each frame is a head-and-chest studio portrait of the pet on a soft
+cream-beige seamless backdrop, warm even lighting, shallow depth of field.
+Same pet, same backdrop, four different moments:
+
+Frame 1 (top left)    — head tilted playfully to one side, mouth open with
+                        tongue slightly out, bright cheerful expression
+Frame 2 (top right)   — nose pressed very close to the camera lens in a
+                        playful wide-angle "boop" shot, nose slightly soft
+                        focus, eyes visible behind it
+Frame 3 (bottom left) — head tilted at a gentle angle to the opposite
+                        side from Frame 1, looking straight into the lens
+                        with a curious, inquisitive expression, mouth
+                        closed, eyes soft and natural.
+                        IMPORTANT: keep the ears in exactly the same
+                        natural shape, length and position as in the
+                        attached photo — do not perk, raise, or reshape
+                        them. The head, muzzle and ear silhouette must
+                        match the attached photo precisely.
+Frame 4 (bottom right)— surrounded by floating translucent soap bubbles,
+                        mouth open mid-play, eyes following one bubble
+
+TEXT RENDERING
+Only two pieces of text exist in the whole image: the pet's name at the
+top and "nutti.co.kr" at the bottom. Do not add captions, dates,
+watermarks, logos, or any other text anywhere.
+
+STYLE
+Clean photo-booth print aesthetic, vivid but soft colors, professional
+pet studio photography quality.

@@ -1,0 +1,90 @@
+[사용법]
+1. ChatGPT에 반려동물 사진 1장을 첨부하세요 (얼굴 정면, 밝은 사진!)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 스타일만 골라서 적으면 완성!
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+■ 여기만 바꿔주세요
+스타일: 2000년대 갸루
+  ① 90년대 코갸루 — 교복 미니스커트, 루즈삭스, 태닝
+  ② 2000년대 갸루 — 화려한 액세서리, 데코덴, 폴더폰
+  ③ 히메갸루 — 공주풍, 프릴, 파스텔 핑크
+  ④ 현대 갸루 — 미니멀, Y2K 리바이벌
+
+──────────────────────
+
+Using the attached pet photo, create a photorealistic portrait of this
+exact pet styled as a Japanese gyaru, in the era written above.
+Vertical 4:5 canvas.
+
+IDENTITY LOCK
+The pet must be the SAME individual as the attached photo — identical
+coat color, identical markings and their exact placement, identical ear
+type, shape and length, same muzzle length, same eye color, same face
+proportions. Never change the breed silhouette. Fully photorealistic.
+
+THE FACE — leave it alone, this is important
+The pet's face stays a completely natural, unmodified dog face. Do NOT
+apply makeup of any kind — no eyeliner, no eyeshadow, no lipstick, no
+false lashes, no contouring, no drawn-on features. No human eyes, no
+human mouth. The comedy comes from an ordinary dog face surrounded by
+elaborate styling, not from a made-up animal.
+Expression: relaxed and confident, mouth slightly open in a natural pant,
+eyes bright and looking straight into the camera. Cheerful and unbothered.
+
+THE STYLING — express the era entirely through hair, clothes and props
+
+· 90년대 코갸루 — Bleached caramel-blonde hair extensions clipped along
+  the head, styled with height and volume. A navy sailor-collar school
+  uniform top with a red neckerchief, a plaid pleated mini skirt, and
+  slouchy oversized white loose socks. A small shoulder bag covered in
+  keychains. Chunky platform loafers if the feet are visible.
+
+· 2000년대 갸루 — Voluminous curled honey-blonde hair with a small
+  rhinestone tiara clip. A cropped pink velour tracksuit jacket over a
+  glittery tank top. Layered chain necklaces, hoop earrings clipped near
+  the ears, a beaded charm bracelet on one front leg. Holding a flip
+  phone completely encrusted in rhinestones, stickers and dangling
+  charms. Tiny painted nail art on the front paws with gems and stripes.
+
+· 히메갸루 — Long straight platinum hair with heavy curled sides and a
+  large pastel bow on top. A frilly pastel pink dress with lace tiers,
+  ribbons and pearl buttons. A small lace parasol. Delicate pearl
+  jewelry. Everything soft, princess-like and elaborate.
+
+· 현대 갸루 — Sleek ash-blonde layered hair with face-framing pieces. A
+  cropped white baby tee, low-rise mini skirt, a butterfly hair clip and
+  a thin choker. Small tinted sunglasses pushed up on the head. Minimal
+  jewelry, clean and modern.
+
+CLOTHING REALISM
+Every garment and accessory must fit the pet's body naturally, with real
+fabric texture, natural creases and soft shadows where it meets the fur.
+The hair extensions blend into the pet's own head fur convincingly. Never
+flat, never sticker-like, never costume-shop stiff.
+
+THE SETTING
+A soft, blurred background matching the era: a neon-lit Shibuya street at
+dusk, a purikura photo booth interior, or a pastel bedroom covered in
+plush toys and stickers. Bright bokeh, colorful and busy but entirely out
+of focus.
+
+LIGHT AND CAMERA
+Bright, flat, slightly overexposed frontal flash — the look of a 2000s
+digital compact camera or a purikura booth. Slightly blown-out
+highlights, punchy saturated color, a touch of magenta in the shadows.
+Shot close, head and chest filling the frame, at the pet's eye level.
+Fine grain, slight softness, no modern polish.
+
+TEXT
+No text, letters, numbers, logos or watermarks anywhere in the image.
+
+STYLE
+A real photograph — a candid snapshot of a very well-dressed dog. Fun,
+bright and slightly absurd. Never a digital illustration, never a
+cartoon, never a made-up animal face.

@@ -1,0 +1,78 @@
+[사용법]
+1. ChatGPT에 반려동물 사진 1장을 첨부하세요
+   (앉거나 누워있는 전신샷 추천!)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 그대로 붙여넣기만 해도 완성!
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+──────────────────────
+
+Using the attached pet photo, create a photograph of this exact pet
+relaxing at home, with six tiny miniature versions of ITSELF climbing all
+over its body. Vertical 4:5 canvas.
+
+THE BIG ONE — the real pet
+- The pet from the attached photo, at normal size, sitting or lying
+  propped up on a sofa, seen from the side
+- Identical coat color, identical markings and their exact placement,
+  identical ear type and shape, same muzzle length, same eye color.
+  Never change the breed silhouette. Fully photorealistic.
+- Expression: completely unbothered and mildly bored. Eyes looking off to
+  the side, away from the camera and away from the miniatures. Mouth
+  closed. Ears in their natural relaxed position.
+- It does not react to them at all. This total indifference is the joke.
+
+THE MINIATURES — six of them, all identical to the big one
+- Each is a tiny version of the SAME pet, about the size of a plum,
+  roughly one tenth the height of the real one
+- Every miniature has the same coat color, the same markings in the same
+  positions, the same ear type and the same face as the big pet — they
+  are exact small copies, never a different breed or color
+- They look like small hand-painted resin figurines: a soft matte finish,
+  slightly simplified fur detail, tiny glossy painted eyes, subtle
+  brushwork texture. Solid and physical, not fluffy.
+- Each one is in a different playful pose:
+  · one clinging to the chest fur, front paws raised, standing upright
+  · one perched on top of the head between the ears, sitting
+  · one climbing up the shoulder, mid-scramble
+  · one sitting on the sofa cushion beside the big pet, looking up
+  · one hanging off the side of the belly, paws gripping
+  · one standing on the sofa arm in the foreground, small and closer to
+    the camera
+- Vary their angles and directions — some face the camera, some face
+  away, some are seen in profile. Never a neat row.
+
+PHYSICAL CONTACT — this is what sells it
+The miniatures must genuinely rest on the body, not float beside it:
+- Wherever a miniature sits, the fur beneath it is visibly PRESSED DOWN
+  and parted, forming a small dent
+- Each casts a small soft contact shadow onto the fur directly under it,
+  darker and tighter right at the contact point
+- The ones clinging have their tiny front paws sunk slightly INTO the
+  fur, with strands of fur pushing up around them
+- Their scale is consistent with each other and correct against the big
+  pet's body
+- The ones closer to the camera are slightly larger and softer in focus
+
+THE SETTING
+An ordinary living room sofa in soft grey fabric, with a cushion and the
+sofa arm visible. Beige curtains and a wall softly blurred behind. Warm
+natural daylight from a window to one side. Everyday and uncluttered.
+
+LIGHT AND CAMERA
+Soft diffused daylight from one side, gentle shadows, warm natural tone.
+Shot from the side at the pet's eye level with a 50mm lens. The big pet's
+face and the nearest miniatures in sharp focus, the background dissolved.
+Fine grain, slightly imperfect handheld framing, no filters.
+
+TEXT
+No text, letters, numbers, logos or watermarks anywhere in the image.
+
+STYLE
+A real candid phone snapshot taken at home. Funny, warm and believable.
+It must look like an actual photograph, never a digital illustration.

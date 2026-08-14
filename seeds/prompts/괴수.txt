@@ -1,0 +1,89 @@
+[사용법]
+1. ChatGPT에 반려견 사진 1장을 첨부하세요 (얼굴 정면, 밝은 사진!)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 장면만 골라서 적으면 완성!
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+■ 여기만 바꿔주세요
+장면: 도시 한복판에 등장
+  (다른 예시 → 불 뿜기 / 안개 속에서 걸어나오기 /
+              빌딩 사이로 얼굴 내밀기 / 바다에서 상륙 /
+              헬기 쳐다보기)
+
+──────────────────────
+
+Using the attached pet photo, create an epic kaiju monster movie poster
+featuring this exact pet as the colossal creature. Vertical 4:5 canvas.
+
+THE JOKE — read this first
+The entire image is played completely straight, as a serious, ominous,
+apocalyptic kaiju film. The city is terrified. The atmosphere is heavy
+and dramatic. Every single element treats this as a world-ending event.
+The ONLY thing that is not serious is the creature itself — which is an
+ordinary, soft, happy little dog, four hundred feet tall, having the best
+day of its life. The comedy comes entirely from that contrast. Never wink
+at the audience: the production values stay dead serious.
+
+IDENTITY LOCK
+The creature must be the SAME individual as the attached photo —
+identical coat color, identical markings and their exact placement,
+identical ear type, shape and length, same muzzle length, same eye color,
+same face proportions. Never change the breed silhouette.
+It is a completely ordinary dog at monstrous scale. NO scales, NO horns,
+NO spines, NO claws, NO fangs, NO glowing eyes, NO armor plating, NO
+muscular monster anatomy. Just the dog. Enormous.
+
+THE CREATURE'S DEMEANOR — the punchline
+- Standing upright on all fours in a dramatic hero pose, but the pose is
+  slightly goofy: head tilted with curiosity, one ear flopped
+- Mouth open in a happy pant, tongue lolling out to one side
+- Bright friendly eyes, completely oblivious to the chaos
+- Soft fluffy fur ruffled by the wind — visibly soft and huggable against
+  the hard, grim city
+- It looks like it is about to sit for a treat. It is not attacking.
+  It is delighted to be here.
+
+THE ATMOSPHERE — this is where the epic tone lives
+- Deep night, heavy fog and thick smoke rolling through the streets
+- The creature emerges from the mist, its lower body swallowed by haze
+- Strong backlighting from behind the creature, throwing the front of the
+  body into partial silhouette with a cold blue-white glow around it
+- Dense volumetric light beams cutting through the fog
+- Cold teal-and-blue color grading with deep crushed blacks, punctuated
+  by warm orange emergency lights far below
+- Distant neon signage glowing pink and cyan through the murk
+- Ash and debris drifting slowly through the air
+
+THE CITY
+- A vast dense metropolis at night seen from a high dramatic angle,
+  skyscrapers stretching to the horizon
+- The creature towers over every building, head above the skyline
+- Tiny lit office windows across the towers for scale
+- Streams of red tail lights fleeing along the avenues far below
+- Several small helicopters circling, searchlights sweeping the creature
+- Distant plumes of smoke, sirens implied by scattered flashing lights
+
+THE SCENE
+Stage the moment written above with full cinematic gravity.
+If breathing fire: a massive roaring plume erupting into the sky,
+illuminating the fog from within — but the dog's expression stays
+cheerful, as if it just sneezed.
+
+CAMERA
+Wide anamorphic cinematic lens, low dramatic angle looking up. Shallow
+atmospheric depth. Heavy film grain, subtle lens flare, high dynamic
+range. Slight chromatic aberration at the edges.
+
+TEXT
+No text, letters, numbers, logos or watermarks anywhere in the image.
+
+STYLE
+A real blockbuster monster movie poster. Photorealistic, grim, epic and
+atmospheric — with an extremely cute dog at the center of it.
+The dog must be rendered as a real photographic dog, never stylized,
+never cartoonish, never anime. Real fur, real dog anatomy, real eyes.

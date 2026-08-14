@@ -1,0 +1,67 @@
+[사용법]
+1. ChatGPT에 반려견 사진 1장을 첨부하세요 (얼굴 정면, 밝은 사진!)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 사람 설정만 골라서 적으면 완성!
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+■ 여기만 바꿔주세요
+사람 설정: 한국인 20대 여성
+  (다른 예시 → 한국인 20대 남성 / 30대 남성 / 40대 여성 / 10대 소년)
+배경색: 크림 아이보리
+  (다른 예시 → 파스텔 핑크 / 소다 블루 / 세이지 그린 / 라벤더)
+
+──────────────────────
+
+Using the attached pet photo, create a two-panel "if my dog were a human"
+comparison portrait.
+
+LAYOUT — vertical 4:5 canvas
+- Solid background in the color specified above, filling the canvas
+- Two equal-size panels stacked vertically, narrow uniform gap between them
+- Even margin on all four sides. Nothing touches the canvas edge.
+
+PANEL 1 (top) — THE DOG
+A clean head-and-chest studio portrait of the pet from the attached photo.
+Keep it photorealistic and identical to the attached photo: same coat
+color, same markings and their placement, same ear type and shape, same
+muzzle, same eye color, same expression. Soft cream-beige seamless
+backdrop, warm even lighting.
+
+PANEL 2 (bottom) — THE HUMAN VERSION
+A photorealistic human portrait, matching the person type specified above.
+Same framing, same backdrop, same lighting as Panel 1.
+
+TRANSLATE the dog's features into human features — this is the whole point.
+Do this deliberately, not randomly:
+- Coat color  → hair color (a golden coat becomes warm blonde-brown hair,
+                a black coat becomes glossy black hair, a cream coat
+                becomes soft light hair)
+- Coat texture→ hair texture (fluffy curly coat becomes wavy or permed
+                hair, short sleek coat becomes straight neat hair)
+- Ear shape   → hairstyle (long drooping ears become long hair framing
+                the face, upright pointed ears become short cropped hair
+                with a bit of lift)
+- Face markings → subtle freckles, a beauty mark, or a lighter hair
+                streak in the same position as the dog's markings
+- Eye color and eye shape → carried over as closely as possible
+- Expression and vibe → the same personality in the face. A goofy
+                open-mouth dog becomes a bright wide grin; a calm serious
+                dog becomes a composed gentle look.
+- Collar color → the color of the person's simple knit top or scarf
+
+The human must look like a real, natural, ordinary attractive person —
+NOT a dog-human hybrid. No fur, no snout, no animal ears, no whiskers,
+no makeup effects. Just a normal human whose look clearly echoes the dog.
+
+TEXT
+No text, letters, numbers, logos or watermarks anywhere in the image.
+
+STYLE
+Warm natural studio portrait photography, soft light, shallow depth of
+field, gentle film-like color grading. Both panels must look like they
+were shot in the same session by the same photographer.

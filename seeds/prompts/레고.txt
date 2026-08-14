@@ -1,0 +1,102 @@
+[사용법]
+1. ChatGPT에 반려견 사진 1장을 첨부하세요
+   (배경이 잘 보이는 사진일수록 재밌어요! 공원, 거실, 카페 등)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 그대로 붙여넣기만 해도 완성!
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+──────────────────────
+
+Rebuild the ENTIRE attached photo — the pet and the whole scene around it
+— as a highly detailed miniature diorama made of interlocking plastic
+construction bricks. Vertical 4:5 canvas.
+
+THE MOST IMPORTANT RULE — THERE IS NO FUR
+This sculpture has NO fur, NO hair, and NO soft surfaces of any kind.
+It is a hard plastic object. Do not attempt to depict fur texture
+anywhere, in any form, at any scale.
+The pet's coat is represented ONLY by flat color changes between bricks —
+never by shape, never by texture, never by anything protruding.
+Wherever the real pet has fluffy or wispy fur (around the muzzle, the
+cheeks, the chest, the ear tips, the legs), the sculpture instead has a
+completely smooth, hard, flat brick surface with clean straight edges.
+Treat the pet as a solid geometric object, like a piece of architecture.
+
+GEOMETRY — everything is right angles
+The entire surface of the build consists ONLY of horizontal faces and
+vertical faces meeting at 90 degrees.
+- No diagonal surfaces. No curves. No rounded edges. No tapered shapes.
+- No piece is ever tilted, rotated, angled, or set at anything other
+  than flat-on-grid
+- Nothing protrudes, spikes, fans out, curls, feathers, or sticks out
+- Every silhouette edge is a clean staircase of square steps
+- If any part of the image contains a soft, wispy, curved or diagonal
+  edge, it is WRONG
+
+RESOLUTION — fine, but still perfectly square
+Built from thousands of very small bricks, mostly 1x1 and 1x2 sizes,
+packed densely like 3D pixels.
+- The head alone contains several hundred small bricks
+- Volume and roundness are suggested ONLY by many small square steps,
+  like a low-resolution 3D voxel model
+- More small pieces is better than fewer large ones — but every single
+  one stays axis-aligned and flush with its neighbours
+- Think of it as a voxel sculpture: a dog rendered in cubes
+
+COLOR FIDELITY — this is what makes it recognizable
+- Reproduce the pet's actual coat colors using many closely-related brick
+  shades placed side by side
+- Lighter bricks where light falls, darker bricks in shaded areas,
+  transitioning in stepped pixel-like dithering
+- Markings recreated as blocks of a different brick color in exactly the
+  same positions and shapes as the photo
+- All shading comes from COLOR only, never from surface shape
+
+THE PET
+- Same pose, same proportions, same camera angle as the original photo
+- Muzzle length, head shape, body length and stance must match the real
+  pet's silhouette closely
+- THE MUZZLE AREA: built as a solid rectangular block stepping out from
+  the face. Completely smooth and flat. No whiskers, no fringe, no
+  scruffy edges. A small black square nose brick and a simple flat mouth.
+- THE EARS: each ear is one solid dense mass of small bricks with a
+  clean stepped staircase outline. The bottom edge of each ear ends in a
+  flat horizontal row of bricks — a clean straight cut, never tapered,
+  never wispy, never ragged. Both ears built identically.
+- Legs are dense stacked columns with square stepped contours
+- Simple round printed eyes
+
+THE BACKGROUND — rebuild it, don't replace it
+Recreate the actual environment from the attached photo in bricks,
+keeping the same layout, colors and objects:
+- Ground becomes dense baseplates covered in small round studs
+- Grass becomes green plates in several shades with small brick tufts
+- Trees become brown brick trunks with densely stacked green leaf pieces
+- Buildings, walls and furniture become detailed brick structures in
+  matching colors and shapes
+- Sky becomes a smooth soft gradient backdrop behind the diorama
+- Objects near the pet are rebuilt as small brick versions in the same
+  positions
+Keep the original composition and camera angle.
+
+PHYSICAL REALISM
+- Visible round studs on every upward-facing surface, in straight rows
+- Clean seam lines between individual bricks across the whole build
+- Hard glossy injection-molded plastic with sharp specular highlights
+  along the square edges
+- Faint mold lines and small scuffs
+- Soft studio lighting from above, crisp shadows in the seams
+- Shallow depth of field, the pet's face in sharp focus
+
+STYLE
+Photorealistic toy photography of a real physical brick sculpture.
+Hard, angular, geometric. Bright saturated toy colors. It must look like
+a real photograph of a real built model, not a digital illustration.
+
+TEXT
+No text, letters, numbers, logos, brand marks or watermarks anywhere.

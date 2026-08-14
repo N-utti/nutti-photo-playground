@@ -1,0 +1,70 @@
+[사용법]
+1. ChatGPT에 반려견이 웅크리고 앉은 사진을 첨부하세요
+   (식빵 자세 / 방석·침대 위 사진이 제일 잘 나와요!)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 이름만 바꾸면 완성!
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+■ 여기만 바꿔주세요
+반려견 이름: 단지
+
+──────────────────────
+
+Using the attached photo, composite a realistic loaf-of-bread packaging
+bag onto the pet, as if the pet were a product of sandwich bread.
+
+BASE
+- Keep the original photo exactly as it is: same pet, same pose, same
+  room, same lighting, same background. Do not redraw or restyle it.
+- Only ADD the bread packaging on top, as a photo composite.
+
+THE BREAD PACKAGING
+- A clear glossy plastic bread bag wrapping the pet's body from behind,
+  so the pet's head and front paws stay fully visible and uncovered
+- The bag hugs the rounded shape of the pet's back like a real loaf of
+  sandwich bread — soft, plump, slightly squishy silhouette
+- Realistic plastic sheen, soft wrinkles and highlights, a subtle seam
+  along the top edge
+- Match the room's lighting direction and color temperature so it looks
+  like a real photograph, not a sticker
+
+THE LABEL (printed on the front of the bag)
+Design a warm bakery-style label, DIFFERENT from typical blue-and-white
+bread packaging:
+- Background: soft butter-cream ivory with a thin rounded border in warm
+  caramel brown
+- A small oval bakery emblem at the top with a wheat-stalk icon and a
+  tiny paw print
+- A soft mint-green ribbon banner across the upper area
+- A round golden-yellow sticker badge in the bottom left corner
+- Gentle drop shadow, matte print texture, cozy artisanal bakery feel
+
+TEXT ON THE LABEL — CRITICAL
+Render these Korean lines EXACTLY as written, character for character.
+Do not translate, invent, or alter any character. Use a rounded, friendly
+Korean sans-serif. All text must be crisp and clearly legible.
+
+Line 1 (small, on the mint ribbon banner):
+폭신말랑~
+
+Line 2 (largest, centered, bold, dark brown):
+[pet name] 식빵
+
+Line 3 (small, centered under the title, thin):
+갓 구운 하루
+
+Line 4 (inside the round golden badge, stacked in two short lines):
+420g
+1120kcal
+
+For Line 2, replace [pet name] with the name written above, keeping the
+word 식빵 immediately after it, with a single space between them.
+
+FINAL
+No other text, no logos, no watermarks, no captions anywhere in the image.
+Photorealistic composite, sharp focus, natural shadows.

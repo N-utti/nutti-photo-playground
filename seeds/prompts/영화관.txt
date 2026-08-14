@@ -1,0 +1,83 @@
+[사용법]
+1. ChatGPT에 반려동물 사진 1장을 첨부하세요 (얼굴 정면, 밝은 사진!)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 그대로 붙여넣기만 해도 완성!
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+──────────────────────
+
+Using the attached pet photo, create a photograph of this exact pet
+sitting in a movie theater seat wearing 3D glasses and holding a popcorn
+bucket. Vertical 4:5 canvas.
+
+IDENTITY LOCK
+The pet must be the SAME individual as the attached photo — identical
+coat color, identical markings and their exact placement, identical ear
+type, shape and length, same muzzle length, same eye color, same face
+proportions. Never change the breed silhouette. Fully photorealistic.
+
+THE 3D GLASSES — fit them properly, this is the tricky part
+Classic paper anaglyph 3D glasses: a white cardboard frame with one red
+lens and one cyan lens.
+- The frame rests across the bridge of the muzzle, sitting naturally on
+  the fur rather than floating above it, pressing the fur down very
+  slightly where it makes contact
+- The temple arms run backward along the sides of the head, passing in
+  front of the ears and disappearing into the fur. They do NOT hook over
+  the ears.
+- The glasses sit very slightly crooked — a little lower on one side —
+  as they would on a face not designed for them
+- The colored lenses are semi-transparent: the eyes are visible behind
+  them, tinted red on one side and cyan on the other
+- The cardboard has a real matte paper texture with a soft fold line
+
+THE POPCORN
+- A tall red-and-white striped paper popcorn bucket held upright between
+  both front paws, resting against the chest
+- Filled to overflowing with golden buttered popcorn, a few kernels
+  spilling over the rim and one or two resting on the seat
+- The bucket has no text, no logos and no printed graphics — stripes only
+- The paws grip the sides naturally, toes visible
+
+THE POSE AND EXPRESSION
+- Sitting upright in the seat, body facing forward toward the screen,
+  head turned slightly toward it
+- Completely absorbed in the film: mouth slightly open, eyes fixed
+  forward past the camera, ears in their natural relaxed position
+- Still and attentive, as if the movie just got interesting
+- Slightly off-center in the frame, a candid unposed moment
+
+THE THEATER
+- A row of dark blue-grey upholstered cinema seats, the pet sitting in
+  one of them, with more empty seats visible behind and to the sides
+- The seats recede into darkness toward the back of the room
+- The theater is otherwise empty
+- Nothing else in frame — no other people, no exit signs, no text
+
+LIGHT — this is what makes it a cinema
+The only light comes from the screen, off-frame in front of the pet.
+- The face, chest and the front of the popcorn bucket are lit by a soft,
+  cool, slightly flickering glow from the front
+- Everything else falls off rapidly into deep shadow — the seats behind
+  are barely lit, the far rows nearly black
+- Faint shifting color cast on the fur from the screen light
+- Soft haze in the air catching the projector beam
+
+CAMERA
+Shot from the side and slightly below, at the pet's eye level, with a
+50mm lens. Shallow depth of field, the face in sharp focus, the seats
+behind dissolving into darkness. Slightly high ISO with visible grain, as
+a real photo taken in a dark room. Natural color, no filters.
+
+TEXT
+No text, letters, numbers, logos or watermarks anywhere in the image.
+
+STYLE
+A real candid photograph taken in a dark cinema. Funny, warm and
+believable. It must look like an actual photo, never a digital
+illustration.

@@ -1,0 +1,101 @@
+[사용법]
+1. ChatGPT에 반려동물 사진 1장을 첨부하세요 (얼굴 정면, 밝은 사진!)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 그대로 붙여넣기만 해도 완성!
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+──────────────────────
+
+Using the attached pet photo, create a candid photograph of this exact
+pet caught mid-jump in the air, shot from directly underneath looking up
+into a clear blue sky. Vertical 4:5 canvas.
+
+THE CAMERA ANGLE
+The camera is lying on the ground pointing straight up. The pet is
+overhead, mid-jump above the lens.
+- We see the pet from BELOW: its underside, belly, and the pads of its
+  paws facing down toward the camera
+- The head is tipped down toward us, face looking into the lens
+- This is NOT a side-view jump shot. The camera is beneath the animal.
+
+NATURAL ASYMMETRY — most important, this is what makes it real
+This is a split-second snapshot of a live animal, not a posed model.
+The body must be loose and slightly off-balance:
+- The head and torso run roughly vertically down the frame, but the whole
+  body is rotated a little, maybe 10 to 15 degrees off vertical
+- The head is turned slightly to one side and tilted, NOT facing perfectly
+  straight down
+- All four legs are at DIFFERENT heights and DIFFERENT angles. One front
+  paw reaches further out than the other; one hind leg is more extended,
+  the other more tucked. Never mirrored.
+- Some paw pads face the camera fully, others are angled away and only
+  partly visible. They must not all present identically.
+- The tail swings clearly off to one side, not centered
+- The spine curves gently — the body is slightly twisted, not straight
+- The pet is placed OFF-CENTER in the frame, closer to one side, with
+  uneven sky on the left and right
+- NEVER produce a symmetrical, mirrored, or perfectly balanced pose.
+  Perfect symmetry looks fake and is wrong.
+
+IDENTITY LOCK
+The pet must be the SAME individual as the attached photo — identical
+coat color, identical markings and their exact placement, identical ear
+type, shape and length, same muzzle length, same eye color.
+Never change the breed silhouette. Fully photorealistic.
+
+THE EXPRESSION
+Happy and unposed — caught mid-moment.
+- Mouth open, tongue out and flopped off to one side
+- Eyes bright and soft, one squinting slightly more than the other
+- Ears caught mid-motion, tossed by the jump, at different angles from
+  each other
+- Fur messy and blown around by the air, not neatly groomed
+
+THE SKY
+- A real photographed sky with visible vertical gradation: deeper blue at
+  the top, lightening toward the bottom
+- Faint natural unevenness across the blue, subtle atmospheric haze,
+  never a flat single color
+- A few soft wispy cirrus clouds, blurred and low-contrast, placed
+  asymmetrically, some cut off by the frame edges
+- Very faint sensor noise across the sky
+- Nothing else in frame — no ground, no horizon, no hands, no leash
+
+LIGHT — backlit, this kills the composite look
+The sun is above and behind the pet, so the camera shoots into the light.
+- The underside is in soft SHADE, noticeably darker and lower in contrast
+  than the sky. It is not brightly lit.
+- The belly and chest fall into gentle shadow, lit only by soft light
+  bouncing up from the ground
+- A bright blown-out halo of light along the fur outline where the sun
+  burns through
+- The finest fur strands at the silhouette are OVEREXPOSED and partly
+  dissolve into the sky — the outline is soft and lost in places, never
+  a clean crisp cutout
+- A faint warm veiling glare washes across part of the frame, lowering
+  contrast, as when shooting toward the sun
+- A slight cool blue cast falls over the shaded fur, picked up from the sky
+
+CAMERA — a real handheld snapshot
+Shot on a full-frame camera with a wide lens from close underneath.
+Slightly imperfect framing, as if grabbed quickly. Very slight motion
+blur at the paw tips and the ear edges from the movement. Everything else
+sharp. Natural color, visible grain, no filters.
+
+INTEGRATION
+The pet must NOT look sharper, brighter or more saturated than the sky.
+Match its grain and softness to the sky exactly. No hard edge anywhere
+along the silhouette, no halo outline, no clean cut-out boundary.
+
+TEXT
+No text, letters, numbers, logos or watermarks anywhere in the image.
+
+STYLE
+A real candid photograph — imperfect, spontaneous, joyful. It should look
+like a lucky shot someone grabbed at the right moment, not a studio
+composite.

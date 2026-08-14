@@ -1,0 +1,103 @@
+[사용법]
+1. ChatGPT에 반려견 사진 1장을 첨부하세요 (얼굴 정면, 밝은 사진!)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 자막 두 줄만 바꾸면 완성!
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+■ 여기만 바꿔주세요 (짧을수록 잘 나와요!)
+큰 자막 (12자 이내): 휴지 사건 침묵
+작은 자막 (18자 이내): 본인은 혐의를 전면 부인
+
+[자막 예시]
+· 소파 스크래치 혐의 / 결정적 증거 확보돼
+· 간식 재고 불일치 / 창고 CCTV 공개 예정
+· 산책 거부 사태 / 3일째 입장 없어
+· 새벽 4시 짖음 사건 / 이웃 주민 참고인 출석
+· 양말 실종 미스터리 / 본인은 모르는 일
+
+──────────────────────
+
+Using the attached pet photo, create a serious photojournalistic press
+photograph of this exact pet testifying at a government hearing, framed
+as a live TV news broadcast screenshot. Vertical 4:5 canvas.
+
+THE TONE — read this first
+This image is played completely straight. It is a real news broadcast
+from a real hearing. Nothing in the composition, lighting or staging
+acknowledges that the witness is a dog. The gravity of the room is
+absolute. That is the entire joke — never break it.
+
+IDENTITY LOCK
+The pet must be the SAME individual as the attached photo — identical
+coat color, identical markings and their exact placement, identical ear
+type, shape and length, same muzzle length, same eye color, same face
+proportions. Never change the breed silhouette.
+Fully photorealistic. A real dog, never anthropomorphized.
+
+THE WITNESS
+- Sitting upright at a long wooden witness table, front paws resting
+  flat on the table in front of a stack of documents
+- A cluster of several microphones on flexible stands angled toward its
+  face, very close
+- Wearing a well-fitted dark navy suit jacket over a white shirt, with a
+  slightly loosened necktie. Real creased fabric, tailored to the body.
+- A small blank name placard on the table
+- Expression: a completely ordinary, neutral dog face. Mouth closed,
+  ears in their natural relaxed position, eyes looking slightly off to
+  the side as if a question was just asked. Not sad, not guilty, not
+  smiling — simply blank and present.
+
+THE ROOM
+- A formal government hearing chamber with dark wood paneling and a
+  raised bench behind
+- Rows of committee members seated above, softly out of focus, leaning
+  forward with grave expressions
+- Aides in dark suits along the side walls
+- Stacks of thick binders, a glass of water, untouched
+- Press photographers crowded in the foreground periphery, cameras
+  raised, some blurred by motion
+- Scattered camera flashes firing
+
+THE NEWS LOWER THIRD — render this precisely
+A broadcast news caption bar overlaid across the bottom of the frame,
+spanning the full width:
+- A horizontal bar with a smooth left-to-right gradient, from deep navy
+  blue on the left fading to a brighter cobalt blue on the right,
+  slightly translucent so the image faintly shows through
+- A thin bright cyan accent line running along the very top edge of the
+  bar
+- The bar sits just above the bottom edge of the frame, with a small
+  margin below it
+- Inside the bar, two lines of Korean text, left-aligned with generous
+  padding:
+  · TOP LINE: the "큰 자막" text above, large and bold, pure white,
+    in a heavy condensed Korean sans-serif
+  · BOTTOM LINE: the "작은 자막" text above, noticeably smaller and
+    thinner, in soft light grey, directly beneath the top line
+- A small solid red rectangle sits at the far left of the bar, vertically
+  centered, as a color accent block. No text inside it.
+- Subtle drop shadow beneath the whole bar
+
+TEXT RENDERING — CRITICAL
+Render both Korean lines EXACTLY as written above, character for
+character. Do not translate, invent, shorten or alter any character.
+Both lines must be crisp, sharp and clearly legible.
+These two lines are the ONLY text in the entire image — no other text,
+letters, numbers, logos, station idents, clocks or watermarks anywhere.
+
+CAMERA AND LIGHT
+Shot from a low press-pit angle with a 70-200mm telephoto lens,
+compressed perspective. Harsh mixed lighting: cold overhead fluorescents
+with the hard white pop of camera flashes. Slightly desaturated
+documentary color grading. Visible sensor noise. Sharp focus on the
+witness.
+
+STYLE
+A screenshot from a live television news broadcast. Photorealistic,
+serious, tense, institutional. It must look like a real photograph with a
+real broadcast graphic over it — not a digital illustration.

@@ -1,0 +1,75 @@
+[사용법]
+1. ChatGPT에 반려견 사진 1장을 첨부하세요 (서 있는 전신샷 추천!)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 끝! 바꿀 것 없이 그대로 쓰시면 됩니다
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+──────────────────────
+
+Using the attached pet photo, create a photorealistic image of a tiny
+miniature version of this exact pet standing on a human palm, outdoors
+on a sunny day. Vertical 4:5 canvas.
+
+IDENTITY LOCK (most important)
+The miniature pet must be the SAME individual as the attached photo —
+identical coat color, identical markings and their exact placement,
+identical ear type, shape and length, same muzzle length, same eye color,
+same coat texture and length. Never change the breed silhouette.
+Fully photorealistic, like a real photograph. Not a toy, not a figurine,
+not a plush — a real living dog, simply very small.
+
+THE SCALE ILLUSION — this is the whole point
+- The pet is about the size of a small apple, standing comfortably in the
+  center of an open human palm with room to spare around it
+- The hand is the scale reference: the pet's body spans roughly from the
+  base of the fingers to the middle of the palm
+- Every proportion of the pet stays natural and adult — correct head-to-
+  body ratio, normal leg length. It is a normal dog at miniature scale,
+  NOT a puppy and NOT a chibi cartoon.
+- Fine detail must hold at this size: individual fur strands, moist nose
+  texture, tiny claws, catchlights in the eyes
+
+THE POSE
+Standing on all four legs, facing the camera straight on, head slightly
+raised, mouth open in a happy relaxed smile with a small pink tongue
+showing, bright glossy eyes looking directly into the lens. The fur is
+lifted very slightly by a soft breeze.
+
+THE HAND — keep it simple and natural
+- One open palm seen from above, held flat and level, fingers together
+  and gently relaxed, pointing away from the camera
+- Exactly five fingers, natural human proportions, no rings, no jewelry,
+  no nail polish, short clean nails
+- Soft realistic skin texture with gentle natural creases, lit by warm
+  outdoor sunlight
+- The hand fills the lower two thirds of the frame, slightly angled
+- The wrist is cropped out of frame at the bottom
+
+BACKGROUND — fixed outdoor scene
+- A wide green grass field stretching into the distance behind the hand,
+  fresh and vivid, softly blurred
+- Above it, a bright clear blue sky with a few soft white clouds
+- The horizon line sits roughly behind the pet, so the pet's head is
+  outlined against the blue sky and its body against the green grass
+- A few tiny out-of-focus wildflowers scattered in the grass
+- The entire background is heavily blurred with creamy bokeh, so the
+  hand and the pet stay the clear subject
+
+LIGHT
+Bright natural sunlight from slightly behind and to the side, creating a
+soft warm rim light along the pet's fur. Gentle sunlit warmth on the skin
+of the hand, and a soft natural shadow of the pet cast onto the palm.
+Clean summer daylight, no harsh dark shadows.
+
+CAMERA
+Macro photography, shot close, shallow depth of field with the pet's face
+in sharp focus and the fingertips and background falling softly out of
+focus. Natural colors, clean and bright, no filters.
+
+TEXT
+No text, letters, numbers, logos or watermarks anywhere in the image.

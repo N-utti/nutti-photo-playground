@@ -1,0 +1,79 @@
+[사용법]
+1. ChatGPT에 반려견 사진 1장을 첨부하세요 (얼굴 정면, 밝은 사진!)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 배경천만 골라서 적으면 완성!
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+■ 여기만 바꿔주세요
+배경천: 파란 구름
+  (다른 예시 → 회색 얼룩무늬 / 분홍 그라데이션 / 숲속 풍경 /
+              하늘색 무지개 / 베이지 대리석)
+
+──────────────────────
+
+Using the attached pet photo, create a photograph of this exact pet as a
+1990s Korean family photo studio portrait. Vertical 4:5 canvas.
+
+IDENTITY LOCK (most important)
+The pet must be the SAME individual as the attached photo — identical
+coat color, identical markings and their exact placement, identical ear
+type, shape and length, same muzzle length, same eye color, same face
+proportions. Never change the breed silhouette.
+Fully photorealistic.
+
+THE POSE — stiff and formal, exactly like the era
+- Head and chest portrait, the pet sitting upright dead center in the
+  frame, facing the camera straight on
+- Slightly awkward formal posture, as if being held still for the shot
+- Head tilted very slightly to one side
+- Mouth closed, neutral polite expression, ears in their natural relaxed
+  position, looking directly into the lens
+- Framed a little too tightly, with not quite enough headroom above
+
+THE OUTFIT
+A small knitted sweater vest or a stiff collared shirt with a tiny
+clip-on bow tie, in dated 90s colors — mustard yellow, dusty rose, or
+muted teal, with a small geometric or argyle pattern. The garment looks
+slightly too formal and a little uncomfortable.
+
+THE BACKDROP
+A painted canvas studio backdrop in the style specified above, hung
+behind the subject:
+- Visibly a physical painted cloth, with soft airbrushed blending and
+  faint fabric wrinkles near the edges
+- Slightly cheesy and dated, with an obvious vignette darkening toward
+  the corners
+- The bottom edge of the backdrop is faintly visible where it meets the
+  floor
+
+THE LIGHTING — this is what sells the era
+- Hard, flat, direct on-camera flash from the front, flattening the face
+- A blown-out bright hotspot on the forehead and the nose
+- A hard-edged shadow cast on the backdrop directly behind the subject
+- Slight red-eye glow in the pupils
+- Overall overexposed on the highlights, with the shadows crushed and
+  muddy
+
+FILM AND PRINT CHARACTER
+- Shot on expired 90s color film: warm reddish-orange color cast,
+  slightly faded blacks, low contrast in the midtones
+- Visible film grain throughout
+- Soft, slightly out-of-focus quality overall — not tack sharp anywhere
+- Mild chromatic fringing at the edges of the frame
+- The whole image has the feel of a physical print that has been sitting
+  in an album for thirty years: subtle surface texture, faint scuffs, a
+  very slight yellowing
+
+TEXT
+No text, letters, numbers, logos, dates or watermarks anywhere.
+
+STYLE
+An authentic 1990s Korean photo studio portrait. Stiff, formal, slightly
+awkward and unintentionally charming. It must look like a real scanned
+photograph from a family album — never modern, never polished, never
+digitally clean.

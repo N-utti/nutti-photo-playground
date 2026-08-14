@@ -1,0 +1,64 @@
+[사용법]
+1. ChatGPT에 반려견 사진 1장을 첨부하세요 (전신 사진 추천!)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 그대로 붙여넣기만 해도 완성!
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+──────────────────────
+
+Draw the pet in the attached photo as a crayon drawing made by a
+3-year-old child. Vertical 4:5 canvas.
+
+THIS IS THE MOST IMPORTANT PART — DRAW IT BADLY, ON PURPOSE
+This must look like a real drawing by a very young child, NOT a
+professional illustration imitating one. Absolutely no polish.
+- Lines are wobbly, shaky and uneven, drawn slowly with a heavy hand
+- Lines do not connect properly — gaps at the corners, overshooting ends
+- Coloring is scribbled roughly and goes WAY outside the outlines,
+  with white paper showing through in patches
+- Waxy crayon texture: thick streaky strokes, uneven pressure, visible
+  paper grain
+- The body is a lopsided blob. Legs are four crooked sticks of different
+  lengths. The tail is one squiggly line.
+- The head is far too big for the body
+- Eyes are two uneven dots at slightly different heights
+- The nose is one big scribbled blob
+- The mouth is a single crooked curved line
+- The whole figure is slightly tilted and off-center on the page
+
+NO cute cartoon styling. NO clean vector shapes. NO smooth gradients.
+NO shading. NO perspective. NO professional line art of any kind.
+If it looks skilled or designed, it is wrong.
+
+KEEP THE PET RECOGNIZABLE (but crudely)
+Even though it is drawn badly, a friend should still guess which dog it is:
+- Use the pet's actual coat colors, scribbled in roughly
+- If the pet has markings or patches, scribble them in the same rough
+  positions (a dark patch over one eye, a white chest, etc.)
+- Match the ear type in the crudest possible way: droopy ears become two
+  long floppy blobs hanging down, upright ears become two lopsided
+  triangles on top
+- Match the coat length crudely: a fluffy dog gets messy scribbled fuzz
+  around the outline, a short-haired dog gets a smooth-ish blob outline
+- If the pet wears a collar, add it as one crooked colored line around
+  the neck
+
+PAPER AND BACKGROUND
+- Drawn on slightly textured off-white sketchbook paper, filling the frame
+- A few random stray crayon marks and smudges elsewhere on the page
+- A wobbly green scribble line along the bottom for grass
+- A lopsided yellow sun with uneven spiky rays in one top corner
+- Optional: one or two crooked cloud squiggles
+
+TEXT
+No text, no letters, no numbers, no signature anywhere in the image.
+
+FINAL CHECK
+The result should be genuinely clumsy and endearing — the kind of drawing
+a parent would proudly stick on the refrigerator. Charming because it is
+badly drawn, not despite it.

@@ -1,0 +1,126 @@
+[사용법]
+1. ChatGPT에 반려동물 사진 1장을 첨부하세요 (얼굴 정면, 밝은 사진!)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 신분만 골라서 적으면 완성!
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+■ 여기만 바꿔주세요
+신분: 양반
+
+[신분 고르기]
+① 왕      ② 왕비      ③ 세자
+④ 양반    ⑤ 선비      ⑥ 무관
+⑦ 상궁    ⑧ 의원      ⑨ 상인
+⑩ 농부    ⑪ 대장장이  ⑫ 하인
+
+──────────────────────
+
+Using the attached pet photo, create a formal historical portrait of this
+exact pet as a figure from Korea's Joseon dynasty, in the social role
+written above. Vertical 4:5 canvas.
+
+IDENTITY LOCK
+The pet must be the SAME individual as the attached photo — identical
+coat color, identical markings and their exact placement, identical ear
+type, shape and length, same muzzle length, same eye color, same face
+proportions. Never change the breed silhouette. Fully photorealistic.
+
+THE TONE
+Played completely straight, like a real historical portrait photograph.
+Never a cartoon, never cute, never winking at the viewer.
+
+THE POSE AND EXPRESSION
+- Half-length portrait: head, chest and upper body, the pet seated
+  upright facing the camera at a slight three-quarter angle
+- Composed, solemn expression. Mouth closed. Ears in their natural
+  relaxed position. Eyes calm and level, looking directly at the viewer.
+- No smiling, no tongue out, no panting, no playful head tilt
+- Posture is straight and settled, with an air of quiet authority
+
+EXCEPTION — the 하인 (servant) role
+If the role is 하인, the composition changes completely: this is not a
+formal portrait but a candid working scene.
+- Full-body or three-quarter framing, the pet caught mid-task rather than
+  posing for the camera
+- Loaded down with an absurd amount of work: a heavy A-frame carrier
+  stacked impossibly high with firewood strapped to its back, plus a
+  water jar balanced on top and a large bundle of laundry dragging behind
+- The pet is completely ALONE in the frame — no other figures anywhere
+- Its expression stays entirely blank and unbothered: mouth closed, eyes
+  looking flatly into the middle distance, ears in their natural relaxed
+  position. Not sad, not straining, not distressed — simply enduring with
+  total indifference. This vacant expression against the ridiculous
+  workload is the joke.
+- The body posture is upright and steady. It is managing fine. It just
+  has no opinion about any of this.
+
+THE COSTUME — match the role written above
+Dress the pet in accurate Joseon-era Korean clothing for that role,
+tailored naturally to a dog's body with real fabric behaviour — visible
+weave, natural folds, soft shadows where cloth meets fur:
+
+· 왕 — A deep red silk robe with large gold dragon roundels at the chest
+  and shoulders, a black gauze crown with wing-shaped side pieces, a wide
+  jade-ornamented belt, heavy embroidered sleeves
+· 왕비 — A crimson and gold ceremonial robe with phoenix embroidery, an
+  elaborate coiled headpiece heavy with jade and coral ornaments, layered
+  silk collars
+· 세자 — A navy-blue robe with gold roundels, a simpler black gauze cap
+· 양반 — A flowing pale blue or ivory silk overcoat with wide sleeves, a
+  fine black horsehair hat with a broad brim, a simple belt
+· 선비 — A plain white or light grey cotton robe, a black horsehair
+  headband, an ink brush and scroll nearby
+· 무관 — A dark blue military coat with red trim and a leather belt, a
+  feathered black hat, a bow case at the side
+· 상궁 — A jade-green jacket with deep indigo skirt, hair neatly bound
+  with a wide braided coil
+· 의원 — A muted brown-grey robe, a small cloth medicine pouch, a low
+  black cap
+· 상인 — A sturdy hemp coat in warm beige, a small cloth money pouch at
+  the waist, a simple headband
+· 농부 — Clean undyed hemp work clothes, a wide woven straw hat, a cloth
+  band at the waist
+· 대장장이 — A rough hemp tunic with rolled sleeves, a thick leather
+  apron, a cloth tied around the head
+· 하인 — Worn, dusty hemp work clothes in undyed natural tones, sleeves
+  tied back with cord, a cloth headband, straw sandals. The fabric is
+  patched and much-used but clean. Add the work equipment described in
+  the EXCEPTION section above.
+
+THE SETTING
+A softly blurred period-appropriate background suited to the role:
+· For 왕 and 왕비 — a grand throne hall. Massive red lacquered columns,
+  an ornate painted screen of the sun, moon and five peaks behind the
+  seat, dozens of candles burning, and the blurred silhouettes of
+  kneeling courtiers bowing low in the deep background. Overwhelming
+  scale and ceremony.
+· For 세자, 양반, 선비, 상궁, 의원 — a refined interior with a painted
+  folding screen, lacquered furniture and paper doors
+· For 무관, 상인, 농부, 대장장이 — a hanok courtyard or workplace with
+  clay walls, wooden pillars and the tools of the trade
+· For 하인 — an empty courtyard or dirt path at dawn, completely
+  deserted. Bare clay walls, a stack of firewood, an empty well. The
+  emptiness is important: no one else is around.
+
+LIGHT
+Soft directional daylight from one side, as through a paper window.
+Gentle falloff into warm shadow. Muted, earthy color palette — indigo,
+ochre, ivory, deep red, aged wood brown. Nothing bright or modern.
+
+CAMERA
+Shot on a full-frame camera with an 85mm lens. Shallow depth of field,
+the eyes tack sharp, the background dissolved. Fine grain, slightly warm
+subdued color grading, no filters.
+
+TEXT
+No text, letters, numbers, logos or watermarks anywhere in the image.
+
+STYLE
+A dignified historical portrait photograph. Solemn, warm and authentic.
+Photorealistic — never a digital illustration, never a cartoon, never
+cute.

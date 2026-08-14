@@ -1,0 +1,71 @@
+[사용법]
+1. ChatGPT에 반려동물 사진 1장을 첨부하세요 (얼굴 정면, 밝은 사진!)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 그대로 붙여넣기만 해도 완성!
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+──────────────────────
+
+Using the attached pet photo, create a photograph of this exact pet
+taking a mirror selfie with a smartphone. Vertical 4:5 canvas.
+
+IDENTITY LOCK
+The pet must be the SAME individual as the attached photo — identical
+coat color, identical markings and their exact placement, identical ear
+type, shape and length, same muzzle length, same eye color, same face
+proportions. Never change the breed silhouette. Fully photorealistic.
+
+THE MIRROR SELFIE STRUCTURE — get this right
+The entire image IS the mirror's reflection. We are looking at what the
+mirror shows.
+- The pet stands upright on its hind legs facing the mirror, its
+  reflection filling most of the frame
+- The phone is held up in front of the chest, with its BACK CAMERA side
+  facing the mirror — so we see the back of the phone, its camera lens
+  cluster clearly visible. We do NOT see the screen.
+- The phone partially covers the lower chest, but the face stays fully
+  visible above it
+- A small bright flash reflection blooms off the mirror where the camera
+  lens is
+- The mirror surface has faint smudges and dust, and a visible frame
+  along one edge of the composition
+
+HOW THE PHONE IS HELD
+- Both front paws cradle the phone from the sides, toes spread against
+  its edges, pressing it against the chest to keep it steady
+- The paws are NOT gripping it like human fingers — they are pressed flat
+  against the phone's sides, which is how a dog would actually manage it
+- The phone is slightly tilted, not perfectly level
+- A plain phone case with no branding, no text, no logos
+
+THE POSE AND EXPRESSION
+- Standing on hind legs, body angled slightly, weight on one side
+- Head tilted a little, looking straight at its own reflection with
+  bright focused eyes
+- Mouth open in a relaxed happy pant, tongue slightly out
+- Ears in their natural relaxed position
+- Slightly off-center in the frame — a casual, unposed moment
+
+THE SETTING
+An ordinary home bathroom or bedroom behind the pet, reflected in the
+mirror: soft tiled wall or painted wall, a towel hanging, a small shelf
+with everyday items, warm indoor light. Everything blurred and secondary
+— the pet dominates.
+
+LIGHT AND CAMERA
+Soft warm indoor lighting with the phone's flash adding a bright small
+hotspot on the mirror. Shot as a phone camera would render it: slightly
+grainy, mild lens distortion, everything reasonably sharp with modest
+depth of field. Natural color, no filters.
+
+TEXT
+No text, letters, numbers, logos or watermarks anywhere in the image.
+
+STYLE
+A real mirror selfie taken on a phone. Casual, funny and believable —
+exactly like the kind of photo that fills someone's camera roll.

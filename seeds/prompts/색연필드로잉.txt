@@ -1,0 +1,68 @@
+[사용법]
+1. ChatGPT에 반려동물 사진 1장을 첨부하세요
+   (배경이 같이 나온 사진이 더 예뻐요!)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 그대로 붙여넣기만 해도 완성!
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+──────────────────────
+
+Redraw the attached photo as a simple hand-drawn colored pencil sketch on
+white paper. Vertical 4:5 canvas.
+
+THE LINEWORK
+- Thin, clean black pen outlines with a consistent light weight
+- The lines are confident and accurate — the proportions, pose and
+  silhouette match the photo correctly. This is a competent drawing, not
+  a childish one.
+- Lines are slightly wobbly and imperfect in a natural hand-drawn way,
+  but never sloppy or broken
+- Minimal detail: only the essential contours. No cross-hatching, no
+  rendering, no shadow lines.
+- Simple dot eyes with a small white highlight, a small rounded nose, a
+  simple curved smile with the tongue as a small pink shape
+
+THE COLORING — this is the defining quality
+- Colored in with loose diagonal PENCIL HATCHING: many parallel back-and-
+  forth strokes running at a slant, clearly visible as individual strokes
+- The strokes are quick and casual, with the white paper showing through
+  between them — the color is never solid or fully opaque
+- Coloring stays roughly inside the outlines, with only tiny overshoots
+  here and there
+- Pressure varies naturally: slightly darker where strokes overlap,
+  lighter at the edges
+- Use only ONE flat tone per area — no blending, no gradients, no shading
+- For a fluffy coat, let the hatching strokes curve and swirl to follow
+  the direction of the fur
+
+MATCH THE PET
+Use the pet's actual coat colors as the pencil colors. Recreate large
+markings as separate colored areas in the same positions. Match the ear
+type, the coat length and the pose from the photo. If there are multiple
+pets, include all of them in the same arrangement as the photo.
+
+THE BACKGROUND — leave it uncolored
+This is important: redraw the background objects from the photo — the
+furniture, bowls, appliances, doorways, whatever is there — but draw them
+in OUTLINE ONLY, with no color at all. Just clean black pen lines on
+bare white paper. Simplify them heavily into a few basic shapes.
+The contrast between the colored pets and the colorless line-drawn
+background is the whole point of the style.
+
+THE PAPER
+Plain white paper filling the frame, with a very faint natural texture.
+A thin simple black rectangular border framing the whole drawing, with a
+small white margin outside it.
+
+TEXT
+No text, letters, numbers, signature, logos or watermarks anywhere.
+
+STYLE
+A simple, warm, minimal illustration — the kind of casual drawing someone
+would make of their own pets. Clean, charming and unfussy. Never
+photorealistic, never digital-looking, never heavily rendered.

@@ -1,0 +1,75 @@
+[사용법]
+1. ChatGPT에 반려견 사진 1장을 첨부하세요 (얼굴 정면, 밝은 사진!)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 의상만 골라서 적으면 완성!
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+■ 여기만 바꿔주세요
+의상: 귀족 남성
+  (다른 예시 → 귀족 여성 / 왕족 / 성직자 / 기사 / 학자)
+
+──────────────────────
+
+Using the attached pet photo, create a Renaissance-era oil portrait
+painting of this exact pet, painted as if by a 16th-century court
+painter. Vertical 4:5 canvas.
+
+IDENTITY LOCK (most important)
+The pet must be the SAME individual as the attached photo — identical
+coat color, identical markings and their exact placement, identical ear
+type, shape and length, same muzzle length, same eye color, same head
+shape. Never change the breed silhouette.
+This is a painting OF this specific dog, not a generic breed portrait.
+
+THE SUBJECT
+- Half-length portrait: head, chest and upper body visible, cut off at
+  roughly the chest
+- The pet sits upright with noble, dignified posture, body turned
+  slightly at a three-quarter angle while the head faces the viewer
+- Expression is calm, solemn and self-possessed — quietly aristocratic,
+  never silly or cartoonish
+- Eyes look directly out of the canvas at the viewer, catching a single
+  soft highlight
+
+THE COSTUME
+Dress the pet in period clothing appropriate to the role written above:
+- A richly textured garment in deep jewel tones — burgundy, forest green,
+  midnight blue or aubergine — in heavy velvet or brocade
+- An elaborate white ruff collar or a starched lace collar at the neck
+- Gold embroidery, small pearl buttons, and delicate patterned trim
+- A heavy gold chain or a jewelled brooch at the chest
+- Optional: a soft velvet cap with a feather, sitting slightly askew
+- The fabric falls naturally around the pet's body and shoulders
+
+PAINTING TECHNIQUE — this is what makes it convincing
+- Chiaroscuro lighting: a single warm light source from the upper left,
+  the face brightly lit, deep shadow falling away to the right
+- The background is a very dark, almost black-brown void with a subtle
+  warm gradient, so the subject emerges from darkness
+- Soft sfumato transitions in the shadows, with no hard outlines
+- Visible oil brushwork: thick impasto highlights on the fur, the collar
+  and the metal, thin translucent glazes in the dark areas
+- Muted, earthy old-master palette — umber, ochre, deep crimson, lead
+  white
+- Fine detail in the fabric and the fur, rendered with painterly strokes
+  rather than photographic sharpness
+
+AGED SURFACE
+- A fine network of craquelure across the paint surface
+- A warm amber varnish tone over the whole image, slightly darkened
+- Subtle canvas weave texture showing through the paint
+- Very slight uneven darkening toward the corners
+
+TEXT
+No text, letters, numbers, signatures, logos or watermarks anywhere.
+
+STYLE
+An authentic 16th-century European oil portrait on canvas. Solemn,
+dignified, richly detailed. It must look like a photograph of a real
+antique painting hanging in a museum — not a digital illustration and
+not a photo with a filter.
