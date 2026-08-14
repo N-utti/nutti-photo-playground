@@ -38,9 +38,11 @@ jobs:
         working-directory: web
 
     steps:
-      - uses: actions/checkout@v4
+      # v4 는 러너에서 Node.js 20 을 요구하는데 그게 폐기 예정이라 경고가 붙습니다
+      # (2025-09 공지). v5 가 Node.js 24 기반입니다.
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           # 로컬 개발 환경과 같은 메이저입니다. 여기서만 버전을 올려 두면 "로컬에선
           # 되는데 CI 에서 깨진다"가 생기고, 그 반대도 마찬가지입니다.
