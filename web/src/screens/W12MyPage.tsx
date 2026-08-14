@@ -21,7 +21,7 @@
  *      살려 두면 되돌릴 수 없는 동작을 정의 없이 실행하게 됩니다
  */
 
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import {
   useAuthorizeRedirect,
@@ -34,6 +34,7 @@ import {
 } from '../api/queries'
 import { rememberAuthReturn } from '../app/authReturn'
 import BackButton from '../app/BackButton'
+import ConfirmDialog from '../app/ConfirmDialog'
 import { amountTone, reasonLabel, shortDate, signedAmount } from '../app/ledgerFormat'
 import { memberInitial, memberLabel, PROVIDER_LABEL } from '../app/memberIdentity'
 import { initialOf } from '../app/initials'
@@ -354,7 +355,7 @@ function RenamePetDialog({ pet, onClose }: { pet: Pet; onClose: () => void }) {
   const trimmed = name.trim()
 
   return (
-    <Dialog title="이름 바꾸기" titleId="rename-pet-title" onClose={onClose}>
+    <ConfirmDialog title="이름 바꾸기" titleId="rename-pet-title" onClose={onClose}>
       <label htmlFor="pet-name" className="mt-3 block text-sm text-ink-2">
         강아지 이름
       </label>
@@ -380,7 +381,7 @@ function RenamePetDialog({ pet, onClose }: { pet: Pet; onClose: () => void }) {
           이름을 바꾸지 못했어요. 잠시 뒤 다시 시도해 주세요.
         </p>
       )}
-    </Dialog>
+    </ConfirmDialog>
   )
 }
 
@@ -395,7 +396,7 @@ function DeletePetDialog({ pet, onClose }: { pet: Pet; onClose: () => void }) {
   const remove = useDeletePet()
 
   return (
-    <Dialog title={`${pet.name} 프로필을 삭제할까요?`} titleId="delete-pet-title" onClose={onClose}>
+    <ConfirmDialog title={`${pet.name} 프로필을 삭제할까요?`} titleId="delete-pet-title" onClose={onClose}>
       <p className="mt-2 text-sm text-ink-2">
         지금까지 만든 결과는 보관함에 그대로 남아요. 다만 보관함의 강아지 필터에서 이 이름이
         사라져서, 그 결과들은 «전체»에서만 보이게 됩니다.
@@ -413,7 +414,7 @@ function DeletePetDialog({ pet, onClose }: { pet: Pet; onClose: () => void }) {
           삭제하지 못했어요. 잠시 뒤 다시 시도해 주세요.
         </p>
       )}
-    </Dialog>
+    </ConfirmDialog>
   )
 }
 
@@ -496,41 +497,3 @@ function DangerSection() {
   )
 }
 
-// ---------------------------------------------------------------- 공용 다이얼로그
-
-function Dialog({
-  title,
-  titleId,
-  onClose,
-  children,
-}: {
-  title: string
-  titleId: string
-  onClose: () => void
-  children: ReactNode
-}) {
-  return (
-    <div className="fixed inset-0 z-30 flex items-end justify-center desktop:items-center">
-      <button
-        type="button"
-        aria-label="닫기"
-        onClick={onClose}
-        className="absolute inset-0 cursor-default bg-ink/40"
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        className="relative w-full rounded-t-2xl bg-surface p-5 desktop:max-w-sm desktop:rounded-2xl"
-      >
-        <h2 id={titleId} className="text-base font-bold">
-          {title}
-        </h2>
-        {children}
-        <button type="button" onClick={onClose} className="mt-2 w-full py-2 text-sm text-ink-3 hover:text-ink">
-          취소
-        </button>
-      </div>
-    </div>
-  )
-}

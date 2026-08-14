@@ -21,6 +21,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import AccountSheet from '../screens/AccountSheet'
 import InsufficientCreditOverlay from '../screens/InsufficientCreditOverlay'
+import LogoutConfirm from '../screens/LogoutConfirm'
 import { renderWithProviders } from '../test/render'
 
 /** 시트가 가리는 뒤 화면의 버튼. 402 를 낸 그 버튼 자리입니다. */
@@ -44,6 +45,23 @@ const CASES: Case[] = [
     // 잔액이 모자란 쪽으로 엽니다 — «다시 시도» 가 없는, 402 직후의 그 상태입니다.
     sheet: (onClose) => <InsufficientCreditOverlay required={1} balance={0} onClose={onClose} />,
     settled: '오늘의 무료',
+  },
+  {
+    /*
+      확인 창 계열(app/ConfirmDialog.tsx)의 대표.
+
+      로그아웃 · 보관함 삭제 · 펫 프로필 삭제/이름 변경이 같은 껍데기를 쓰므로 여기서
+      한 번 밟으면 넷 다 밟습니다. 로그아웃을 대표로 세운 건 이것만 화면 상태 없이
+      혼자 서기 때문입니다 — 나머지 셋은 선택 모드에 들어가거나 펫 목록이 있어야
+      열리고, 그 경로는 각 화면의 테스트가 볼 몫입니다.
+
+      이 계열은 PR #93 이 «새 시트를 만들면 CASES 에 한 줄 추가하세요» 를 남긴 뒤에
+      생겼는데 셋 다 등록되지 않았고, 셋 다 가둠이 없었습니다. 사람 규칙이 세 번
+      연속 안 지켜진 것이라 지금은 modalContract.test.ts 가 소스를 직접 훑습니다.
+    */
+    name: '확인 창 (로그아웃)',
+    sheet: (onClose) => <LogoutConfirm onClose={onClose} />,
+    settled: '로그아웃할까요?',
   },
 ]
 

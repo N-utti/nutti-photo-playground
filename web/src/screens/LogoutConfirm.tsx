@@ -10,6 +10,7 @@
  */
 
 import { useLogout } from '../api/queries'
+import ConfirmDialog from '../app/ConfirmDialog'
 import { clearSessionStatus } from '../app/sessionStatus'
 
 export default function LogoutConfirm({ onClose }: { onClose: () => void }) {
@@ -29,46 +30,26 @@ export default function LogoutConfirm({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-30 flex items-end justify-center desktop:items-center">
+    <ConfirmDialog title="로그아웃할까요?" titleId="logout-title" onClose={onClose}>
+      <p className="mt-1 text-sm text-ink-2">
+        이 브라우저는 다시 게스트로 시작해요. 계정에 쌓인 결과와 크레딧은 그대로 있고, 다시
+        로그인하면 이어서 쓸 수 있어요.
+      </p>
+
       <button
         type="button"
-        aria-label="닫기"
-        onClick={onClose}
-        className="absolute inset-0 cursor-default bg-ink/40"
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="logout-title"
-        className="relative w-full rounded-t-2xl bg-surface p-5 desktop:max-w-sm desktop:rounded-2xl"
+        disabled={logout.isPending}
+        onClick={() => logout.mutate(undefined, { onSuccess: finish })}
+        className="mt-4 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99] disabled:opacity-50"
       >
-        <h2 id="logout-title" className="text-base font-bold">
-          로그아웃할까요?
-        </h2>
-        <p className="mt-1 text-sm text-ink-2">
-          이 브라우저는 다시 게스트로 시작해요. 계정에 쌓인 결과와 크레딧은 그대로 있고, 다시
-          로그인하면 이어서 쓸 수 있어요.
+        {logout.isPending ? '로그아웃 중…' : '로그아웃'}
+      </button>
+
+      {logout.isError && (
+        <p role="alert" className="mt-2 text-center text-sm text-danger">
+          로그아웃은 됐지만 새 게스트 세션을 받지 못했어요. 잠시 뒤 새로고침해 주세요.
         </p>
-
-        <button
-          type="button"
-          disabled={logout.isPending}
-          onClick={() => logout.mutate(undefined, { onSuccess: finish })}
-          className="mt-4 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99] disabled:opacity-50"
-        >
-          {logout.isPending ? '로그아웃 중…' : '로그아웃'}
-        </button>
-
-        {logout.isError && (
-          <p role="alert" className="mt-2 text-center text-sm text-danger">
-            로그아웃은 됐지만 새 게스트 세션을 받지 못했어요. 잠시 뒤 새로고침해 주세요.
-          </p>
-        )}
-
-        <button type="button" onClick={onClose} className="mt-2 w-full py-2 text-sm text-ink-3 hover:text-ink">
-          취소
-        </button>
-      </div>
-    </div>
+      )}
+    </ConfirmDialog>
   )
 }
