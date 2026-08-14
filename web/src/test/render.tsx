@@ -40,8 +40,14 @@ export function createTestQueryClient(): QueryClient {
 }
 
 export type RenderWithProvidersOptions = Omit<RenderOptions, 'wrapper'> & {
-  /** 라우터의 시작 주소. 화면이 `useLocation` 을 읽으면 이 값이 보입니다. */
-  route?: string
+  /**
+   * 라우터의 시작 주소. 화면이 `useLocation` 을 읽으면 이 값이 보입니다.
+   *
+   * 객체로 주면 **히스토리 state 까지** 실을 수 있습니다 — `{ pathname, state }`.
+   * `Link` 의 `state` prop 으로 전달되는 값과 같은 자리라, 화면이 그 값을 어떻게
+   * 다루는지(예: W-12 의 `state.from` 검증)를 세우려면 이 형태가 필요합니다.
+   */
+  route?: string | { pathname: string; search?: string; state?: unknown }
   queryClient?: QueryClient
 }
 

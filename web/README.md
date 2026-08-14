@@ -101,9 +101,12 @@ localStorage.removeItem('nutti.mock.scenario')              // 정상
 목표는 커버리지 숫자가 아니라 **조용히 깨지는 것들의 회귀 방지**입니다(이슈 #94). 아래 표를
 읽는 방법: 왼쪽이 파일, 오른쪽이 **그 파일이 없으면 다시 일어날 일**입니다.
 
-아직 비어 있는 화면: W-08 · W-09 · W-10 A · W-12 · AccountSheet · AuthCallback. 전부 목 상태를
-**바꾸는** 화면이라(펫 삭제가 시드를 splice하고, 로그인이 `state.me`를 회원으로 굳힙니다)
-`server.use(...)`로 응답을 덮어쓰는 쪽을 기본으로 잡아야 합니다.
+아직 비어 있는 화면: **AccountSheet · AuthCallback**. 둘 다 로그인 성공이 `state.me`를 회원으로
+굳히는 쪽이라(`AuthCallback`은 모듈 수준 `inFlight` Map까지) `server.use(...)`로 응답을 덮어쓰고,
+매 테스트에 **고유한 `state` 문자열**을 주는 편이 안전합니다.
+
+게스트/회원 분기를 세울 때는 `/auth/me`만 덮으면 부족합니다 — `/credits` 핸들러는 응답을 만들 때
+목 **내부의** 로그인 상태를 보고 획득 목록을 전부 `login_required`로 갈아 끼웁니다(`guestAware`).
 
 | 파일 | 막는 것 |
 |---|---|
@@ -127,6 +130,10 @@ localStorage.removeItem('nutti.mock.scenario')              // 정상
 | `screens/W06Result.test.tsx` | 문서에 없는 `error_code` 하나에 결과 화면이 통째로 죽는 것(실측 이력) |
 | `screens/W07Calculator.test.tsx` | 견종을 모르는데 안다고 해서 **남의 강아지 기준 간식량**을 넘기는 것 |
 | `screens/EarnActionList.test.tsx` | 매출 직결 줄이 응답 순서에 밀리는 것 · 게스트에게 받지 못할 보상을 약속하는 것 |
+| `screens/W08Creative.test.tsx` | 서버가 막은 문구에 **서버 원문**을 띄워 무엇을 고칠지 모르게 하는 것 · 안내만 띄우고 버튼은 열어 두는 것 |
+| `screens/W09Library.test.tsx` | 필터를 바꿔도 선택이 남아 **화면에 없는 사진이 삭제**되는 것 · 지워진 강아지 필터를 결과 없음으로 오해시키는 것 |
+| `screens/W10Credits.test.tsx` | 못 불러온 잔액을 0으로 적어 "크레딧이 없다"고 단정하는 것(ADR-02) |
+| `screens/W12MyPage.test.tsx` | 히스토리 `state.from`을 믿고 「뒤로」가 **외부 사이트**로 나가는 것 · 부가 정보 실패에 계정 경고를 띄우는 것 |
 
 ### 시트를 새로 만들 때
 
