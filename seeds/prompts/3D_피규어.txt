@@ -19,10 +19,12 @@ Using the attached photo of my dog, create a photorealistic image of a
 "premium collectible figurine production scene."
 
 INPUT HANDLING
-The two fields above may be written in Korean. Before printing them on
-the packaging, romanize the pet name into Roman capital letters
-(phonetic) and translate the breed into English. Never render Korean
-characters anywhere in the image. All visible text must be English.
+The pet's name is "[pet name]" and the breed is "[breed]". These may be
+written in Korean. Before printing them on the packaging, romanize the
+pet name into Roman capital letters (phonetic) and translate the breed
+into English. If the breed is the generic word "강아지", omit the breed
+label entirely. Never render Korean characters anywhere in the image.
+All visible text must be English.
 
 LIKENESS (most important)
 Reproduce the dog in the attached photo exactly — same coat color,
@@ -40,8 +42,8 @@ COMPOSITION — vertical 3:4, warm wooden desk, soft natural light.
   lower-left corner and a detached dot above. No tagline or other text
   above or below the wordmark.
 - Top right: small badge reading "PREMIUM COLLECTOR EDITION"
-- Lower area: the pet's name in large handwritten script lettering,
-  with the breed name below it in small spaced uppercase
+- Lower area: the pet's name "[pet name]" in large handwritten script
+  lettering, with the breed "[breed]" below it in small spaced uppercase
 - Bottom line: "A HAPPY DAY WITH [pet name]"
 - Bottom left corner: a small printed close-up photo of the dog's face
 

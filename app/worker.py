@@ -18,6 +18,7 @@ import io
 import uuid
 from datetime import datetime, timedelta, timezone
 
+import httpx
 from openai import AsyncOpenAI, BadRequestError
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 from tortoise import Tortoise
@@ -72,8 +73,55 @@ def _is_safety_block(exc: Exception) -> bool:
     )
 
 
-async def _generate_image(original: bytes, prompt: str, style_name: str) -> bytes:
-    if settings.openai_api_key:
+async def _generate_image(
+    original: bytes,
+    prompt: str,
+    style_name: str,
+    model_config: dict | None = None,
+) -> bytes:
+    if settings.fal_key:
+        config = model_config or {}
+        endpoint = config.get("fal_endpoint") or settings.fal_image_endpoint
+        payload = {
+            "prompt": prompt,
+            "image_urls": [f"data:image/jpeg;base64,{base64.b64encode(original).decode()}"],
+            "output_format": "jpeg",
+        }
+        if endpoint.startswith("openai/"):
+            payload.update(quality=settings.openai_image_quality, image_size="auto")
+        else:
+            payload["resolution"] = "1K"
+        payload.update(config.get("fal_args", {}))
+        auth_headers = {"Authorization": f"Key {settings.fal_key}"}
+
+        async with asyncio.timeout(300):
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"https://queue.fal.run/{endpoint}",
+                    headers=auth_headers,
+                    json=payload,
+                )
+                response.raise_for_status()
+                status_url = response.json()["status_url"]
+                while True:
+                    response = await client.get(status_url, headers=auth_headers)
+                    response.raise_for_status()
+                    status_data = response.json()
+                    status = status_data.get("status")
+                    if status == "COMPLETED":
+                        break
+                    if status not in {"IN_QUEUE", "IN_PROGRESS"}:
+                        raise RuntimeError(f"fal image generation failed: {status}")
+                    await asyncio.sleep(3)
+                response = await client.get(
+                    status_data["response_url"], headers=auth_headers
+                )
+                response.raise_for_status()
+                response = await client.get(response.json()["images"][0]["url"])
+                response.raise_for_status()
+                return response.content
+
+    elif settings.openai_api_key:
         response = await AsyncOpenAI(
             api_key=settings.openai_api_key,
             base_url=settings.openai_base_url,
@@ -82,6 +130,7 @@ async def _generate_image(original: bytes, prompt: str, style_name: str) -> byte
             image=("source.jpg", original, "image/jpeg"),
             prompt=prompt,
             size="1024x1024",
+            quality=settings.openai_image_quality,
             n=1,
         )
         if not response.data or not response.data[0].b64_json:
@@ -165,19 +214,25 @@ async def process_job(job: dict, *, lease: bool = True) -> None:
         if generation_job.style_id is not None:
             if generation_job.prompt_version_id is None:
                 raise _MissingPromptError("preset job has no prompt version")
-            prompt = (
-                await StylePromptVersion.get(id=generation_job.prompt_version_id)
-            ).prompt_text
+            prompt_version = await StylePromptVersion.get(id=generation_job.prompt_version_id)
+            prompt = prompt_version.prompt_text
+            model_config = prompt_version.model_config
+            pet_profile = None
+            if (
+                "[pet name]" in prompt or "[breed]" in prompt
+            ) and generation_job.source_image.pet_profile_id is not None:
+                pet_profile = await PetProfile.get(
+                    id=generation_job.source_image.pet_profile_id
+                )
             if "[pet name]" in prompt:
                 # ponytail: 프로필이나 이름이 없으면 별도 정책 없이 고정 호칭을 쓴다.
-                pet_name = "우리 아이"
-                if generation_job.source_image.pet_profile_id is not None:
-                    pet_name = (
-                        await PetProfile.get(
-                            id=generation_job.source_image.pet_profile_id
-                        )
-                    ).name or pet_name
+                pet_name = (pet_profile.name if pet_profile is not None else None) or "우리 아이"
                 prompt = prompt.replace("[pet name]", pet_name)
+            if "[breed]" in prompt:
+                breed = (
+                    pet_profile.breed_label if pet_profile is not None else None
+                ) or "강아지"
+                prompt = prompt.replace("[breed]", breed)
             style_name = generation_job.style.name
         else:
             if generation_job.custom_prompt_id is None:
@@ -191,9 +246,12 @@ async def process_job(job: dict, *, lease: bool = True) -> None:
                 "품종·털색·무늬는 원본 유지."
             )
             style_name = "커스텀"
+            model_config = None
 
         original = await load_bytes(generation_job.source_image.storage_key)
-        generated = await _generate_image(original, prompt, style_name)
+        generated = await _generate_image(
+            original, prompt, style_name, model_config=model_config
+        )
         jpeg_bytes = _sign_and_encode_jpeg(generated)
         key = f"results/{uuid.uuid4()}.jpg"
         await save_bytes(key, jpeg_bytes, "image/jpeg")

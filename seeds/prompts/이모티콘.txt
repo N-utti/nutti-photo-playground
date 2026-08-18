@@ -1,7 +1,7 @@
 [사용법]
-1. ChatGPT에 반려견 사진 1장을 첨부하세요 (얼굴 잘 나온 밝은 사진)
+1. ChatGPT에 반려동물 사진 1장을 첨부하세요 (얼굴 정면, 밝은 사진!)
 2. 아래 내용을 전부 복사해서 붙여넣기
-3. 맨 위 "여기만 채워주세요" 부분만 한글로 바꾸면 끝!
+3. 문구는 그대로 두셔도 되고, 원하는 말로 바꾸셔도 됩니다
    ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
 
 ──────────────────────
@@ -9,54 +9,51 @@
 첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
 (설명하지 말고 바로 이미지를 만들어줘)
 
-■ 여기만 채워주세요 (한글로 쓰셔도 됩니다)
-반려견 이름: 단지
-견종: 말티푸
-
 ──────────────────────
 
-Using the attached photo of my dog, create a photorealistic image of a
-"premium collectible figurine production scene."
+■ 스티커 문구 (원하는 말로 바꿔도 됩니다 / 4글자 이내 권장)
+1행: 안녕! / 고마워 / 사랑해 / 미안해
+2행: 화이팅! / 축하해! / ㅋㅋㅋ / 헉!
+3행: 왜애... / 흥 / 졸려... / 배고파
+4행: 제발 / 오케이 / 최고! / 잘자
 
-INPUT HANDLING
-The two fields above may be written in Korean. Before printing them on
-the packaging, romanize the pet name into Roman capital letters
-(phonetic) and translate the breed into English. Never render Korean
-characters anywhere in the image. All visible text must be English.
+Using the attached pet photo, create a KakaoTalk-style emoticon sticker
+sheet featuring this exact pet.
 
 LIKENESS (most important)
-Reproduce the dog in the attached photo exactly — same coat color,
-markings, ear shape, face proportions, posture and expression.
-This must be recognizable as the same individual dog.
-
-COMPOSITION — vertical 3:4, warm wooden desk, soft natural light.
-
-1) LEFT — collector edition package box
-- Premium matte paper box in warm cream (#F7F3EA) with sage green
-  (#6E8060) accents, clear plastic display window showing the figurine
-- Top left: the NUTTi wordmark only — "NUTTi" set in a heavy geometric
-  rounded sans-serif with flat-cut terminals in dark cocoa brown
-  (#4A3729); the final letter "i" is sage green (#6E8060) with a rounded
-  lower-left corner and a detached dot above. No tagline or other text
-  above or below the wordmark.
-- Top right: small badge reading "PREMIUM COLLECTOR EDITION"
-- Lower area: the pet's name in large handwritten script lettering,
-  with the breed name below it in small spaced uppercase
-- Bottom line: "A HAPPY DAY WITH [pet name]"
-- Bottom left corner: a small printed close-up photo of the dog's face
-
-2) RIGHT — the finished figurine
-- Standing on a clear acrylic round base engraved with "NUTTi"
-- High-end collectible sculpting quality, individual fur strands visible,
-  realistic glossy eyes
-
-3) BACKGROUND — a monitor running ZBrush, displaying a grey clay 3D
-   sculpt of the same dog, work-in-progress
-
-4) PROPS — keyboard, mouse, a ceramic mug printed with the NUTTi
-   wordmark, a small potted plant
+Every sticker must show the SAME individual pet from the photo — identical
+coat color, markings, ear shape, muzzle length and face proportions.
+Keep it recognizable as this specific pet, not a generic breed illustration.
 
 STYLE
-Realistic product photography, shallow depth of field, warm ambient
-lighting, studio advertising quality.
-All printed text must be crisp, correctly spelled, and English only.
+- Soft, semi-realistic 3D-rendered plush look — fluffy fur texture,
+  glossy round eyes, cute and warm
+- Head-and-shoulders bust only (no full body), slightly chibi proportions
+  with a large head
+- Each sticker has a thick white die-cut sticker border with a soft drop
+  shadow, like a real printed sticker
+- Clean pure white background, thin light grid separating the cells
+
+LAYOUT
+- 4 columns x 4 rows = 16 stickers, evenly spaced, square canvas (1:1)
+- Each cell: the pet's expression on top, its caption text below
+
+EXPRESSIONS (match each caption, left to right, top to bottom)
+Row 1: waving happily / grateful smile with sparkles / blushing with
+       floating hearts / apologetic downturned eyes
+Row 2: determined with raised paw / celebrating with confetti /
+       laughing with eyes closed / shocked wide eyes
+Row 3: teary pleading eyes / pouting turned away / sleepy with a nightcap
+       and Zzz / hungry, licking lips with a food bowl icon
+Row 4: begging with paws together / winking with an OK gesture /
+       proud with a thumbs-up sparkle / sleeping peacefully with a moon
+
+TEXT RENDERING — CRITICAL
+- Render the Korean captions EXACTLY as listed above, character for
+  character. Do not invent, translate, or alter any text.
+- Use a bold rounded Korean sans-serif font, clearly legible
+- Vary the caption colors softly (pink, mint, sky blue, lavender, coral)
+- Add small pastel decorative accents (hearts, stars, sparkles) around
+  each sticker
+
+Warm pastel palette, clean, professional emoticon-pack quality.

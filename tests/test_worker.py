@@ -60,6 +60,7 @@ async def database(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, request):
             'TRUNCATE TABLE "member" RESTART IDENTITY CASCADE;'
         )
     monkeypatch.setattr(settings, "r2_endpoint_url", "")
+    monkeypatch.setattr(settings, "fal_key", "")
     monkeypatch.setattr(settings, "openai_api_key", "")
     monkeypatch.setattr(storage, "MEDIA_ROOT", str(tmp_path))
     yield
@@ -82,11 +83,16 @@ async def _preset_job(
     prompt_version: bool = True,
     prompt_text: str = "수채화로 변환",
     pet_name: str | None = None,
+    breed_label: str | None = None,
 ):
     member = await Member.create(kind=MemberKind.MEMBER, credit_balance=0)
     pet_profile = (
-        await PetProfile.create(member=member, name=pet_name)
-        if pet_name is not None
+        await PetProfile.create(
+            member=member,
+            name=pet_name or "",
+            breed_label=breed_label,
+        )
+        if pet_name is not None or breed_label is not None
         else None
     )
     source_key = f"uploads/{uuid.uuid4()}.jpg"
@@ -125,14 +131,97 @@ async def _preset_job(
     return member, job, await storage.load_bytes(source_key)
 
 
-async def _fail_generation(*_args) -> bytes:
+async def _fail_generation(_original, _prompt, _style_name, model_config=None) -> bytes:
     raise RuntimeError("provider failed")
+
+
+@pytest.mark.parametrize(
+    ("model_config", "endpoint"),
+    [
+        (None, "fal-ai/nano-banana-2/edit"),
+        ({"fal_endpoint": "openai/gpt-image-2/edit"}, "openai/gpt-image-2/edit"),
+    ],
+)
+async def test_generate_image_via_fal(
+    monkeypatch: pytest.MonkeyPatch,
+    model_config: dict | None,
+    endpoint: str,
+):
+    class FakeResponse:
+        def __init__(self, data=None, content: bytes = b""):
+            self.data = data
+            self.content = content
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return self.data
+
+    class FakeClient:
+        post_call = None
+        get_calls = []
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            pass
+
+        async def post(self, url, **kwargs):
+            FakeClient.post_call = (url, kwargs)
+            return FakeResponse({"status_url": "https://fal.test/status"})
+
+        async def get(self, url, **kwargs):
+            FakeClient.get_calls.append((url, kwargs))
+            if url == "https://fal.test/status":
+                return FakeResponse(
+                    {
+                        "status": "COMPLETED",
+                        "response_url": "https://fal.test/response",
+                    }
+                )
+            if url == "https://fal.test/response":
+                return FakeResponse({"images": [{"url": "https://fal.test/image"}]})
+            assert url == "https://fal.test/image"
+            return FakeResponse(content=b"generated-image")
+
+    monkeypatch.setattr(settings, "fal_key", "test-key")
+    monkeypatch.setattr(
+        settings, "fal_image_endpoint", "fal-ai/nano-banana-2/edit"
+    )
+    monkeypatch.setattr(worker.httpx, "AsyncClient", FakeClient)
+
+    result = await worker._generate_image(
+        b"original", "draw this", "test", model_config=model_config
+    )
+
+    assert result == b"generated-image"
+    url, kwargs = FakeClient.post_call
+    assert url == f"https://queue.fal.run/{endpoint}"
+    auth_headers = {"Authorization": "Key test-key"}
+    assert kwargs["headers"] == auth_headers
+    assert kwargs["json"]["prompt"] == "draw this"
+    assert kwargs["json"]["image_urls"] == [
+        "data:image/jpeg;base64,b3JpZ2luYWw="
+    ]
+    assert kwargs["json"]["output_format"] == "jpeg"
+    if endpoint.startswith("openai/"):
+        assert kwargs["json"]["quality"] == settings.openai_image_quality
+        assert kwargs["json"]["image_size"] == "auto"
+    else:
+        assert kwargs["json"]["resolution"] == "1K"
+    assert FakeClient.get_calls == [
+        ("https://fal.test/status", {"headers": auth_headers}),
+        ("https://fal.test/response", {"headers": auth_headers}),
+        ("https://fal.test/image", {}),
+    ]
 
 
 async def test_preset_success_creates_signed_result(monkeypatch: pytest.MonkeyPatch):
     _, job, original = await _preset_job()
 
-    async def generated(*_args):
+    async def generated(_original, _prompt, _style_name, model_config=None):
         return original
 
     monkeypatch.setattr(worker, "_generate_image", generated)
@@ -155,7 +244,7 @@ async def test_preset_replaces_pet_name(monkeypatch: pytest.MonkeyPatch):
     )
     prompts = []
 
-    async def capture_prompt(_original, prompt, _style_name):
+    async def capture_prompt(_original, prompt, _style_name, model_config=None):
         prompts.append(prompt)
         return original
 
@@ -166,13 +255,31 @@ async def test_preset_replaces_pet_name(monkeypatch: pytest.MonkeyPatch):
     assert "[pet name]" not in prompts[0]
 
 
+async def test_preset_replaces_breed(monkeypatch: pytest.MonkeyPatch):
+    _, job, original = await _preset_job(
+        prompt_text="[breed]을 수채화로 변환",
+        breed_label="말티푸",
+    )
+    prompts = []
+
+    async def capture_prompt(_original, prompt, _style_name, model_config=None):
+        prompts.append(prompt)
+        return original
+
+    monkeypatch.setattr(worker, "_generate_image", capture_prompt)
+    await worker.process_job({"id": str(job.id)})
+
+    assert "말티푸" in prompts[0]
+    assert "[breed]" not in prompts[0]
+
+
 async def test_preset_uses_fallback_without_pet_profile(
     monkeypatch: pytest.MonkeyPatch,
 ):
     _, job, original = await _preset_job(prompt_text="[pet name]을 수채화로 변환")
     prompts = []
 
-    async def capture_prompt(_original, prompt, _style_name):
+    async def capture_prompt(_original, prompt, _style_name, model_config=None):
         prompts.append(prompt)
         return original
 
@@ -199,7 +306,7 @@ async def test_safety_block_fails_immediately_with_refund(
 ):
     _, job, _ = await _preset_job(attempt_count=0)
 
-    async def blocked(*_args):
+    async def blocked(_original, _prompt, _style_name, model_config=None):
         raise _bad_request("moderation_blocked")
 
     monkeypatch.setattr(worker, "_generate_image", blocked)
@@ -221,7 +328,7 @@ async def test_safety_block_fails_immediately_with_refund(
 async def test_non_safety_bad_request_still_retries(monkeypatch: pytest.MonkeyPatch):
     _, job, _ = await _preset_job(attempt_count=0)
 
-    async def invalid_image(*_args):
+    async def invalid_image(_original, _prompt, _style_name, model_config=None):
         raise _bad_request("invalid_image")
 
     monkeypatch.setattr(worker, "_generate_image", invalid_image)
@@ -274,7 +381,7 @@ async def test_custom_prompt_uses_fixed_template(monkeypatch: pytest.MonkeyPatch
     await job.save(update_fields=["custom_prompt_id"])
     prompts = []
 
-    async def capture_prompt(_original, prompt, style_name):
+    async def capture_prompt(_original, prompt, style_name, model_config=None):
         prompts.append((prompt, style_name))
         return original
 
