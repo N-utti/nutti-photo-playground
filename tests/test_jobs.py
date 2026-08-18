@@ -18,6 +18,7 @@ from app.models import (
     GenerationResult,
     Member,
     MemberKind,
+    PetProfile,
     SourceImage,
     Style,
     StyleStatus,
@@ -40,18 +41,24 @@ def client(monkeypatch: pytest.MonkeyPatch):
         yield test_client
 
 
-async def _create_member_and_upload(balance: int = 3) -> tuple[str, str]:
+async def _create_member_and_upload(
+    balance: int = 3, pet_name: str | None = None
+) -> tuple[str, str]:
     member = await Member.create(kind=MemberKind.GUEST, credit_balance=balance)
+    pet = await PetProfile.create(member=member, name=pet_name) if pet_name else None
     source = await SourceImage.create(
         member=member,
+        pet_profile=pet,
         storage_key=f"uploads/{uuid.uuid4()}.jpg",
         quality_check={},
     )
     return str(member.id), str(source.id)
 
 
-def _session(client: TestClient, balance: int = 3) -> tuple[str, str, dict[str, str]]:
-    member_id, upload_id = client.portal.call(_create_member_and_upload, balance)
+def _session(
+    client: TestClient, balance: int = 3, pet_name: str | None = None
+) -> tuple[str, str, dict[str, str]]:
+    member_id, upload_id = client.portal.call(_create_member_and_upload, balance, pet_name)
     token = create_token(uuid.UUID(member_id), MemberKind.GUEST.value)
     return member_id, upload_id, {"Authorization": f"Bearer {token}"}
 
@@ -347,6 +354,7 @@ def test_get_job_returns_all_fields_and_status_specific_values(client: TestClien
         "custom_prompt",
         "credit_cost",
         "upload_id",
+        "pet_id",
         "progress",
         "eta_seconds",
         "status_message",
@@ -367,6 +375,7 @@ def test_get_job_returns_all_fields_and_status_specific_values(client: TestClien
         "failed": 2,
     }
     assert all(body["upload_id"] == upload_id for body in bodies.values())
+    assert all(body["pet_id"] is None for body in bodies.values())
     assert all(
         body["source_image_url"].startswith("https://cdn.nutti.test/uploads/")
         for body in bodies.values()
@@ -380,6 +389,7 @@ def test_get_job_returns_all_fields_and_status_specific_values(client: TestClien
         "custom_prompt": None,
         "credit_cost": 1,
         "upload_id": None,
+        "pet_id": None,
         "progress": 0,
         "eta_seconds": 200,
         "status_message": None,
@@ -422,6 +432,22 @@ async def _create_owned_job(member_id: str, upload_id: str) -> str:
         credit_cost=1,
     )
     return str(job.id)
+
+
+async def _source_pet_id(upload_id: str) -> str | None:
+    source = await SourceImage.get(id=upload_id)
+    return str(source.pet_profile_id) if source.pet_profile_id is not None else None
+
+
+def test_get_job_returns_source_image_pet_id(client: TestClient):
+    member_id, upload_id, headers = _session(client, pet_name="콩이")
+    job_id = client.portal.call(_create_owned_job, member_id, upload_id)
+    pet_id = client.portal.call(_source_pet_id, upload_id)
+
+    response = client.get(f"/v1/jobs/{job_id}", headers=headers)
+
+    assert response.status_code == 200
+    assert response.json()["pet_id"] == pet_id
 
 
 def test_get_job_hides_other_members_job_and_requires_authentication(client: TestClient):

@@ -341,14 +341,18 @@
           "code": "lego-minifig",
           "name": "레고 미니피겨",
           "thumbnail_url": "https://cdn.nutti.co.kr/styles/lego-minifig/thumb.jpg",
-          "credit_cost": 1
+          "credit_cost": 1,
+          "uses_pet_name": true,
+          "uses_breed": false
         },
         {
           "id": 108,
           "code": "ghibli-watercolor",
           "name": "지브리 수채",
           "thumbnail_url": "https://cdn.nutti.co.kr/styles/ghibli-watercolor/thumb.jpg",
-          "credit_cost": 2
+          "credit_cost": 2,
+          "uses_pet_name": false,
+          "uses_breed": true
         }
       ]
     }
@@ -383,7 +387,9 @@
     { "label": "검은 털", "score": "caution" }
   ],
   "avg_duration_seconds": 24,
-  "output_count": 1
+  "output_count": 1,
+  "uses_pet_name": true,
+  "uses_breed": false
 }
 ```
 `404 NOT_FOUND`: 존재하지 않거나 `status='retired'`인 스타일.
@@ -507,7 +513,7 @@
 
 #### `GET /v1/jobs/{job_id}`
 
-`style_id`·`upload_id`(이슈 #9 A안): 이 job을 만든 재료 참조. W-06 "다시 만들기"(같은 재료 + 새 Idempotency-Key)와 "이 사진으로 다른 스타일"(같은 `upload_id` + 다른 `style_id`)이 이 두 필드로 `POST /v1/jobs`를 재조립합니다(FR-W06-04·FR-W06-07). 커스텀 프롬프트 job은 `style_id: null`.
+`style_id`·`upload_id`·`pet_id`(이슈 #9 A안): 이 job을 만든 재료 참조. W-06 "다시 만들기"(같은 재료 + 새 Idempotency-Key)와 "이 사진으로 다른 스타일"(같은 `upload_id` + 다른 `style_id`)이 이 세 필드로 `POST /v1/jobs`를 재조립합니다(FR-W06-04·FR-W06-07). 커스텀 프롬프트 job은 `style_id: null`, 펫 프로필이 연결되지 않은 이미지는 `pet_id: null`.
 
 `queued_at`·`started_at`(이슈 #41, 2026-08-10 확정): 모든 job 응답에 포함되는 ISO 8601 시각 — `started_at`은 워커가 집기 전까지 `null`. FR-EDGE-02(60초 초과 → 백그라운드 전환) 판정은 **`started_at` 기준**입니다(큐 대기 시간 불포함 — NFR-PERF-01의 "생성 처리" 정의와 일치). 프론트의 localStorage `startedAt` 색인은 이 필드로 대체.
 
@@ -518,6 +524,7 @@
   "status": "processing",
   "style_id": 101,
   "upload_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "pet_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
   "progress": 62,
   "eta_seconds": 14,
   "status_message": "레고 블록을 쌓는 중…",
@@ -533,6 +540,7 @@
   "status": "succeeded",
   "style_id": 101,
   "upload_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "pet_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
   "progress": 100,
   "eta_seconds": 0,
   "status_message": null,
@@ -551,6 +559,7 @@
   "status": "failed",
   "style_id": 101,
   "upload_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "pet_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
   "progress": null,
   "eta_seconds": null,
   "status_message": null,
@@ -566,6 +575,7 @@
   "status": "failed",
   "style_id": null,
   "upload_id": "9c858901-8a57-4791-81fe-4c455b099bc9",
+  "pet_id": null,
   "progress": null,
   "eta_seconds": null,
   "status_message": null,
