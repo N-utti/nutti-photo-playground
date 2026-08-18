@@ -23,7 +23,12 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_base_url: str | None = None
     openai_vision_model: str = "gpt-4o-mini"
-    openai_image_model: str = "gpt-image-1"
+    openai_image_model: str = "gpt-image-2"
+    # ponytail: 비용 확정값(2026-08 medium ≈ $0.053/장). auto 로 두면 high 급 과금 위험.
+    openai_image_quality: str = "medium"
+    fal_key: str = ""
+    # gpt-image-2 전면 채택(2026-08-18 사용자 확정) — 브랜드 텍스트(NUTTi 워드마크) 안정성 우선.
+    fal_image_endpoint: str = "openai/gpt-image-2/edit"
 
     r2_access_key_id: str = ""
     r2_secret_access_key: str = ""
