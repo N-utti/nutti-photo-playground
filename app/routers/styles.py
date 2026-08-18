@@ -4,7 +4,7 @@ import json
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import BaseModel
 
-from app.models import Style, StyleStatus
+from app.models import PromptVersionStatus, Style, StylePromptVersion, StyleStatus
 from app.storage import public_url
 
 router = APIRouter(prefix="/styles", tags=["styles"])
@@ -16,6 +16,8 @@ class StyleSummary(BaseModel):
     name: str
     thumbnail_url: str | None
     credit_cost: int
+    uses_pet_name: bool
+    uses_breed: bool
 
 
 class StyleSection(BaseModel):
@@ -38,6 +40,8 @@ class StyleDetailResponse(BaseModel):
     fit_tags: list[dict[str, str]]
     avg_duration_seconds: int
     output_count: int
+    uses_pet_name: bool
+    uses_breed: bool
 
 
 @router.get("", response_model=StyleListResponse)
@@ -49,6 +53,18 @@ async def list_styles(
 ):
     public_styles = await Style.filter(status=StyleStatus.PUBLIC).order_by("sort_order", "id")
     total_count = len(public_styles)
+    prompt_flags = {
+        style.id: {"uses_pet_name": False, "uses_breed": False} for style in public_styles
+    }
+    active_prompts = await StylePromptVersion.filter(
+        style_id__in=[style.id for style in public_styles],
+        status=PromptVersionStatus.ACTIVE,
+    ).values("style_id", "prompt_text")
+    # ACTIVE A/B versions can coexist, so each flag uses any matching prompt.
+    for prompt in active_prompts:
+        flags = prompt_flags[prompt["style_id"]]
+        flags["uses_pet_name"] |= "[pet name]" in prompt["prompt_text"]
+        flags["uses_breed"] |= "[breed]" in prompt["prompt_text"]
     if section == "popular":
         # ponytail: popular은 예약 키워드, 별도 컬럼/플래그 없이 sort_order 재사용
         grouped = {"인기": public_styles[: limit if limit is not None else 12]}
@@ -74,6 +90,7 @@ async def list_styles(
                             public_url(style.example_keys[0]) if style.example_keys else None
                         ),
                         credit_cost=style.credit_cost,
+                        **prompt_flags[style.id],
                     )
                     for style in (styles[:limit] if limit is not None else styles)
                 ],
@@ -101,6 +118,10 @@ async def get_style(style_id: int):
             status_code=404,
             detail={"code": "NOT_FOUND", "message": "Style not found", "detail": {}},
         )
+    prompt_texts = await StylePromptVersion.filter(
+        style_id=style.id,
+        status=PromptVersionStatus.ACTIVE,
+    ).values_list("prompt_text", flat=True)
     return StyleDetailResponse(
         id=style.id,
         code=style.code,
@@ -110,4 +131,6 @@ async def get_style(style_id: int):
         fit_tags=style.fit_tags,
         avg_duration_seconds=style.avg_seconds,
         output_count=style.output_count,
+        uses_pet_name=any("[pet name]" in prompt for prompt in prompt_texts),
+        uses_breed=any("[breed]" in prompt for prompt in prompt_texts),
     )

@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from tortoise import Tortoise
 
 from app.main import app
-from app.models import Style, StyleStatus
+from app.models import PromptVersionStatus, Style, StylePromptVersion, StyleStatus
 from app.settings import settings
 
 
@@ -104,6 +104,45 @@ async def _create_extra_styles():
     )
 
 
+async def _create_prompt_versions():
+    await StylePromptVersion.bulk_create(
+        [
+            StylePromptVersion(
+                id=101,
+                style_id=1,
+                version=1,
+                prompt_text="Paint [pet name] in a frame",
+                model_config={},
+                status=PromptVersionStatus.ACTIVE,
+            ),
+            StylePromptVersion(
+                id=102,
+                style_id=1,
+                version=2,
+                prompt_text="Second active prompt without placeholders",
+                model_config={},
+                status=PromptVersionStatus.ACTIVE,
+            ),
+            StylePromptVersion(
+                id=103,
+                style_id=1,
+                version=3,
+                prompt_text="Old [breed] prompt",
+                model_config={},
+                status=PromptVersionStatus.RETIRED,
+            ),
+            StylePromptVersion(
+                id=104,
+                style_id=2,
+                version=1,
+                prompt_text="Paint the [breed] in watercolor",
+                model_config={},
+                status=PromptVersionStatus.ACTIVE,
+            ),
+        ]
+    )
+
+
 def test_list_styles_groups_sorts_and_exposes_only_public(client: TestClient):
     client.portal.call(_create_styles)
 
@@ -122,6 +161,8 @@ def test_list_styles_groups_sorts_and_exposes_only_public(client: TestClient):
                         "name": "Summer first",
                         "thumbnail_url": None,
                         "credit_cost": 1,
+                        "uses_pet_name": False,
+                        "uses_breed": False,
                     },
                     {
                         "id": 4,
@@ -129,6 +170,8 @@ def test_list_styles_groups_sorts_and_exposes_only_public(client: TestClient):
                         "name": "Summer second",
                         "thumbnail_url": None,
                         "credit_cost": 1,
+                        "uses_pet_name": False,
+                        "uses_breed": False,
                     },
                 ],
             },
@@ -142,6 +185,8 @@ def test_list_styles_groups_sorts_and_exposes_only_public(client: TestClient):
                         "name": "Popular first",
                         "thumbnail_url": "https://cdn.example.com/styles/popular-first.jpg",
                         "credit_cost": 2,
+                        "uses_pet_name": False,
+                        "uses_breed": False,
                     },
                     {
                         "id": 1,
@@ -149,6 +194,8 @@ def test_list_styles_groups_sorts_and_exposes_only_public(client: TestClient):
                         "name": "Popular second",
                         "thumbnail_url": "https://cdn.example.com/styles/popular-second.jpg",
                         "credit_cost": 1,
+                        "uses_pet_name": False,
+                        "uses_breed": False,
                     },
                 ],
             },
@@ -189,6 +236,8 @@ def test_list_styles_popular_uses_public_sort_order_and_limit(client: TestClient
                     "name": "Summer first",
                     "thumbnail_url": None,
                     "credit_cost": 1,
+                    "uses_pet_name": False,
+                    "uses_breed": False,
                 },
                 {
                     "id": 3,
@@ -196,6 +245,8 @@ def test_list_styles_popular_uses_public_sort_order_and_limit(client: TestClient
                     "name": "Popular first",
                     "thumbnail_url": "https://cdn.example.com/styles/popular-first.jpg",
                     "credit_cost": 2,
+                    "uses_pet_name": False,
+                    "uses_breed": False,
                 },
             ],
         }
@@ -244,6 +295,8 @@ def test_style_detail_exposes_public_and_ab_but_hides_draft_and_retired(client: 
         "fit_tags": [{"label": "소형견", "score": "good"}],
         "avg_duration_seconds": 18,
         "output_count": 1,
+        "uses_pet_name": False,
+        "uses_breed": False,
     }
     for style_id in (5, 6, 999):
         response = client.get(f"/v1/styles/{style_id}")
@@ -253,6 +306,37 @@ def test_style_detail_exposes_public_and_ab_but_hides_draft_and_retired(client: 
             "message": "Style not found",
             "detail": {},
         }
+
+
+def test_style_placeholder_flags_use_any_active_prompt(client: TestClient):
+    client.portal.call(_create_styles)
+    client.portal.call(_create_prompt_versions)
+
+    listing = client.get("/v1/styles")
+
+    assert listing.status_code == 200
+    by_id = {
+        style["id"]: style
+        for section in listing.json()["sections"]
+        for style in section["styles"]
+    }
+    expected = {
+        1: {"uses_pet_name": True, "uses_breed": False},
+        2: {"uses_pet_name": False, "uses_breed": True},
+        4: {"uses_pet_name": False, "uses_breed": False},
+    }
+    assert {
+        style_id: {
+            "uses_pet_name": by_id[style_id]["uses_pet_name"],
+            "uses_breed": by_id[style_id]["uses_breed"],
+        }
+        for style_id in expected
+    } == expected
+
+    for style_id, flags in expected.items():
+        detail = client.get(f"/v1/styles/{style_id}")
+        assert detail.status_code == 200
+        assert {key: detail.json()[key] for key in flags} == flags
 
 
 def test_image_urls_fall_back_to_media_prefix_without_cdn(

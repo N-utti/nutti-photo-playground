@@ -68,6 +68,7 @@ class JobResponse(BaseModel):
     custom_prompt: str | None
     credit_cost: int
     upload_id: str
+    pet_id: str | None
     progress: int | None
     eta_seconds: int | None
     status_message: str | None
@@ -254,6 +255,7 @@ async def get_job(job_id: str, member: Member = Depends(get_current_member)):
         "custom_prompt": custom_prompt,
         "credit_cost": job.credit_cost,
         "upload_id": str(job.source_image.id),
+        "pet_id": str(job.source_image.pet_profile_id) if job.source_image.pet_profile_id else None,
         "progress": progress,
         "eta_seconds": eta_seconds,
         "status_message": status_message,
