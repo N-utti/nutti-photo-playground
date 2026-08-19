@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import json
 import re
 from pathlib import Path
 
@@ -69,6 +70,7 @@ _SORT_ORDER_BY_CODE = {
     )
 }
 _SEPARATOR_RE = re.compile(r"^.*─{10,}.*$", re.MULTILINE)
+_STYLE_INPUTS_PATH = Path(__file__).parent.parent / "seeds/style_inputs.json"
 
 
 def extract_prompt_body(text: str) -> str:
@@ -77,6 +79,7 @@ def extract_prompt_body(text: str) -> str:
 
 
 async def seed_from_dir(dir_path: Path) -> dict[str, int]:
+    input_fields_by_code = json.loads(_STYLE_INPUTS_PATH.read_text(encoding="utf-8"))
     files = sorted(dir_path.glob("*.txt"), key=lambda path: path.name)
     fallback_codes = sorted(
         path.stem for path in files if path.stem not in _SORT_ORDER_BY_CODE
@@ -95,6 +98,10 @@ async def seed_from_dir(dir_path: Path) -> dict[str, int]:
             raise SystemExit(1)
 
         if await Style.filter(code=code).exists():
+            # 기존 행도 input_fields는 매니페스트 기준으로 백필(멱등)
+            await Style.filter(code=code).update(
+                input_fields=input_fields_by_code.get(code, [])
+            )
             print(f"skip: {code}")
             summary["skipped"] += 1
             continue
@@ -113,6 +120,7 @@ async def seed_from_dir(dir_path: Path) -> dict[str, int]:
                 else fallback_sort_orders[code]
             ),
             status=StyleStatus.PUBLIC,
+            input_fields=input_fields_by_code.get(code, []),
         )
         await StylePromptVersion.create(
             style=style,

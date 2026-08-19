@@ -163,6 +163,7 @@ def test_list_styles_groups_sorts_and_exposes_only_public(client: TestClient):
                         "credit_cost": 1,
                         "uses_pet_name": False,
                         "uses_breed": False,
+                        "input_fields": [],
                     },
                     {
                         "id": 4,
@@ -172,6 +173,7 @@ def test_list_styles_groups_sorts_and_exposes_only_public(client: TestClient):
                         "credit_cost": 1,
                         "uses_pet_name": False,
                         "uses_breed": False,
+                        "input_fields": [],
                     },
                 ],
             },
@@ -187,6 +189,7 @@ def test_list_styles_groups_sorts_and_exposes_only_public(client: TestClient):
                         "credit_cost": 2,
                         "uses_pet_name": False,
                         "uses_breed": False,
+                        "input_fields": [],
                     },
                     {
                         "id": 1,
@@ -196,6 +199,7 @@ def test_list_styles_groups_sorts_and_exposes_only_public(client: TestClient):
                         "credit_cost": 1,
                         "uses_pet_name": False,
                         "uses_breed": False,
+                        "input_fields": [],
                     },
                 ],
             },
@@ -238,6 +242,7 @@ def test_list_styles_popular_uses_public_sort_order_and_limit(client: TestClient
                     "credit_cost": 1,
                     "uses_pet_name": False,
                     "uses_breed": False,
+                    "input_fields": [],
                 },
                 {
                     "id": 3,
@@ -247,6 +252,7 @@ def test_list_styles_popular_uses_public_sort_order_and_limit(client: TestClient
                     "credit_cost": 2,
                     "uses_pet_name": False,
                     "uses_breed": False,
+                    "input_fields": [],
                 },
             ],
         }
@@ -262,6 +268,33 @@ def test_list_styles_popular_uses_public_sort_order_and_limit(client: TestClient
     assert len(default_limit.json()["sections"][0]["styles"]) == 12
     assert default_limit.json()["sections"][0]["styles"][-1]["code"] == "extra-15"
     assert default_limit.json()["total_count"] == 13
+
+
+def test_styles_expose_nonempty_input_fields(client: TestClient):
+    fields = [
+        {
+            "label": "의상",
+            "type": "choice",
+            "allow_custom": True,
+            "default": "버섯",
+            "options": [{"value": "버섯"}, {"value": "옥수수"}],
+        }
+    ]
+
+    async def _setup():
+        await _create_styles()
+        await Style.filter(id=3).update(input_fields=fields)
+
+    client.portal.call(_setup)
+
+    listed = client.get("/v1/styles", params={"section": "popular"})
+    by_code = {
+        style["code"]: style for style in listed.json()["sections"][0]["styles"]
+    }
+    detail = client.get("/v1/styles/3")
+
+    assert by_code["popular-first"]["input_fields"] == fields
+    assert detail.json()["input_fields"] == fields
 
 
 def test_list_styles_etag_returns_empty_304(client: TestClient):
@@ -297,6 +330,7 @@ def test_style_detail_exposes_public_and_ab_but_hides_draft_and_retired(client: 
         "output_count": 1,
         "uses_pet_name": False,
         "uses_breed": False,
+        "input_fields": [],
     }
     for style_id in (5, 6, 999):
         response = client.get(f"/v1/styles/{style_id}")

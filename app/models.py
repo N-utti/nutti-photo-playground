@@ -108,6 +108,7 @@ class Style(Model):
     progress_message = fields.TextField(null=True)
     fit_tags = fields.JSONField(default=list)
     example_keys = fields.JSONField(default=list)
+    input_fields = fields.JSONField(default=list)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
