@@ -1,6 +1,7 @@
 import hashlib
 import os
 import time
+import uuid
 from collections import deque
 from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qs, urlparse
@@ -13,7 +14,15 @@ from fastapi.testclient import TestClient
 from tortoise import Tortoise
 
 from app.main import app
-from app.models import Member
+from app.models import (
+    CreditLedger,
+    CustomPromptLog,
+    GenerationJob,
+    GenerationResult,
+    Member,
+    PetProfile,
+    SourceImage,
+)
 from app.routers import auth as auth_router
 
 
@@ -267,3 +276,96 @@ def test_refresh_is_rate_limited_by_ip(client: TestClient):
     stale_buckets = {str(index): deque([expired]) for index in range(10_001)}
     auth_router._peek_bucket(stale_buckets, "missing", 20)
     assert stale_buckets == {}
+
+
+async def _seed_withdrawal_assets(member_id: str) -> dict:
+    member = await Member.get(id=member_id)
+    member.credit_balance = 3
+    await member.save(update_fields=["credit_balance"])
+    pet = await PetProfile.create(member=member, name="몽이")
+    source = await SourceImage.create(
+        member=member, pet_profile=pet, storage_key="uploads/w.jpg", quality_check={}
+    )
+    job = await GenerationJob.create(
+        member=member,
+        source_image=source,
+        idempotency_key=uuid.uuid4(),
+        credit_cost=1,
+        input_values={"반려견 이름": "몽이"},
+    )
+    log = await CustomPromptLog.create(
+        member=member, raw_text="우주복 입혀줘", normalized_text="우주복 입혀줘", moderation={}, job=None
+    )
+    result = await GenerationResult.create(job=job, seq=1, storage_key="results/w.jpg")
+    return {"source_id": source.id, "result_id": result.id, "job_id": job.id, "log_id": log.id}
+
+
+async def _withdrawal_state(member_id: str, ids: dict) -> dict:
+    member = await Member.get(id=member_id)
+    source = await SourceImage.get(id=ids["source_id"])
+    result = await GenerationResult.get(id=ids["result_id"])
+    forfeit = await CreditLedger.filter(
+        member_id=member_id, reason="withdrawal_forfeit"
+    ).first()
+    job = await GenerationJob.get(id=ids["job_id"])
+    log = await CustomPromptLog.get(id=ids["log_id"])
+    return {
+        "job_status": job.status.value,
+        "job_error": job.error_code,
+        "job_inputs": job.input_values,
+        "log_text": log.raw_text,
+        "email": member.email,
+        "nickname": member.nickname,
+        "withdrawn_at": member.withdrawn_at,
+        "balance": member.credit_balance,
+        "pet_count": await PetProfile.filter(member_id=member_id).count(),
+        "source_deleted": source.deleted_at,
+        "result_deleted": result.deleted_at,
+        "forfeit_amount": forfeit.amount if forfeit else None,
+        "forfeit_balance_after": forfeit.balance_after if forfeit else None,
+    }
+
+
+def test_withdraw_purges_assets_and_anonymizes_member(client: TestClient):
+    session = _register(client)
+    headers = {"Authorization": f"Bearer {session['token']}"}
+    ids = client.portal.call(_seed_withdrawal_assets, session["member_id"])
+
+    response = client.delete("/v1/auth/me", headers=headers)
+
+    assert response.status_code == 204
+    state = client.portal.call(_withdrawal_state, session["member_id"], ids)
+    assert state["withdrawn_at"] is not None
+    assert state["email"] is None and state["nickname"] is None
+    assert state["balance"] == 0
+    assert state["pet_count"] == 0
+    assert state["source_deleted"] is not None
+    assert state["result_deleted"] is not None
+    # 잔액 3 소멸이 원장에 남는다(감사 보존)
+    assert state["forfeit_amount"] == -3
+    assert state["forfeit_balance_after"] == 0
+    # 대기 중 job 취소 + 자유 입력 텍스트 파기
+    assert state["job_status"] == "failed"
+    assert state["job_error"] == "WITHDRAWN"
+    assert state["job_inputs"] is None
+    assert state["log_text"] == ""
+    # 탈퇴 후 기존 토큰 즉시 무효
+    assert client.get("/v1/auth/me", headers=headers).status_code == 401
+
+
+def test_withdraw_rejects_guest_and_allows_rejoin(client: TestClient):
+    guest = _guest(client)
+    forbidden = client.delete(
+        "/v1/auth/me", headers={"Authorization": f"Bearer {guest['token']}"}
+    )
+    assert forbidden.status_code == 403
+    assert forbidden.json()["error"]["code"] == "MEMBER_ONLY"
+
+    session = _register(client, email="rejoin@example.com")
+    client.delete(
+        "/v1/auth/me", headers={"Authorization": f"Bearer {session['token']}"}
+    )
+
+    # 동일 이메일 재가입 = 완전 신규(익명화로 unique 충돌 없음)
+    rejoined = _register(client, email="rejoin@example.com")
+    assert rejoined["member_id"] != session["member_id"]

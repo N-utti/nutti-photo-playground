@@ -353,6 +353,38 @@ async def test_provider_failure_requeues_without_refund(monkeypatch: pytest.Monk
     assert not await CreditLedger.filter(reason="generation_refund").exists()
 
 
+async def test_withdrawn_member_result_is_soft_deleted(monkeypatch: pytest.MonkeyPatch):
+    member, job, original = await _preset_job()
+    member.withdrawn_at = datetime.now(timezone.utc)
+    await member.save(update_fields=["withdrawn_at"])
+
+    async def generated(_original, _prompt, _style_name, model_config=None):
+        return original
+
+    monkeypatch.setattr(worker, "_generate_image", generated)
+    await worker.process_job({"id": str(job.id)})
+
+    result = await GenerationResult.get(job_id=job.id)
+    assert result.deleted_at is not None
+
+
+async def test_withdrawn_member_gets_no_refund(monkeypatch: pytest.MonkeyPatch):
+    member, job, _ = await _preset_job()
+    member.withdrawn_at = datetime.now(timezone.utc)
+    member.credit_balance = 0
+    await member.save(update_fields=["withdrawn_at", "credit_balance"])
+
+    async def blocked(_original, _prompt, _style_name, model_config=None):
+        raise _bad_request("moderation_blocked")
+
+    monkeypatch.setattr(worker, "_generate_image", blocked)
+    await worker.process_job({"id": str(job.id)})
+
+    saved = await Member.get(id=member.id)
+    assert saved.credit_balance == 0
+    assert not await CreditLedger.filter(member_id=member.id).exists()
+
+
 async def test_safety_block_fails_immediately_with_refund(
     monkeypatch: pytest.MonkeyPatch,
 ):

@@ -127,6 +127,7 @@ async def get_current_member(authorization: str | None = Header(None, alias="Aut
     if (
         member is None
         or member.merged_into_id is not None
+        or member.withdrawn_at is not None
         or payload["kind"] != member.kind.value
         # ponytail: 구버전 토큰(ver 클레임 없음)은 0으로 간주 — 초기 token_version과 일치
         or payload.get("ver", 0) != member.token_version
