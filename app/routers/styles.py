@@ -18,6 +18,7 @@ class StyleSummary(BaseModel):
     credit_cost: int
     uses_pet_name: bool
     uses_breed: bool
+    input_fields: list
 
 
 class StyleSection(BaseModel):
@@ -42,6 +43,7 @@ class StyleDetailResponse(BaseModel):
     output_count: int
     uses_pet_name: bool
     uses_breed: bool
+    input_fields: list
 
 
 @router.get("", response_model=StyleListResponse)
@@ -90,6 +92,7 @@ async def list_styles(
                             public_url(style.example_keys[0]) if style.example_keys else None
                         ),
                         credit_cost=style.credit_cost,
+                        input_fields=style.input_fields,
                         **prompt_flags[style.id],
                     )
                     for style in (styles[:limit] if limit is not None else styles)
@@ -133,4 +136,5 @@ async def get_style(style_id: int):
         output_count=style.output_count,
         uses_pet_name=any("[pet name]" in prompt for prompt in prompt_texts),
         uses_breed=any("[breed]" in prompt for prompt in prompt_texts),
+        input_fields=style.input_fields,
     )

@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 
@@ -50,6 +51,10 @@ async def test_seed_from_dir_creates_records_and_is_idempotent(tmp_path: Path):
         "[사용법]\n──────────\nPublic prompt",
         encoding="utf-8",
     )
+    (prompt_dir / "견생네컷.txt").write_text(
+        "[사용법]\n──────────\nPrompt with input fields",
+        encoding="utf-8",
+    )
     (prompt_dir / "미등록_스타일.txt").write_text(
         "[사용법]\n──────────\nFallback prompt",
         encoding="utf-8",
@@ -59,9 +64,9 @@ async def test_seed_from_dir_creates_records_and_is_idempotent(tmp_path: Path):
 
     styles = {style.code: style for style in await Style.all()}
     versions = await StylePromptVersion.all()
-    assert first == {"created": 3, "skipped": 0}
-    assert len(styles) == 3
-    assert len(versions) == 3
+    assert first == {"created": 4, "skipped": 0}
+    assert len(styles) == 4
+    assert len(versions) == 4
     assert styles["3D_피규어"].name == "3D 피규어"
     assert styles["3D_피규어"].section == "피규어·장난감"
     assert styles["3D_피규어"].credit_cost == 1
@@ -69,6 +74,11 @@ async def test_seed_from_dir_creates_records_and_is_idempotent(tmp_path: Path):
     assert styles["3D_피규어"].status == StyleStatus.PUBLIC
     assert styles["레고"].sort_order == 1
     assert styles["레고"].status == StyleStatus.PUBLIC
+    manifest = json.loads(
+        (Path(__file__).parent.parent / "seeds/style_inputs.json").read_text(encoding="utf-8")
+    )
+    assert styles["견생네컷"].input_fields == manifest["견생네컷"]
+    assert styles["레고"].input_fields == []
     assert styles["미등록_스타일"].section == "일상 유머"
     assert styles["미등록_스타일"].sort_order == 39
     assert all(version.version == 1 for version in versions)
@@ -78,8 +88,12 @@ async def test_seed_from_dir_creates_records_and_is_idempotent(tmp_path: Path):
     prompt_version = next(version for version in versions if version.style_id == styles["3D_피규어"].id)
     assert prompt_version.prompt_text == "Draft [pet name] prompt"
 
+    await Style.filter(code="견생네컷").update(input_fields=[])
+
     second = await seed_from_dir(prompt_dir)
 
-    assert second == {"created": 0, "skipped": 3}
-    assert await Style.all().count() == 3
-    assert await StylePromptVersion.all().count() == 3
+    assert second == {"created": 0, "skipped": 4}
+    refreshed = await Style.get(code="견생네컷")
+    assert refreshed.input_fields == manifest["견생네컷"]
+    assert await Style.all().count() == 4
+    assert await StylePromptVersion.all().count() == 4
