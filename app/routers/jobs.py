@@ -1,4 +1,5 @@
 import random
+import re
 import uuid
 from datetime import datetime, timezone
 
@@ -49,6 +50,7 @@ class CreateJobRequest(BaseModel):
     upload_id: str
     pet_id: str | None = None
     custom_prompt: str | None = None
+    inputs: dict[str, str] | None = None
 
 
 class CreateJobResponse(BaseModel):
@@ -94,6 +96,37 @@ def _validation_error(detail: dict | None = None) -> HTTPException:
     )
 
 
+def _resolve_input_values(
+    input_fields: list, inputs: dict[str, str]
+) -> dict[str, str]:
+    """스타일 입력 스키마로 검증하고, 기본값을 병합한 최종 값을 돌려준다."""
+    labels = {field["label"] for field in input_fields}
+    unknown = sorted(set(inputs) - labels)
+    if unknown:
+        raise _validation_error({"unknown_inputs": unknown})
+    resolved = {}
+    for field in input_fields:
+        label = field["label"]
+        value = (inputs.get(label) or "").strip()
+        if not value:
+            if field.get("default"):
+                resolved[label] = field["default"]
+            # default 없는 필드(prefill=pet_name 등)는 워커가 채운다
+            continue
+        if field.get("max_length") and len(value) > field["max_length"]:
+            raise _validation_error({"input": label, "reason": "max_length"})
+        if field.get("pattern") and not re.fullmatch(field["pattern"], value):
+            raise _validation_error({"input": label, "reason": "pattern"})
+        if (
+            field.get("type") == "choice"
+            and not field.get("allow_custom")
+            and value not in {option["value"] for option in field.get("options", [])}
+        ):
+            raise _validation_error({"input": label, "reason": "not_in_options"})
+        resolved[label] = value
+    return resolved
+
+
 def _not_found() -> HTTPException:
     return HTTPException(
         status_code=404,
@@ -129,10 +162,13 @@ async def create_job(
     # ponytail: pet_id는 source_image.pet_profile_id로 연결되어 있어 현재 저장하지 않는다.
     _ = body.pet_id
     log_values = None
+    input_values = None
     if body.style_id is not None:
         style = await Style.filter(id=body.style_id, status__in=["public", "ab"]).first()
         if style is None:
             raise _not_found()
+        if style.input_fields:
+            input_values = _resolve_input_values(style.input_fields, body.inputs or {})
         cost = style.credit_cost
         versions = await StylePromptVersion.filter(style_id=style.id, status="active").all()
         weights = [version.traffic_weight for version in versions]
@@ -179,6 +215,7 @@ async def create_job(
             style_id=style.id if style is not None else None,
             prompt_version_id=prompt_version.id if prompt_version is not None else None,
             custom_prompt_id=log.id if log is not None else None,
+            input_values=input_values,
             idempotency_key=key,
             credit_cost=cost,
             using_db=connection,

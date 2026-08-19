@@ -84,6 +84,8 @@ async def _preset_job(
     prompt_text: str = "수채화로 변환",
     pet_name: str | None = None,
     breed_label: str | None = None,
+    input_fields: list | None = None,
+    input_values: dict | None = None,
 ):
     member = await Member.create(kind=MemberKind.MEMBER, credit_balance=0)
     pet_profile = (
@@ -108,6 +110,7 @@ async def _preset_job(
         code="watercolor",
         section="test",
         name="수채화",
+        input_fields=input_fields or [],
     )
     version = None
     if prompt_version:
@@ -127,6 +130,7 @@ async def _preset_job(
         idempotency_key=uuid.uuid4(),
         credit_cost=2,
         attempt_count=attempt_count,
+        input_values=input_values,
     )
     return member, job, await storage.load_bytes(source_key)
 
@@ -253,6 +257,54 @@ async def test_preset_replaces_pet_name(monkeypatch: pytest.MonkeyPatch):
 
     assert "몽이" in prompts[0]
     assert "[pet name]" not in prompts[0]
+
+
+async def test_preset_prepends_stored_input_values(monkeypatch: pytest.MonkeyPatch):
+    _, job, original = await _preset_job(
+        prompt_text="wearing the costume written above",
+        input_fields=[
+            {
+                "label": "의상",
+                "type": "choice",
+                "default": "버섯",
+                "options": [{"value": "버섯"}, {"value": "옥수수"}],
+            }
+        ],
+        input_values={"의상": "옥수수"},
+    )
+    prompts = []
+
+    async def capture_prompt(_original, prompt, _style_name, model_config=None):
+        prompts.append(prompt)
+        return original
+
+    monkeypatch.setattr(worker, "_generate_image", capture_prompt)
+    await worker.process_job({"id": str(job.id)})
+
+    assert prompts[0] == "의상: 옥수수\n\nwearing the costume written above"
+
+
+async def test_preset_input_values_fall_back_to_default_and_pet_name(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    _, job, original = await _preset_job(
+        prompt_text="as written above",
+        pet_name="몽이",
+        input_fields=[
+            {"label": "의상", "type": "choice", "default": "버섯"},
+            {"label": "반려견 이름", "type": "text", "prefill": "pet_name"},
+        ],
+    )
+    prompts = []
+
+    async def capture_prompt(_original, prompt, _style_name, model_config=None):
+        prompts.append(prompt)
+        return original
+
+    monkeypatch.setattr(worker, "_generate_image", capture_prompt)
+    await worker.process_job({"id": str(job.id)})
+
+    assert prompts[0] == "의상: 버섯\n반려견 이름: 몽이\n\nas written above"
 
 
 async def test_preset_replaces_breed(monkeypatch: pytest.MonkeyPatch):

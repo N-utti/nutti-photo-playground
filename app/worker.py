@@ -233,6 +233,28 @@ async def process_job(job: dict, *, lease: bool = True) -> None:
                     pet_profile.breed_label if pet_profile is not None else None
                 ) or "강아지"
                 prompt = prompt.replace("[breed]", breed)
+            input_fields = generation_job.style.input_fields
+            if input_fields:
+                # 원문 프롬프트가 "written above"로 참조하는 사용자 선택 블록 복원
+                values = generation_job.input_values or {}
+                lines = []
+                for field in input_fields:
+                    value = values.get(field["label"]) or field.get("default")
+                    if not value and field.get("prefill") == "pet_name":
+                        if (
+                            pet_profile is None
+                            and generation_job.source_image.pet_profile_id is not None
+                        ):
+                            pet_profile = await PetProfile.get(
+                                id=generation_job.source_image.pet_profile_id
+                            )
+                        value = (
+                            pet_profile.name if pet_profile is not None else None
+                        ) or "우리 아이"
+                    if value:
+                        lines.append(f"{field['label']}: {value}")
+                if lines:
+                    prompt = "\n".join(lines) + "\n\n" + prompt
             style_name = generation_job.style.name
         else:
             if generation_job.custom_prompt_id is None:

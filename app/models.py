@@ -168,6 +168,7 @@ class GenerationJob(Model):
     # the ERD column name/type exactly but without an ORM-level relation; the enforced,
     # traversable FK lives on custom_prompt_log.job instead.
     custom_prompt_id = fields.UUIDField(null=True)
+    input_values = fields.JSONField(null=True)
     idempotency_key = fields.UUIDField()
     status = fields.CharEnumField(JobStatus, default=JobStatus.QUEUED)
     credit_cost = fields.IntField()
