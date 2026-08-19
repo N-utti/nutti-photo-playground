@@ -1,6 +1,7 @@
 import os
 import uuid
 from datetime import datetime, timedelta, timezone
+from functools import partial
 
 os.environ.setdefault("DATABASE_URL", "sqlite://:memory:")
 os.environ.setdefault("APP_ENV", "development")
@@ -69,6 +70,7 @@ async def _create_style(
     credit_cost: int = 1,
     avg_seconds: int = 24,
     progress_message: str | None = None,
+    input_fields: list | None = None,
 ) -> Style:
     return await Style.create(
         id=style_id,
@@ -79,6 +81,7 @@ async def _create_style(
         credit_cost=credit_cost,
         avg_seconds=avg_seconds,
         progress_message=progress_message,
+        input_fields=input_fields or [],
     )
 
 
@@ -108,6 +111,58 @@ async def _member_job_and_generation_entries(member_id: str, job_id: str):
         reason="generation_charge",
     ).all()
     return member, job, entries
+
+
+_INPUT_FIELDS = [
+    {
+        "label": "의상",
+        "type": "choice",
+        "allow_custom": False,
+        "default": "버섯",
+        "options": [{"value": "버섯"}, {"value": "옥수수"}],
+    },
+    {"label": "자막", "type": "text", "max_length": 4},
+    {"label": "번호", "type": "text", "pattern": "^\\d{4}$", "default": "0103"},
+]
+
+
+async def _get_job_input_values(job_id: str):
+    return (await GenerationJob.get(id=job_id)).input_values
+
+
+def test_create_preset_job_resolves_and_stores_input_values(client: TestClient):
+    _, upload_id, headers = _session(client, balance=3)
+    client.portal.call(partial(_create_style, 1, input_fields=_INPUT_FIELDS))
+
+    response = _post_job(
+        client, headers, upload_id, style_id=1, inputs={"의상": "옥수수", "자막": "규탄"}
+    )
+
+    assert response.status_code == 202
+    stored = client.portal.call(
+        partial(_get_job_input_values, response.json()["job_id"])
+    )
+    # 미제공 필드는 default 병합, default 없는 자막은 제공값 그대로
+    assert stored == {"의상": "옥수수", "자막": "규탄", "번호": "0103"}
+
+
+def test_create_preset_job_rejects_invalid_inputs(client: TestClient):
+    member_id, upload_id, headers = _session(client, balance=3)
+    client.portal.call(partial(_create_style, 1, input_fields=_INPUT_FIELDS))
+
+    cases = [
+        {"엉뚱한키": "값"},
+        {"의상": "딸기"},
+        {"자막": "네글자넘김"},
+        {"번호": "12a4"},
+    ]
+    for inputs in cases:
+        response = _post_job(client, headers, upload_id, style_id=1, inputs=inputs)
+        assert response.status_code == 400, inputs
+        assert response.json()["error"]["code"] == "VALIDATION_ERROR", inputs
+
+    member = client.portal.call(partial(Member.get, id=member_id))
+    assert member.credit_balance == 3
 
 
 def test_create_preset_job_charges_style_cost_and_writes_ledger(client: TestClient):
