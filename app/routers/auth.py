@@ -12,6 +12,7 @@ from urllib.parse import urlencode
 import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
+from tortoise.exceptions import IntegrityError
 from tortoise.transactions import in_transaction
 
 from app.auth import (
@@ -26,6 +27,7 @@ from app.auth import (
 )
 from app.credits import grant_credits
 from app.models import (
+    CreditLedger,
     CreditReason,
     CustomPromptLog,
     GenerationJob,
@@ -356,11 +358,19 @@ async def _merge_or_promote_guest(
 @router.post("/guest", status_code=201, response_model=GuestTokenResponse)
 async def issue_guest_token(request: Request) -> GuestTokenResponse:
     _check_guest_rate_limit(request)
-    member = await Member.create(
-        kind=MemberKind.GUEST,
-        guest_expires_at=datetime.now(timezone.utc) + timedelta(days=30),
-    )
-    await grant_credits(member.id, 1, CreditReason.GUEST_TRIAL, "guest_trial")
+    async with in_transaction() as connection:
+        member = await Member.create(
+            kind=MemberKind.GUEST,
+            guest_expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+            using_db=connection,
+        )
+        await grant_credits(
+            member.id,
+            1,
+            CreditReason.GUEST_TRIAL,
+            "guest_trial",
+            connection=connection,
+        )
     return GuestTokenResponse(token=create_token(member.id, "guest"), member_id=str(member.id), kind="guest")
 
 
@@ -463,8 +473,18 @@ async def cafe24_callback(code: str, state: str) -> Cafe24LinkResponse:
             update_fields=["cafe24_member_id", "order_reward_cutoff"],
             using_db=connection,
         )
+        link_credit_exists = await CreditLedger.filter(
+            member_id=member_id, dedupe_key="link_account"
+        ).using_db(connection).exists()
+        if not link_credit_exists:
+            await grant_credits(
+                member_id,
+                3,
+                CreditReason.LINK_ACCOUNT,
+                "link_account",
+                connection=connection,
+            )
 
-    await grant_credits(member_id, 3, CreditReason.LINK_ACCOUNT, "link_account")
     member = await Member.get(id=member_id)
     return Cafe24LinkResponse(cafe24_linked=True, credit_balance=member.credit_balance)
 
@@ -572,31 +592,37 @@ async def social_callback(
     except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
         raise _bad_gateway() from exc
 
-    async with in_transaction() as connection:
-        guest = await Member.filter(
-            id=guest_id,
-            kind=MemberKind.GUEST,
-            merged_into_id__isnull=True,
-        ).select_for_update().using_db(connection).first()
-        if guest is None:
-            raise _unauthorized()
-        target, merged = await _merge_or_promote_guest(
-            connection,
-            guest_id,
-            id_field=id_field,
-            id_value=id_value,
-            nickname=nickname,
-        )
-        # ponytail: concurrent login is last-commit-wins; an earlier refresh gets 401, then the client re-logs in. Use a session table for multi-device support.
-        refresh_token = secrets.token_urlsafe(32)
-        target.refresh_token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
-        target.refresh_expires_at = datetime.now(timezone.utc) + timedelta(
-            seconds=settings.jwt_refresh_expires_in
-        )
-        await target.save(
-            update_fields=["refresh_token_hash", "refresh_expires_at"],
-            using_db=connection,
-        )
+    for attempt in range(2):
+        try:
+            async with in_transaction() as connection:
+                guest = await Member.filter(
+                    id=guest_id,
+                    kind=MemberKind.GUEST,
+                    merged_into_id__isnull=True,
+                ).select_for_update().using_db(connection).first()
+                if guest is None:
+                    raise _unauthorized()
+                target, merged = await _merge_or_promote_guest(
+                    connection,
+                    guest_id,
+                    id_field=id_field,
+                    id_value=id_value,
+                    nickname=nickname,
+                )
+                # ponytail: concurrent login is last-commit-wins; an earlier refresh gets 401, then the client re-logs in. Use a session table for multi-device support.
+                refresh_token = secrets.token_urlsafe(32)
+                target.refresh_token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
+                target.refresh_expires_at = datetime.now(timezone.utc) + timedelta(
+                    seconds=settings.jwt_refresh_expires_in
+                )
+                await target.save(
+                    update_fields=["refresh_token_hash", "refresh_expires_at"],
+                    using_db=connection,
+                )
+            break
+        except IntegrityError:
+            if attempt:
+                raise
 
     target = await Member.get(id=target.id)
     return AuthCallbackResponse(
@@ -633,37 +659,55 @@ async def register(
         raise _unauthorized()
     # scrypt(~40ms)를 트랜잭션 밖에서 수행 — DB 커넥션·행 잠금 점유 방지
     password_hash = await asyncio.to_thread(hash_password, body.password)
-    async with in_transaction() as connection:
-        if await Member.filter(email=body.email).using_db(connection).exists():
-            raise HTTPException(
-                status_code=409,
-                detail={"code": "EMAIL_TAKEN", "message": "Email is already registered", "detail": {}},
-            )
-        guest = await Member.filter(
-            id=guest_id,
-            kind=MemberKind.GUEST,
-            merged_into_id__isnull=True,
-        ).select_for_update().using_db(connection).first()
-        if guest is None:
-            raise _unauthorized()
-        target, merged = await _merge_or_promote_guest(
-            connection, guest_id, id_field="email", id_value=body.email
-        )
-        if merged:
-            raise HTTPException(
-                status_code=409,
-                detail={"code": "EMAIL_TAKEN", "message": "Email is already registered", "detail": {}},
-            )
-        target.password_hash = password_hash
-        refresh_token = secrets.token_urlsafe(32)
-        target.refresh_token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
-        target.refresh_expires_at = datetime.now(timezone.utc) + timedelta(
-            seconds=settings.jwt_refresh_expires_in
-        )
-        await target.save(
-            update_fields=["password_hash", "refresh_token_hash", "refresh_expires_at"],
-            using_db=connection,
-        )
+    for attempt in range(2):
+        try:
+            async with in_transaction() as connection:
+                if await Member.filter(email=body.email).using_db(connection).exists():
+                    raise HTTPException(
+                        status_code=409,
+                        detail={
+                            "code": "EMAIL_TAKEN",
+                            "message": "Email is already registered",
+                            "detail": {},
+                        },
+                    )
+                guest = await Member.filter(
+                    id=guest_id,
+                    kind=MemberKind.GUEST,
+                    merged_into_id__isnull=True,
+                ).select_for_update().using_db(connection).first()
+                if guest is None:
+                    raise _unauthorized()
+                target, merged = await _merge_or_promote_guest(
+                    connection, guest_id, id_field="email", id_value=body.email
+                )
+                if merged:
+                    raise HTTPException(
+                        status_code=409,
+                        detail={
+                            "code": "EMAIL_TAKEN",
+                            "message": "Email is already registered",
+                            "detail": {},
+                        },
+                    )
+                target.password_hash = password_hash
+                refresh_token = secrets.token_urlsafe(32)
+                target.refresh_token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
+                target.refresh_expires_at = datetime.now(timezone.utc) + timedelta(
+                    seconds=settings.jwt_refresh_expires_in
+                )
+                await target.save(
+                    update_fields=[
+                        "password_hash",
+                        "refresh_token_hash",
+                        "refresh_expires_at",
+                    ],
+                    using_db=connection,
+                )
+            break
+        except IntegrityError:
+            if attempt:
+                raise
 
     target = await Member.get(id=target.id)
     return AuthCallbackResponse(

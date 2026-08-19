@@ -1,5 +1,6 @@
 import asyncio
 import os
+from urllib.parse import parse_qs, urlparse
 
 os.environ.setdefault("DATABASE_URL", os.getenv("TEST_PG_DATABASE_URL") or "sqlite://:memory:")
 os.environ.setdefault("APP_ENV", "development")
@@ -125,3 +126,74 @@ async def test_concurrent_local_logins_do_not_return_500(pg_database):
 
     assert all(status // 100 in {2, 4} for status in statuses)
     assert statuses.count(500) == 0
+
+
+async def test_concurrent_kakao_promotions_retry_and_merge(
+    pg_database, monkeypatch: pytest.MonkeyPatch
+):
+    kakao_id = 123456
+    real_merge = auth_router._merge_or_promote_guest
+    retry_observed = False
+
+    async def exchange(code: str) -> dict:
+        return {"access_token": code}
+
+    async def fetch(access_token: str) -> dict:
+        return {"id": kakao_id}
+
+    monkeypatch.setattr(auth_router, "_exchange_kakao_code", exchange)
+    monkeypatch.setattr(auth_router, "_fetch_kakao_member", fetch)
+
+    for iteration in range(20):
+        await _truncate_members()
+        merge_calls = 0
+        initial_merges_ready = asyncio.Event()
+
+        async def synchronized_merge(connection, guest_id, **kwargs):
+            nonlocal merge_calls, retry_observed
+            merge_calls += 1
+            if merge_calls <= 2:
+                if merge_calls == 2:
+                    initial_merges_ready.set()
+                await initial_merges_ready.wait()
+            else:
+                retry_observed = True
+            return await real_merge(connection, guest_id, **kwargs)
+
+        monkeypatch.setattr(auth_router, "_merge_or_promote_guest", synchronized_merge)
+        transport = httpx.ASGITransport(
+            app=app,
+            raise_app_exceptions=False,
+            client=(f"203.0.113.{iteration + 1}", 123),
+        )
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            guests = [(await client.post("/v1/auth/guest")).json() for _ in range(2)]
+            states = []
+            for guest in guests:
+                authorize = await client.get(
+                    "/v1/auth/kakao/authorize",
+                    headers={"Authorization": f"Bearer {guest['token']}"},
+                )
+                assert authorize.status_code == 200
+                states.append(
+                    parse_qs(urlparse(authorize.json()["authorize_url"]).query)["state"][0]
+                )
+
+            responses = await asyncio.gather(
+                *(
+                    client.get(
+                        "/v1/auth/kakao/callback",
+                        params={"code": f"code-{index}", "state": state},
+                    )
+                    for index, state in enumerate(states)
+                )
+            )
+
+        assert [response.status_code for response in responses] == [200, 200]
+        assert sorted(response.json()["merged"] for response in responses) == [False, True]
+        assert await Member.filter(kakao_id=str(kakao_id)).count() == 1
+        member = await Member.get(kakao_id=str(kakao_id))
+        assert member.kind == MemberKind.MEMBER
+        assert await Member.filter(merged_into_id=member.id).count() == 1
+
+    assert retry_observed

@@ -1,11 +1,14 @@
 """크레딧 원장과 잔액 캐시를 함께 갱신한다."""
 
+import logging
 import uuid
 
 from tortoise.exceptions import IntegrityError
 from tortoise.transactions import in_transaction
 
 from app.models import CreditLedger, Member
+
+logger = logging.getLogger(__name__)
 
 
 async def grant_credits(
@@ -14,24 +17,40 @@ async def grant_credits(
     reason: str,
     dedupe_key: str,
     ref_id: str | None = None,
+    connection=None,
 ) -> bool:
-    try:
-        async with in_transaction() as connection:
-            member = await Member.select_for_update().using_db(connection).get(id=member_id)
-            balance_after = member.credit_balance + delta
-            await CreditLedger.create(
-                member=member,
-                amount=delta,
-                reason=reason,
-                dedupe_key=dedupe_key,
-                ref_id=ref_id,
-                balance_after=balance_after,
-                using_db=connection,
-            )
-            member.credit_balance = balance_after
-            await member.save(update_fields=["credit_balance"], using_db=connection)
-    except IntegrityError:
-        return False
+    if connection is None:
+        try:
+            async with in_transaction() as connection:
+                return await grant_credits(
+                    member_id,
+                    delta,
+                    reason,
+                    dedupe_key,
+                    ref_id=ref_id,
+                    connection=connection,
+                )
+        except IntegrityError:
+            if await CreditLedger.filter(
+                member_id=member_id, dedupe_key=dedupe_key
+            ).exists():
+                return False
+            logger.exception("Failed to grant credits to member %s", member_id)
+            raise
+
+    member = await Member.select_for_update().using_db(connection).get(id=member_id)
+    balance_after = member.credit_balance + delta
+    await CreditLedger.create(
+        member=member,
+        amount=delta,
+        reason=reason,
+        dedupe_key=dedupe_key,
+        ref_id=ref_id,
+        balance_after=balance_after,
+        using_db=connection,
+    )
+    member.credit_balance = balance_after
+    await member.save(update_fields=["credit_balance"], using_db=connection)
     return True
 
 
