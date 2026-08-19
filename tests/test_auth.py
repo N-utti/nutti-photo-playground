@@ -12,6 +12,7 @@ import jwt
 import pytest
 from fastapi.testclient import TestClient
 from tortoise import Tortoise
+from tortoise.exceptions import IntegrityError
 
 from app.auth import hash_password, verify_password
 from app.credits import grant_credits
@@ -1008,3 +1009,29 @@ def test_grant_credits_is_atomic_and_deduplicated(client: TestClient):
     assert second is False
     assert len(entries) == 1
     assert entries[0].balance_after == member.credit_balance == 3
+
+
+def test_grant_credits_reraises_non_dedupe_integrity_error(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    member_id = client.portal.call(
+        _create_passwordless_member, "grant-error@example.com"
+    ).id
+
+    async def fail_create(*args, **kwargs):
+        raise IntegrityError("non-dedupe failure")
+
+    monkeypatch.setattr(CreditLedger, "create", fail_create)
+
+    with pytest.raises(IntegrityError, match="non-dedupe failure"):
+        client.portal.call(
+            grant_credits,
+            member_id,
+            3,
+            CreditReason.LINK_ACCOUNT,
+            "unused-dedupe-key",
+        )
+
+    member, ledger = client.portal.call(_member_and_ledger, member_id)
+    assert member.credit_balance == 0
+    assert ledger == []
