@@ -64,6 +64,7 @@ class Member(Model):
     password_hash = fields.CharField(max_length=256, null=True)
     refresh_token_hash = fields.CharField(max_length=64, null=True, unique=True)
     refresh_expires_at = fields.DatetimeField(null=True)
+    token_version = fields.IntField(default=0)
     nickname = fields.CharField(max_length=100, null=True)
     credit_balance = fields.IntField(default=0)
     merged_into = fields.ForeignKeyField(

@@ -176,6 +176,35 @@ def test_logout_revokes_member_refresh_token(client: TestClient):
     assert refresh.status_code == 401
 
 
+def test_logout_invalidates_outstanding_access_tokens(client: TestClient):
+    session = _register(client)
+    headers = {"Authorization": f"Bearer {session['token']}"}
+    assert client.get("/v1/auth/me", headers=headers).status_code == 200
+
+    logout = client.post("/v1/auth/logout", headers=headers)
+
+    assert logout.status_code == 204
+    # 로그아웃 전 발급된 액세스 토큰은 만료 전이라도 즉시 401 (#11 M6)
+    assert client.get("/v1/auth/me", headers=headers).status_code == 401
+
+
+def test_relogin_after_logout_issues_working_token(client: TestClient):
+    session = _register(client)
+    headers = {"Authorization": f"Bearer {session['token']}"}
+    client.post("/v1/auth/logout", headers=headers)
+
+    new_guest = _guest(client)
+    login = client.post(
+        "/v1/auth/login",
+        headers={"Authorization": f"Bearer {new_guest['token']}"},
+        json={"email": "member@example.com", "password": "password-123"},
+    )
+
+    assert login.status_code == 200
+    new_headers = {"Authorization": f"Bearer {login.json()['token']}"}
+    assert client.get("/v1/auth/me", headers=new_headers).status_code == 200
+
+
 def test_forged_refresh_token_is_rejected(client: TestClient):
     response = client.post(
         "/v1/auth/refresh",

@@ -37,7 +37,7 @@ async def _create_member(kind: MemberKind, balance: int = 0) -> str:
 
 def _session(client: TestClient, kind: MemberKind, balance: int = 0) -> tuple[str, dict[str, str]]:
     member_id = client.portal.call(_create_member, kind, balance)
-    token = create_token(uuid.UUID(member_id), kind.value)
+    token = create_token(uuid.UUID(member_id), kind.value, 0)
     return member_id, {"Authorization": f"Bearer {token}"}
 
 
