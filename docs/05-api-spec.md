@@ -617,22 +617,24 @@
 
 쿼리: `pet_id?` 또는 `job_id?`
 
+**Q9 확정(2026-08-19, 계산기 실측)**: 계산기(calculator/js/calculator.js의 `BREEDS` 40종)는 별도 코드 체계 없이 **한글 견종명이 키**다 — 따라서 `breed_code`=`breed_label`=한글명(app/breeds.py가 40종·크기 스냅샷 보유, 계산기 목록 변경 시 함께 갱신). 견종 후보는 펫 프로필 기입값 → 비전 추정 라벨 순. ⚠️ 계산기에 프리필 **수신** 코드는 아직 없음(파라미터는 무해하게 무시됨) — 수신부는 카페24 스마트디자인 쪽 후속 작업.
+
 ```json
 // 200 — 정상 매칭
 {
-  "breed_code": "toy_poodle",
+  "breed_code": "토이푸들",
   "breed_label": "토이푸들",
   "size_label": "소형",
-  "calculator_url": "https://nutti.co.kr/calculator.html?name=콩이&breed=toy_poodle&size=소형&utm_source=nutti_playground&utm_medium=referral&utm_campaign=calculator_handoff"
+  "calculator_url": "https://nutti.co.kr/calculator.html?name=콩이&breed=토이푸들&size=소형&utm_source=nutti_playground&utm_medium=referral&utm_campaign=calculator_handoff"
 }
 ```
 ```json
-// 200 — 견종 42종 목록에 없음(FR-EDGE-11, "믹스견" 폴백)
+// 200 — 견종 40종 목록에 없음(FR-EDGE-11, "믹스견" 폴백)
 {
-  "breed_code": "mixed",
+  "breed_code": "믹스견",
   "breed_label": "믹스견",
   "size_label": "중형",
-  "calculator_url": "https://nutti.co.kr/calculator.html?name=콩이&breed=mixed&size=중형&utm_source=nutti_playground&utm_medium=referral&utm_campaign=calculator_handoff"
+  "calculator_url": "https://nutti.co.kr/calculator.html?name=콩이&breed=믹스견&size=중형&utm_source=nutti_playground&utm_medium=referral&utm_campaign=calculator_handoff"
 }
 ```
 ```json
