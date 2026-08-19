@@ -31,6 +31,7 @@ from app.models import (
     GenerationJob,
     GenerationResult,
     JobStatus,
+    Member,
     PetProfile,
     StylePromptVersion,
 )
@@ -169,6 +170,11 @@ def _sign_and_encode_jpeg(image_bytes: bytes) -> bytes:
 async def _refund(
     generation_job: GenerationJob, reason: str = "generation_refund"
 ) -> None:
+    # 탈퇴 회원에게는 환불하지 않는다 — 잔액 소멸 정책(#22)
+    if await Member.filter(
+        id=generation_job.member_id, withdrawn_at__isnull=False
+    ).exists():
+        return
     await grant_credits(
         generation_job.member_id,
         generation_job.credit_cost,
@@ -277,7 +283,16 @@ async def process_job(job: dict, *, lease: bool = True) -> None:
         jpeg_bytes = _sign_and_encode_jpeg(generated)
         key = f"results/{uuid.uuid4()}.jpg"
         await save_bytes(key, jpeg_bytes, "image/jpeg")
-        await GenerationResult.create(job=generation_job, seq=1, storage_key=key)
+        # 생성 도중 탈퇴한 회원의 결과물은 즉시 논리삭제로 기록해 파기 배치에 태운다(#22)
+        withdrawn = await Member.filter(
+            id=generation_job.member_id, withdrawn_at__isnull=False
+        ).exists()
+        await GenerationResult.create(
+            job=generation_job,
+            seq=1,
+            storage_key=key,
+            deleted_at=datetime.now(timezone.utc) if withdrawn else None,
+        )
         generation_job.status = JobStatus.SUCCEEDED
         generation_job.finished_at = datetime.now(timezone.utc)
         await generation_job.save(update_fields=["status", "finished_at"])

@@ -256,6 +256,16 @@ async def upload_photo(
             }
         )
 
+    # 비전 분석 왕복 사이에 탈퇴가 커밋됐으면 저장하지 않는다(#22 in-flight 창)
+    if await Member.filter(id=member.id, withdrawn_at__isnull=False).exists():
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "code": "UNAUTHORIZED",
+                "message": "Invalid or missing authentication token",
+                "detail": {},
+            },
+        )
     key = f"uploads/{uuid.uuid4()}.jpg"
     await save_bytes(key, jpeg_bytes, "image/jpeg")
     source = await SourceImage.create(

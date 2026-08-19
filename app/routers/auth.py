@@ -32,6 +32,8 @@ from app.models import (
     CreditReason,
     CustomPromptLog,
     GenerationJob,
+    GenerationResult,
+    JobStatus,
     Member,
     MemberKind,
     MetricEvent,
@@ -855,4 +857,74 @@ async def logout(member: Member = Depends(get_current_member)) -> None:
         oauth_state_expires_at=None,
         token_version=F("token_version") + 1,
     )
+    return None
+
+
+@router.delete("/me", status_code=204)
+async def withdraw(member: Member = Depends(get_current_member)) -> None:
+    """회원 탈퇴 (#22): 자산 논리삭제 + 크레딧 소멸(원장 보존) + member 익명화.
+
+    스토리지 실파기(R2 삭제·CDN 퍼지)는 06-architecture §4 삭제 파이프라인의
+    배치가 deleted_at 기준으로 수행한다. 카페24 쇼핑몰 회원에는 무영향.
+    """
+    if member.kind != MemberKind.MEMBER:
+        raise HTTPException(
+            status_code=403,
+            detail={"code": "MEMBER_ONLY", "message": "로그인이 필요합니다", "detail": {}},
+        )
+    now = datetime.now(timezone.utc)
+    async with in_transaction() as connection:
+        locked = await Member.filter(
+            id=member.id, withdrawn_at__isnull=True
+        ).select_for_update().using_db(connection).first()
+        if locked is None:
+            return None
+        await SourceImage.filter(
+            member_id=member.id, deleted_at__isnull=True
+        ).using_db(connection).update(deleted_at=now)
+        job_ids = await GenerationJob.filter(member_id=member.id).using_db(
+            connection
+        ).values_list("id", flat=True)
+        if job_ids:
+            await GenerationResult.filter(
+                job_id__in=job_ids, deleted_at__isnull=True
+            ).using_db(connection).update(deleted_at=now)
+        # 대기·진행 중 job 취소 — 워커가 탈퇴 후 신규 결과물을 만들지 못하게
+        await GenerationJob.filter(
+            member_id=member.id,
+            status__in=[JobStatus.QUEUED, JobStatus.PROCESSING],
+        ).using_db(connection).update(
+            status=JobStatus.FAILED, error_code="WITHDRAWN", finished_at=now
+        )
+        # 사용자 자유 입력 텍스트 파기(커스텀 프롬프트 원문·스타일 입력값)
+        await CustomPromptLog.filter(member_id=member.id).using_db(connection).update(
+            raw_text="", normalized_text=""
+        )
+        await GenerationJob.filter(
+            member_id=member.id, input_values__isnull=False
+        ).using_db(connection).update(input_values=None)
+        await PetProfile.filter(member_id=member.id).using_db(connection).delete()
+        if locked.credit_balance > 0:
+            await grant_credits(
+                member.id,
+                -locked.credit_balance,
+                CreditReason.WITHDRAWAL_FORFEIT,
+                "withdrawal_forfeit",
+                connection=connection,
+            )
+        await Member.filter(id=member.id).using_db(connection).update(
+            email=None,
+            password_hash=None,
+            kakao_id=None,
+            naver_id=None,
+            cafe24_member_id=None,
+            nickname=None,
+            refresh_token_hash=None,
+            refresh_expires_at=None,
+            oauth_state_nonce=None,
+            oauth_state_expires_at=None,
+            credit_balance=0,
+            token_version=F("token_version") + 1,
+            withdrawn_at=now,
+        )
     return None

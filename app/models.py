@@ -52,6 +52,7 @@ class CreditReason(str, enum.Enum):
     ORDER_REWARD = "order_reward"
     ORDER_CLAWBACK = "order_clawback"
     CS_ADJUSTMENT = "cs_adjustment"
+    WITHDRAWAL_FORFEIT = "withdrawal_forfeit"
 
 
 class Member(Model):
@@ -65,6 +66,7 @@ class Member(Model):
     refresh_token_hash = fields.CharField(max_length=64, null=True, unique=True)
     refresh_expires_at = fields.DatetimeField(null=True)
     token_version = fields.IntField(default=0)
+    withdrawn_at = fields.DatetimeField(null=True)
     nickname = fields.CharField(max_length=100, null=True)
     credit_balance = fields.IntField(default=0)
     merged_into = fields.ForeignKeyField(
@@ -147,6 +149,7 @@ class SourceImage(Model):
     quality_check = fields.JSONField()
     breed_estimate = fields.JSONField(null=True)
     expires_at = fields.DatetimeField(null=True)
+    deleted_at = fields.DatetimeField(null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
 
     class Meta:
