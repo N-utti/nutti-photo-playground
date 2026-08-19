@@ -150,6 +150,7 @@ class SourceImage(Model):
     breed_estimate = fields.JSONField(null=True)
     expires_at = fields.DatetimeField(null=True)
     deleted_at = fields.DatetimeField(null=True)
+    purged_at = fields.DatetimeField(null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
 
     class Meta:
@@ -199,6 +200,7 @@ class GenerationResult(Model):
     signature_variant = fields.TextField(null=True)
     is_selected = fields.BooleanField(default=False)
     deleted_at = fields.DatetimeField(null=True)
+    purged_at = fields.DatetimeField(null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
 
     class Meta:
