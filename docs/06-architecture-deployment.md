@@ -108,6 +108,8 @@ Q4("1회 생성 산출 수와 원가")의 판단 근거였으며, **1장으로 �
 6. `generation_job.status='completed'`.
 7. 클라이언트는 CDN(Cloudflare, R2 커스텀 도메인 연결)에서 이미지를 직접 로드 — 앱 서버는 서빙에 관여하지 않습니다.
 
+**CORS(이슈 #77)**: CDN 서빙은 크로스 오리진이라 W-06 "이미지 저장"(`fetch`→`blob`→`download`)에 `Access-Control-Allow-Origin`이 필수입니다. **R2 프로비저닝 직후** `uv run python scripts/setup_r2_cors.py --origins <웹 오리진>` 을 실행해 버킷에 GET/HEAD CORS 규칙을 적용할 것(미실행 시 CDN 전환 순간 저장 버튼이 조용히 깨짐 — `download` 속성은 동일 오리진 전용).
+
 **삭제 경로**(보관함 삭제, 회원 탈퇴 등): **논리삭제 → R2 실제 삭제 → CDN 캐시 퍼지** 3단계.
 - 사용자 요청 시점에는 `deleted_at` 컬럼만 SET(즉시 응답, 실수 삭제 복구 유예 확보).
 - 배치가 주기적으로 `deleted_at`이 지난 지 일정 기간 지난 레코드의 R2 객체를 실제 삭제.
