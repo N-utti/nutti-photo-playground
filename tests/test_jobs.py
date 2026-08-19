@@ -60,7 +60,7 @@ def _session(
     client: TestClient, balance: int = 3, pet_name: str | None = None
 ) -> tuple[str, str, dict[str, str]]:
     member_id, upload_id = client.portal.call(_create_member_and_upload, balance, pet_name)
-    token = create_token(uuid.UUID(member_id), MemberKind.GUEST.value)
+    token = create_token(uuid.UUID(member_id), MemberKind.GUEST.value, 0)
     return member_id, upload_id, {"Authorization": f"Bearer {token}"}
 
 

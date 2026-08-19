@@ -13,6 +13,7 @@ import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
 from tortoise.exceptions import IntegrityError
+from tortoise.expressions import F
 from tortoise.transactions import in_transaction
 
 from app.auth import (
@@ -371,7 +372,7 @@ async def issue_guest_token(request: Request) -> GuestTokenResponse:
             "guest_trial",
             connection=connection,
         )
-    return GuestTokenResponse(token=create_token(member.id, "guest"), member_id=str(member.id), kind="guest")
+    return GuestTokenResponse(token=create_token(member.id, "guest", member.token_version), member_id=str(member.id), kind="guest")
 
 
 # Fixed Cafe24 paths must be registered before the provider parameter routes below.
@@ -626,7 +627,7 @@ async def social_callback(
 
     target = await Member.get(id=target.id)
     return AuthCallbackResponse(
-        token=create_token(target.id, "member"),
+        token=create_token(target.id, "member", target.token_version),
         refresh_token=refresh_token,
         member_id=str(target.id),
         kind="member",
@@ -711,7 +712,7 @@ async def register(
 
     target = await Member.get(id=target.id)
     return AuthCallbackResponse(
-        token=create_token(target.id, "member"),
+        token=create_token(target.id, "member", target.token_version),
         refresh_token=refresh_token,
         member_id=str(target.id),
         kind="member",
@@ -777,7 +778,7 @@ async def login(
 
     target = await Member.get(id=target.id)
     return AuthCallbackResponse(
-        token=create_token(target.id, "member"),
+        token=create_token(target.id, "member", target.token_version),
         refresh_token=refresh_token,
         member_id=str(target.id),
         kind="member",
@@ -814,7 +815,7 @@ async def refresh(body: RefreshRequest, request: Request) -> RefreshResponse:
             using_db=connection,
         )
     return RefreshResponse(
-        token=create_token(member.id, "member"),
+        token=create_token(member.id, "member", member.token_version),
         refresh_token=refresh_token,
     )
 
@@ -843,9 +844,15 @@ async def get_me(member: Member = Depends(get_current_member)) -> MeResponse:
 @router.post("/logout", status_code=204)
 async def logout(member: Member = Depends(get_current_member)) -> None:
     if member.kind == MemberKind.GUEST:
-        # ponytail: access tokens remain valid for their lifetime, as before; issue #11 L4 is out of scope.
+        # ponytail: 게스트는 서버측 무효화 없음(30일 만료 수용) — issue #11 결정 유지.
         return None
-    member.refresh_token_hash = None
-    member.refresh_expires_at = None
-    await member.save(update_fields=["refresh_token_hash", "refresh_expires_at"])
+    # token_version 원자 증가로 발급된 액세스 토큰 전부 즉시 무효화 (#11 M6).
+    # 진행 중이던 OAuth state도 함께 정리.
+    await Member.filter(id=member.id).update(
+        refresh_token_hash=None,
+        refresh_expires_at=None,
+        oauth_state_nonce=None,
+        oauth_state_expires_at=None,
+        token_version=F("token_version") + 1,
+    )
     return None

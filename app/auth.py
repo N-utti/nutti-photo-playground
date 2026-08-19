@@ -43,10 +43,15 @@ def _unauthorized(code: str = "UNAUTHORIZED") -> HTTPException:
     return HTTPException(status_code=401, detail={"code": code, "message": message, "detail": {}})
 
 
-def create_token(member_id: uuid.UUID, kind: str) -> str:
+def create_token(member_id: uuid.UUID, kind: str, version: int) -> str:
     expires_in = settings.jwt_guest_expires_in if kind == "guest" else settings.jwt_expires_in
     return jwt.encode(
-        {"sub": str(member_id), "kind": kind, "exp": datetime.now(timezone.utc) + timedelta(seconds=expires_in)},
+        {
+            "sub": str(member_id),
+            "kind": kind,
+            "ver": version,
+            "exp": datetime.now(timezone.utc) + timedelta(seconds=expires_in),
+        },
         settings.jwt_signing_key,
         algorithm="HS256",
     )
@@ -119,6 +124,12 @@ async def get_current_member(authorization: str | None = Header(None, alias="Aut
         raise _unauthorized() from exc
 
     member = await Member.get_or_none(id=member_id)
-    if member is None or member.merged_into_id is not None or payload["kind"] != member.kind.value:
+    if (
+        member is None
+        or member.merged_into_id is not None
+        or payload["kind"] != member.kind.value
+        # ponytail: 구버전 토큰(ver 클레임 없음)은 0으로 간주 — 초기 token_version과 일치
+        or payload.get("ver", 0) != member.token_version
+    ):
         raise _unauthorized()
     return member
