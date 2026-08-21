@@ -457,6 +457,12 @@ function Regenerate({ job, label, hint }: { job: Job; label: string; hint?: stri
       // 커스텀으로 만든 결과는 같은 문구로 다시 돌려야 합니다 — 비우면 스타일도
       // 문구도 없는 요청이 나갑니다.
       custom_prompt: customPrompt,
+      // `inputs` 는 **아직 못 싣습니다**(이슈 #127). job 응답에 `input_values` 가 없어
+      // 이 job 이 어떤 값으로 만들어졌는지 알 방법이 없고, 안 실으면 서버가 스키마의
+      // `default` 로 채웁니다 — 「히메갸루」로 만든 결과가 「2000년대 갸루」로 다시
+      // 만들어집니다. 값을 아는 건 만든 그 브라우저뿐이라 localStorage 로 메울 수는
+      // 있지만, 그 색인은 «다른 기기·링크로 연 결과» 를 못 답해서 #81 이 지운
+      // 것입니다. 계약이 오면 여기서 `context.inputs` 를 그대로 실으면 됩니다.
     }
     // **새 의도 = 새 키**. 같은 키를 재사용하면 서버가 원래 job 을 그대로 돌려줘
     // 새 결과가 나오지 않습니다(§1 · api/idempotency.ts).

@@ -236,6 +236,7 @@ src/
 | [#71](https://github.com/N-utti/nutti-photo-playground/issues/71) | 스타일·펫 썸네일 URL이 `public_url()` 을 안 거쳐 로컬에서 404 | W-02 카탈로그·W-04 펫 목록 (목을 끈 로컬 한정) | 해결 (PR #74). 프론트는 무변경(`/media` dev proxy 는 PR #72 로 이미 있음) |
 | [#77](https://github.com/N-utti/nutti-photo-playground/issues/77) | 결과 이미지 스토리지에 CORS 헤더 없음 | `CDN_BASE_URL` 을 채우는 배포 시점 | 대기 — **코드로 닫히지 않습니다**(R2/CDN 운영 설정). 프론트는 `app/saveImage.ts` 로 fetch→blob 저장하고 CORS 가 없으면 새 탭 폴백. **CORS 가 열려도 그 우회는 걷어내지 않습니다**(PR #80) |
 | [#81](https://github.com/N-utti/nutti-photo-playground/issues/81) | job 응답에 `custom_prompt`·`credit_cost` 없음 | W-06 «다시 만들기» — W-08 커스텀 job 한정 | 해결 (PR #83). 커스텀 결과를 **다른 기기·링크로 열어도** 같은 문구·같은 비용으로 다시 만듭니다. 이 필드가 로컬 색인의 마지막 존재 이유였어서 `api/jobContext.ts` 를 호출부째 삭제했고, 맥락 조립은 `app/reuseFromJob.ts` `contextFromJob` 하나로 모였습니다. `credit_cost` 덕에 W-06 이 비용을 알아내려 스타일 상세를 따로 부르던 조회도 없어졌습니다 |
+| [#127](https://github.com/N-utti/nutti-photo-playground/issues/127) | job 응답에 `input_values` 없음 | W-06 «다시 만들기» — `input_fields` 를 가진 24종 한정 | 대기. 재생성 요청이 `inputs` 를 못 실어 서버가 `default` 로 채웁니다 — 「히메갸루」로 만든 결과가 「2000년대 갸루」로 다시 만들어집니다. #81 과 **같은 모양의 갭**이고, 로컬 색인으로 메우는 건 #81 이 지운 후퇴라 하지 않습니다. 오면 스키마 변경 뒤 재생성(400 `unknown_inputs`)을 서버가 흡수할지 프론트가 거를지도 함께 확정됩니다 |
 
 [#11](https://github.com/N-utti/nutti-photo-playground/issues/11)(auth 보안 후속 M3~M6·L1~L6)은 **프론트가 막히는 지점이 없어** 위 표에 넣지 않습니다 — 확인 근거는
 이슈 코멘트에 남겼습니다(오픈 리다이렉트는 `app/authReturn.ts` 가 이미 막고, 동시 가입 경합을
