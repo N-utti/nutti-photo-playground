@@ -145,6 +145,35 @@ export interface Me {
 
 // ---------------------------------------------------------------- 스타일
 
+/**
+ * 스타일별 사용자 입력 스키마 (이슈 #114 · 백엔드 #116·#118).
+ *
+ * 워커가 선택값을 `"라벨: 값"` 줄로 프롬프트 앞에 붙이므로(app/worker.py) **`label`
+ * 이 곧 `POST /v1/jobs` `inputs` 의 키**입니다. 39종 중 25종이 1~2개를 갖고
+ * 나머지는 `[]` 라, 빈 배열이 정상이고 폼을 통째로 생략하는 쪽이 기본입니다.
+ *
+ * 값 검증은 서버가 최종 판단하지만(400 `VALIDATION_ERROR`) 프론트도 같은 규칙으로
+ * 막습니다 — 여기서 못 막으면 왕복 한 번을 버리고 나서야 «형식이 올바르지 않습니다»
+ * 를 보게 되고, 그 응답은 어느 칸이 틀렸는지 화면 문구로 옮길 만큼 친절하지 않습니다.
+ */
+export interface StyleInputField {
+  /** 폼 라벨이자 `inputs` 의 키. */
+  label: string
+  type: 'choice' | 'text'
+  /** `choice` 에만 있습니다. */
+  options?: { value: string; description?: string }[]
+  /** `choice` 에서 목록 밖 값을 허용하는가. false 면 서버가 `not_in_options` 로 막습니다. */
+  allow_custom?: boolean
+  max_length?: number
+  /** 서버가 `re.fullmatch` 로 봅니다 — 프론트도 앵커를 붙여 같은 판정을 합니다. */
+  pattern?: string
+  /** 비워 두면 서버가 이 값으로 채웁니다. 없는 필드도 있습니다(prefill 계열). */
+  default?: string
+  /** `"pet_name"` 이면 선택된 강아지 이름으로 초기값을 채웁니다(수정 가능). */
+  prefill?: string
+  help?: string
+}
+
 export interface StyleCard {
   id: number
   code: string
@@ -156,6 +185,14 @@ export interface StyleCard {
    */
   thumbnail_url: string | null
   credit_cost: number
+  /**
+   * 활성 프롬프트에 `[pet name]`·`[breed]` 가 있는지를 **서버가 계산해** 줍니다
+   * (이슈 #101 → 백엔드 #111). 프롬프트 원문은 클라이언트로 오지 않으므로 이 두
+   * 플래그가 "결과물에 글자가 인쇄되는가"를 아는 유일한 길입니다.
+   */
+  uses_pet_name: boolean
+  uses_breed: boolean
+  input_fields: StyleInputField[]
 }
 
 export interface StyleSection {
@@ -189,6 +226,10 @@ export interface StyleDetail {
   fit_tags: FitTag[]
   avg_duration_seconds: number
   output_count: number
+  /** 카드와 같은 값입니다(app/routers/styles.py `StyleDetailResponse`). */
+  uses_pet_name: boolean
+  uses_breed: boolean
+  input_fields: StyleInputField[]
 }
 
 // ---------------------------------------------------------------- 업로드
@@ -281,6 +322,15 @@ export interface Job {
   style_id: number | null
   upload_id: string
   /**
+   * 이 job 의 사진에 붙어 있던 강아지 (이슈 #101 2번 → 백엔드 착지분,
+   * `app/routers/jobs.py` 가 `source_image.pet_profile_id` 를 그대로 내려줍니다).
+   *
+   * "이 사진으로 다른 스타일"(FR-W06-07)로 W-04 확인 단계에 바로 들어오는 경로가
+   * 이 값을 씁니다 — 없던 동안에는 이름이 인쇄되는 스타일에서 «있으면 그 이름이,
+   * 없으면 우리 아이가» 라는 흐린 문구밖에 쓸 수 없었습니다.
+   */
+  pet_id: string | null
+  /**
    * 커스텀 job 이면 W-08 에서 보낸 문구 원문, 프리셋 job 이면 `null` (이슈 #81).
    *
    * PR #83 으로 백엔드 구현이 착지해 옵셔널을 뗐습니다 — 이 필드가 로컬 색인
@@ -339,6 +389,13 @@ export interface CreateJobBody {
   pet_id: string | null
   /** W-08 크리에이티브 모드에서만 사용. 이때 credit_cost=2. */
   custom_prompt: string | null
+  /**
+   * 스타일 입력값 `{라벨: 값}` (이슈 #114). 스키마가 없는 스타일·W-08 에서는 생략합니다.
+   *
+   * 미제공 필드는 서버가 `default` 로 채우므로 **부분 전송이 정상**입니다. 반대로
+   * 스키마에 없는 라벨을 보내면 400 `unknown_inputs` 라, 화면이 임의로 키를 만들면 안 됩니다.
+   */
+  inputs?: Record<string, string>
 }
 
 /**

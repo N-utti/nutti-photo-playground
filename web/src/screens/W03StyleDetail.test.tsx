@@ -18,21 +18,30 @@ import { Route, Routes } from 'react-router'
 import { describe, expect, it } from 'vitest'
 import { renderWithProviders } from '../test/render'
 import { server } from '../test/server'
+import type { StyleDetail } from '../api/types'
 import W03StyleDetail from './W03StyleDetail'
 
-function mockDetail(examples: string[], code = 'lego-minifig') {
+/**
+ * `usesPetName` 은 서버가 활성 프롬프트에서 계산해 주는 `uses_pet_name` 입니다
+ * (이슈 #101 → 백엔드 #111). 예전에는 `code` 를 넘겨 프론트 하드코딩 목록을
+ * 자극했는데, 판정이 계약 필드로 옮겨 가면서 테스트도 그 필드를 직접 말합니다.
+ */
+function mockDetail(examples: string[], usesPetName = false) {
   server.use(
     http.get('*/v1/styles/:styleId', () =>
       HttpResponse.json({
         id: 101,
-        code,
+        code: 'lego-minifig',
         name: '레고 미니피겨',
         credit_cost: 1,
         examples,
         fit_tags: [],
         avg_duration_seconds: 24,
         output_count: 1,
-      }),
+        uses_pet_name: usesPetName,
+        uses_breed: false,
+        input_fields: [],
+      } satisfies StyleDetail),
     ),
   )
 }
@@ -80,7 +89,7 @@ describe('W-03 예시 캐러셀', () => {
 })
 
 /**
- * 이름이 그림에 인쇄되는 스타일의 예고 (PR #98 · app/petNameStyles.ts).
+ * 이름이 그림에 인쇄되는 스타일의 예고 (PR #98 · 서버 `uses_pet_name`).
  *
  * 이 시트는 «이 스타일로 만들기» 직전의 마지막 설명 자리입니다. 재사용 경로에서는
  * 여기서 W-04 확인 단계까지 한 번에 넘어가므로(FR-W06-07), 여기서 안 말하면 이름이
@@ -88,7 +97,7 @@ describe('W-03 예시 캐러셀', () => {
  */
 describe('W-03 · 이름이 들어가는 스타일 예고', () => {
   it('해당 스타일이면 어떤 이름이 인쇄되는지 말한다', async () => {
-    mockDetail([], '식빵')
+    mockDetail([], true)
     renderSheet()
 
     // 정확 일치로 봅니다 — 정규식이면 강조 span 과 그걸 감싼 p 가 함께 걸립니다.
@@ -97,7 +106,7 @@ describe('W-03 · 이름이 들어가는 스타일 예고', () => {
   })
 
   it('그 밖의 스타일에서는 없는 말을 하지 않는다', async () => {
-    mockDetail([], '찜질방')
+    mockDetail([])
     renderSheet()
 
     expect(await screen.findByRole('heading', { name: '레고 미니피겨' })).toBeInTheDocument()

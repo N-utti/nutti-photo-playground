@@ -21,6 +21,12 @@ export interface UploadDraft {
   styleId: number | null
   petId: string | null
   upload: UploadResult
+  /**
+   * 스타일 입력값 (이슈 #114). 사진과 같은 이유로 함께 붙잡습니다 — 크레딧을 받으러
+   * 나갔다 돌아온 사용자가 «청문회» 자막 두 줄을 다시 쓰게 만들면, 그 왕복은 사진을
+   * 다시 올리게 하는 것과 같은 종류의 손실입니다. 스키마 없는 스타일에서는 생략.
+   */
+  inputs?: Record<string, string>
 }
 
 export function writeUploadDraft(draft: UploadDraft): void {

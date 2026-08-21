@@ -1,0 +1,119 @@
+{
+  "_comment": "스타일별 사용자 입력 스키마. key=원문 프롬프트의 라벨(워커가 '라벨: 값'으로 prepend). type: choice|text. allow_custom: 목록 외 자유 입력 허용. default: 원문 예시값.",
+  "90년대가족사진관": [
+    {"label": "배경천", "type": "choice", "allow_custom": true, "default": "파란 구름",
+     "options": [{"value": "파란 구름"}, {"value": "회색 얼룩무늬"}, {"value": "분홍 그라데이션"}, {"value": "숲속 풍경"}, {"value": "하늘색 무지개"}, {"value": "베이지 대리석"}]}
+  ],
+  "갸루": [
+    {"label": "스타일", "type": "choice", "allow_custom": false, "default": "2000년대 갸루",
+     "options": [
+       {"value": "90년대 코갸루", "description": "교복 미니스커트, 루즈삭스, 태닝"},
+       {"value": "2000년대 갸루", "description": "화려한 액세서리, 데코덴, 폴더폰"},
+       {"value": "히메갸루", "description": "공주풍, 프릴, 파스텔 핑크"},
+       {"value": "현대 갸루", "description": "미니멀, Y2K 리바이벌"}]}
+  ],
+  "견생네컷": [
+    {"label": "반려견 이름", "type": "text", "prefill": "pet_name", "help": "영문 이름 추천"},
+    {"label": "배경색", "type": "choice", "allow_custom": true, "default": "따뜻한 오렌지",
+     "options": [{"value": "따뜻한 오렌지"}, {"value": "파스텔 핑크"}, {"value": "민트"}, {"value": "라벤더"}, {"value": "크림 아이보리"}, {"value": "소다 블루"}]}
+  ],
+  "괴수": [
+    {"label": "장면", "type": "choice", "allow_custom": true, "default": "도시 한복판에 등장",
+     "options": [{"value": "도시 한복판에 등장"}, {"value": "불 뿜기"}, {"value": "안개 속에서 걸어나오기"}, {"value": "빌딩 사이로 얼굴 내밀기"}, {"value": "바다에서 상륙"}, {"value": "헬기 쳐다보기"}]}
+  ],
+  "띠부씰": [
+    {"label": "번호 (4자리, 생년월일 월일)", "type": "text", "pattern": "^\\d{4}$", "default": "0103", "help": "생년월일 월일 4자리"},
+    {"label": "반려견 이름 (4자 이내)", "type": "text", "max_length": 4, "prefill": "pet_name"}
+  ],
+  "르네상스초상화": [
+    {"label": "의상", "type": "choice", "allow_custom": true, "default": "귀족 남성",
+     "options": [{"value": "귀족 남성"}, {"value": "귀족 여성"}, {"value": "왕족"}, {"value": "성직자"}, {"value": "기사"}, {"value": "학자"}]}
+  ],
+  "메이플스토리": [
+    {"label": "반려견 이름(영문)", "type": "text", "pattern": "^[A-Za-z0-9 ]+$", "default": "DANJI", "help": "영문으로 입력"},
+    {"label": "목걸이 색", "type": "choice", "allow_custom": true, "default": "오렌지",
+     "options": [{"value": "오렌지"}, {"value": "핑크"}, {"value": "민트"}, {"value": "라벤더"}, {"value": "레드"}, {"value": "스카이블루"}]}
+  ],
+  "반려견의인화": [
+    {"label": "사람 설정", "type": "choice", "allow_custom": true, "default": "한국인 20대 여성",
+     "options": [{"value": "한국인 20대 여성"}, {"value": "한국인 20대 남성"}, {"value": "30대 남성"}, {"value": "40대 여성"}, {"value": "10대 소년"}]},
+    {"label": "배경색", "type": "choice", "allow_custom": true, "default": "크림 아이보리",
+     "options": [{"value": "크림 아이보리"}, {"value": "파스텔 핑크"}, {"value": "소다 블루"}, {"value": "세이지 그린"}, {"value": "라벤더"}]}
+  ],
+  "사물코스튬": [
+    {"label": "의상", "type": "choice", "allow_custom": true, "default": "버섯",
+     "options": [{"value": "버섯"}, {"value": "옥수수"}, {"value": "딸기"}, {"value": "아보카도"}, {"value": "브로콜리"}, {"value": "계란후라이"}, {"value": "초밥"}, {"value": "붕어빵"}, {"value": "소화기"}, {"value": "우체통"}, {"value": "콘센트"}, {"value": "김밥"}, {"value": "참치캔"}, {"value": "사약"}, {"value": "컵라면"}]}
+  ],
+  "새벽에몰래": [
+    {"label": "상황", "type": "choice", "allow_custom": false, "default": "냉장고 털기",
+     "options": [{"value": "냉장고 털기"}, {"value": "몰래 폰하기"}, {"value": "간식 서랍 열기"}, {"value": "소파에서 TV"}, {"value": "새벽 라면"}, {"value": "게임 중"}, {"value": "택배 뜯기"}, {"value": "화장대 화장품"}, {"value": "아빠 의자 점령"}]}
+  ],
+  "스노우볼": [
+    {"label": "테마", "type": "choice", "allow_custom": true, "default": "겨울 숲",
+     "options": [{"value": "겨울 숲"}, {"value": "크리스마스 마을"}, {"value": "벚꽃길"}, {"value": "등대와 바다"}, {"value": "작은 집과 정원"}, {"value": "별이 뜬 언덕"}]}
+  ],
+  "식빵": [
+    {"label": "반려견 이름", "type": "text", "prefill": "pet_name"}
+  ],
+  "아이소메트릭방": [
+    {"label": "테마", "type": "choice", "allow_custom": false, "default": "핑크 공주방",
+     "options": [{"value": "핑크 공주방"}, {"value": "크리스마스 방"}, {"value": "여름 바다 방"}, {"value": "온천/사우나"}, {"value": "학교 교실"}, {"value": "아늑한 침실"}, {"value": "캠핑 텐트"}, {"value": "카페 사장님"}, {"value": "게임방"}, {"value": "벚꽃 툇마루"}, {"value": "우주 정거장"}, {"value": "레트로 버거 가게"}]},
+    {"label": "목걸이/스카프 색", "type": "text", "default": "노랑"}
+  ],
+  "어릴적나와우리아이": [
+    {"label": "장면", "type": "choice", "allow_custom": true, "default": "마당에 앉아서",
+     "options": [{"value": "마당에 앉아서"}, {"value": "툇마루에서"}, {"value": "골목길에서"}, {"value": "이불 위에서"}, {"value": "공원 잔디밭에서"}, {"value": "창가에서"}, {"value": "눈 오는 날 마당에서"}]}
+  ],
+  "우리아이굿즈샵": [
+    {"label": "테마 색", "type": "choice", "allow_custom": true, "default": "크림 아이보리",
+     "options": [{"value": "크림 아이보리"}, {"value": "파스텔 핑크"}, {"value": "민트"}, {"value": "라벤더"}, {"value": "소다 블루"}]}
+  ],
+  "우리아이라떼아트": [
+    {"label": "방식", "type": "choice", "allow_custom": false, "default": "에칭 아트",
+     "options": [
+       {"value": "프리푸어", "description": "붓는 것만으로 만든 심플한 실루엣"},
+       {"value": "에칭 아트", "description": "꼬치로 그린 세밀한 얼굴 (제일 잘 나와요!)"},
+       {"value": "3D 폼 아트", "description": "거품을 쌓아 만든 입체 강아지"}]}
+  ],
+  "인형뽑기": [
+    {"label": "기계 색", "type": "choice", "allow_custom": true, "default": "파스텔 핑크",
+     "options": [{"value": "파스텔 핑크"}, {"value": "민트"}, {"value": "라벤더"}, {"value": "레몬 옐로우"}, {"value": "소다 블루"}]}
+  ],
+  "입덕직캠": [
+    {"label": "반려견 이름 (3자 이내)", "type": "text", "max_length": 3, "prefill": "pet_name"},
+    {"label": "의상", "type": "choice", "allow_custom": false, "default": "화이트 레이스",
+     "options": [
+       {"value": "화이트 레이스", "description": "순백 레이스 블라우스, 진주 장식"},
+       {"value": "블랙 걸크러시", "description": "가죽 재킷, 체인, 하네스"},
+       {"value": "스쿨룩", "description": "체크 자켓, 리본 타이, 니트 조끼"},
+       {"value": "골드 로열", "description": "금장 자수 재킷, 견장, 술 장식"},
+       {"value": "데님 캐주얼", "description": "오버사이즈 데님, 크롭 후디"},
+       {"value": "파스텔 요정", "description": "민트·핑크 튤, 반짝이 장식"},
+       {"value": "레드 강렬", "description": "새틴 레드 슈트, 골드 버튼"},
+       {"value": "실버 퓨처", "description": "메탈릭 은색, 홀로그램 소재"}]}
+  ],
+  "조선시대": [
+    {"label": "신분", "type": "choice", "allow_custom": false, "default": "양반",
+     "options": [{"value": "왕"}, {"value": "왕비"}, {"value": "세자"}, {"value": "양반"}, {"value": "선비"}, {"value": "무관"}, {"value": "상궁"}, {"value": "의원"}, {"value": "상인"}, {"value": "농부"}, {"value": "대장장이"}, {"value": "하인"}]}
+  ],
+  "찜질방": [
+    {"label": "찜질복 색", "type": "choice", "allow_custom": true, "default": "분홍",
+     "options": [{"value": "분홍"}, {"value": "하늘색"}, {"value": "노랑"}, {"value": "민트"}, {"value": "주황"}, {"value": "연보라"}]}
+  ],
+  "청문회": [
+    {"label": "큰 자막 (12자 이내)", "type": "text", "max_length": 12, "default": "휴지 사건 침묵", "help": "짧을수록 잘 나와요! 예: 소파 스크래치 혐의 / 간식 재고 불일치 / 산책 거부 사태"},
+    {"label": "작은 자막 (18자 이내)", "type": "text", "max_length": 18, "default": "본인은 혐의를 전면 부인", "help": "예: 결정적 증거 확보돼 / 창고 CCTV 공개 예정 / 3일째 입장 없어"}
+  ],
+  "취업아이": [
+    {"label": "직업", "type": "choice", "allow_custom": true, "default": "바리스타",
+     "options": [{"value": "바리스타"}, {"value": "셰프"}, {"value": "의사"}, {"value": "소방관"}, {"value": "파일럿"}, {"value": "사서"}, {"value": "꽃집 사장"}, {"value": "목수"}, {"value": "어부"}, {"value": "정비사"}, {"value": "화가"}, {"value": "야구선수"}, {"value": "우체부"}, {"value": "이발사"}, {"value": "사장님"}]}
+  ],
+  "퐁퐁견": [
+    {"label": "집안일", "type": "choice", "allow_custom": false, "default": "설거지",
+     "options": [{"value": "설거지"}, {"value": "빨래 널기"}, {"value": "청소기 돌리기"}, {"value": "요리"}, {"value": "다림질"}, {"value": "걸레질"}, {"value": "분리수거"}, {"value": "화분 물주기"}, {"value": "침대 정리"}]}
+  ],
+  "프라모델": [
+    {"label": "런너 색상", "type": "choice", "allow_custom": true, "default": "크림 아이보리",
+     "options": [{"value": "크림 아이보리"}, {"value": "파스텔 핑크"}, {"value": "민트"}, {"value": "라벤더"}, {"value": "소다 블루"}]}
+  ]
+}

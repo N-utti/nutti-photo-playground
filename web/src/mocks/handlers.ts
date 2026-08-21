@@ -588,6 +588,14 @@ function projectJob(job: MockJob): Job {
     style_id: job.styleId,
     upload_id: job.uploadId,
     /*
+      이슈 #101 2번 착지분 — 서버는 `source_image.pet_profile_id` 를 내려줍니다
+      (app/routers/jobs.py). 목은 만들 때 받은 `pet_id` 를 그대로 기억해 두었다가
+      돌려주는데, 그 사진에 강아지를 붙이는 경로가 목에서도 같기 때문입니다
+      (`POST /v1/uploads` 의 pet_id · `POST /v1/pets`). 강아지를 지우면 이 값도
+      null 로 떨어집니다(아래 DELETE /pets 핸들러) — 서버의 SET NULL 과 같은 모양.
+    */
+    pet_id: job.petId ?? null,
+    /*
       PR #83 착지 예정분(이슈 #81). `style_id` 와 같은 자리에 두는 이유는 이 둘이
       **같은 성격의 값**이기 때문입니다 — job 을 다시 조립하는 재료입니다. 이게 없는
       동안 커스텀 job 의 «다시 만들기»는 문구를 만든 브라우저에서만 보였습니다.
@@ -735,6 +743,8 @@ function seededJob(jobId: string): Job | null {
     status: 'succeeded',
     style_id: null,
     upload_id: `upload-${item.result_id}`,
+    // 시드 항목은 보관함이 이미 `pet_id` 를 들고 있습니다(§3, 이슈 #33) — 같은 값입니다.
+    pet_id: item.pet_id,
     /*
       시드는 «옛날에 만든 결과»라 무엇으로 만들었는지 기록이 남아 있지 않습니다.
       `style_id: null` 과 짝이 맞는 값은 «커스텀인데 문구를 모름» 하나뿐이라(#83 의
@@ -1061,6 +1071,7 @@ export const handlers = [
       style_id: number | null
       upload_id: string
       pet_id: string | null
+      inputs?: Record<string, string>
     }
     /*
       비용은 **스타일마다 다릅니다**(§3 `credit_cost`) — 여기서 1 로 고정하면 목이
@@ -1095,6 +1106,50 @@ export const handlers = [
       return apiError(400, 'VALIDATION_ERROR', '요청 형식이 올바르지 않습니다', {
         reason: 'input_filter_blocked',
       })
+    }
+
+    /*
+      스타일 입력 검증 (이슈 #114 · `app/routers/jobs.py` `_resolve_input_values`).
+
+      화면도 같은 규칙으로 먼저 막지만(app/styleInputs.ts) 목이 이걸 빼면 **화면 필터를
+      우회했을 때 무슨 일이 나는지**를 브라우저에서 밟을 수 없습니다 — 프리필 값이 규칙을
+      어긴 채 남는 경로가 실제로 있어서(«입덕직캠» 이름 3자 제한) 그게 400 으로 끝나는지
+      크레딧이 나가는지가 화면 설계의 전제입니다.
+
+      차감보다 **앞**입니다 — 서버도 그렇고, 그래서 이 400 에는 크레딧이 나가지 않습니다.
+    */
+    const inputFields = styleDetailFor(body.style_id ?? -1)?.input_fields ?? []
+    if (inputFields.length > 0) {
+      const labels = new Set(inputFields.map((field) => field.label))
+      const unknown = Object.keys(body.inputs ?? {})
+        .filter((label) => !labels.has(label))
+        .sort()
+      if (unknown.length > 0) {
+        return apiError(400, 'VALIDATION_ERROR', '요청 형식이 올바르지 않습니다', {
+          unknown_inputs: unknown,
+        })
+      }
+      for (const field of inputFields) {
+        const value = (body.inputs?.[field.label] ?? '').trim()
+        // 빈 값은 서버가 default 로 채웁니다 — 검증 대상이 아닙니다.
+        if (!value) continue
+        const reason =
+          field.max_length && [...value].length > field.max_length
+            ? 'max_length'
+            : field.pattern && !new RegExp(`^(?:${field.pattern})$`, 'u').test(value)
+              ? 'pattern'
+              : field.type === 'choice' &&
+                  !field.allow_custom &&
+                  !(field.options ?? []).some((option) => option.value === value)
+                ? 'not_in_options'
+                : null
+        if (reason) {
+          return apiError(400, 'VALIDATION_ERROR', '요청 형식이 올바르지 않습니다', {
+            input: field.label,
+            reason,
+          })
+        }
+      }
     }
 
     applyEmptyScenario()
