@@ -241,13 +241,42 @@ function ResultPanel({ job }: { job: Job }) {
 /**
  * 비교 슬라이더. range 입력을 투명하게 덮어 두면 드래그·클릭·키보드(화살표)가
  * 전부 공짜로 따라옵니다 — 포인터 이벤트를 직접 구현하면 키보드 접근성이 사라집니다.
+ *
+ * ---------------------------------------------------------------------------
+ * 프레임 비율은 **결과 이미지가 정합니다** (백엔드 #110 착지분)
+ *
+ * 여기는 크레딧을 쓰고 받은 그 한 장을 통째로 보여 주는 유일한 자리입니다
+ * (보관함 격자는 일부러 정사각 타일이고, 거기서 열면 다시 이 화면으로 옵니다).
+ * 그런데 프레임이 `aspect-square` 로 고정돼 있었고, 그건 «결과는 늘 정사각» 이라는
+ * 사실 위에 서 있었습니다 — #110 이전의 유일한 실생성 경로가
+ * `openai.images.edit(size="1024x1024")` 였으니 맞는 말이었습니다.
+ *
+ * #110 이 그 앞에 fal 큐 경로를 붙이면서(`FAL_KEY` 가 있으면 이쪽이 우선) 크기가
+ * `image_size: "auto"` — 모델이 정하는 값이 됐고, 프롬프트 원문이 캔버스를 직접
+ * 요구합니다: 3D_피규어 "vertical 3:4", 이모티콘 "square canvas (1:1)".
+ * 그대로 두면 세로 결과의 위아래가 `object-cover` 로 잘리는데, 하필 3D_피규어가
+ * 이름을 인쇄하는 자리가 패키지 **아래쪽 줄**("A HAPPY DAY WITH …")입니다.
+ * W-02·W-03 이 `uses_pet_name` 으로 «이름이 박혀요» 라고 예고해 놓고(백엔드 #111)
+ * 정작 박힌 이름을 잘라서 보여 주게 됩니다.
+ *
+ * 그래서 결과 이미지를 흐름 안에 두고 **자기 비율대로 높이를 만들게** 합니다.
+ * `GenerationResult` 에 width·height 가 없고 §3 job 응답도 크기를 안 주므로,
+ * 비율을 미리 알아 프레임에 박아 둘 방법은 없습니다 — 자리를 먼저 정사각으로
+ * 잡아 두면 도착한 뒤에 모양이 바뀌는, 화면이 먼저 단정하고 나중에 정정하는
+ * 그 패턴이 됩니다. 대신 이미지가 도착하기 전까지 이 자리는 높이가 0 이라
+ * 아래 버튼들이 한 번 밀립니다. 잘린 결과보다 나은 쪽을 골랐습니다.
+ *
+ * 원본은 계속 잘립니다(`object-cover`) — 사용자 카메라 비율은 결과와 다르고,
+ * 두 장을 같은 틀에 겹쳐야 «같은 자리 비교» 라는 이 위젯의 존재 이유가 성립합니다.
+ * 잘려도 되는 쪽은 이미 손에 있는 원본이지 방금 만든 결과가 아닙니다.
  */
 function CompareSlider({ beforeUrl, afterUrl }: { beforeUrl: string; afterUrl: string }) {
   const [position, setPosition] = useState(50)
 
   return (
-    <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-canvas-2">
-      <img src={afterUrl} alt="변환 결과" className="absolute inset-0 size-full object-cover" />
+    <div className="relative w-full overflow-hidden rounded-xl bg-canvas-2">
+      {/* 흐름 안의 유일한 요소 — 이 한 장이 프레임의 높이입니다(위 주석). */}
+      <img src={afterUrl} alt="변환 결과" className="block w-full" />
       <div className="absolute inset-0" style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}>
         <img src={beforeUrl} alt="원본" className="size-full object-cover" />
       </div>

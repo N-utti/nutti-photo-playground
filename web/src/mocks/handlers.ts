@@ -33,6 +33,8 @@ import type {
   UploadResult,
 } from '../api/types'
 import {
+  RESULT_SIZE,
+  SOURCE_SIZE,
   initialCredits,
   ledgerEntries,
   libraryItems,
@@ -565,7 +567,7 @@ function expiredSession(request: Request): 'expired' | 'reissued' | null {
 function projectJob(job: MockJob): Job {
   const elapsed = Date.now() - job.createdAt
   const duration = jobDuration()
-  const sourceImageUrl = placeholderImage('원본')
+  const sourceImageUrl = placeholderImage('원본', undefined, SOURCE_SIZE)
   /*
     어느 상태에서든 실립니다 — W-06 "다시 만들기"는 실패한 job 에서도 눌리기 때문입니다.
 
@@ -634,7 +636,7 @@ function projectJob(job: MockJob): Job {
       status_message: null,
       source_image_url: sourceImageUrl,
       // Q4 확정으로 1요청 1장(§3 `results[]`는 항상 1개).
-      results: [{ index: 0, image_url: placeholderImage('결과', '#F9E5EC') }],
+      results: [{ index: 0, image_url: placeholderImage('결과', '#F9E5EC', RESULT_SIZE) }],
       error_code: null,
     }
   }
@@ -723,7 +725,7 @@ function libraryEntries(): LibraryItem[] {
     .map((job) => ({
       job_id: job.id,
       result_id: `${job.id}:0`,
-      image_url: placeholderImage('결과', '#F9E5EC'),
+      image_url: placeholderImage('결과', '#F9E5EC', RESULT_SIZE),
       // 옛 저장분에는 이 필드가 없습니다(나중에 추가된 필드).
       pet_id: job.petId ?? null,
       created_at: new Date(job.createdAt).toISOString(),
@@ -760,7 +762,7 @@ function seededJob(jobId: string): Job | null {
     progress: 100,
     eta_seconds: 0,
     status_message: null,
-    source_image_url: placeholderImage('원본'),
+    source_image_url: placeholderImage('원본', undefined, SOURCE_SIZE),
     results: [{ index: 0, image_url: item.image_url }],
     error_code: null,
   }
