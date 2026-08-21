@@ -18,22 +18,34 @@ import { Route, Routes } from 'react-router'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { renderWithProviders } from '../test/render'
 import { server } from '../test/server'
+import type { StyleDetail } from '../api/types'
 import W04Upload from './W04Upload'
 
-/** 스타일 상세만 덮어씁니다 — 업로드·펫·크레딧은 기본 목 그대로 답합니다. */
-function mockStyle(code: string) {
+/**
+ * 스타일 상세만 덮어씁니다 — 업로드·펫·크레딧은 기본 목 그대로 답합니다.
+ *
+ * «이름이 인쇄되는가» 는 이제 서버가 계산한 `uses_pet_name` 입니다(이슈 #101 →
+ * 백엔드 #111). 예전에는 여기에 `code` 를 넘겨 프론트 하드코딩 목록을 자극했는데,
+ * 그 목록이 #110 의 프롬프트 교체를 놓치면서 실제로 틀린 적이 있습니다 — 계약
+ * 필드로 옮긴 지금은 테스트도 그 필드를 직접 말해야 같은 것을 검증합니다.
+ */
+function mockStyle(overrides: Partial<StyleDetail> = {}) {
   server.use(
     http.get('*/v1/styles/:styleId', () =>
       HttpResponse.json({
         id: 7,
-        code,
-        name: code.replace(/_/g, ' '),
+        code: '찜질방',
+        name: '찜질방',
         credit_cost: 1,
         examples: [],
         fit_tags: [],
         avg_duration_seconds: 24,
         output_count: 1,
-      }),
+        uses_pet_name: false,
+        uses_breed: false,
+        input_fields: [],
+        ...overrides,
+      } satisfies StyleDetail),
     ),
   )
 }
@@ -67,7 +79,7 @@ describe('W-04 · 그림에 들어가는 이름', () => {
   })
 
   it('이름이 인쇄되는 스타일이면, 저장 전에는 «우리 아이» 가 박힌다고 미리 말한다', async () => {
-    mockStyle('식빵')
+    mockStyle({ code: '식빵', name: '식빵', uses_pet_name: true })
     const { container } = renderUpload()
 
     await uploadPhoto(container)
@@ -89,7 +101,7 @@ describe('W-04 · 그림에 들어가는 이름', () => {
   })
 
   it('이름이 안 들어가는 스타일에서는 이름 얘기를 하지 않는다', async () => {
-    mockStyle('찜질방')
+    mockStyle()
     const { container } = renderUpload()
 
     await uploadPhoto(container)
@@ -124,7 +136,7 @@ describe('W-04 · 그림에 들어가는 이름', () => {
         },
       }),
     )
-    mockStyle('식빵')
+    mockStyle({ code: '식빵', name: '식빵', uses_pet_name: true })
     renderUpload()
 
     expect(await screen.findByText('저장된 강아지의 이름이 그림에 들어갑니다.')).toBeInTheDocument()
@@ -134,7 +146,7 @@ describe('W-04 · 그림에 들어가는 이름', () => {
   })
 
   it('저장된 강아지로 들어오면 그 이름을 그대로 예고한다', async () => {
-    mockStyle('3D_피규어')
+    mockStyle({ code: '3D_피규어', name: '3D 피규어', uses_pet_name: true, uses_breed: true })
     renderUpload()
 
     /*
