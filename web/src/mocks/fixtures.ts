@@ -13,8 +13,35 @@ import type {
   StyleCard,
   StyleCatalog,
   StyleDetail,
+  StyleInputField,
   UploadResult,
 } from '../api/types'
+import styleInputManifest from './styleInputs.json'
+
+/*
+  스타일 입력 스키마(이슈 #114)는 **백엔드 매니페스트의 사본**입니다 —
+  `seeds/style_inputs.json` 을 그대로 복사한 것이고, 시드가 그 파일을 그대로
+  `style.input_fields` 에 넣습니다(scripts/seed_styles.py). 목이 스키마를 지어내면
+  «서버가 낼 수 없는 폼» 위에서 화면을 만들게 되므로, 사본이 원본과 같은지는
+  fixtures.test.ts 가 매번 대조합니다.
+
+  `_comment` 는 매니페스트의 설명 줄이지 스타일 코드가 아닙니다.
+*/
+const STYLE_INPUTS: Record<string, StyleInputField[]> = Object.fromEntries(
+  Object.entries(styleInputManifest as Record<string, unknown>).filter(
+    ([code]) => code !== '_comment',
+  ),
+) as Record<string, StyleInputField[]>
+
+/*
+  `uses_pet_name`·`uses_breed` 는 서버가 **활성 프롬프트 원문**에서 계산합니다
+  (app/routers/styles.py — `[pet name]`·`[breed]` 포함 여부). 프롬프트는 목이 가질 수
+  없으니 결과값만 옮기고, `seeds/prompts/*.txt` 와 일치하는지는 fixtures.test.ts 가
+  대조합니다. 예전에 프론트가 이 목록을 로직으로 들고 있다가 #110 의 프롬프트 교체를
+  놓친 적이 있어서(이모티콘), 목록 자체보다 **대조가 있다는 사실**이 중요합니다.
+*/
+const PET_NAME_CODES = new Set(['3D_피규어', '식빵'])
+const BREED_CODES = new Set(['3D_피규어'])
 
 /**
  * 회색 박스 플레이스홀더. 와이어프레임(docs/wireframe-spec-v0.5.html)이
@@ -126,6 +153,10 @@ export const styleCatalog: StyleCatalog = (() => {
       */
       thumbnail_url: null,
       credit_cost: 1, // 시드는 전 스타일 1 로 넣습니다(운영이 DB 에서 조정).
+      uses_pet_name: PET_NAME_CODES.has(code),
+      uses_breed: BREED_CODES.has(code),
+      // 25종만 스키마를 갖고 나머지는 빈 배열입니다 — 빈 쪽이 기존 플로우 그대로입니다.
+      input_fields: STYLE_INPUTS[code] ?? [],
     }))
     return { name, count: styles.length, styles }
   })
@@ -180,6 +211,10 @@ export function styleDetailFor(styleId: number, filled = false): StyleDetail | n
       : [],
     avg_duration_seconds: 24, // 시드가 안 건드리는 컬럼 기본값(app/models.py avg_seconds).
     output_count: 1, // Q4 확정 — 1요청 1장(§3 예시도 1).
+    // 상세는 카드와 같은 값을 냅니다(app/routers/styles.py 의 두 응답 모델).
+    uses_pet_name: card.uses_pet_name,
+    uses_breed: card.uses_breed,
+    input_fields: card.input_fields,
   }
 }
 

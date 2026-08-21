@@ -20,7 +20,7 @@ import { isApiError } from '../api/client'
 import { useStyleDetail } from '../api/queries'
 import { useModalDialog } from '../app/useModalDialog'
 import { useReuseFromJob, withReuse } from '../app/reuseFromJob'
-import { PET_NAME_FALLBACK, usesPetName } from '../app/petNameStyles'
+import { PET_NAME_FALLBACK } from '../app/styleInputs'
 import type { FitTag, StyleDetail } from '../api/types'
 
 /**
@@ -130,7 +130,7 @@ function SheetBody({
         조건**의 예고입니다 — 저장된 강아지를 고르고 들어오면 그 이름이 박힙니다.
         그래서 태그 위, 만들기 버튼 앞에 둡니다.
       */}
-      {usesPetName(style.code) && (
+      {style.uses_pet_name && (
         <p className="mt-3 rounded-lg border border-rule bg-surface-2 px-3 py-2 text-sm text-ink-2">
           <span className="font-semibold text-ink">아이 이름이 그림에 들어갑니다</span> — 저장된
           강아지로 만들면 그 이름이, 아니면 «{PET_NAME_FALLBACK}» 가 인쇄됩니다.

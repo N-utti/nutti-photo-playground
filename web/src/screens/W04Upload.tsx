@@ -18,7 +18,7 @@
  * 그래도 새로고침·뒤로가기로 맥락이 살아남아야 하기 때문입니다.
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { isApiError } from '../api/client'
 import BackButton from '../app/BackButton'
@@ -41,10 +41,16 @@ import {
 import { contextFromJob } from '../app/reuseFromJob'
 import { withReuse } from '../app/reuseFromJob'
 import { initialOf } from '../app/initials'
-import { PET_NAME_FALLBACK, usesPetName } from '../app/petNameStyles'
+import {
+  PET_NAME_FALLBACK,
+  initialInputValues,
+  inputErrors,
+  inputsForRequest,
+  repriseWithPetName,
+} from '../app/styleInputs'
 import Thumbnail from '../app/Thumbnail'
 import { clearUploadDraft, readUploadDraft, writeUploadDraft } from '../api/uploadDraft'
-import type { Pet, UploadIssue, UploadResult } from '../api/types'
+import type { Pet, StyleInputField, UploadIssue, UploadResult } from '../api/types'
 import InsufficientCreditOverlay from './InsufficientCreditOverlay'
 
 /** `app/routers/uploads.py` 의 `_ALLOWED_CONTENT_TYPES`·`_MAX_FILE_SIZE` 와 같은 값입니다. */
@@ -78,10 +84,87 @@ export default function W04Upload() {
   const [insufficient, setInsufficient] = useState<{ required: number; balance: number } | null>(
     null,
   )
+  /** 스타일 입력값 `{라벨: 값}` (이슈 #114). 스키마가 없는 스타일에서는 계속 비어 있습니다. */
+  const [inputValues, setInputValues] = useState<Record<string, string>>({})
+  /** 사용자가 손댄 칸. 아직 안 만진 칸에 미리 빨간 줄을 긋지 않기 위한 것입니다. */
+  const [touchedInputs, setTouchedInputs] = useState<ReadonlySet<string>>(new Set())
+  const [inputsSubmitted, setInputsSubmitted] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const uploadPhoto = useUploadPhoto()
   const createJob = useCreateJob()
+
+  /*
+    PR #98 — 이 스타일은 워커가 프롬프트의 `[pet name]` 을 치환해 **그림에 이름을
+    인쇄합니다**(app/worker.py). 어떤 이름이 박힐지는 이 화면에서 정해집니다:
+    `POST /v1/uploads` 의 `pet_id` 또는 `POST /v1/pets` 가 `source_image.pet_profile_id`
+    를 붙여 주면 그 이름, 아니면 «우리 아이» 입니다. 만들기 버튼을 누른 뒤에는 못
+    바꾸고 크레딧은 이미 나갑니다 — 그래서 버튼 **앞**에서 말해 줍니다.
+
+    판정은 서버가 계산해 주는 `uses_pet_name` 입니다(이슈 #101 → 백엔드 #111). 예전엔
+    프론트가 시드 코드 3종을 하드코딩하고 있었는데, #110 에서 «이모티콘» 프롬프트가
+    교체되며 목록이 조용히 틀렸습니다 — 그 파일(app/petNameStyles.ts)과 짝 테스트는
+    계약 필드가 착지하면서 함께 지웠습니다.
+  */
+  const namesTheImage = style?.uses_pet_name ?? false
+  const selectedPetName = petsData?.items.find((pet) => pet.id === petId)?.name ?? null
+
+  /*
+    스타일 입력 스키마(이슈 #114)의 초기값.
+
+    두 시점이 따로 옵니다 — `GET /v1/styles/{id}` 로 스키마가 오는 때와, `GET /v1/pets`
+    로 강아지 이름이 오는 때. 그래서 «스타일이 바뀌면 새로 채우고, 이름만 바뀌면
+    프리필 칸만 다시 채운다» 를 한 효과 안에서 나눠 처리합니다. 뒤엣것이 없으면 초안
+    복원(402 왕복)처럼 `petId` 가 먼저 살아나고 목록이 나중에 오는 경로에서 프리필이
+    영영 빈 칸으로 남습니다.
+  */
+  const initializedFor = useRef<number | null>(null)
+  const prefilledWith = useRef<string | null>(null)
+  useEffect(() => {
+    if (!style) return
+    if (initializedFor.current !== style.id) {
+      initializedFor.current = style.id
+      prefilledWith.current = selectedPetName
+      // 402 왕복에서 돌아온 경우 사용자가 쓰던 값이 초안에 있습니다 — 사진과 같은 이유로.
+      const draft = readUploadDraft()
+      setInputValues(
+        draft?.styleId === style.id && draft.inputs
+          ? draft.inputs
+          : initialInputValues(style.input_fields, selectedPetName),
+      )
+      setTouchedInputs(new Set())
+      setInputsSubmitted(false)
+      return
+    }
+    if (prefilledWith.current !== selectedPetName) {
+      const previous = prefilledWith.current
+      prefilledWith.current = selectedPetName
+      setInputValues((values) =>
+        repriseWithPetName(style.input_fields, values, previous, selectedPetName),
+      )
+    }
+  }, [style, selectedPetName])
+
+  const inputFields = style?.input_fields ?? []
+  const inputProblems = inputErrors(inputFields, inputValues)
+  /*
+    아직 안 만진 칸에는 빨간 줄을 긋지 않습니다. 프리필이 규칙을 어기는 경우가 실제로
+    있어서(«입덕직캠» 은 이름 3자 제한인데 프리필은 저장된 이름 그대로입니다) 도착하자마자
+    에러를 띄우면, 사용자가 아무것도 하기 전에 화면이 먼저 사용자를 나무라는 꼴이 됩니다.
+    대신 만들기를 누르는 순간 전부 드러나고 진행이 멈춥니다 — 그 시점엔 사실이니까요.
+  */
+  const visibleInputErrors: Record<string, string> = {}
+  for (const [label, message] of Object.entries(inputProblems)) {
+    if (inputsSubmitted || touchedInputs.has(label)) visibleInputErrors[label] = message
+  }
+
+  function changeInput(label: string, value: string) {
+    setInputValues((values) => ({ ...values, [label]: value }))
+  }
+
+  function touchInput(label: string) {
+    setTouchedInputs((touched) => (touched.has(label) ? touched : new Set(touched).add(label)))
+  }
 
   // W-06 "이 사진으로 다른 스타일"(FR-W06-07)로 들어온 경우: 이미 올린 사진을
   // 그대로 재사용하므로 업로드 단계를 건너뜁니다.
@@ -200,11 +283,23 @@ export default function W04Upload() {
   function startGeneration() {
     if (!upload?.upload_id || styleId === null) return
 
+    /*
+      서버도 같은 규칙으로 400 을 냅니다(`app/routers/jobs.py` `_resolve_input_values`,
+      크레딧은 안 나갑니다). 그럼에도 여기서 먼저 막는 이유는 그 응답이 «요청 형식이
+      올바르지 않습니다» 한 줄이라, 어느 칸이 왜 틀렸는지 화면이 옮겨 적을 수 없기
+      때문입니다 — 사용자는 열두 칸 중 어디를 고쳐야 하는지 모르게 됩니다.
+    */
+    if (Object.keys(inputProblems).length > 0) {
+      setInputsSubmitted(true)
+      return
+    }
+
     const intent: JobIntent = {
       style_id: styleId,
       upload_id: upload.upload_id,
       pet_id: petId,
       custom_prompt: null,
+      inputs: inputsForRequest(inputFields, inputValues),
     }
     // 402 후 재시도라면 원래 키를 그대로 이어씁니다(§4 시나리오3 4단계).
     const attempt = resumeJobAttempt(intent) ?? beginJobAttempt(intent)
@@ -224,6 +319,11 @@ export default function W04Upload() {
               required: detail?.required ?? style?.credit_cost ?? 1,
               balance: detail?.balance ?? 0,
             })
+            // 여기서부터가 화면 밖으로 나갔다 오는 구간입니다 — 사진과 함께 지금까지
+            // 고른 입력값도 붙잡아 둡니다(api/uploadDraft.ts).
+            if (upload.upload_id) {
+              writeUploadDraft({ styleId, petId, upload, inputs: intent.inputs })
+            }
           }
         },
       },
@@ -232,16 +332,6 @@ export default function W04Upload() {
 
   const confirming = upload !== null
   const blocked = upload?.blocking_issue ?? null
-
-  /*
-    PR #98 — 이 스타일은 워커가 프롬프트의 `[pet name]` 을 치환해 **그림에 이름을
-    인쇄합니다**(app/petNameStyles.ts). 어떤 이름이 박힐지는 이 화면에서 정해집니다:
-    `POST /v1/uploads` 의 `pet_id` 또는 `POST /v1/pets` 가 `source_image.pet_profile_id`
-    를 붙여 주면 그 이름, 아니면 «우리 아이» 입니다. 만들기 버튼을 누른 뒤에는 못
-    바꾸고 크레딧은 이미 나갑니다 — 그래서 버튼 **앞**에서 말해 줍니다.
-  */
-  const namesTheImage = usesPetName(style?.code)
-  const selectedPetName = petsData?.items.find((pet) => pet.id === petId)?.name ?? null
 
   return (
     <div className="min-h-full bg-paper pb-16">
@@ -290,6 +380,13 @@ export default function W04Upload() {
             }
             styleMissing={styleId === null}
             fromJobId={fromJobId}
+            inputFields={inputFields}
+            inputValues={inputValues}
+            inputErrors={visibleInputErrors}
+            inputsBlocking={Object.keys(inputProblems).length > 0 && inputsSubmitted}
+            petNameForPrefill={selectedPetName}
+            onInputChange={changeInput}
+            onInputTouch={touchInput}
           />
         ) : (
           <SelectPanel
@@ -567,6 +664,17 @@ interface ConfirmPanelProps {
   startError: string | null
   styleMissing: boolean
   fromJobId: string | null
+  /** 이 스타일이 요구하는 입력 스키마 (이슈 #114). 없는 스타일이면 빈 배열입니다. */
+  inputFields: StyleInputField[]
+  inputValues: Record<string, string>
+  /** **보여 줄** 오류만 옵니다 — 아직 안 만진 칸은 빠져 있습니다(W04Upload 주석). */
+  inputErrors: Record<string, string>
+  /** 만들기를 눌렀지만 입력 때문에 멈춘 상태. 버튼 아래에 이유를 한 줄 답니다. */
+  inputsBlocking: boolean
+  /** `prefill` 칸의 placeholder 가 무엇이 들어갈지 말하는 데 씁니다. */
+  petNameForPrefill: string | null
+  onInputChange: (label: string, value: string) => void
+  onInputTouch: (label: string) => void
 }
 
 function ConfirmPanel({
@@ -582,6 +690,13 @@ function ConfirmPanel({
   startError,
   styleMissing,
   fromJobId,
+  inputFields,
+  inputValues,
+  inputErrors: inputErrorsToShow,
+  inputsBlocking,
+  petNameForPrefill,
+  onInputChange,
+  onInputTouch,
 }: ConfirmPanelProps) {
   const blocked = upload.blocking_issue
 
@@ -669,6 +784,24 @@ function ConfirmPanel({
         />
       )}
 
+      {/*
+        스타일별 입력 폼 (이슈 #114).
+
+        만들기 버튼 **앞**에 둡니다 — 이름 예고(PR #98)와 같은 이유입니다. 버튼을 누른
+        뒤에는 못 바꾸고 크레딧은 이미 나갑니다. 차단된 사진·스타일 미정 상태에서는
+        그리지 않습니다: 둘 다 이 자리의 다음 걸음이 «만들기» 가 아닙니다.
+      */}
+      {!blocked && !styleMissing && inputFields.length > 0 && (
+        <StyleInputForm
+          fields={inputFields}
+          values={inputValues}
+          errors={inputErrorsToShow}
+          petName={petNameForPrefill}
+          onChange={onInputChange}
+          onTouch={onInputTouch}
+        />
+      )}
+
       {!blocked && !styleMissing && (
         <>
           {/* 노트3 — 경고가 있어도 이 버튼은 항상 눌립니다. 노트4 — 금액을 버튼에 박습니다. */}
@@ -684,6 +817,17 @@ function ConfirmPanel({
                 ? '스타일 정보를 불러오는 중…'
                 : `이대로 만들기 · ${creditCost} 크레딧`}
           </button>
+
+          {/*
+            버튼을 비활성으로 두지 않는 이유는 노트3 과 같습니다 — 회색 버튼은 왜 못
+            누르는지 말하지 않습니다. 누르면 문제 있는 칸이 전부 드러나고(inputsSubmitted)
+            여기서 어디를 봐야 하는지 알려 줍니다.
+          */}
+          {inputsBlocking && (
+            <p role="alert" className="mt-2 text-center text-sm text-danger">
+              위 입력에서 고칠 곳이 있어요.
+            </p>
+          )}
 
           {startError && (
             <p role="alert" className="mt-2 text-center text-sm text-danger">
@@ -705,27 +849,233 @@ function ConfirmPanel({
   )
 }
 
+/**
+ * 스타일별 입력 폼 (이슈 #114 · 백엔드 #116·#118).
+ *
+ * 39종 중 25종이 1~2개의 칸을 갖습니다. 이 값들은 워커가 프롬프트 맨 앞에 «라벨: 값»
+ * 으로 붙여 실제 결과물을 바꿉니다(app/worker.py) — 폼이 없던 동안에는 서버가 전부
+ * `default` 로 채웠고, 그래서 «의상» 이 늘 버섯이고 «신분» 이 늘 양반이었습니다.
+ *
+ * 검증 규칙은 app/styleInputs.ts 한 곳에 있습니다(서버 판정의 사본). 여기서는 그리기만 합니다.
+ */
+function StyleInputForm({
+  fields,
+  values,
+  errors,
+  petName,
+  onChange,
+  onTouch,
+}: {
+  fields: StyleInputField[]
+  values: Record<string, string>
+  errors: Record<string, string>
+  petName: string | null
+  onChange: (label: string, value: string) => void
+  onTouch: (label: string) => void
+}) {
+  return (
+    <section className="mt-4 rounded-lg border border-rule bg-surface px-3 py-3">
+      <h2 className="text-sm font-semibold">이 스타일에서 고를 수 있어요</h2>
+      <div className="mt-1 space-y-4">
+        {fields.map((field) => (
+          <InputField
+            key={field.label}
+            field={field}
+            value={values[field.label] ?? ''}
+            error={errors[field.label] ?? null}
+            petName={petName}
+            onChange={(value) => onChange(field.label, value)}
+            onTouch={() => onTouch(field.label)}
+          />
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function InputField({
+  field,
+  value,
+  error,
+  petName,
+  onChange,
+  onTouch,
+}: {
+  field: StyleInputField
+  value: string
+  error: string | null
+  petName: string | null
+  onChange: (value: string) => void
+  onTouch: () => void
+}) {
+  const id = useId()
+  const errorId = `${id}-error`
+  const helpId = `${id}-help`
+
+  const options = field.options ?? []
+  /*
+    `allow_custom` 인 choice 에서 «직접 입력» 을 열어 둘지의 판정.
+
+    지금 값이 목록에 없으면(초안 복원·직접 입력 중) 열린 채로 시작해야 합니다 — 닫아
+    두면 사용자가 쓴 값이 화면 어디에도 없는데 요청에는 실려 나갑니다.
+  */
+  const [custom, setCustom] = useState(
+    field.type === 'choice' && value !== '' && !options.some((option) => option.value === value),
+  )
+  const chosen = options.find((option) => option.value === value)
+
+  return (
+    <div>
+      <label
+        htmlFor={field.type === 'text' || custom ? id : undefined}
+        className="text-sm font-semibold"
+      >
+        {field.label}
+      </label>
+      {field.help && (
+        <p id={helpId} className="mt-0.5 text-xs text-ink-3">
+          {field.help}
+        </p>
+      )}
+
+      {field.type === 'choice' && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {options.map((option) => {
+            const selected = !custom && option.value === value
+            return (
+              <button
+                key={option.value}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => {
+                  setCustom(false)
+                  onChange(option.value)
+                  onTouch()
+                }}
+                className={`rounded-full border px-3 py-1.5 text-sm transition duration-200 ease-out ${
+                  selected
+                    ? 'border-brand bg-brand-soft font-semibold text-brand'
+                    : 'border-rule bg-surface-2 text-ink-2 hover:border-brand-2 hover:text-brand'
+                }`}
+              >
+                {option.value}
+              </button>
+            )
+          })}
+          {field.allow_custom && (
+            <button
+              type="button"
+              aria-pressed={custom}
+              onClick={() => {
+                setCustom(true)
+                // 목록에서 고른 값이 남아 있으면 그걸 고쳐 쓰는 게 자연스럽습니다 —
+                // 지우면 «파스텔 핑크» 를 조금 바꾸려던 사용자가 처음부터 쓰게 됩니다.
+                onTouch()
+              }}
+              className={`rounded-full border px-3 py-1.5 text-sm transition duration-200 ease-out ${
+                custom
+                  ? 'border-brand bg-brand-soft font-semibold text-brand'
+                  : 'border-dashed border-rule-strong text-ink-3 hover:border-brand-2 hover:text-brand'
+              }`}
+            >
+              직접 입력
+            </button>
+          )}
+        </div>
+      )}
+
+      {(field.type === 'text' || custom) && (
+        <input
+          id={id}
+          value={value}
+          onChange={(event) => onChange(event.currentTarget.value)}
+          onBlur={onTouch}
+          /*
+            서버 제약을 입력 단계에서 그대로 겁니다 — 넘겨 쓰고 나서 지우게 하는 것보다
+            애초에 안 들어가는 편이 짧습니다. 그래도 검증을 지우지 않는 이유는 프리필된
+            값은 이 속성을 거치지 않고 들어오기 때문입니다(app/styleInputs.ts).
+          */
+          maxLength={field.max_length}
+          placeholder={placeholderFor(field, petName)}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={[field.help ? helpId : null, error ? errorId : null]
+            .filter(Boolean)
+            .join(' ') || undefined}
+          className={`mt-2 w-full rounded-lg border bg-paper px-3 py-2 text-sm ${
+            error ? 'border-danger' : 'border-rule'
+          }`}
+        />
+      )}
+
+      {/* 설명이 있는 선택지는 고른 뒤에 그 설명을 보여 줍니다(«에칭 아트 — 제일 잘 나와요!»). */}
+      {chosen?.description && !custom && (
+        <p className="mt-1.5 text-xs text-ink-3">{chosen.description}</p>
+      )}
+
+      {error && (
+        <p id={errorId} role="alert" className="mt-1.5 text-sm text-danger">
+          {error}
+        </p>
+      )}
+    </div>
+  )
+}
+
+/**
+ * 빈 칸이 무엇으로 채워질지 말해 줍니다.
+ *
+ * `prefill` 칸을 비워 두면 워커가 강아지 이름(없으면 «우리 아이»)을 넣고, `default`
+ * 가 있는 칸은 서버가 그 값을 넣습니다. 둘 다 아니면 할 말이 없으니 비워 둡니다 —
+ * "입력하세요" 같은 placeholder 는 라벨을 한 번 더 읽는 것 이상을 하지 않습니다.
+ */
+function placeholderFor(field: StyleInputField, petName: string | null): string | undefined {
+  if (field.prefill === 'pet_name') return `비워 두면 «${petName ?? PET_NAME_FALLBACK}»`
+  if (field.default) return `비워 두면 «${field.default}»`
+  return undefined
+}
+
 function WarningCard({ warning }: { warning: UploadIssue }) {
-  // FR-EDGE-06/08/09 — 어느 코드든 "이래서 결과가 나쁠 수 있다"는 조언이지 차단이 아닙니다.
+  /*
+    FR-EDGE-06/08/09 — 어느 코드든 "이래서 결과가 나쁠 수 있다"는 조언이지 차단이 아닙니다.
+
+    `HUMAN_FACE_DETECTED` 만 성격이 다릅니다. Q6 확정(PR #124 · 이슈 #114 코멘트)으로
+    `human_face_policy=warn` 이 유지되면서, 이 경고는 **책임이 어디로 가는지**를 말하는
+    고지가 됐습니다 — 타인 얼굴의 동의 확인을 업로더에게 귀속시키는 결정의 일부입니다.
+    품질 조언("그대로 변환되지 않을 수 있습니다")으로 적어 두면 결정이 화면에
+    반영되지 않은 채 남습니다. 서버 `message` 는 첫 문장까지만 주므로(계약 그대로)
+    나머지는 프론트 카피입니다.
+
+    정책이 `block` 으로 바뀌면 같은 코드가 `blocking_issue` 로 와서 위쪽 분기가 잡습니다 —
+    이 카드는 손댈 필요가 없습니다.
+  */
   const hint =
     warning.code === 'MULTI_SUBJECT'
       ? '여러 마리가 함께 변환됩니다.'
       : warning.code === 'NOT_A_DOG'
         ? '강아지가 잘 보이는 사진일수록 결과가 좋습니다.'
         : warning.code === 'HUMAN_FACE_DETECTED'
-          ? '사람 얼굴은 그대로 변환되지 않을 수 있습니다.'
+          ? null
           : '그대로 진행해도 되지만, 밝은 사진이 결과가 더 좋습니다.'
 
   return (
     <div className="mt-3 rounded-lg border border-warn/30 bg-warn-soft px-3 py-3">
       <p className="text-sm font-semibold text-warn">{warning.message}</p>
-      <p className="mt-0.5 text-sm text-ink-2">{hint}</p>
+      {warning.code === 'HUMAN_FACE_DETECTED' ? (
+        <p className="mt-0.5 text-sm text-ink-2">
+          <span className="font-semibold text-ink">
+            타인 얼굴이 포함된 사진은 당사자 동의가 필요합니다.
+          </span>{' '}
+          계속 진행하면 동의를 받은 것으로 간주됩니다.
+        </p>
+      ) : (
+        <p className="mt-0.5 text-sm text-ink-2">{hint}</p>
+      )}
     </div>
   )
 }
 
 /**
- * 그림에 이름이 들어가는 스타일의 예고 (PR #98 · app/petNameStyles.ts).
+ * 그림에 이름이 들어가는 스타일의 예고 (PR #98 · 서버 `uses_pet_name`).
  *
  * 세 가지 상태를 **말이 되는 만큼만** 구분합니다. 아는 것은 단정하고, 모르는 것은
  * 모른다고 말합니다 — 재사용 경로에서 «우리 아이가 들어갑니다» 라고 단정하면 이름이

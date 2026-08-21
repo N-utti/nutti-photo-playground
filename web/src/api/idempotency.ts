@@ -27,6 +27,13 @@ export interface JobIntent {
   upload_id: string
   pet_id: string | null
   custom_prompt: string | null
+  /**
+   * 스타일 입력값 (이슈 #114). **의도의 일부입니다** — 402 시트에서 크레딧을 받고
+   * 돌아와 «의상» 을 버섯에서 초밥으로 바꿨다면 그건 다른 그림을 주문한 것이므로,
+   * 같은 키로 보내면 서버가 첫 주문을 그대로 돌려줍니다(멱등 재생). 값이 달라지면
+   * 새 키가 나가야 합니다.
+   */
+  inputs?: Record<string, string>
 }
 
 /**
@@ -69,6 +76,20 @@ function sameIntent(a: JobIntent, b: JobIntent): boolean {
     a.style_id === b.style_id &&
     a.upload_id === b.upload_id &&
     a.pet_id === b.pet_id &&
-    a.custom_prompt === b.custom_prompt
+    a.custom_prompt === b.custom_prompt &&
+    sameInputs(a.inputs, b.inputs)
   )
+}
+
+/**
+ * 라벨 순서는 의도가 아닙니다 — 같은 값이면 같은 그림이 나옵니다. `JSON.stringify`
+ * 로 비교하면 폼이 칸을 채운 순서가 키를 가르게 되고, 402 왕복 한 번이 아무것도
+ * 안 바꿨는데도 새 키를 받게 됩니다(= 이중 차감 가능).
+ */
+function sameInputs(a?: Record<string, string>, b?: Record<string, string>): boolean {
+  const left = a ?? {}
+  const right = b ?? {}
+  const keys = Object.keys(left)
+  if (keys.length !== Object.keys(right).length) return false
+  return keys.every((key) => left[key] === right[key])
 }
