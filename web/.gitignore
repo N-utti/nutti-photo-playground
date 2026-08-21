@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# `npm run test:coverage` 산출물. 없으면 커버리지를 한 번 재볼 때마다 수백 개
+# 파일이 추적되지 않은 채 쌓여, 다음 `git add -A` 에 통째로 딸려 들어갑니다.
+coverage
+
 # 루트 .gitignore 가 `.env.*` 를 전부 무시하지만, Vite 의 모드별 설정 파일은
 # 추적해야 합니다 — `VITE_` 접두 변수는 빌드 시 클라이언트 번들에 그대로 인라인되므로
 # 애초에 비밀을 담을 수 없고(비밀은 서버 .env 에만), 목 on/off 스위치는 다른
