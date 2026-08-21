@@ -50,12 +50,44 @@ function mockStyle(overrides: Partial<StyleDetail> = {}) {
   )
 }
 
-function renderUpload() {
+function renderUpload(query = '') {
   return renderWithProviders(
     <Routes>
       <Route path="/upload" element={<W04Upload />} />
     </Routes>,
-    { route: '/upload?style_id=7' },
+    { route: `/upload?style_id=7${query}` },
+  )
+}
+
+/**
+ * 확인 단계로 넘어가는 길 C — W-06 "이 사진으로 다른 스타일"(FR-W06-07).
+ *
+ * `pet_id` 는 백엔드 #111 이 채운 필드입니다(`source_image.pet_profile_id`). 여기서
+ * 목이 그 값을 정직하게 답해야 이 경로가 «누구 이름이 박히는가» 를 아는 상태가 됩니다.
+ */
+const REUSE_JOB_ID = 'b3e13c4a-2f1e-4a3a-9b1e-0000000000fe'
+
+function mockReuseJob(petId: string | null) {
+  server.use(
+    http.get('*/v1/jobs/:jobId', () =>
+      HttpResponse.json({
+        job_id: REUSE_JOB_ID,
+        status: 'succeeded',
+        style_id: 3,
+        upload_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        pet_id: petId,
+        custom_prompt: null,
+        credit_cost: 1,
+        queued_at: '2026-08-20T10:00:00+09:00',
+        started_at: '2026-08-20T10:00:02+09:00',
+        progress: null,
+        eta_seconds: null,
+        status_message: null,
+        source_image_url: 'https://cdn.example.test/reuse.jpg',
+        results: [{ index: 0, image_url: 'https://cdn.example.test/result.jpg' }],
+        error_code: null,
+      }),
+    ),
   )
 }
 
@@ -161,5 +193,68 @@ describe('W-04 · 그림에 들어가는 이름', () => {
     expect(screen.queryByText('«우리 아이»')).not.toBeInTheDocument()
     // 이미 붙어 있는 강아지에게 이름을 또 물어보지 않습니다.
     expect(screen.queryByLabelText('이름 넣고 만들기')).not.toBeInTheDocument()
+  })
+
+  /*
+    "이 사진으로 다른 스타일"(FR-W06-07) 경로는 오래 **모르는 상태**였습니다.
+    `GET /v1/jobs/{id}` 가 `pet_id` 를 안 주던 시절이라 화면은 «저장된 강아지가 있으면
+    그 이름이, 없으면 우리 아이가» 라고 양쪽을 다 말했고, 이름을 넣을 기회는 만들기
+    버튼 **아래**의 기본 저장 폼으로 밀려 있었습니다 — 거기까지 내려가기 전에 버튼을
+    누르는 게 자연스러운 순서라, 사실상 기회가 없는 자리입니다.
+
+    백엔드 #111 이 그 필드를 채웠으므로 두 갈래 모두 단정할 수 있어야 합니다.
+  */
+  describe('재사용 경로(from_job)', () => {
+    it('사진에 붙은 강아지가 있으면 그 이름을 단정한다', async () => {
+      // petList[0] = 콩이 (mocks/fixtures.ts).
+      mockReuseJob('b6f9e6b0-0000-4000-8000-000000000001')
+      mockStyle({ code: '식빵', name: '식빵', uses_pet_name: true })
+      renderUpload(`&from_job=${REUSE_JOB_ID}`)
+
+      expect(await screen.findByText('«콩이»')).toBeInTheDocument()
+      expect(screen.queryByText('«우리 아이»')).not.toBeInTheDocument()
+      // 흐린 문구가 남아 있으면 그건 이 값을 안 읽고 있다는 뜻입니다.
+      expect(screen.queryByText(/저장된 강아지가 있으면/)).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('이름 넣고 만들기')).not.toBeInTheDocument()
+    })
+
+    it('붙은 강아지가 없으면 «우리 아이» 를 단정하고, 그 자리에서 이름을 받는다', async () => {
+      mockReuseJob(null)
+      mockStyle({ code: '식빵', name: '식빵', uses_pet_name: true })
+      renderUpload(`&from_job=${REUSE_JOB_ID}`)
+
+      expect(await screen.findByText('«우리 아이»')).toBeInTheDocument()
+      expect(screen.getByText(/이대로 만들면 그림에/)).toBeInTheDocument()
+
+      // 이름 입력이 만들기 버튼 **앞**에 있어야 실제로 쓸 기회가 됩니다.
+      const form = screen.getByLabelText('이름 넣고 만들기')
+      const start = screen.getByRole('button', { name: /이대로 만들기/ })
+      expect(form.compareDocumentPosition(start) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(screen.queryByLabelText('이 강아지 저장하기')).not.toBeInTheDocument()
+    })
+
+    it('붙은 강아지 이름으로 `prefill` 입력 칸을 채운다', async () => {
+      /*
+        이슈 #114 의 `prefill: "pet_name"` 칸(식빵 = «반려견 이름»). 강아지를 모르던
+        동안 이 경로만 빈 칸으로 떴습니다 — 같은 사진으로 방금 만든 결과에는 «콩이» 가
+        박혀 있는데, 스타일만 바꾸면 이름이 사라지는 셈이었습니다.
+      */
+      mockReuseJob('b6f9e6b0-0000-4000-8000-000000000001')
+      mockStyle({
+        code: '식빵',
+        name: '식빵',
+        uses_pet_name: true,
+        input_fields: [{ label: '반려견 이름', type: 'text', prefill: 'pet_name' }],
+      })
+      renderUpload(`&from_job=${REUSE_JOB_ID}`)
+
+      /*
+        `findByLabelText` 로 칸을 잡고 값을 단언하면 **전체 스위트에서만 깨집니다** —
+        칸은 스타일 응답만으로 그려지는데 이름은 `GET /v1/pets` 가 도착해야 채워지고,
+        칸을 찾은 순간이 그 사이일 수 있습니다(파일 하나만 돌리면 빨라서 안 걸립니다).
+        값 자체를 기다리는 쿼리로 잡아 그 창을 없앱니다.
+      */
+      expect(await screen.findByDisplayValue('콩이')).toHaveAccessibleName('반려견 이름')
+    })
   })
 })

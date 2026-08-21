@@ -22,6 +22,7 @@ const JOB = {
   upload_id: 'up_01HQZX',
   source_image_url: 'https://cdn.example.test/up_01HQZX.jpg',
   custom_prompt: null,
+  pet_id: null,
 } as Job
 
 describe('contextFromJob', () => {
@@ -31,7 +32,27 @@ describe('contextFromJob', () => {
       uploadId: 'up_01HQZX',
       sourceImageUrl: 'https://cdn.example.test/up_01HQZX.jpg',
       customPrompt: null,
+      petId: null,
     })
+  })
+
+  it('사진에 붙은 강아지도 함께 나른다', () => {
+    /*
+      백엔드 #111 착지분. W-04 가 이 값으로 «그림에 어떤 이름이 박히는가» 를 말하고
+      `prefill: "pet_name"` 칸을 채웁니다 — 여기서 떨어뜨리면 재사용 경로만 그 둘을
+      모르는 채로 결제 화면까지 갑니다.
+    */
+    const withPet = { ...JOB, pet_id: 'pet_01HQZX' } as Job
+
+    expect(contextFromJob(withPet)?.petId).toBe('pet_01HQZX')
+  })
+
+  it('옛 응답처럼 pet_id 가 아예 없으면 «붙은 강아지 없음» 으로 읽는다', () => {
+    // undefined 가 그대로 새면 «모른다» 와 «없다» 가 한 값이 되고, 화면이 그 둘을
+    // 다른 문구로 갈라 씁니다(W-04 PetNameNotice).
+    const legacy = { ...JOB, pet_id: undefined } as unknown as Job
+
+    expect(contextFromJob(legacy)?.petId).toBeNull()
   })
 
   it('응답이 아직 없으면 null', () => {

@@ -12,6 +12,10 @@
  *   4. 섹션 헤더에 개수 표기
  *   5. 모바일 2열 / 데스크톱 4열
  *   7. 크레딧 비용은 카드에 유지
+ *
+ * 노트 밖에서 카드가 하나 더 말하는 것: **이름이 그림에 인쇄되는 스타일**
+ * (`uses_pet_name`, 백엔드 #111). 짝 필드인 `uses_breed` 는 받아만 두고 아직 안
+ * 그립니다 — 이유는 screens/W03StyleDetail.tsx 헤더에 한 곳으로 적어 뒀습니다.
  */
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
@@ -290,14 +294,33 @@ function StyleCardItem({ style, reuseJobId }: { style: StyleCard; reuseJobId: st
       to={withReuse(`/styles/${style.id}`, reuseJobId)}
       className="block overflow-hidden rounded-lg border border-rule bg-surface hover:border-brand-2"
     >
-      <Thumbnail
-        src={style.thumbnail_url}
-        alt={style.name}
-        // 39장이 한 페이지에 있으므로(카탈로그는 페이지네이션 없음) 지연 로드가 필수입니다.
-        loading="lazy"
-        decoding="async"
-        className="aspect-square w-full bg-surface-2 object-cover"
-      />
+      <div className="relative">
+        <Thumbnail
+          src={style.thumbnail_url}
+          alt={style.name}
+          // 39장이 한 페이지에 있으므로(카탈로그는 페이지네이션 없음) 지연 로드가 필수입니다.
+          loading="lazy"
+          decoding="async"
+          className="aspect-square w-full bg-surface-2 object-cover"
+        />
+        {/*
+          이름이 그림 안에 인쇄되는 스타일 (서버 `uses_pet_name` · 백엔드 #111).
+
+          W-03 시트가 이미 같은 사실을 말하지만(PR #98) 그건 **고른 뒤**입니다. 이름이
+          박히는 스타일을 찾아 온 사람은 39칸을 한 장씩 열어 봐야 알 수 있었습니다 —
+          지금 시드에서 해당하는 건 39종 중 2종이라, 배지는 소음이 아니라 그 2종을
+          한눈에 찾게 해 주는 표시입니다.
+
+          이미지 위에 얹는 이유는 아래 메타 줄이 이미 «이름 + 비용» 으로 꽉 차 있기
+          때문입니다(모바일 2열에서 카드 폭이 좁습니다). 여기에 칩을 하나 더 끼우면
+          스타일 이름이 두세 글자로 잘립니다.
+        */}
+        {style.uses_pet_name && (
+          <span className="absolute bottom-1.5 left-1.5 rounded-full bg-ink/70 px-2 py-0.5 text-[11px] font-semibold text-paper">
+            이름 인쇄
+          </span>
+        )}
+      </div>
       <div className="flex items-center justify-between gap-2 px-2 py-1.5">
         <span className="truncate text-sm font-semibold">{style.name}</span>
         <span className="shrink-0 font-mono text-xs text-ink-3">{style.credit_cost}</span>

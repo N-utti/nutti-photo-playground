@@ -185,6 +185,19 @@ export default function W04Upload() {
           warnings: [],
           breed_estimate: null,
         })
+        /*
+          이 사진에 붙어 있는 강아지도 같이 이어받습니다 (`pet_id`, 백엔드 #111).
+
+          사진만 이어받던 동안 이 경로는 **강아지를 모르는 상태**였습니다. 그 결과가
+          두 군데에 나타났습니다: 이름 예고가 «있으면 그 이름이, 없으면 우리 아이가»
+          로 흐려지고, `prefill: "pet_name"` 입력 칸(이슈 #114)이 빈 채로 떴습니다 —
+          같은 사진으로 방금 만든 결과에는 «콩이» 가 박혀 있는데 말입니다.
+
+          연결 자체는 여기서 만드는 게 아니라 서버에 이미 있는 것을 읽어 오는
+          것입니다(`source_image.pet_profile_id`). 그래서 이 값을 넣는다고 새로 붙는
+          것은 없고, 화면이 사실을 말할 수 있게 될 뿐입니다.
+        */
+        setPetId(context.petId)
         return
       }
       // 서버 답을 기다리는 동안 초안 복원으로 내려가면, 재료가 도착하기 전에 엉뚱한
@@ -705,13 +718,16 @@ function ConfirmPanel({
     **둘 다 뜨면 안 됩니다**. 두 개의 «이름» 입력이 한 화면에 있으면 어느 쪽이
     그림에 들어가는 이름인지 화면이 스스로 헷갈리게 말하는 셈입니다.
 
-    재사용 경로(`from_job`)는 제외합니다: 그 사진이 이미 어떤 강아지에 붙어 있는지
-    프론트가 알 방법이 없습니다 — `GET /v1/jobs/{id}` 응답에 `pet_id` 가 없습니다(§3,
-    이슈 #101 로 요청해 둔 두 번째 필드).
-    모르면서 «우리 아이로 들어갑니다» 라고 단정하면 이름이 멀쩡히 박히는 경우에도
-    거짓말이 되므로, 그 경로에서는 단정하지 않고 아래 기본 저장 폼을 그대로 둡니다.
+    조건에 `fromJobId === null` 이 하나 더 붙어 있었습니다. 재사용 경로에서는 그
+    사진에 붙은 강아지를 프론트가 알 방법이 없어서(`GET /v1/jobs/{id}` 에 `pet_id`
+    가 없던 시절) 단정도 질문도 못 하고 아래 기본 저장 폼으로 흘려보내던 것입니다.
+    백엔드 #111 이 그 필드를 채우면서 전제가 사라졌습니다 — 이제 재사용 경로도
+    «강아지가 안 붙은 사진» 이면 다른 경로와 똑같이 여기서 이름을 받습니다.
+
+    즉 판정은 **강아지가 붙어 있는가** 하나로 돌아왔습니다. 어디로 들어왔는지는
+    이 질문과 아무 상관이 없었고, 상관있는 척했던 건 계약의 구멍이었습니다.
   */
-  const askNameHere = namesTheImage && !blocked && !styleMissing && !petId && fromJobId === null
+  const askNameHere = namesTheImage && !blocked && !styleMissing && !petId
 
   return (
     <>
@@ -770,15 +786,13 @@ function ConfirmPanel({
           /*
             강아지가 붙어 있는데 이름을 아직 모르는 창이 실제로 있습니다.
 
-            초안 복원(402 왕복·재방문)은 `petId` 를 sessionStorage 에서 즉시 되살리는데
-            `GET /v1/pets` 는 그 뒤에 도착합니다. 그 사이를 «우리 아이» 로 그리면
-            화면이 **먼저 거짓말을 하고 나중에 정정**합니다 — 그 순간에 버튼을 누른
-            사용자에게는 정정이 오지 않습니다. 목록에서 사라진 강아지(다른 탭에서
-            삭제)라면 그 창이 아예 안 닫힙니다.
+            초안 복원(402 왕복·재방문)과 재사용 경로(`from_job` → `pet_id`)는 둘 다
+            `petId` 를 먼저 손에 넣고 `GET /v1/pets` 는 그 뒤에 도착합니다. 그 사이를
+            «우리 아이» 로 그리면 화면이 **먼저 거짓말을 하고 나중에 정정**합니다 —
+            그 순간에 버튼을 누른 사용자에게는 정정이 오지 않습니다. 목록에서 사라진
+            강아지(다른 탭에서 삭제)라면 그 창이 아예 안 닫힙니다.
           */
           petAttached={petId !== null}
-          /* 재사용 경로에서는 이 사진에 붙은 강아지를 프론트가 모릅니다 — 위 주석 참조. */
-          certain={fromJobId === null}
           uploadId={askNameHere ? upload.upload_id : null}
           onPetSaved={onPetSaved}
         />
@@ -1078,8 +1092,12 @@ function WarningCard({ warning }: { warning: UploadIssue }) {
  * 그림에 이름이 들어가는 스타일의 예고 (PR #98 · 서버 `uses_pet_name`).
  *
  * 세 가지 상태를 **말이 되는 만큼만** 구분합니다. 아는 것은 단정하고, 모르는 것은
- * 모른다고 말합니다 — 재사용 경로에서 «우리 아이가 들어갑니다» 라고 단정하면 이름이
- * 멀쩡히 박히는 사진에 대고 거짓말을 하는 셈입니다.
+ * 모른다고 말합니다.
+ *
+ * 네 번째 상태가 있었습니다 — «이 사진에 저장된 강아지가 있으면 그 이름이, 없으면
+ * 우리 아이가». 재사용 경로에서 이 사진의 강아지를 프론트가 몰라서 양쪽을 다 말하던
+ * 문구인데, 결제 직전에 «둘 중 하나입니다» 는 예고가 아니라 미룸입니다. 백엔드 #111
+ * 이 `GET /v1/jobs/{id}.pet_id` 를 채우면서 모를 이유가 없어져 지웠습니다.
  *
  * 진행을 막지 않는 것은 W-04 의 경고 카드와 같은 원칙입니다(노트3) — 이름 없이 만드는
  * 것도 정상 경로이고, 화면이 할 일은 결제 전에 사실을 알려 주는 것까지입니다.
@@ -1087,15 +1105,12 @@ function WarningCard({ warning }: { warning: UploadIssue }) {
 function PetNameNotice({
   petName,
   petAttached,
-  certain,
   uploadId,
   onPetSaved,
 }: {
   petName: string | null
   /** 이 사진에 강아지가 붙어 있는가. 붙어 있으면 이름을 모를 때도 폴백이 아닙니다. */
   petAttached: boolean
-  /** 이 사진에 붙은 강아지를 프론트가 아는가. 재사용 경로에서는 모릅니다. */
-  certain: boolean
   /** 값이 있으면 이 자리에서 이름도 받습니다 — 아래 기본 저장 폼은 내려갑니다. */
   uploadId: string | null
   onPetSaved: (petId: string) => void
@@ -1111,16 +1126,10 @@ function PetNameNotice({
         ) : petAttached ? (
           // 이름은 아직(또는 영영) 모르지만 «우리 아이» 가 아닌 것은 압니다.
           <>저장된 강아지의 이름이 그림에 들어갑니다.</>
-        ) : certain ? (
+        ) : (
           <>
             이대로 만들면 그림에{' '}
             <span className="font-semibold text-ink">«{PET_NAME_FALLBACK}»</span> 라는 이름이
-            들어갑니다.
-          </>
-        ) : (
-          <>
-            이 사진에 저장된 강아지가 있으면 그 이름이, 없으면{' '}
-            <span className="font-semibold text-ink">«{PET_NAME_FALLBACK}»</span> 가 그림에
             들어갑니다.
           </>
         )}

@@ -38,6 +38,19 @@ export interface JobContext {
    * !customPrompt` 를 재생성 불가로 판정합니다(W-06 `Regenerate`).
    */
   customPrompt: string | null
+  /**
+   * 이 사진에 붙어 있는 강아지 (이슈 #101 2번 → 백엔드 #111 착지분).
+   *
+   * 재료 중 **유일하게 «생성 요청에 실어 보내는 값» 이 아닌 것**입니다. `POST /v1/jobs`
+   * 의 `pet_id` 는 서버가 읽지도 않습니다(`app/routers/jobs.py`: 연결은
+   * `source_image.pet_profile_id` 한 곳에만 있습니다). 그런데도 나르는 이유는 W-04 가
+   * **화면에 뭐라고 쓸지**를 이 값으로 정하기 때문입니다 — 이름이 인쇄되는 스타일에서
+   * 워커가 넣을 이름이 저장된 강아지 이름인지 «우리 아이» 인지가 이 값으로 갈립니다.
+   *
+   * 이 필드가 없던 동안 W-04 는 재사용 경로에서만 «있으면 그 이름이, 없으면 우리
+   * 아이가» 라는 흐린 문구를 따로 들고 있었습니다.
+   */
+  petId: string | null
 }
 
 /**
@@ -54,6 +67,9 @@ export function contextFromJob(job: Job | undefined | null): JobContext | null {
     uploadId: job.upload_id,
     sourceImageUrl: job.source_image_url,
     customPrompt: job.custom_prompt,
+    // 옛 응답에는 없던 필드라 `?? null` 을 둡니다 — undefined 가 새면 «모른다» 와
+    // «붙은 강아지가 없다» 가 같은 값이 되고, W-04 가 그 둘을 갈라 씁니다.
+    petId: job.pet_id ?? null,
   }
 }
 

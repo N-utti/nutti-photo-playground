@@ -77,3 +77,37 @@ describe('W-02 앵커바', () => {
     expect(targets.map((element) => element?.dataset.section)).toEqual(names)
   })
 })
+
+/**
+ * 카드의 «이름 인쇄» 배지 (서버 `uses_pet_name` · 백엔드 #111).
+ *
+ * 막으려는 결함: 이 플래그를 프론트가 **하드코딩 목록**으로 들고 있던 시절에 #110 이
+ * 이모티콘 프롬프트를 교체하며 `[pet name]` 을 뺐고, 목록만 남아 화면이 조용히
+ * 틀렸습니다. 그래서 여기서는 목을 덮지 않고 **기본 픽스처 그대로** 셉니다 —
+ * 픽스처의 플래그는 `seeds/prompts/*.txt` 원문과 대조돼 있고(mocks/fixtures.test.ts),
+ * 그 대조에 이 화면을 이어 붙이면 프롬프트가 바뀌는 날 한 줄에서 같이 걸립니다.
+ */
+describe('W-02 카드 · 이름 인쇄 배지', () => {
+  it('플래그가 켜진 스타일에만, 그 수만큼 붙는다', async () => {
+    renderWithProviders(<W02StyleCatalog />, { route: '/styles' })
+
+    // 시드 39종 중 `[pet name]` 을 쓰는 것은 3D_피규어·식빵 둘입니다.
+    const badges = await screen.findAllByText('이름 인쇄')
+    expect(badges).toHaveLength(2)
+
+    const labelled = badges.map((badge) => badge.closest('a')?.textContent ?? '')
+    expect(labelled.some((text) => text.includes('3D 피규어'))).toBe(true)
+    expect(labelled.some((text) => text.includes('식빵'))).toBe(true)
+  })
+
+  it('플래그가 꺼진 카드에는 아무것도 안 붙는다', async () => {
+    renderWithProviders(<W02StyleCatalog />, { route: '/styles' })
+
+    /*
+      «레고» 는 같은 섹션의 이웃 카드입니다 — 배지를 카드가 아니라 섹션이나 그리드에
+      걸어 버리면 39칸 전부에 뜨는데, 위 개수 단언만으로는 그 실수를 못 잡습니다.
+    */
+    const lego = await screen.findByRole('link', { name: /레고/ })
+    expect(within(lego).queryByText('이름 인쇄')).not.toBeInTheDocument()
+  })
+})
