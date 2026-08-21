@@ -11,6 +11,8 @@ import {
 } from '@tanstack/react-query'
 import { ApiError, ensureSession, session } from './client'
 import { auth, calculator, credits, jobs, library, pets, styles, uploads } from './endpoints'
+import { clearLocalTraces } from './localTraces'
+import { clearSessionStatus } from '../app/sessionStatus'
 import type {
   ClaimableAction,
   CreateJobBody,
@@ -98,6 +100,44 @@ export function useLogout() {
       await ensureSession()
     },
     onSuccess: () => client.invalidateQueries(),
+  })
+}
+
+/**
+ * 회원 탈퇴 (이슈 #123) = 계정 삭제 + 이 브라우저의 흔적 삭제 + **새 게스트로 재시작**.
+ *
+ * 착지 지점이 로그아웃과 같은 이유도 같습니다 — 토큰 없이 서 있는 상태가 이 앱에는
+ * 없습니다(로그인 화면이라는 선택지가 없습니다). 탈퇴한 사용자도 그대로 놀이터를
+ * 계속 쓸 수 있어야 하고, 그건 «완전 신규 게스트» 입니다.
+ *
+ * 로그아웃과 다른 세 가지:
+ *
+ *   1. **실패를 삼키지 않습니다**(endpoints.ts `withdraw` 주석). 서버가 실패하면
+ *      계정은 살아 있으므로 화면도 실패를 말해야 합니다
+ *   2. `clearLocalTraces()` — 초안·멱등 키·보고 있던 job 까지 지웁니다. 남겨 두면
+ *      «즉시 파기» 고지 직후에 방금 그 사진이 새 게스트 화면에 되살아납니다
+ *   3. `client.clear()` — 캐시를 **비웁니다**(로그아웃은 invalidate 만 합니다).
+ *      invalidate 는 옛 데이터를 남겨 둔 채 다시 받아오게 하는 것이라, 새 게스트로
+ *      선 첫 화면에 탈퇴한 계정의 펫·보관함이 잠깐 그려집니다. 파기를 고지한 화면이
+ *      할 수 있는 말이 아닙니다
+ *
+ * `clearSessionStatus()` 는 만료 배너를 내립니다. 탈퇴 시점에 서버가 토큰을 전부
+ * 무효화하므로 그 직후 날아가던 요청이 401 로 떨어지면 «로그인이 만료됐어요» 가
+ * 올라오는데, 사용자가 스스로 끝낸 계정을 두고 만료를 통보하는 꼴입니다
+ * (LogoutConfirm 이 같은 이유로 같은 일을 합니다).
+ */
+export function useWithdraw() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      await auth.withdraw()
+      clearLocalTraces()
+      await ensureSession()
+    },
+    onSuccess: () => {
+      client.clear()
+      clearSessionStatus()
+    },
   })
 }
 
