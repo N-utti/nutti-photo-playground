@@ -17,8 +17,9 @@
  *      말해야 "삭제하면 사진도 지워지나?"에 답이 됩니다
  *   4. 카페24 **연동 해제는 없습니다**(결정3) — 해제→재연동 반복 수급 경로를 열지 않기
  *      위해 단방향이고, 해제는 CS 처리입니다
- *   5. 회원 탈퇴는 자리만(FR-W12-06, 이슈 #22 후속) — 파기 정책이 정해지기 전에 버튼을
- *      살려 두면 되돌릴 수 없는 동작을 정의 없이 실행하게 됩니다
+ *   5. 회원 탈퇴(FR-W12-06)는 파기 정책이 정해질 때까지 자리만 잡고 있었습니다. 이슈
+ *      #22 가 PO 확정을 거쳐 PR #120 으로 착지해(`DELETE /v1/auth/me`) 지금은 실제로
+ *      동작하고, 무엇이 사라지는지는 확인 창이 고지합니다(WithdrawConfirm)
  */
 
 import { useState } from 'react'
@@ -41,6 +42,7 @@ import { initialOf } from '../app/initials'
 import Thumbnail from '../app/Thumbnail'
 import AccountSheet from './AccountSheet'
 import LogoutConfirm from './LogoutConfirm'
+import WithdrawConfirm from './WithdrawConfirm'
 import type { Me, Pet } from '../api/types'
 
 export default function W12MyPage() {
@@ -470,6 +472,7 @@ function ShopLinkSection({ me }: { me: Me }) {
 
 function DangerSection() {
   const [logoutConfirm, setLogoutConfirm] = useState(false)
+  const [withdrawConfirm, setWithdrawConfirm] = useState(false)
 
   return (
     <section className="rounded-xl border border-rule bg-surface px-4 py-2">
@@ -480,19 +483,25 @@ function DangerSection() {
       >
         로그아웃
       </button>
-      <div className="border-t border-rule py-3">
-        {/*
-          FR-W12-06 자리. 파기 범위(원본·결과물 유예, 크레딧 소멸, 카페24 회원과의 관계)가
-          이슈 #22 에서 설계 중이라 동작을 붙이지 않았습니다 — 되돌릴 수 없는 동작을
-          정의 없이 실행시키느니, 지금 할 수 있는 안내(CS 경로)를 줍니다.
-        */}
-        <p className="text-sm text-ink-3">회원 탈퇴</p>
-        <p className="mt-0.5 text-xs text-ink-3">
-          준비 중이에요. 지금 탈퇴가 필요하면 고객센터로 알려주세요.
-        </p>
-      </div>
+      {/*
+        FR-W12-06 — 백엔드 #22 가 PR #120 으로 착지해(`DELETE /v1/auth/me`) 자리만
+        잡아 두던 안내를 실제 동작으로 바꿉니다. 파기 범위·크레딧 소멸·쇼핑몰 회원과의
+        관계는 확인 창이 고지합니다(WithdrawConfirm).
+
+        게스트에게는 이 섹션 자체가 안 그려집니다 — DangerSection 은 MemberSections
+        안에 있습니다. 서버도 게스트 호출을 403 `MEMBER_ONLY` 로 막지만, 눌러도 거절될
+        버튼을 보여 주는 건 로그인 유도로도 안 읽힙니다(이슈 #123 권장사항).
+      */}
+      <button
+        type="button"
+        onClick={() => setWithdrawConfirm(true)}
+        className="w-full border-t border-rule py-3 text-left text-sm text-ink-3 hover:text-danger"
+      >
+        회원 탈퇴
+      </button>
 
       {logoutConfirm && <LogoutConfirm onClose={() => setLogoutConfirm(false)} />}
+      {withdrawConfirm && <WithdrawConfirm onClose={() => setWithdrawConfirm(false)} />}
     </section>
   )
 }

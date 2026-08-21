@@ -798,6 +798,14 @@ export const handlers = [
       providers: [],
       cafe24_linked: false,
     }
+    /*
+      신규 게스트는 `guest_trial` 로 **1 크레딧**을 받습니다(app/routers/auth.py
+      `issue_guest_token`). 목이 이걸 빼먹는 동안에는 앞 계정의 잔액이 그대로 따라와서,
+      «다른 사람이 됐다» 는 이 발급의 의미가 잔액에서만 안 지켜졌습니다. 탈퇴(#123)가
+      그 차이를 정면으로 밟습니다 — 파기를 고지해 놓고 새 게스트 화면이 옛 잔액을
+      그대로 말하면 목이 화면의 고지를 배신합니다.
+    */
+    state.credits.balance = 1
     persist()
     return HttpResponse.json(
       { token: `mock-guest-jwt.${crypto.randomUUID()}`, member_id, kind: 'guest' },
@@ -927,6 +935,43 @@ export const handlers = [
   http.post(`${BASE}/auth/logout`, () => {
     state.refreshToken = null
     persist()
+    return new HttpResponse(null, { status: 204 })
+  }),
+
+  /*
+    회원 탈퇴 (이슈 #123 · 백엔드 #22 → PR #120).
+
+    **파기까지 흉내 냅니다.** 204 만 돌려주고 데이터를 남겨 두면, 탈퇴 화면이 «사진과
+    결과물이 즉시 지워져요» 라고 고지한 직후 새 게스트 화면에 그대로 남아 있는 상태를
+    목이 만들어 냅니다 — 화면 쪽 정리(캐시·초안)가 빠졌을 때 그 사실이 브라우저에서
+    안 드러납니다. 실서버가 하는 일을 목도 해야 그 구멍이 보입니다.
+
+    게스트 호출은 403 `MEMBER_ONLY` 입니다. 화면은 회원에게만 진입점을 그리므로 정상
+    경로로는 닿지 않지만, 계약의 두 갈래 중 하나를 목이 낼 수 없으면 그 분기는 영영
+    검증되지 않습니다(이 파일 상단 «한 코드의 두 얼굴» 과 같은 이유).
+
+    토큰 무효화는 흉내 내지 않습니다 — 목은 Authorization 을 검사하지 않아서 «이후
+    호출이 전부 401» 을 만들 수단이 없습니다. 프론트는 곧바로 `POST /auth/guest` 로
+    새 게스트를 받으므로(api/queries.ts `useWithdraw`) 그 401 창에 실제로 들어가지도
+    않습니다.
+  */
+  http.delete(`${BASE}/auth/me`, async () => {
+    await delay(200)
+    if (state.me.kind !== 'member') {
+      return apiError(403, 'MEMBER_ONLY', '회원만 탈퇴할 수 있습니다')
+    }
+
+    state.credits.balance = 0
+    state.jobs.clear()
+    state.idempotency.clear()
+    state.refreshToken = null
+    petList.splice(0, petList.length)
+    // 보관함 시드는 상수 배열이라 지우는 대신 «지운 결과» 로 표시합니다 — 목록 조립이
+    // 이미 그 집합을 가려 냅니다(libraryFor).
+    for (const item of libraryItems) state.deletedResults.add(item.result_id)
+    persist()
+    persistJobs()
+    persistDeletedResults()
     return new HttpResponse(null, { status: 204 })
   }),
 
