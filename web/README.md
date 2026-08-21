@@ -31,7 +31,7 @@ npm run test     # vitest — 컴포넌트 회귀 테스트
 
 | 구간 | 엔드포인트 | 상태 |
 |---|---|---|
-| 게스트·로그인·연동 | `/auth/*` | 구현 |
+| 게스트·로그인·연동·탈퇴 | `/auth/*` | 구현 (`DELETE /auth/me` 포함 — 2026-08-21 실측) |
 | 스타일 카탈로그·상세 | `/styles`, `/styles/{id}` | 구현 |
 | 업로드(품질·비전·견종) | `POST /uploads` | 구현 |
 | 펫 CRUD | `/pets*` | 구현 |
@@ -42,6 +42,13 @@ npm run test     # vitest — 컴포넌트 회귀 테스트
 | **계산기 연결** | `GET /calculator-link` | **501** — W-06 배너·W-07 |
 | **공유 이미지** | `POST /jobs/{id}/share` | **501** — W-06 공유 |
 | **이벤트 비콘** | `POST /events` | **501** (실패를 삼키므로 화면은 안 막힘) |
+
+**목을 끄기 전에 백엔드를 최신으로 맞춥니다.** 띄워 둔 채로 며칠 지난 uvicorn 은 그때의
+라우팅을 그대로 서빙합니다 — 2026-08-21 에 `DELETE /v1/auth/me` 가 **405** 로 돌아왔는데
+프론트 문제가 아니라 8/14 에 뜬 서버라 그 라우트가 아예 없던 것이었습니다(`curl -s
+localhost:8000/openapi.json` 의 `paths['/v1/auth/me']` 키로 확인됩니다). 서버를 새로 띄우면
+이번엔 스키마가 뒤처져 `column "input_fields" does not exist` 로 500 이 납니다. 백엔드를
+당긴 뒤에는 `python -m uv run aerich upgrade` 를 먼저 돌립니다.
 
 비전 검사(고양이 차단·견종 추정)와 실제 이미지 생성은 `OPENAI_API_KEY`가 있어야
 켜집니다. 키가 없으면 업로드는 경고 없이 통과하고, 워커는 포스터라이즈 폴백 이미지를
@@ -230,7 +237,7 @@ src/
 | [#10](https://github.com/N-utti/nutti-photo-playground/issues/10) | 카카오 `kakao_token` 획득 경로 미정 | W-06 B 계정 연동 | 해결 (ADR-11 A안 → PR #21, `POST /v1/auth/kakao` 삭제) |
 | [#14](https://github.com/N-utti/nutti-photo-playground/issues/14) | `authorize` 가 헤더를 요구하는 302 라 브라우저 이동 불가 | 로그인 시트·콜백 전부 | 해결 (PR #21 — 200 `{authorize_url}`) |
 | [#17](https://github.com/N-utti/nutti-photo-playground/issues/17) | 로컬 계정 복구 불가(비밀번호 재설정·이메일 인증 없음) · 로그인 수단 추가 미지원 | 로컬 가입 | 해결 (PR #21 — 409 `ALREADY_MEMBER`·복구 불가 명시·검증 정책). **가입 시트의 사전 고지는 그대로 둡니다** — 계약이 명시됐을 뿐 비밀번호 재설정이 생긴 건 아닙니다 |
-| [#22](https://github.com/N-utti/nutti-photo-playground/issues/22) | 회원 탈퇴 — `DELETE /v1/auth/me` 와 데이터 파기 정책 미설계 | W-12 탈퇴 버튼 | 대기 (§3 에 엔드포인트 없음). FR-W12-06 이 "자리만 확보"라 화면은 막히지 않습니다 |
+| [#22](https://github.com/N-utti/nutti-photo-playground/issues/22) | 회원 탈퇴 — `DELETE /v1/auth/me` 와 데이터 파기 정책 미설계 | W-12 탈퇴 버튼 | 해결 (PR #120 → 프론트 PR #126, 이슈 #123). 파기 범위가 정해져서 확인 창이 **고지**할 말이 생겼습니다 — 자리만 잡고 있던 FR-W12-06 이 실제 동작입니다. 204 를 받은 뒤에만 로컬을 비우고(실패는 삼키지 않습니다 — 계정이 살아 있는데 «탈퇴됨»으로 믿게 두지 않으려고), 흔적·캐시까지 지우고 새 게스트로 섭니다 |
 | [#33](https://github.com/N-utti/nutti-photo-playground/issues/33) | 보관함 항목 `pet_id` 가 `null` 일 수 있는지 §3 에 없음 | W-09 강아지 필터 | 해결 (PR #51 — §3 에 `pet_id: uuid \| null` 명시). 삭제된 펫과 «펫 없이 만든 결과»를 클라이언트가 구분하지 않는 것도 확정이고, **삭제된 펫을 가리키는 `?pet_id=` 조회는 404 가 아니라 빈 목록**이라 W-09 는 그 필터를 «전체»로 걷습니다 |
 | [#41](https://github.com/N-utti/nutti-photo-playground/issues/41) | job 응답에 시작 시각(`created_at`) 없음 | W-05 FR-EDGE-02 판정 | 해결. 응답이 `queued_at`·`started_at`을 답하고 W-05가 **서버 우선**으로 잽니다(`useStartedAt`). 워커가 재시도할 때도 최초 `started_at`을 유지하므로 판정 기준이 재시도마다 리셋되지 않습니다(`app/worker.py` `lease_job`) |
 | [#71](https://github.com/N-utti/nutti-photo-playground/issues/71) | 스타일·펫 썸네일 URL이 `public_url()` 을 안 거쳐 로컬에서 404 | W-02 카탈로그·W-04 펫 목록 (목을 끈 로컬 한정) | 해결 (PR #74). 프론트는 무변경(`/media` dev proxy 는 PR #72 로 이미 있음) |
