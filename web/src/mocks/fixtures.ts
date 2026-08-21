@@ -47,15 +47,45 @@ const BREED_CODES = new Set(['3D_피규어'])
  * 회색 박스 플레이스홀더. 와이어프레임(docs/wireframe-spec-v0.5.html)이
  * 실제 이미지 없이 `.img` 빈 박스로 그려져 있으므로 목도 같은 수준으로 둡니다.
  * 외부 이미지 호스트에 의존하지 않도록 data URI 로 만듭니다.
+ *
+ * 크기가 인자인 이유는 **비율이 화면을 가르기 때문**입니다 — 아래 두 상수 참고.
+ * 기본값 정사각은 «비율이 상관없는 자리»(썸네일·예시)에만 씁니다.
  */
-export function placeholderImage(label: string, tone = '#E1E2DC'): string {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400">
-    <rect width="400" height="400" fill="${tone}"/>
+export function placeholderImage(
+  label: string,
+  tone = '#E1E2DC',
+  size: { width: number; height: number } = { width: 400, height: 400 },
+): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size.width}" height="${size.height}">
+    <rect width="${size.width}" height="${size.height}" fill="${tone}"/>
     <text x="50%" y="50%" font-family="sans-serif" font-size="20" fill="#7D8179"
       text-anchor="middle" dominant-baseline="middle">${label}</text>
   </svg>`
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
 }
+
+/**
+ * 결과 이미지는 **정사각이 아닙니다** (백엔드 #110 착지분).
+ *
+ * #110 이전의 유일한 실생성 경로는 `openai.images.edit(size="1024x1024")` 였고,
+ * 그때는 결과가 언제나 정사각이었습니다. #110 이 그 앞에 fal 큐 경로를 붙이면서
+ * (`FAL_KEY` 가 있으면 이쪽이 우선) 크기 지정이 `image_size: "auto"` — 즉 **모델이
+ * 정하는 값**으로 바뀌었고, 프롬프트 원문이 캔버스를 직접 요구합니다:
+ * 3D_피규어는 "vertical 3:4", 이모티콘은 "square canvas (1:1)". 워커의 서명 합성
+ * (`_sign_and_encode_jpeg`)은 받은 크기를 그대로 두므로 그 비율이 그대로 나옵니다.
+ *
+ * `GenerationResult` 에는 width·height 컬럼이 없고 §3 job 응답도 크기를 안 주므로,
+ * 프론트가 비율을 미리 아는 방법은 없습니다 — 이미지가 도착해야 알 수 있습니다.
+ * 목이 계속 정사각만 내면 W-06 비교 슬라이더가 결과를 자르는지 아닌지를 브라우저에서
+ * 한 번도 확인할 수 없어서, 실서버에 붙이는 날에야 잘린 결과를 보게 됩니다.
+ */
+export const RESULT_SIZE = { width: 400, height: 533 }
+
+/**
+ * 원본은 사용자 카메라가 정합니다 — 정사각인 쪽이 오히려 드뭅니다(휴대폰 기본 4:3).
+ * 결과와 비율이 갈려야 W-06 비교 슬라이더에서 «어느 쪽을 자르는가»가 드러납니다.
+ */
+export const SOURCE_SIZE = { width: 400, height: 300 }
 
 // ---------------------------------------------------------------- 스타일
 
@@ -228,7 +258,7 @@ export function styleDetailFor(styleId: number, filled = false): StyleDetail | n
 
 export const uploadOk: UploadResult = {
   upload_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
-  image_url: placeholderImage('업로드 원본'),
+  image_url: placeholderImage('업로드 원본', undefined, SOURCE_SIZE),
   blocking_issue: null,
   warnings: [],
   breed_estimate: { code: 'toy_poodle', label: '토이푸들', confidence: 0.82 },
@@ -236,7 +266,7 @@ export const uploadOk: UploadResult = {
 
 export const uploadWarned: UploadResult = {
   upload_id: '9c858901-8a57-4791-81fe-4c455b099bc9',
-  image_url: placeholderImage('업로드 원본'),
+  image_url: placeholderImage('업로드 원본', undefined, SOURCE_SIZE),
   blocking_issue: null,
   warnings: [
     { code: 'QUALITY_WARNING', message: '얼굴이 조금 어두워요', detail: { issues: ['dark'] } },
@@ -254,7 +284,7 @@ export const uploadWarned: UploadResult = {
  */
 export const uploadNoDog: UploadResult = {
   upload_id: 'c1d2e3f4-0000-4000-8000-00000000ed08',
-  image_url: placeholderImage('업로드 원본'),
+  image_url: placeholderImage('업로드 원본', undefined, SOURCE_SIZE),
   blocking_issue: null,
   warnings: [
     { code: 'NOT_A_DOG', message: '강아지를 찾지 못했어요', detail: { issues: ['no_subject'] } },
@@ -265,7 +295,7 @@ export const uploadNoDog: UploadResult = {
 /** FR-EDGE-09 · 여러 마리 — "함께 변환" 안내 후 진행 허용. */
 export const uploadMultiSubject: UploadResult = {
   upload_id: 'c1d2e3f4-0000-4000-8000-00000000ed09',
-  image_url: placeholderImage('업로드 원본'),
+  image_url: placeholderImage('업로드 원본', undefined, SOURCE_SIZE),
   blocking_issue: null,
   warnings: [
     { code: 'MULTI_SUBJECT', message: '강아지가 두 마리 보여요', detail: { count: 2 } },
@@ -282,7 +312,7 @@ export const uploadMultiSubject: UploadResult = {
  */
 export const uploadHumanFaceWarned: UploadResult = {
   upload_id: 'c1d2e3f4-0000-4000-8000-00000000ed06',
-  image_url: placeholderImage('업로드 원본'),
+  image_url: placeholderImage('업로드 원본', undefined, SOURCE_SIZE),
   blocking_issue: null,
   warnings: [
     { code: 'HUMAN_FACE_DETECTED', message: '사람 얼굴이 함께 담겼어요', detail: { faces: 1 } },
@@ -382,7 +412,7 @@ export const libraryItems: LibraryItem[] = [
   {
     job_id: 'b3e13c4a-2f1e-4a3a-9b1e-1234567890ab',
     result_id: 'e5f6a7b8-0000-4000-8000-000000000001',
-    image_url: placeholderImage('결과 1'),
+    image_url: placeholderImage('결과 1', undefined, RESULT_SIZE),
     pet_id: petList[0].id,
     created_at: '2026-08-03T10:00:00+09:00',
   },
@@ -399,7 +429,7 @@ export const libraryItems: LibraryItem[] = [
     return {
       job_id: `b3e13c4a-2f1e-4a3a-9b1e-${serial}`,
       result_id: `e5f6a7b8-0000-4000-8000-${serial}`,
-      image_url: placeholderImage(`결과 ${index + 2}`),
+      image_url: placeholderImage(`결과 ${index + 2}`, undefined, RESULT_SIZE),
       pet_id: row.pet,
       created_at: `${row.day}T10:00:00+09:00`,
     }
