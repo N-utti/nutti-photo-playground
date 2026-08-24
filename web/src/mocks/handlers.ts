@@ -333,9 +333,9 @@ export function resetMockState(): void {
   petList.splice(0, petList.length, ...structuredClone(PRISTINE_PETS))
   libraryItems.splice(0, libraryItems.length, ...structuredClone(PRISTINE_LIBRARY))
 
-  // `credit:empty` 가 «한 번만 0으로 떨어뜨린다» 를 기억하는 플래그. 안 풀면 다음
-  // 테스트에서 시나리오를 다시 켜도 잔액이 0으로 안 떨어집니다.
-  emptyApplied = false
+  // 잔액을 건드리는 시나리오가 «한 번만 떨어뜨린다» 를 기억하는 플래그. 안 풀면 다음
+  // 테스트에서 시나리오를 다시 켜도 잔액이 안 떨어집니다.
+  balanceApplied = false
 
   sessionStorage.removeItem(PERSIST_KEY)
   localStorage.removeItem(JOBS_KEY)
@@ -509,16 +509,28 @@ function jobDuration(): number {
  * 402 를 무조건 던지면 크레딧을 받아도 계속 막혀서, §4 시나리오3 의 뒷부분
  * (시트에서 클레임 → 같은 키로 재시도 → 성공)을 목 위에서 밟을 수 없습니다.
  * 잔액만 0으로 떨어뜨리면 이후는 실제 규칙(`balance < cost` → 402)이 처리합니다.
+ *
+ * `credit:custom-cost-3` 은 같은 장치를 **1** 로 씁니다. 이 시나리오의 목적은 커스텀
+ * 비용이 2 가 아닌 서버(§3 에 노출이 없는 `app_setting` 값, 이슈 #149)를 흉내내는
+ * 것이고, 그 값을 화면이 배우는 유일한 통로가 402 의 `required` 입니다. 기본 잔액
+ * 11 을 그대로 두면 402 가 안 나서 목이 «비용 3» 을 만들어도 화면은 끝까지 2 라고
+ * 적습니다 — 즉 시나리오가 아무것도 재현하지 못합니다. 1 이면 3 에 모자라 402 가
+ * 나고, 시트에서 2 를 받으면 정확히 3 이 되어 재시도까지 이어집니다.
  */
-let emptyApplied = false
+const SCENARIO_BALANCE: Record<string, number> = {
+  'credit:empty': 0,
+  'credit:custom-cost-3': 1,
+}
+let balanceApplied = false
 function applyEmptyScenario() {
-  if (scenario() !== 'credit:empty') {
-    emptyApplied = false
+  const forced = SCENARIO_BALANCE[scenario()]
+  if (forced === undefined) {
+    balanceApplied = false
     return
   }
-  if (!emptyApplied) {
-    state.credits.balance = 0
-    emptyApplied = true
+  if (!balanceApplied) {
+    state.credits.balance = forced
+    balanceApplied = true
     persist()
   }
 }
@@ -1158,10 +1170,18 @@ export const handlers = [
       §4 시나리오3 의 진입 조건인데, 비용이 항상 1 이면 잔액이 0 이 되기 전까지
       INSUFFICIENT_CREDIT 이 한 번도 나오지 않습니다.
 
-      커스텀 프롬프트는 스타일과 무관하게 2 고정입니다(FR-W08-04) — 그래서 이쪽이 먼저.
+      커스텀 프롬프트는 스타일과 무관하게 **서버 설정값**입니다 — `app_setting`
+      `custom_prompt_credit_cost` 이고 행이 없을 때만 2 로 떨어집니다
+      (`app/routers/jobs.py`). 그래서 기본은 2 지만 «2 가 아닌 경우» 를 밟을 방법이
+      있어야 합니다. W-08 은 그 값을 §3 어디에서도 못 읽어(이슈 #149) 화면에 2 를
+      적어 두고 402 의 `required` 로만 정정하는데, 목이 늘 2 면 그 정정이 브라우저에서
+      한 번도 일어나지 않습니다 — 코드로만 참인 경로가 됩니다.
+      시나리오 `credit:custom-cost-3` 이 그 상태를 만듭니다.
     */
     const cost = body.custom_prompt
-      ? 2
+      ? scenario() === 'credit:custom-cost-3'
+        ? 3
+        : 2
       : (styleDetailFor(body.style_id ?? -1)?.credit_cost ?? 1)
 
     /*

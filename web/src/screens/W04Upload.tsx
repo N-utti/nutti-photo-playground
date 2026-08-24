@@ -23,6 +23,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { isApiError } from '../api/client'
 import BackButton from '../app/BackButton'
 import { CreditBadge } from '../app/CreditBadge'
+import { CUSTOM_PROMPT_COST_ESTIMATE } from '../app/customPromptCost'
 import {
   beginJobAttempt,
   clearJobAttempt,
@@ -806,7 +807,7 @@ function ConfirmPanel({
             to={withReuse('/creative', fromJobId)}
             className="mt-3 block text-center text-sm text-ink-2 underline hover:text-brand"
           >
-            원하는 걸 직접 써서 만들기 · 2 크레딧
+            원하는 걸 직접 써서 만들기 · {CUSTOM_PROMPT_COST_ESTIMATE} 크레딧
           </Link>
         </>
       )}

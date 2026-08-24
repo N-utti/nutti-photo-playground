@@ -28,6 +28,7 @@ import { useCreateJob } from '../api/queries'
 import { clearUploadDraft, readUploadDraft } from '../api/uploadDraft'
 import BackButton from '../app/BackButton'
 import { CreditBadge } from '../app/CreditBadge'
+import { CUSTOM_PROMPT_COST_ESTIMATE } from '../app/customPromptCost'
 import { promptRejectionReason } from '../app/promptFilter'
 import { useReuseFromJob } from '../app/reuseFromJob'
 import InsufficientCreditOverlay from './InsufficientCreditOverlay'
@@ -35,8 +36,12 @@ import InsufficientCreditOverlay from './InsufficientCreditOverlay'
 /** §2 W-08 — 정적 콘텐츠(고정 예시 목록). 와이어프레임 #p08 칩과 동일합니다. */
 const EXAMPLE_CHIPS = ['눈 오는 날 산책', '80년대 앨범 커버', '도자기 인형', '파일럿']
 
-/** 커스텀 프롬프트는 프리셋의 2배입니다(FR-W08-04). 서버도 같은 값으로 계산합니다. */
-const CUSTOM_PROMPT_COST = 2
+/*
+ * 비용(FR-W08-04)은 `app/customPromptCost.ts` 가 갖고 있습니다 — 같은 숫자를 W-02·W-04
+ * 링크도 말하기 때문입니다. 「프리셋의 2배」라고 적던 예전 주석은 두 군데가 틀렸습니다:
+ * 프리셋 비용은 스타일마다 다르고(운영이 DB 에서 조정), 서버가 «같은 값으로 계산» 한다는
+ * 것도 `app_setting` 이 비어 있을 때만 참입니다.
+ */
 
 /**
  * 서버 입력 필터에 걸린 400 을 사람 말로 옮깁니다 (PR #60, FR-EDGE-13).
@@ -67,6 +72,22 @@ export default function W08Creative() {
   const [insufficient, setInsufficient] = useState<{ required: number; balance: number } | null>(
     null,
   )
+
+  /**
+   * 402 가 실어 준 `required` — 서버의 실제 커스텀 비용을 **이 화면이 알 수 있는 유일한
+   * 순간**입니다(app/customPromptCost.ts 참고).
+   *
+   * 배운 뒤에는 버튼 라벨도 그 값으로 정정합니다. 오버레이만 고치면 «3 크레딧이
+   * 필요해요» 를 읽고 크레딧을 받아 돌아온 사용자가 여전히 «만들기 · 2 크레딧» 을
+   * 누르게 됩니다 — 서버가 방금 정정해 준 숫자를 화면이 계속 부인하는 셈입니다.
+   *
+   * 세션에 남기지 않고 화면 수명 안에서만 씁니다. 서버 상태를 클라이언트가 대신
+   * 기억하는 구조는 이 repo 가 이미 한 번 지운 후퇴입니다(이슈 #9 의 `jobContext.ts`).
+   * 잔액이 충분한 첫 요청은 402 를 안 받으니 배울 기회도 없습니다 — 그 절반은 #149
+   * 가 와야 닫힙니다.
+   */
+  const [serverCost, setServerCost] = useState<number | null>(null)
+  const cost = serverCost ?? CUSTOM_PROMPT_COST_ESTIMATE
 
   // 노트3 — 판정 규칙은 app/promptFilter.ts. 통과 못 하면 버튼도 잠깁니다.
   const rejection = promptRejectionReason(prompt)
@@ -113,8 +134,9 @@ export default function W08Creative() {
         onError: (error) => {
           if (isApiError(error, 'INSUFFICIENT_CREDIT')) {
             const detail = error.detail as { required?: number; balance?: number } | undefined
+            if (detail?.required !== undefined) setServerCost(detail.required)
             setInsufficient({
-              required: detail?.required ?? CUSTOM_PROMPT_COST,
+              required: detail?.required ?? cost,
               balance: detail?.balance ?? 0,
             })
           }
@@ -215,7 +237,7 @@ export default function W08Creative() {
               disabled={!prompt.trim() || rejection !== null || createJob.isPending}
               className="mt-4 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99] disabled:opacity-50"
             >
-              {createJob.isPending ? '만드는 중…' : `만들기 · ${CUSTOM_PROMPT_COST} 크레딧`}
+              {createJob.isPending ? '만드는 중…' : `만들기 · ${cost} 크레딧`}
             </button>
 
             {createJob.error && !isApiError(createJob.error, 'INSUFFICIENT_CREDIT') && (

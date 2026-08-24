@@ -23,6 +23,7 @@ import { Link, Outlet, useMatch } from 'react-router'
 import { useStyles } from '../api/queries'
 import { AccountEntry } from '../app/AccountEntry'
 import { CreditBadge } from '../app/CreditBadge'
+import { CUSTOM_PROMPT_COST_ESTIMATE } from '../app/customPromptCost'
 import { useReuseFromJob, withReuse, type JobContext } from '../app/reuseFromJob'
 import { TabBar } from '../app/TabBar'
 import Thumbnail from '../app/Thumbnail'
@@ -231,7 +232,7 @@ export default function W02StyleCatalog() {
             to={withReuse('/creative', reuse.jobId)}
             className="mt-4 mb-8 block rounded-xl border border-rule px-4 py-3 text-center text-sm text-ink-2 hover:border-rule-strong hover:bg-surface-2 hover:text-ink"
           >
-            원하는 걸 직접 써서 만들기 · 2 크레딧
+            원하는 걸 직접 써서 만들기 · {CUSTOM_PROMPT_COST_ESTIMATE} 크레딧
           </Link>
         </main>
       </div>
@@ -323,7 +324,21 @@ function StyleCardItem({ style, reuseJobId }: { style: StyleCard; reuseJobId: st
       </div>
       <div className="flex items-center justify-between gap-2 px-2 py-1.5">
         <span className="truncate text-sm font-semibold">{style.name}</span>
-        <span className="shrink-0 font-mono text-xs text-ink-3">{style.credit_cost}</span>
+        {/*
+          비용이 «1» 이라는 벌거벗은 숫자였습니다 — 무엇의 1 인지 카드 어디에도 없고,
+          지금 시드는 39 종이 전부 1 이라 39 칸에 같은 숫자만 떠 있었습니다. 스크린리더
+          사용자에게는 «3D 피규어, 1» 이라 더 나빴습니다.
+
+          단위를 풀어 쓰는 대신 앱바 배지와 **같은 기호**(◆, app/CreditBadge.tsx)를 씁니다.
+          모바일 2 열에서 카드 폭이 좁아 «1 크레딧» 을 넣으면 스타일 이름이 잘리는데,
+          기호는 한 글자로 같은 뜻을 나르고 배지에서 이미 학습된 표시입니다. 읽어 주는
+          말은 `sr-only` 로 온전히 남깁니다(배지와 같은 이유 — generic `<span>` 에는
+          `aria-label` 이 붙지 않습니다).
+        */}
+        <span className="shrink-0 font-mono text-xs tabular-nums text-ink-3">
+          <span aria-hidden>◆ {style.credit_cost}</span>
+          <span className="sr-only">{style.credit_cost} 크레딧</span>
+        </span>
       </div>
     </Link>
   )

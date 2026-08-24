@@ -111,3 +111,25 @@ describe('W-02 카드 · 이름 인쇄 배지', () => {
     expect(within(lego).queryByText('이름 인쇄')).not.toBeInTheDocument()
   })
 })
+
+/**
+ * 카드의 비용 표기.
+ *
+ * 막으려는 결함: 카드는 `credit_cost` 를 **숫자만** 적고 있었습니다. 무엇의 1 인지
+ * 카드 어디에도 없고, 지금 시드는 39 종이 전부 1 이라 같은 숫자가 39 번 떠 있었을
+ * 뿐입니다. 스크린리더에는 «3D 피규어, 1» 로 읽혔습니다.
+ *
+ * 기호(◆)는 앱바 배지와 같은 표시라 눈으로는 읽히지만 **읽어 주는 말이 아닙니다** —
+ * 그래서 단위는 `sr-only` 로 따로 답니다. 여기서 보는 건 그 두 겹입니다: 접근성
+ * 이름에 «크레딧» 이 있고, 장식 기호는 거기 새지 않는 것.
+ */
+describe('W-02 카드 · 비용 표기', () => {
+  it('비용이 «N 크레딧» 으로 읽힌다', async () => {
+    renderWithProviders(<W02StyleCatalog />, { route: '/styles' })
+
+    const lego = await screen.findByRole('link', { name: /레고/ })
+    expect(lego).toHaveAccessibleName(/1 크레딧/)
+    // 기호는 장식입니다 — 읽히면 «검은 다이아몬드 1» 이 됩니다.
+    expect(lego).not.toHaveAccessibleName(/◆/)
+  })
+})
