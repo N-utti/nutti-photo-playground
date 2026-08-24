@@ -8,7 +8,7 @@
  * 반대 방향도 있습니다. 1분을 넘겨 놓고 계속 «거의 다 됐어요» 라고 하면 그건 위로가
  * 아니라 거짓말이고, 사용자는 언제까지 기다려야 할지 모르는 채로 붙잡힙니다.
  *
- * 둘 다 **눈으로 잡기 어렵습니다** — 재현하려면 서버를 일부러 죽이거나 60초를 실제로
+ * 둘 다 **눈으로 잡기 어렵습니다** — 재현하려면 서버를 일부러 죽이거나 90초를 실제로
  * 기다려야 하고, 그러고도 «지금 화면이 맞는 건가» 를 판단할 기준이 사람 머릿속에만
  * 있습니다. 여기서는 응답 한 줄이면 됩니다.
  */
@@ -77,7 +77,7 @@ describe('W-05 · 생성 대기', () => {
     expect(screen.getByRole('progressbar', { name: '생성 진행률' })).toBeInTheDocument()
   })
 
-  it('60초를 넘기면 «거의 다 됐어요» 를 접고 나가도 된다고 말한다 (FR-EDGE-02)', async () => {
+  it('90초를 넘기면 «거의 다 됐어요» 를 접고 나가도 된다고 말한다 (FR-EDGE-02)', async () => {
     /*
       실패가 아니라 «정상이지만 오래 걸리는 중» 입니다. 크레딧도 정상 차감이라 되돌릴
       것이 없고, 사용자가 할 수 있는 일은 기다리거나 나가거나 둘뿐입니다. 그래서 이
@@ -87,7 +87,9 @@ describe('W-05 · 생성 대기', () => {
     silenceStyles()
     server.use(
       http.get(`*/v1/jobs/${JOB_ID}`, () =>
-        HttpResponse.json(processingJob(90, { eta_seconds: 0, progress: 99 })),
+        // 120 초입니다 — 판정이 `> 90_000` 이라 정확히 90 초는 **초과가 아닙니다.**
+        // 임계값을 60 → 90 으로 올릴 때 여기가 90 이면 테스트가 조용히 뒤집힙니다.
+        HttpResponse.json(processingJob(120, { eta_seconds: 0, progress: 99 })),
       ),
     )
     renderWaiting()
@@ -101,12 +103,30 @@ describe('W-05 · 생성 대기', () => {
     expect(screen.queryByText(/나가도 작업은 계속돼요/)).not.toBeInTheDocument()
   })
 
-  it('아직 60초 전이면 나가도 된다고만 하고 초과 안내는 없다', async () => {
+  it('아직 90초 전이면 나가도 된다고만 하고 초과 안내는 없다', async () => {
+    /*
+      **65 초입니다.** 예전 임계값(60 초)을 넘긴 값을 일부러 골랐습니다 — 5 초로 두면
+      임계값이 어떤 값이든 통과해서, 60 → 90 이 실제로 반영됐는지를 이 테스트가
+      증명하지 못합니다. 실측 중앙값이 ~48 초라 65 초는 «정상이지만 좀 느린» 자리이고,
+      그 자리에서 경고가 뜨지 않는 것이 이 변경의 요점입니다.
+    */
     silenceStyles()
-    server.use(http.get(`*/v1/jobs/${JOB_ID}`, () => HttpResponse.json(processingJob(5))))
+    server.use(http.get(`*/v1/jobs/${JOB_ID}`, () => HttpResponse.json(processingJob(65))))
     renderWaiting()
 
-    expect(await screen.findByText(/나가도 작업은 계속돼요/)).toBeInTheDocument()
+    /*
+      **`status_message` 로 먼저 기다립니다.** 이게 이 테스트의 핵심입니다 — 「나가도
+      작업은 계속돼요」는 job 응답이 오기 **전에도** 떠 있어서, 그걸 기다리면 데이터가
+      도착하기 전에 아래 단언이 실행됩니다. 그러면 `overdue` 가 아직 false 인 상태를
+      보고 통과하므로, 임계값이 60 이든 90 이든 **똑같이 통과합니다.**
+
+      실제로 60 → 90 을 넣기 전 이 파일이 그 상태였습니다(옛 판은 5 초를 써서 값이
+      가려져 있었습니다). 기준값을 바꾸는 테스트가 기준값에 반응하지 않으면 그건
+      테스트가 아니라 장식입니다.
+    */
+    expect(await screen.findByText('레고 블록을 쌓는 중…')).toBeInTheDocument()
+
+    expect(screen.getByText(/나가도 작업은 계속돼요/)).toBeInTheDocument()
     expect(screen.queryByText('예상보다 오래 걸리고 있어요')).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: '나가서 둘러보기' })).not.toHaveClass('bg-brand')
   })

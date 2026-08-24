@@ -374,7 +374,7 @@ export interface Job {
   /**
    * 큐에 들어간 시각(ISO 8601). 워커가 집기 전까지 `started_at` 은 null 입니다(PR #60).
    *
-   * FR-EDGE-02(60초 초과 → 백그라운드 전환) 판정은 **`started_at` 기준**입니다 — 큐
+   * FR-EDGE-02(90초 초과 → 지연 안내) 판정은 **`started_at` 기준**입니다 — 큐
    * 대기는 «생성 처리» 시간이 아니라는 게 NFR-PERF-01 의 정의입니다(§3). 다만 화면이
    * 대기 자체를 못 본 척할 수는 없어서, `started_at` 이 아직 없는 동안은 `queued_at`
    * 으로 같은 판정을 겁니다(screens/W05Waiting.tsx 주석).
