@@ -424,6 +424,16 @@ function ShareRow({ job }: { job: Job }) {
   const [saving, setSaving] = useState(false)
   // 'opened' 는 저장이 아니라 이미지가 새 탭에서 열렸다는 뜻입니다 — 그때만 안내합니다.
   const [saveOutcome, setSaveOutcome] = useState<SaveImageOutcome | null>(null)
+  /*
+    아래 미리보기가 곧 저장할 그 파일입니다(PR #73 — 공유용 사본을 따로 만들지 않고
+    결과 `public_url` 을 그대로 씁니다). 그러니 미리보기가 안 떴다는 건 «저장을
+    눌러도 실패한다» 는 뜻이고, 그건 **누르기 전에 알 수 있는** 사실입니다.
+    실패한 주소를 들고 있는 이유는 CompareSlider 와 같습니다 — 불리언으로 두면
+    새 주소가 와도 «실패» 가 남습니다.
+  */
+  const [previewFailedUrl, setPreviewFailedUrl] = useState<string | null>(null)
+  const previewBroken =
+    previewFailedUrl !== null && previewFailedUrl === share.data?.share_image_url
   // 서버가 보는 상태를 씁니다 — 시트에서 로그인하면 캐시가 무효화되면서 이 줄이
   // 곧바로 회원으로 바뀝니다. localStorage 의 kind 는 값이 바뀌어도 리렌더가 없습니다.
   const { data: me } = useMe()
@@ -489,18 +499,34 @@ function ShareRow({ job }: { job: Job }) {
           물러나고, 그때만 길게 눌러 저장하라고 안내합니다.
         */
         <div className="mt-3 rounded-lg border border-rule bg-surface p-3">
-          <img
-            src={share.data.share_image_url}
-            alt="저장할 결과 이미지"
-            className="w-full rounded-lg bg-canvas-2"
-          />
-          <p className="mt-2 text-center text-xs text-ink-3">
-            누띠 서명이 이미 들어 있어요 — 저장해서 인스타그램에 올려 주세요
-          </p>
+          {previewBroken ? (
+            <p role="status" className="rounded-lg border border-warn/30 bg-warn-soft px-3 py-3">
+              <span className="text-sm font-semibold text-warn">
+                이미지를 불러오지 못했어요
+              </span>
+              <span className="mt-0.5 block text-sm text-ink-2">
+                지금은 저장할 수 없어요 — 잠시 뒤 다시 시도해 주세요.
+              </span>
+            </p>
+          ) : (
+            <img
+              src={share.data.share_image_url}
+              alt="저장할 결과 이미지"
+              onError={() => setPreviewFailedUrl(share.data?.share_image_url ?? null)}
+              className="w-full rounded-lg bg-canvas-2"
+            />
+          )}
+          {/* 볼 그림이 없는데 «저장해서 올려 주세요» 라고 하면 안내가 아니라 딴소리입니다. */}
+          {!previewBroken && (
+            <p className="mt-2 text-center text-xs text-ink-3">
+              누띠 서명이 이미 들어 있어요 — 저장해서 인스타그램에 올려 주세요
+            </p>
+          )}
           <div className="mt-2 grid grid-cols-2 gap-2">
             <button
               type="button"
-              disabled={saving}
+              // 실패할 걸 알면서 누르게 두지 않습니다 — 이유는 바로 위에 적혀 있습니다.
+              disabled={saving || previewBroken}
               onClick={() => {
                 const url = share.data?.share_image_url
                 if (!url) return
@@ -526,6 +552,16 @@ function ShareRow({ job }: { job: Job }) {
           {saveOutcome === 'opened' && (
             <p className="mt-2 text-center text-xs text-ink-3">
               새 탭에 이미지를 열었어요 — 이미지를 길게 눌러 저장해 주세요.
+            </p>
+          )}
+          {/*
+            미리보기가 떴는데도 저장이 실패하는 경로가 남아 있습니다 — 그 사이에 주소가
+            만료됐거나(서명 URL), 미리보기가 캐시에서 나왔거나. 이때 예전처럼 «새 탭에
+            열었어요» 라고 하면 사용자는 오류 페이지를 길게 누르고 있게 됩니다.
+          */}
+          {saveOutcome === 'failed' && (
+            <p role="alert" className="mt-2 text-center text-sm text-danger">
+              저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.
             </p>
           )}
         </div>

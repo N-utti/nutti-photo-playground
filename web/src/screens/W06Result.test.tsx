@@ -202,3 +202,33 @@ describe('W-06 · 결과 프레임', () => {
     expect(screen.queryByText('결과 이미지를 불러오지 못했어요')).not.toBeInTheDocument()
   })
 })
+
+/**
+ * 세 번째 갈래 — **저장이 거짓말하지 않는가**.
+ *
+ * 공유 패널의 미리보기는 저장할 그 파일과 같은 URL 입니다(PR #73 — 서버는 공유용
+ * 사본을 만들지 않습니다). 그러니 미리보기가 안 떴다는 건 «저장을 눌러도 실패한다»
+ * 는 뜻이고, 그건 누르기 전에 알 수 있는 사실입니다. 그냥 두면 `saveImage` 의
+ * 폴백이 새 탭을 열고 화면은 «길게 눌러 저장해 주세요» 라고 안내합니다 — 사용자는
+ * 시키는 대로 하다가 저장할 게 없다는 걸 알게 됩니다(app/saveImage.test.ts 가
+ * 그 갈래를 따로 봅니다).
+ */
+describe('W-06 · 공유 패널', () => {
+  it('공유 이미지가 안 뜨면 저장을 권하지 않는다', async () => {
+    const user = userEvent.setup()
+    server.use(
+      http.post(`*/v1/jobs/${JOB_ID}/share`, () =>
+        HttpResponse.json({ share_image_url: 'https://cdn.example.test/result_01HQZX.jpg' }),
+      ),
+    )
+    renderResult(succeededJob())
+
+    await user.click(await screen.findByRole('button', { name: '인스타 공유' }))
+    fireEvent.error(await screen.findByAltText('저장할 결과 이미지'))
+
+    expect(screen.getByText('이미지를 불러오지 못했어요')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '이미지 저장' })).toBeDisabled()
+    // 볼 그림이 없는데 «저장해서 올려 주세요» 는 안내가 아니라 딴소리입니다.
+    expect(screen.queryByText(/저장해서 인스타그램에 올려 주세요/)).not.toBeInTheDocument()
+  })
+})

@@ -22,23 +22,44 @@
  * 아무 일도 안 일어나는 것보다 낫습니다. 어느 쪽으로 끝났는지 돌려주는 이유는
  * 화면이 그 경우에만 안내 문구를 띄우기 위해서입니다.
  *
+ * **다만 «실패» 를 한 덩어리로 보면 안 됩니다.** 서버가 응답을 준 실패(404 · 403 ·
+ * 만료된 서명)와 응답 자체가 없는 실패(CORS 차단 · 오프라인)는 물러설 곳이 다릅니다.
+ * 전자에서 새 탭을 열면 오류 페이지가 뜨는데 화면은 «길게 눌러 저장하세요» 라고
+ * 안내하게 됩니다 — 사용자는 시키는 대로 하다가 저장할 게 없다는 걸 알게 됩니다.
+ * 그래서 셋으로 나눠 돌려줍니다: 저장됨 · 열었음 · 못 함.
+ *
  * 결과는 항상 JPEG 이라(`app/worker.py` `save_bytes(..., "image/jpeg")`) 확장자는
  * 호출부가 `.jpg` 로 붙입니다.
  */
-export type SaveImageOutcome = 'saved' | 'opened'
+export type SaveImageOutcome = 'saved' | 'opened' | 'failed'
 
 export async function saveImage(url: string, filename: string): Promise<SaveImageOutcome> {
+  let response: Response
   try {
-    const response = await fetch(url)
-    if (!response.ok) throw new Error(String(response.status))
+    response = await fetch(url)
+  } catch {
+    /*
+      응답이 아예 없는 경우 — CORS 차단이거나 네트워크가 끊긴 경우입니다. 둘을
+      구분할 방법은 없습니다(CORS 실패는 브라우저가 일부러 사유를 숨깁니다).
+      CORS 쪽이라면 이미지 자체는 멀쩡해서 새 탭으로 열면 보이므로, 되는 쪽에
+      걸고 예전 동작으로 물러납니다.
+    */
+    clickAnchor(url, filename, { newTab: true })
+    return 'opened'
+  }
+
+  // 서버가 «못 준다» 고 답했습니다. 새 탭을 열어도 같은 오류 페이지라 열지 않습니다.
+  if (!response.ok) return 'failed'
+
+  try {
     const objectUrl = URL.createObjectURL(await response.blob())
     clickAnchor(objectUrl, filename)
     // 클릭 직후에 취소하면 저장이 시작되기 전에 URL 이 죽는 브라우저가 있어서 넉넉히 둡니다.
     window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000)
     return 'saved'
   } catch {
-    clickAnchor(url, filename, { newTab: true })
-    return 'opened'
+    // 본문을 받다가 끊긴 경우. 헤더는 200 이었으니 새 탭도 같은 자리에서 끊깁니다.
+    return 'failed'
   }
 }
 
