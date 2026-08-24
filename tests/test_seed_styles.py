@@ -8,7 +8,10 @@ os.environ.setdefault("APP_ENV", "development")
 import pytest
 from tortoise import Tortoise
 
+import app.storage as storage
+import scripts.seed_styles as seed_styles
 from app.models import PromptVersionStatus, Style, StylePromptVersion, StyleStatus
+from app.settings import settings
 from conftest import reset_tortoise_executor_cache
 from scripts.seed_styles import extract_prompt_body, seed_from_dir
 
@@ -97,3 +100,46 @@ async def test_seed_from_dir_creates_records_and_is_idempotent(tmp_path: Path):
     assert refreshed.input_fields == manifest["견생네컷"]
     assert await Style.all().count() == 4
     assert await StylePromptVersion.all().count() == 4
+
+
+async def test_seed_from_dir_backfills_thumbnails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    prompt_dir = tmp_path / "prompts"
+    prompt_dir.mkdir()
+    (prompt_dir / "3D_피규어.txt").write_text(
+        "[사용법]\n──────────\nDraft [pet name] prompt",
+        encoding="utf-8",
+    )
+    (prompt_dir / "레고.txt").write_text(
+        "[사용법]\n──────────\nPublic prompt (no thumbnail)",
+        encoding="utf-8",
+    )
+
+    thumbnails_dir = tmp_path / "thumbnails"
+    thumbnails_dir.mkdir()
+    (thumbnails_dir / "3D_피규어.jpg").write_bytes(b"fake-jpeg-bytes")
+    # 레고.jpg는 일부러 만들지 않음: 썸네일 없는 code 케이스
+
+    media_root = tmp_path / "media"
+    monkeypatch.setattr(seed_styles, "_THUMBNAILS_DIR", thumbnails_dir)
+    monkeypatch.setattr(storage, "MEDIA_ROOT", str(media_root))
+    assert settings.r2_endpoint_url == ""  # 로컬 폴백 경로 보장, 실 R2로 안 나감
+
+    await seed_from_dir(prompt_dir)
+
+    figure_style = await Style.get(code="3D_피규어")
+    assert figure_style.example_keys == ["styles/3D_피규어.jpg"]
+    saved_path = media_root / "styles" / "3D_피규어.jpg"
+    assert saved_path.read_bytes() == b"fake-jpeg-bytes"
+
+    lego_style = await Style.get(code="레고")
+    assert lego_style.example_keys == []
+
+    # 기존 행 재시딩(멱등) — skip 분기에서도 example_keys 백필되는지 확인
+    await Style.filter(code="3D_피규어").update(example_keys=[])
+
+    await seed_from_dir(prompt_dir)
+
+    refreshed_figure = await Style.get(code="3D_피규어")
+    assert refreshed_figure.example_keys == ["styles/3D_피규어.jpg"]
+    refreshed_lego = await Style.get(code="레고")
+    assert refreshed_lego.example_keys == []

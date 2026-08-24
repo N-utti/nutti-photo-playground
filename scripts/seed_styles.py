@@ -8,6 +8,7 @@ from tortoise import Tortoise
 
 from app.models import PromptVersionStatus, Style, StylePromptVersion, StyleStatus
 from app.settings import settings
+from app.storage import save_bytes
 
 
 SECTION_MAP = {
@@ -71,11 +72,23 @@ _SORT_ORDER_BY_CODE = {
 }
 _SEPARATOR_RE = re.compile(r"^.*─{10,}.*$", re.MULTILINE)
 _STYLE_INPUTS_PATH = Path(__file__).parent.parent / "seeds/style_inputs.json"
+_THUMBNAILS_DIR = Path(__file__).parent.parent / "seeds/thumbnails"
 
 
 def extract_prompt_body(text: str) -> str:
     matches = list(_SEPARATOR_RE.finditer(text))
     return text[matches[-1].end() :].strip() if matches else ""
+
+
+async def _seed_thumbnail(code: str) -> list[str] | None:
+    """썸네일 업로드 + example_keys 반환. 파일 없으면 None(건드리지 않음)."""
+    thumbnail_path = _THUMBNAILS_DIR / f"{code}.jpg"
+    if not thumbnail_path.exists():
+        print(f"warning: no thumbnail for {code}")
+        return None
+    key = f"styles/{code}.jpg"
+    await save_bytes(key, thumbnail_path.read_bytes(), "image/jpeg")
+    return [key]
 
 
 async def seed_from_dir(dir_path: Path) -> dict[str, int]:
@@ -98,10 +111,12 @@ async def seed_from_dir(dir_path: Path) -> dict[str, int]:
             raise SystemExit(1)
 
         if await Style.filter(code=code).exists():
-            # 기존 행도 input_fields는 매니페스트 기준으로 백필(멱등)
-            await Style.filter(code=code).update(
-                input_fields=input_fields_by_code.get(code, [])
-            )
+            # 기존 행도 input_fields/example_keys는 매니페스트·썸네일 기준으로 백필(멱등)
+            update_fields = {"input_fields": input_fields_by_code.get(code, [])}
+            example_keys = await _seed_thumbnail(code)
+            if example_keys is not None:
+                update_fields["example_keys"] = example_keys
+            await Style.filter(code=code).update(**update_fields)
             print(f"skip: {code}")
             summary["skipped"] += 1
             continue
@@ -109,6 +124,7 @@ async def seed_from_dir(dir_path: Path) -> dict[str, int]:
         section = _SECTION_BY_CODE.get(code, "일상 유머")
         if code not in _SECTION_BY_CODE:
             print(f"warning: {code} not in SECTION_MAP; using 일상 유머")
+        example_keys = await _seed_thumbnail(code)
         style = await Style.create(
             code=code,
             name=code.replace("_", " "),
@@ -121,6 +137,7 @@ async def seed_from_dir(dir_path: Path) -> dict[str, int]:
             ),
             status=StyleStatus.PUBLIC,
             input_fields=input_fields_by_code.get(code, []),
+            example_keys=example_keys or [],
         )
         await StylePromptVersion.create(
             style=style,
