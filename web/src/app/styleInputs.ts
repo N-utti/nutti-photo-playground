@@ -154,6 +154,33 @@ export function inputsForRequest(
 }
 
 /**
+ * 지난번 job 이 실제로 쓴 값 (W-06 «다시 만들기», 이슈 #127 → 백엔드 PR #139).
+ *
+ * `job.inputs` 는 서버가 판정한 최종 값이라 이미 스키마로 걸러져 있습니다. 그런데도
+ * **지금 스키마 기준으로 한 번 더 거르는** 이유는, 그 판정이 job 을 만들던 시점의
+ * 스키마였기 때문입니다. 운영이 그 뒤 칸을 바꾸면 없어진 라벨이 남아 있을 수 있고,
+ * 그대로 두면 두 군데가 어긋납니다 — 접힌 줄에는 «의상: 버섯» 이라고 적히는데
+ * `inputsForRequest` 는 그 라벨을 안 싣고, 서버는 실려도 조용히 버립니다(PR #139).
+ * 여기서 걸러야 **화면에 적힌 값 = 실제로 나갈 값** 이 유지됩니다.
+ *
+ * 빈 문자열도 없는 것으로 봅니다. 서버는 빈 값을 저장하지 않지만(`_resolve_input_values`
+ * 가 `continue`), 들어와도 폼의 기본값을 덮어쓰지 않는 쪽이 맞습니다 — 빈 값으로
+ * 덮으면 `default` 가 있는 칸이 화면에서만 비어 보이고 결과에는 default 가 나옵니다.
+ */
+export function restoredInputValues(
+  fields: StyleInputField[],
+  jobInputs: Record<string, string> | null | undefined,
+): Record<string, string> {
+  if (!jobInputs) return {}
+  const values: Record<string, string> = {}
+  for (const field of fields) {
+    const value = jobInputs[field.label]
+    if (value !== undefined && value.trim() !== '') values[field.label] = value
+  }
+  return values
+}
+
+/**
  * 접힌 줄에 적을 «지금 값» (W-06 «다시 만들기»).
  *
  * 빈 칸을 «없음» 이라고 적으면 거짓입니다 — 서버가 `default` 로, 워커가 강아지

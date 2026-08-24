@@ -11,6 +11,16 @@
  * 「무엇으로 만드는지 화면이 말하는가」와 「그 값이 그대로 요청에 실리는가」를 봅니다.
  * W04UploadInputs.test.tsx 와 같은 이유로 «보이는가» 가 아니라 «무엇이 나갔는가» 가
  * 단언 대상입니다 — 폼만 그려 놓고 요청에서 빼면 결함이 그대로 남습니다.
+ *
+ * ---------------------------------------------------------------------------
+ * 백엔드 PR #139 로 `job.inputs` 가 오면서 **나머지 절반**도 닫힙니다: 되살리기.
+ * 그래서 이 파일이 보는 게 하나 늘었습니다 — 「지난번 값을 되살리는가」.
+ *
+ * 픽스처의 기본값은 `inputs: null` 입니다. 그게 흔해서가 아니라(고를 게 있는 스타일
+ * 이면 서버는 최소한 `{}` 를 줍니다) **되살리기를 보는 테스트가 값을 직접 적게**
+ * 하려는 것입니다. 그래야 어느 테스트가 무엇을 전제하는지 본문만 읽고 알 수 있고,
+ * 되살리기와 무관한 테스트(요청 조립·검증·잠금)는 그 축에 휘둘리지 않습니다.
+ * `null` 자체도 실제 상태입니다 — 이 필드가 생기기 전에 만든 job 이 그렇습니다.
  */
 
 import { screen, waitFor } from '@testing-library/react'
@@ -51,6 +61,8 @@ function succeededJob(overrides: Partial<Job> = {}): Job {
     upload_id: 'up_01HQZY',
     pet_id: null,
     custom_prompt: null,
+    // 위 머리말 참고 — 되살리기를 보는 테스트만 이 값을 직접 적습니다.
+    inputs: null,
     credit_cost: 1,
     queued_at: at,
     started_at: at,
@@ -149,13 +161,67 @@ describe('W-06 · 다시 만들기의 스타일 입력', () => {
     expect(captured.body?.inputs).toEqual({ 스타일: '2000년대 갸루' })
   })
 
-  it('접힌 줄은 «지난번 값» 인 척하지 않는다', async () => {
-    // 값을 되살릴 방법이 아직 없습니다(#127). 그 사실을 안 적으면 접힌 줄이 방금
-    // 만든 그림의 설정처럼 읽히고, 화면이 또 한 번 조용히 거짓말을 합니다.
+  it('지난번 값을 되살려 접힌 줄에 적고, 그대로 다시 보낸다', async () => {
+    /*
+      **#127 본문 그 자체입니다.** 「히메갸루」로 만든 결과에서 «다시 만들기» 를 누르면
+      「2000년대 갸루」(스키마 default)가 나오던 것 — 같은 버튼, 같은 크레딧, 다른 그림.
+
+      접힌 줄과 요청을 **함께** 봅니다. 하나만 보면 절반이 남습니다: 줄만 고치면 화면이
+      말한 값과 다른 게 나가고, 요청만 고치면 무엇으로 만드는지 안 보인 채 나갑니다.
+    */
+    mockStyle([GYARU])
+    const captured = captureJobRequest()
+    renderResult(succeededJob({ inputs: { 스타일: '히메갸루' } }))
+
+    expect(await screen.findByText('스타일: 히메갸루')).toBeInTheDocument()
+    expect(screen.getByText('지난번에 만든 값 그대로예요')).toBeInTheDocument()
+
+    await userEvent.click(await regenerateButton())
+    await waitFor(() => expect(captured.body).not.toBeNull())
+    expect(captured.body?.inputs).toEqual({ 스타일: '히메갸루' })
+  })
+
+  it('서버가 값을 모르면 기본값이라고 적는다', async () => {
+    // `inputs: null` 은 이 필드가 생기기 전에 만든 job 입니다. 그 사실을 안 적으면
+    // 접힌 줄이 방금 만든 그림의 설정처럼 읽히고, 화면이 또 한 번 조용히 거짓말을 합니다.
     mockStyle([GYARU])
     renderResult()
 
     expect(await screen.findByText('지난번 값은 불러올 수 없어 기본값이에요')).toBeInTheDocument()
+    expect(screen.queryByText('지난번에 만든 값 그대로예요')).not.toBeInTheDocument()
+  })
+
+  it('지금 스키마에 없는 라벨은 되살리지 않는다', async () => {
+    /*
+      `inputs` 는 job 을 **만들던 시점의** 스키마로 판정된 값이라, 운영이 그 뒤 칸을
+      바꾸면 없어진 라벨이 남습니다. 그대로 그리면 접힌 줄에는 적히는데 요청에는
+      안 실리고(`inputsForRequest` 가 스키마를 순회), 실려도 서버가 조용히 버립니다
+      (백엔드 PR #139) — 화면에 적힌 값과 실제로 나갈 값이 갈라집니다.
+    */
+    mockStyle([GYARU])
+    const captured = captureJobRequest()
+    renderResult(succeededJob({ inputs: { 스타일: '히메갸루', 없어진칸: '버섯' } }))
+
+    expect(await screen.findByText('스타일: 히메갸루')).toBeInTheDocument()
+    expect(screen.queryByText(/없어진칸/)).not.toBeInTheDocument()
+
+    await userEvent.click(await regenerateButton())
+    await waitFor(() => expect(captured.body).not.toBeNull())
+    expect(captured.body?.inputs).toEqual({ 스타일: '히메갸루' })
+  })
+
+  it('되살린 값을 고치면 «지난번 값 그대로» 라고 말하지 않는다', async () => {
+    // 고친 뒤에도 그 줄을 띄우면, 방금 사용자가 바꾼 값을 두고 지난번 값이라고
+    // 말하는 셈입니다 — 이 파일이 막으려는 «조용한 거짓말» 과 같은 종류입니다.
+    mockStyle([GYARU])
+    renderResult(succeededJob({ inputs: { 스타일: '히메갸루' } }))
+
+    expect(await screen.findByText('지난번에 만든 값 그대로예요')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: '변경' }))
+    await userEvent.click(screen.getByRole('button', { name: '망바' }))
+
+    expect(screen.getByText('스타일: 망바')).toBeInTheDocument()
+    expect(screen.queryByText('지난번에 만든 값 그대로예요')).not.toBeInTheDocument()
   })
 
   it('«변경» 으로 고친 값이 요청에 실린다', async () => {
@@ -204,6 +270,33 @@ describe('W-06 · 다시 만들기의 스타일 입력', () => {
     )
     const captured = captureJobRequest()
     renderResult(succeededJob({ pet_id: 'pet_1' }))
+
+    expect(await screen.findByText('반려견 이름 (3자 이내): 콩이')).toBeInTheDocument()
+    await userEvent.click(await regenerateButton())
+
+    await waitFor(() => expect(captured.body).not.toBeNull())
+    expect(captured.body?.inputs).toEqual({ '반려견 이름 (3자 이내)': '콩이' })
+  })
+
+  it('`inputs` 가 비어도 프리필 칸은 강아지 이름으로 다시 채운다', async () => {
+    /*
+      **`inputs: {}` 는 「아무 값도 안 썼다」가 아닙니다.** `default` 가 없는 `prefill`
+      칸은 서버가 저장하지 않으므로(`_resolve_input_values` 가 `continue`) 이 스키마
+      에서는 빈 객체가 정상 응답입니다 — 값은 워커가 그때 채웁니다(app/worker.py).
+
+      되살린 값으로 폼을 **덮어쓰면** 이 칸이 빈 채로 남고, 이름이 인쇄되는 스타일에서
+      화면이 «우리 아이» 라고 잘못 말합니다. 그래서 기본값 → 지난번 값 순으로 합칩니다.
+    */
+    mockStyle([IDOL_NAME])
+    server.use(
+      http.get('*/v1/pets', () =>
+        HttpResponse.json({
+          items: [{ id: 'pet_1', name: '콩이', thumbnail_url: null, latest_upload_id: 'up_01HQZY' }],
+        }),
+      ),
+    )
+    const captured = captureJobRequest()
+    renderResult(succeededJob({ pet_id: 'pet_1', inputs: {} }))
 
     expect(await screen.findByText('반려견 이름 (3자 이내): 콩이')).toBeInTheDocument()
     await userEvent.click(await regenerateButton())
