@@ -11,7 +11,7 @@
  * 않습니다). 그래서 문구의 **유무와 내용**을 단언으로 잡아 둡니다.
  */
 
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
 import { Route, Routes } from 'react-router'
@@ -110,26 +110,85 @@ describe('W-04 · 그림에 들어가는 이름', () => {
     sessionStorage.clear()
   })
 
-  it('이름이 인쇄되는 스타일이면, 저장 전에는 «우리 아이» 가 박힌다고 미리 말한다', async () => {
+  it('이름이 인쇄되는 스타일이면 폴백을 예고하지 않고 이름을 요구한다', async () => {
+    /*
+      예전에는 «이대로 만들면 그림에 «우리 아이» 라는 이름이 들어갑니다» 였습니다.
+      사실이긴 했지만 **아무도 원하지 않는 결과를 예고하는** 문장이었습니다 — 피규어
+      패키지에 «우리 아이» 가 인쇄된 결과를 받으려고 이 스타일을 고른 사람은 없는데
+      크레딧은 똑같이 나갑니다. 예고 대신 받습니다.
+    */
     mockStyle({ code: '식빵', name: '식빵', uses_pet_name: true })
     const { container } = renderUpload()
 
     await uploadPhoto(container)
 
-    expect(screen.getByText(/이대로 만들면 그림에/)).toBeInTheDocument()
-    expect(screen.getByText('«우리 아이»')).toBeInTheDocument()
+    expect(screen.getByLabelText('아이 이름을 넣어 주세요')).toBeInTheDocument()
+    expect(screen.queryByText(/이대로 만들면 그림에/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/우리 아이/)).not.toBeInTheDocument()
 
     /*
       이름 입력은 **버튼 앞**에 있어야 합니다. 기본 저장 폼은 만들기 버튼 아래에
       있어서, 거기까지 내려가기 전에 버튼을 누르는 게 자연스러운 순서입니다 —
       그 순서로는 이름을 넣을 기회가 사실상 없습니다.
     */
-    const form = screen.getByLabelText('이름 넣고 만들기')
+    const form = screen.getByLabelText('아이 이름을 넣어 주세요')
     const start = screen.getByRole('button', { name: /이대로 만들기/ })
     expect(form.compareDocumentPosition(start) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 
     // 이름 입력이 한 화면에 둘이면 어느 쪽이 그림에 들어가는지 화면이 스스로 헷갈립니다.
     expect(screen.queryByLabelText('이 강아지 저장하기')).not.toBeInTheDocument()
+  })
+
+  it('이름 없이 만들기를 누르면 요청이 안 나가고 이유를 말한다', async () => {
+    /*
+      **이 파일의 새 핵심입니다.** 예전에는 이름 없이도 통과했고, 그 결과가
+      «우리 아이» 가 인쇄된 그림 + 나간 크레딧이었습니다. 폴백을 예고하는 것과
+      폴백으로 진행시키는 것은 다른 문제이고, 예고를 지웠으면 진행도 막아야 합니다.
+
+      «보이는가» 가 아니라 **«요청이 나갔는가»** 를 단언합니다 — 문구만 띄우고
+      요청이 나가면 결함이 그대로 남습니다.
+
+      버튼을 비활성으로 두지 않는 것은 이 화면의 규칙입니다(노트3) — 회색 버튼은 왜
+      못 누르는지 말하지 않습니다. 눌리되, 누르면 이유를 답합니다.
+    */
+    let posted = 0
+    server.use(
+      http.post('*/v1/jobs', () => {
+        posted += 1
+        return HttpResponse.json({ job_id: 'job_x', status: 'queued' }, { status: 202 })
+      }),
+    )
+    mockStyle({ code: '식빵', name: '식빵', uses_pet_name: true })
+    const { container } = renderUpload()
+    const start = await uploadPhoto(container)
+
+    expect(start).toBeEnabled()
+    await userEvent.click(start)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/아이 이름을 넣어야/)
+    expect(posted).toBe(0)
+  })
+
+  it('이름을 저장하면 그대로 진행된다', async () => {
+    // 막기만 하고 풀리지 않으면 그건 막은 게 아니라 고장입니다.
+    let posted = 0
+    server.use(
+      http.post('*/v1/jobs', () => {
+        posted += 1
+        return HttpResponse.json({ job_id: 'job_x', status: 'queued' }, { status: 202 })
+      }),
+    )
+    mockStyle({ code: '식빵', name: '식빵', uses_pet_name: true })
+    const { container } = renderUpload()
+    const start = await uploadPhoto(container)
+
+    await userEvent.type(screen.getByPlaceholderText('이름 (예: 콩이)'), '뽀식')
+    await userEvent.click(screen.getByRole('button', { name: '저장' }))
+
+    // 저장되면 `petId` 가 생겨 판정이 스스로 풀립니다 — 받침 있는 이름으로 확인합니다.
+    expect(await screen.findByText('뽀식')).toBeInTheDocument()
+    await userEvent.click(start)
+    await waitFor(() => expect(posted).toBe(1))
   })
 
   it('이름이 안 들어가는 스타일에서는 이름 얘기를 하지 않는다', async () => {
@@ -189,10 +248,15 @@ describe('W-04 · 그림에 들어가는 이름', () => {
     const chip = await screen.findByRole('button', { name: '콩이 — 최근 사진으로 바로 만들기' })
     await userEvent.click(chip)
 
-    expect(await screen.findByText('«콩이»')).toBeInTheDocument()
-    expect(screen.queryByText('«우리 아이»')).not.toBeInTheDocument()
+    /*
+      이름 뒤에 조사를 붙이지 않는 형식입니다 — `«{petName}» 라는` 은 받침 있는 이름
+      에서 틀립니다(«뽀식» 라는 ✗). 목이 «콩이» 만 줘서 여태 안 걸리던 자리입니다.
+    */
+    expect(await screen.findByText('콩이')).toBeInTheDocument()
+    expect(screen.getByText(/그림에 들어갈 이름/)).toBeInTheDocument()
+    expect(screen.queryByText(/우리 아이/)).not.toBeInTheDocument()
     // 이미 붙어 있는 강아지에게 이름을 또 물어보지 않습니다.
-    expect(screen.queryByLabelText('이름 넣고 만들기')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('아이 이름을 넣어 주세요')).not.toBeInTheDocument()
   })
 
   /*
@@ -211,23 +275,31 @@ describe('W-04 · 그림에 들어가는 이름', () => {
       mockStyle({ code: '식빵', name: '식빵', uses_pet_name: true })
       renderUpload(`&from_job=${REUSE_JOB_ID}`)
 
-      expect(await screen.findByText('«콩이»')).toBeInTheDocument()
-      expect(screen.queryByText('«우리 아이»')).not.toBeInTheDocument()
+      /*
+        `GET /v1/pets` 가 도착해야 이름이 채워집니다. 그 전까지는 «저장된 강아지의
+        이름이…» 가 떠 있으므로, 기본 1 초로는 전체 스위트에서 아슬아슬합니다 —
+        아래 `prefill` 테스트가 같은 이유로 경고를 달아 둔 자리와 같은 창입니다.
+      */
+      await waitFor(() => expect(screen.getByText('콩이')).toBeInTheDocument(), {
+        timeout: 5000,
+      })
+      expect(screen.getByText(/그림에 들어갈 이름/)).toBeInTheDocument()
+      expect(screen.queryByText(/우리 아이/)).not.toBeInTheDocument()
       // 흐린 문구가 남아 있으면 그건 이 값을 안 읽고 있다는 뜻입니다.
       expect(screen.queryByText(/저장된 강아지가 있으면/)).not.toBeInTheDocument()
-      expect(screen.queryByLabelText('이름 넣고 만들기')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('아이 이름을 넣어 주세요')).not.toBeInTheDocument()
     })
 
-    it('붙은 강아지가 없으면 «우리 아이» 를 단정하고, 그 자리에서 이름을 받는다', async () => {
+    it('붙은 강아지가 없으면 그 자리에서 이름을 받는다', async () => {
       mockReuseJob(null)
       mockStyle({ code: '식빵', name: '식빵', uses_pet_name: true })
       renderUpload(`&from_job=${REUSE_JOB_ID}`)
 
-      expect(await screen.findByText('«우리 아이»')).toBeInTheDocument()
-      expect(screen.getByText(/이대로 만들면 그림에/)).toBeInTheDocument()
+      expect(await screen.findByLabelText('아이 이름을 넣어 주세요')).toBeInTheDocument()
+      expect(screen.queryByText(/우리 아이/)).not.toBeInTheDocument()
 
       // 이름 입력이 만들기 버튼 **앞**에 있어야 실제로 쓸 기회가 됩니다.
-      const form = screen.getByLabelText('이름 넣고 만들기')
+      const form = screen.getByLabelText('아이 이름을 넣어 주세요')
       const start = screen.getByRole('button', { name: /이대로 만들기/ })
       expect(form.compareDocumentPosition(start) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
       expect(screen.queryByLabelText('이 강아지 저장하기')).not.toBeInTheDocument()
