@@ -42,7 +42,6 @@ import { contextFromJob } from '../app/reuseFromJob'
 import { withReuse } from '../app/reuseFromJob'
 import { initialOf } from '../app/initials'
 import {
-  PET_NAME_FALLBACK,
   initialInputValues,
   inputErrors,
   inputsForRequest,
@@ -91,6 +90,11 @@ export default function W04Upload() {
   /** 사용자가 손댄 칸. 아직 안 만진 칸에 미리 빨간 줄을 긋지 않기 위한 것입니다. */
   const [touchedInputs, setTouchedInputs] = useState<ReadonlySet<string>>(new Set())
   const [inputsSubmitted, setInputsSubmitted] = useState(false)
+  /**
+   * 이름 없이 만들기를 눌렀는가. 강아지를 저장하면 `petId` 가 생기면서 아래 판정이
+   * 저절로 풀리므로, 따로 되돌리는 코드가 없습니다.
+   */
+  const [nameSubmitted, setNameSubmitted] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const uploadPhoto = useUploadPhoto()
@@ -110,6 +114,8 @@ export default function W04Upload() {
   */
   const namesTheImage = style?.uses_pet_name ?? false
   const selectedPetName = petsData?.items.find((pet) => pet.id === petId)?.name ?? null
+  /** 이름 없이 만들기를 눌러 멈춰 있는 상태. 저장되면 `petId` 가 생겨 스스로 꺼집니다. */
+  const nameBlocking = nameSubmitted && namesTheImage && petId === null
 
   /*
     스타일 입력 스키마(이슈 #114)의 초기값.
@@ -299,6 +305,25 @@ export default function W04Upload() {
     if (!upload?.upload_id || styleId === null) return
 
     /*
+      이름이 인쇄되는 스타일(41 종 중 2 종)은 **이름 없이는 진행하지 않습니다**.
+
+      막는 쪽을 고른 이유는 폴백 결과가 아무도 원하지 않는 것이기 때문입니다 —
+      `[pet name]` 이 «우리 아이» 로 떨어진 피규어 패키지를 받으려고 이 스타일을
+      고른 사람은 없는데, 크레딧은 똑같이 나갑니다. 예전 화면은 그 사실을 예고만
+      하고 통과시켰습니다.
+
+      버튼을 비활성으로 두지 않는 것은 아래 입력 검증과 같은 이유입니다 — 회색 버튼은
+      왜 못 누르는지 말하지 않습니다. 누르면 그 자리에서 이유를 답합니다.
+
+      `petId` 하나로 판정하는 건 강아지에 이름이 반드시 있기 때문입니다
+      (`CreatePetRequest.name` 은 `min_length=1`). 즉 붙어 있으면 인쇄될 이름도 있습니다.
+    */
+    if (namesTheImage && petId === null) {
+      setNameSubmitted(true)
+      return
+    }
+
+    /*
       서버도 같은 규칙으로 400 을 냅니다(`app/routers/jobs.py` `_resolve_input_values`,
       크레딧은 안 나갑니다). 그럼에도 여기서 먼저 막는 이유는 그 응답이 «요청 형식이
       올바르지 않습니다» 한 줄이라, 어느 칸이 왜 틀렸는지 화면이 옮겨 적을 수 없기
@@ -383,6 +408,7 @@ export default function W04Upload() {
             petId={petId}
             petName={selectedPetName}
             namesTheImage={namesTheImage}
+            nameBlocking={nameBlocking}
             onPetSaved={setPetId}
             onPickAnother={pickAnother}
             onStart={startGeneration}
@@ -686,6 +712,8 @@ interface ConfirmPanelProps {
   inputErrors: Record<string, string>
   /** 만들기를 눌렀지만 입력 때문에 멈춘 상태. 버튼 아래에 이유를 한 줄 답니다. */
   inputsBlocking: boolean
+  /** 만들기를 눌렀지만 **이름이 없어** 멈춘 상태(이름이 인쇄되는 2 종). */
+  nameBlocking: boolean
   /** `prefill` 칸의 placeholder 가 무엇이 들어갈지 말하는 데 씁니다. */
   petNameForPrefill: string | null
   onInputChange: (label: string, value: string) => void
@@ -709,6 +737,7 @@ function ConfirmPanel({
   inputValues,
   inputErrors: inputErrorsToShow,
   inputsBlocking,
+  nameBlocking,
   petNameForPrefill,
   onInputChange,
   onInputTouch,
@@ -839,6 +868,12 @@ function ConfirmPanel({
             누르는지 말하지 않습니다. 누르면 문제 있는 칸이 전부 드러나고(inputsSubmitted)
             여기서 어디를 봐야 하는지 알려 줍니다.
           */}
+          {nameBlocking && (
+            <p role="alert" className="mt-2 text-center text-sm text-danger">
+              아이 이름을 넣어야 만들 수 있어요.
+            </p>
+          )}
+
           {inputsBlocking && (
             <p role="alert" className="mt-2 text-center text-sm text-danger">
               위 입력에서 고칠 곳이 있어요.
@@ -906,18 +941,30 @@ function WarningCard({ warning }: { warning: UploadIssue }) {
 }
 
 /**
- * 그림에 이름이 들어가는 스타일의 예고 (PR #98 · 서버 `uses_pet_name`).
+ * 그림에 이름이 들어가는 스타일에서 **이름을 받는 자리** (PR #98 · 서버 `uses_pet_name`).
  *
- * 세 가지 상태를 **말이 되는 만큼만** 구분합니다. 아는 것은 단정하고, 모르는 것은
- * 모른다고 말합니다.
+ * 예전에는 폴백을 설명하는 자리였습니다 — «이대로 만들면 그림에 «우리 아이» 라는
+ * 이름이 들어갑니다». 사실이긴 했지만, **아무도 원하지 않는 결과를 예고하려고**
+ * 존재하는 문장이었습니다. 수제간식 브랜드의 피규어 패키지에 «우리 아이» 가 인쇄된
+ * 결과물을 받고 싶어서 이 스타일을 고른 사람은 없습니다.
  *
- * 네 번째 상태가 있었습니다 — «이 사진에 저장된 강아지가 있으면 그 이름이, 없으면
- * 우리 아이가». 재사용 경로에서 이 사진의 강아지를 프론트가 몰라서 양쪽을 다 말하던
- * 문구인데, 결제 직전에 «둘 중 하나입니다» 는 예고가 아니라 미룸입니다. 백엔드 #111
- * 이 `GET /v1/jobs/{id}.pet_id` 를 채우면서 모를 이유가 없어져 지웠습니다.
+ * 그래서 예고 대신 **요구**합니다. 이름을 넣지 않으면 만들기가 진행되지 않습니다.
+ * 41 종 중 이 스타일이 2 종뿐이라(3D_피규어 · 식빵, 실서버 실측) 나머지 39 종에는
+ * 아무 마찰도 안 생깁니다 — 거기서는 이름이 프롬프트에 아예 없습니다.
  *
- * 진행을 막지 않는 것은 W-04 의 경고 카드와 같은 원칙입니다(노트3) — 이름 없이 만드는
- * 것도 정상 경로이고, 화면이 할 일은 결제 전에 사실을 알려 주는 것까지입니다.
+ * 게스트도 넣을 수 있습니다. `POST /v1/pets` 는 `get_current_member` 만 걸려 있어
+ * 게스트 토큰으로도 201 입니다(2026-08-24 로컬 실서버 실측) — 즉 이 요구가 로그인
+ * 게이트가 되지 않습니다. 그게 아니었다면 «가입 없이» 라는 W-01 의 약속과 부딪혀
+ * 이 변경 자체가 불가능했습니다.
+ *
+ * 이름이 곧 **강아지 프로필**이라는 점은 감추지 않습니다(`[pet name]` 은 오직
+ * `pet_profile.name` 에서 옵니다 — app/worker.py). 저장되는 게 사실이고, 저장이
+ * 이득이기도 합니다(FR-W04-02 재방문 — 다음에 이 사진으로 바로 시작). 그래서 안내에
+ * 그대로 적습니다.
+ *
+ * 남은 두 상태는 **이미 아는 경우**라 요구할 것이 없습니다: 이름을 알면 그 이름을,
+ * 강아지는 붙어 있는데 이름이 아직 안 왔으면 그 사실만 말합니다(초안 복원·재사용
+ * 경로에서 `GET /v1/pets` 가 늦게 오는 창).
  */
 function PetNameNotice({
   petName,
@@ -934,31 +981,28 @@ function PetNameNotice({
 }) {
   return (
     <section className="mt-3 rounded-lg border border-rule bg-surface-2 px-3 py-3">
-      <p className="text-sm text-ink-2">
-        {petName !== null ? (
-          <>
-            그림에 <span className="font-semibold text-ink">«{petName}»</span> 라는 이름이
-            들어갑니다.
-          </>
-        ) : petAttached ? (
-          // 이름은 아직(또는 영영) 모르지만 «우리 아이» 가 아닌 것은 압니다.
-          <>저장된 강아지의 이름이 그림에 들어갑니다.</>
-        ) : (
-          <>
-            이대로 만들면 그림에{' '}
-            <span className="font-semibold text-ink">«{PET_NAME_FALLBACK}»</span> 라는 이름이
-            들어갑니다.
-          </>
-        )}
-      </p>
+      {/*
+        변수 뒤에 조사를 붙이지 않습니다. `«{petName}» 라는` 은 받침 없는 이름에서만
+        맞고(«콩이» 라는 ✓) 받침이 있으면 틀립니다(«뽀식» 라는 ✗ → 뽀식이라는).
+        목이 «콩이» 만 주고 테스트도 그것만 써서 여태 안 걸렸습니다. 가운뎃점으로
+        끊으면 이름이 무엇이든 문장이 성립합니다.
+      */}
+      {petName !== null ? (
+        <p className="text-sm text-ink-2">
+          그림에 들어갈 이름 · <span className="font-semibold text-ink">{petName}</span>
+        </p>
+      ) : petAttached ? (
+        // 이름은 아직(또는 영영) 모르지만 폴백이 아닌 것은 압니다.
+        <p className="text-sm text-ink-2">저장된 강아지의 이름이 그림에 들어갑니다.</p>
+      ) : null}
 
       {uploadId && (
         <SavePetForm
           uploadId={uploadId}
           onSaved={onPetSaved}
           variant="inline"
-          title="이름 넣고 만들기"
-          hint="저장하면 그림에 이 이름이 들어가고, 다음에 올 때 이 사진으로 바로 시작할 수 있어요."
+          title="아이 이름을 넣어 주세요"
+          hint="이 스타일은 그림에 이름이 인쇄돼요. 저장하면 다음에 올 때 이 사진으로 바로 시작할 수 있어요."
         />
       )}
     </section>
@@ -986,7 +1030,11 @@ function SavePetForm({
   return (
     <form
       className={
-        variant === 'inline' ? 'mt-3' : 'mt-6 rounded-lg border border-rule bg-surface p-3'
+        // `first:mt-0` — 위에 문단이 없는 경우(이름을 아직 모를 때)에는 이 폼이 카드의
+        // 첫 요소라, 마진을 그대로 두면 카드 안쪽 여백이 두 배로 보입니다.
+        variant === 'inline'
+          ? 'mt-3 first:mt-0'
+          : 'mt-6 rounded-lg border border-rule bg-surface p-3'
       }
       onSubmit={(event) => {
         event.preventDefault()
