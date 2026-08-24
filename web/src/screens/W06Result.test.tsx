@@ -12,7 +12,8 @@
  * 사실을 알릴 자리조차 사라집니다.
  */
 
-import { screen } from '@testing-library/react'
+import { fireEvent, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
 import { Route, Routes } from 'react-router'
 import { describe, expect, it } from 'vitest'
@@ -167,5 +168,37 @@ describe('W-06 · 결과 프레임', () => {
     renderResult(succeededJob())
 
     expect(await screen.findByAltText('원본')).toHaveClass('object-cover')
+  })
+
+  /*
+    프레임 높이를 결과 이미지에 맡긴 대가입니다 — 그 한 장이 안 오면 높이가 0 이 되고,
+    겹쳐 놓은 원본(`absolute inset-0`)까지 같이 사라집니다. 정사각 프레임 시절에는
+    결과가 깨져도 원본은 보였으니, 이건 위 두 테스트가 지키는 결정이 **끌고 들어온**
+    회귀입니다. 그래서 같은 갈래에 둡니다: 위 둘을 지키려다 이걸 깨면 안 됩니다.
+  */
+  it('결과 이미지를 못 받아 오면 원본과 다시 불러올 길이 남는다', async () => {
+    renderResult(succeededJob())
+
+    // jsdom 은 이미지를 실제로 받지 않으므로 실패를 직접 만들어 줍니다.
+    fireEvent.error(await screen.findByAltText('변환 결과'))
+
+    expect(screen.getByText('결과 이미지를 불러오지 못했어요')).toBeInTheDocument()
+    // 사진이 전부 사라지면 «돈만 나가고 사진도 잃었다» 로 읽힙니다.
+    expect(screen.getByAltText('업로드한 사진')).toBeInTheDocument()
+  })
+
+  it('다시 불러오기는 크레딧을 쓰지 않고 그 자리를 되돌린다', async () => {
+    /*
+      옆에 있는 «다시 만들기» 는 새 job 이고 크레딧이 나갑니다. 못 받아 온 이유가
+      연결 문제였다면 그 값을 낼 이유가 없습니다 — 이 버튼이 그 구분입니다.
+    */
+    const user = userEvent.setup()
+    renderResult(succeededJob())
+
+    fireEvent.error(await screen.findByAltText('변환 결과'))
+    await user.click(screen.getByRole('button', { name: '다시 불러오기' }))
+
+    expect(await screen.findByAltText('변환 결과')).toBeInTheDocument()
+    expect(screen.queryByText('결과 이미지를 불러오지 못했어요')).not.toBeInTheDocument()
   })
 })
