@@ -351,8 +351,13 @@ export function useLedger() {
 
 // ---------------------------------------------------------------- 펫 · 보관함
 
-export function usePets() {
-  return useQuery({ queryKey: queryKeys.pets, queryFn: pets.list })
+/**
+ * `enabled` 를 받는 이유: W-06 «다시 만들기» 는 **프리필 칸이 있는 스타일에서만**
+ * 강아지 이름이 필요합니다(31개 칸 중 4개). 늘 부르면 결과 화면을 여는 모든 사람이
+ * 쓰지도 않을 목록을 한 번씩 더 받습니다 — 캐시가 비어 있는 링크 유입이 특히 그렇습니다.
+ */
+export function usePets(enabled = true) {
+  return useQuery({ queryKey: queryKeys.pets, queryFn: pets.list, enabled })
 }
 
 /** 업로드한 사진을 그대로 프로필 썸네일로 씁니다 — 그래서 upload_id 가 필요합니다(§3). */
