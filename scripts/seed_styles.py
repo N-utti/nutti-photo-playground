@@ -73,6 +73,7 @@ _SORT_ORDER_BY_CODE = {
 _SEPARATOR_RE = re.compile(r"^.*─{10,}.*$", re.MULTILINE)
 _STYLE_INPUTS_PATH = Path(__file__).parent.parent / "seeds/style_inputs.json"
 _THUMBNAILS_DIR = Path(__file__).parent.parent / "seeds/thumbnails"
+_AVG_SECONDS = 48  # 실측 중앙값 47.4초(2026-08-24, fal gpt-image-2 n=19) — 재실측 시 갱신
 
 
 def extract_prompt_body(text: str) -> str:
@@ -112,7 +113,10 @@ async def seed_from_dir(dir_path: Path) -> dict[str, int]:
 
         if await Style.filter(code=code).exists():
             # 기존 행도 input_fields/example_keys는 매니페스트·썸네일 기준으로 백필(멱등)
-            update_fields = {"input_fields": input_fields_by_code.get(code, [])}
+            update_fields = {
+                "input_fields": input_fields_by_code.get(code, []),
+                "avg_seconds": _AVG_SECONDS,
+            }
             example_keys = await _seed_thumbnail(code)
             if example_keys is not None:
                 update_fields["example_keys"] = example_keys
@@ -136,6 +140,7 @@ async def seed_from_dir(dir_path: Path) -> dict[str, int]:
                 else fallback_sort_orders[code]
             ),
             status=StyleStatus.PUBLIC,
+            avg_seconds=_AVG_SECONDS,
             input_fields=input_fields_by_code.get(code, []),
             example_keys=example_keys or [],
         )
