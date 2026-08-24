@@ -146,12 +146,42 @@ def test_create_preset_job_resolves_and_stores_input_values(client: TestClient):
     assert stored == {"의상": "옥수수", "자막": "규탄", "번호": "0103"}
 
 
+def test_get_job_returns_stored_input_values(client: TestClient):
+    _, upload_id, headers = _session(client, balance=3)
+    client.portal.call(partial(_create_style, 1, input_fields=_INPUT_FIELDS))
+    inputs = {"의상": "옥수수", "자막": "규탄"}
+
+    created = _post_job(client, headers, upload_id, style_id=1, inputs=inputs)
+    assert created.status_code == 202
+    response = client.get(f"/v1/jobs/{created.json()['job_id']}", headers=headers)
+    assert response.status_code == 200
+    assert response.json()["inputs"] == {**inputs, "번호": "0103"}
+
+
+def test_create_preset_job_ignores_unknown_inputs(client: TestClient):
+    _, upload_id, headers = _session(client, balance=3)
+    client.portal.call(partial(_create_style, 1, input_fields=_INPUT_FIELDS))
+
+    response = _post_job(
+        client,
+        headers,
+        upload_id,
+        style_id=1,
+        inputs={"자막": "규탄", "엉뚱한키": "값"},
+    )
+
+    assert response.status_code == 202
+    stored = client.portal.call(
+        partial(_get_job_input_values, response.json()["job_id"])
+    )
+    assert stored == {"의상": "버섯", "자막": "규탄", "번호": "0103"}
+
+
 def test_create_preset_job_rejects_invalid_inputs(client: TestClient):
     member_id, upload_id, headers = _session(client, balance=3)
     client.portal.call(partial(_create_style, 1, input_fields=_INPUT_FIELDS))
 
     cases = [
-        {"엉뚱한키": "값"},
         {"의상": "딸기"},
         {"자막": "네글자넘김"},
         {"번호": "12a4"},
@@ -286,6 +316,21 @@ def test_custom_prompt_uses_default_cost_and_links_log_both_ways(client: TestCli
     assert body["credit_cost"] == 2
 
 
+def test_get_custom_prompt_job_returns_null_inputs(client: TestClient):
+    _, upload_id, headers = _session(client, balance=3)
+
+    created = _post_job(
+        client,
+        headers,
+        upload_id,
+        custom_prompt="cute portrait",
+    )
+    assert created.status_code == 202
+    response = client.get(f"/v1/jobs/{created.json()['job_id']}", headers=headers)
+    assert response.status_code == 200
+    assert response.json()["inputs"] is None
+
+
 async def _blocked_prompt_state(member_id: str):
     member = await Member.get(id=member_id)
     logs = await CustomPromptLog.filter(member_id=member_id).all()
@@ -407,6 +452,7 @@ def test_get_job_returns_all_fields_and_status_specific_values(client: TestClien
         "status",
         "style_id",
         "custom_prompt",
+        "inputs",
         "credit_cost",
         "upload_id",
         "pet_id",
@@ -442,6 +488,7 @@ def test_get_job_returns_all_fields_and_status_specific_values(client: TestClien
         "status": "queued",
         "style_id": 6,
         "custom_prompt": None,
+        "inputs": None,
         "credit_cost": 1,
         "upload_id": None,
         "pet_id": None,
