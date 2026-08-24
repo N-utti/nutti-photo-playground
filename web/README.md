@@ -135,6 +135,7 @@ localStorage.removeItem('nutti.mock.scenario')              // 정상
 | `screens/JobUnavailable.test.tsx` | 일시적 오류에 "이 결과는 돌아오지 않아요"를 띄워 사고를 과장하는 것 |
 | `screens/W05Waiting.test.tsx` | 5xx 한 번에 화면을 헐어 **살아 있는 작업**을 포기시키는 것 · 1분을 넘겨 놓고 "거의 다 됐어요"라고 하는 것 |
 | `screens/W06Result.test.tsx` | 문서에 없는 `error_code` 하나에 결과 화면이 통째로 죽는 것(실측 이력) |
+| `screens/W06RegenerateInputs.test.tsx` | 「다시 만들기」가 화면에 적어 놓은 옵션을 요청에서 빼는 것 — 같은 버튼·같은 크레딧으로 **다른 그림**이 나오는 것(이슈 #127) |
 | `screens/W07Calculator.test.tsx` | 견종을 모르는데 안다고 해서 **남의 강아지 기준 간식량**을 넘기는 것 |
 | `screens/EarnActionList.test.tsx` | 매출 직결 줄이 응답 순서에 밀리는 것 · 게스트에게 받지 못할 보상을 약속하는 것 |
 | `screens/W08Creative.test.tsx` | 서버가 막은 문구에 **서버 원문**을 띄워 무엇을 고칠지 모르게 하는 것 · 안내만 띄우고 버튼은 열어 두는 것 |
@@ -204,6 +205,8 @@ src/
     TabBar.tsx      하단 탭바 4칸. W-02·W-09 **두 화면만** 붙입니다 (그 근거는 파일 주석)
     reuseFromJob.ts `?from_job=` — "이 사진으로 다른 스타일"의 재사용 맥락 (W-02·W-03·W-04·W-08).
                     재생성 재료(`contextFromJob`)도 여기 — job 응답 하나가 전부 답합니다
+    styleInputs.ts  스타일별 입력값의 초기화·검증 — 서버 `_resolve_input_values` 의 사본
+    StyleInputForm.tsx  그 칸을 그리는 폼. **두 화면이 같이 씁니다** (W-04 만들기 · W-06 다시 만들기)
     guestSession.ts 게스트 세션 초기화 감지 → 복원 실패 안내 분기 (이슈 #5)
     authReturn.ts   OAuth 왕복 동안 복귀 주소 보관 (sessionStorage, 내부 경로만)
     retryAfter.ts   429 Retry-After → 사람이 읽는 문구 (게스트 발급·로그인 공용)
@@ -243,7 +246,7 @@ src/
 | [#71](https://github.com/N-utti/nutti-photo-playground/issues/71) | 스타일·펫 썸네일 URL이 `public_url()` 을 안 거쳐 로컬에서 404 | W-02 카탈로그·W-04 펫 목록 (목을 끈 로컬 한정) | 해결 (PR #74). 프론트는 무변경(`/media` dev proxy 는 PR #72 로 이미 있음) |
 | [#77](https://github.com/N-utti/nutti-photo-playground/issues/77) | 결과 이미지 스토리지에 CORS 헤더 없음 | `CDN_BASE_URL` 을 채우는 배포 시점 | 대기 — **코드로 닫히지 않습니다**(R2/CDN 운영 설정). 프론트는 `app/saveImage.ts` 로 fetch→blob 저장하고 CORS 가 없으면 새 탭 폴백. **CORS 가 열려도 그 우회는 걷어내지 않습니다**(PR #80) |
 | [#81](https://github.com/N-utti/nutti-photo-playground/issues/81) | job 응답에 `custom_prompt`·`credit_cost` 없음 | W-06 «다시 만들기» — W-08 커스텀 job 한정 | 해결 (PR #83). 커스텀 결과를 **다른 기기·링크로 열어도** 같은 문구·같은 비용으로 다시 만듭니다. 이 필드가 로컬 색인의 마지막 존재 이유였어서 `api/jobContext.ts` 를 호출부째 삭제했고, 맥락 조립은 `app/reuseFromJob.ts` `contextFromJob` 하나로 모였습니다. `credit_cost` 덕에 W-06 이 비용을 알아내려 스타일 상세를 따로 부르던 조회도 없어졌습니다 |
-| [#127](https://github.com/N-utti/nutti-photo-playground/issues/127) | job 응답에 `input_values` 없음 | W-06 «다시 만들기» — `input_fields` 를 가진 24종 한정 | 대기. 재생성 요청이 `inputs` 를 못 실어 서버가 `default` 로 채웁니다 — 「히메갸루」로 만든 결과가 「2000년대 갸루」로 다시 만들어집니다. #81 과 **같은 모양의 갭**이고, 로컬 색인으로 메우는 건 #81 이 지운 후퇴라 하지 않습니다. 오면 스키마 변경 뒤 재생성(400 `unknown_inputs`)을 서버가 흡수할지 프론트가 거를지도 함께 확정됩니다 |
+| [#127](https://github.com/N-utti/nutti-photo-playground/issues/127) | job 응답에 `input_values` 없음 | W-06 «다시 만들기» — `input_fields` 를 가진 24종 한정 | 대기 — **지난 값 되살리기**는 계약이 와야 합니다(로컬 색인으로 메우는 건 #81 이 지운 후퇴라 하지 않습니다). 다만 «말없이 기본값으로 바꾸는» 절반은 계약 없이 닫았습니다: W-06 이 스타일 스키마(`input_fields`)를 읽어 **다시 만들 때 쓸 값**을 접힌 줄로 보여 주고, 거기서 고친 값이 그대로 `inputs` 로 나갑니다(`screens/W06Result.tsx` `Regenerate`). 접힌 줄 아래 «기본값으로 시작해요» 한 줄이 그 값이 지난번 선택이 아님을 말합니다. 계약이 오면 `initialInputValues(...)` 자리에 `job.inputs` 를 넣고 그 한 줄을 지우면 됩니다 — 폼과 요청 조립은 그대로입니다. 스키마 변경 뒤 재생성(400 `unknown_inputs`)을 서버가 흡수할지 프론트가 거를지는 그때 함께 확정됩니다 |
 | [#131](https://github.com/N-utti/nutti-photo-playground/issues/131) | 워커의 `[breed]` 치환이 항상 «강아지» 로 떨어짐 | W-02 카드 배지·W-03 상세의 **견종** 예고 | 대기. `uses_breed` 자체는 맞지만(프롬프트에 `[breed]` 가 있음) 워커가 `pet_profile.breed_label` 만 보고, 그 컬럼을 쓰는 API 경로가 없어 항상 NULL → «강아지» → 3D_피규어 프롬프트가 견종 라벨을 통째로 뺍니다. **즉 인쇄된 적이 없습니다.** 그래서 플래그는 받아만 두고 문구는 안 답니다 — 판단 근거는 `screens/W03StyleDetail.tsx` 헤더. `uses_pet_name` 쪽은 이미 화면에 있습니다(W-02 «이름 인쇄» 배지 · W-03 예고 · W-04 확인 단계) |
 
 [#11](https://github.com/N-utti/nutti-photo-playground/issues/11)(auth 보안 후속 M3~M6·L1~L6)은 **프론트가 막히는 지점이 없어** 위 표에 넣지 않습니다 — 확인 근거는
@@ -333,3 +336,9 @@ src/
    `job`이 있고 치명적이지 않으면 `JobUnavailable`로 넘어가지 않습니다. 넘어가면 아직
    살아 있는 작업 앞에서 사용자가 보는 건 재시도 버튼이 없는 «새로 만들기»뿐이고,
    그게 곧 크레딧을 버리게 만듭니다. W-05는 대신 "연결이 잠시 불안정해요" 한 줄만 붙입니다.
+13. **스타일 입력은 만드는 입구가 둘입니다.** `input_fields` 를 가진 24종은 W-04 «이대로
+   만들기» 와 W-06 «다시 만들기» **양쪽에서** 값을 골라 보낼 수 있어야 합니다. 한쪽에만
+   폼을 두면 다른 쪽은 서버가 `default` 로 채우고, 사용자는 같은 버튼·같은 크레딧으로
+   다른 그림을 받습니다(이슈 #114 가 고친 결함이 #127 로 재현된 경로). 그래서 폼은
+   `app/StyleInputForm.tsx` 한 벌이고 검증은 `app/styleInputs.ts` 한 곳입니다 — 새 입구를
+   만들 때(예: 보관함에서 재생성) 폼을 다시 그리지 말고 이 둘을 그대로 쓰세요.

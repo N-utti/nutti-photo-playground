@@ -14,7 +14,7 @@
  *   7. 업로드를 재사용하는 2회차 유도
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { ApiError, isApiError } from '../api/client'
@@ -32,12 +32,21 @@ import {
   useCreateJob,
   useJobPolling,
   useMe,
+  usePets,
   useShareJob,
+  useStyleDetail,
   useStyles,
 } from '../api/queries'
 import { useGuestSessionReset } from '../app/guestSession'
 import { contextFromJob, withReuse } from '../app/reuseFromJob'
 import { saveImage, type SaveImageOutcome } from '../app/saveImage'
+import { StyleInputForm } from '../app/StyleInputForm'
+import {
+  effectiveInputValue,
+  initialInputValues,
+  inputErrors,
+  inputsForRequest,
+} from '../app/styleInputs'
 import Thumbnail from '../app/Thumbnail'
 import type { Job, JobErrorCode } from '../api/types'
 import AccountSheet from './AccountSheet'
@@ -417,6 +426,63 @@ function Regenerate({ job, label, hint }: { job: Job; label: string; hint?: stri
     null,
   )
 
+  /*
+    스타일 입력 스키마 (이슈 #114 → #127).
+
+    이 job 이 **어떤 값으로** 만들어졌는지는 아직 아무도 못 답합니다 — 서버는 저장은
+    하지만(`generation_job.input_values`) 응답에 싣지 않고(#127), 그 값을 아는 건 만든
+    브라우저뿐이라 localStorage 로 메우는 건 #81 이 지운 후퇴입니다. 그래서 되살리는
+    대신 **다시 고르게** 합니다: 어떤 칸이 있는지는 스타일이 답하므로(`input_fields`),
+    그 칸을 여기 그려 놓고 실제로 나갈 값을 보여 줍니다.
+
+    그냥 두면 요청에 `inputs` 가 안 실리고 서버가 스키마의 `default` 로 채웁니다 —
+    「히메갸루」로 만든 결과가 「2000년대 갸루」로 다시 만들어지고, 같은 버튼·같은
+    크레딧인데 화면에는 이유가 안 보입니다. 값을 못 되살리는 것과 **말없이 바꾸는
+    것**은 다른 문제이고, 뒤엣것은 계약 없이도 닫힙니다.
+
+    #127 이 오면 아래 `initialInputValues(...)` 자리에 `job.inputs` 를 넣으면 됩니다 —
+    폼과 요청 조립은 그대로 쓰고, 접힌 줄 아래 «기본값으로 시작해요» 한 줄이 빠집니다.
+
+    상세 조회는 PR #83(`credit_cost`)으로 한 번 없앴던 그 호출입니다. 그때는 **값을
+    지어내지 않으려고** 부르던 것이라 계약이 답을 주자 사라졌지만, 여기서 묻는 건
+    값이 아니라 «이 스타일에 고를 게 있는가» 라서 job 응답으로는 답이 안 나옵니다.
+  */
+  const styleQuery = useStyleDetail(job.style_id)
+  const fields = styleQuery.data?.input_fields ?? []
+  // 스키마가 오기 전을 «칸이 없다»로 단정하지 않습니다 — 그 창에서 버튼을 누르면
+  // 값이 통째로 빠진 요청이 나가고, 크레딧은 이미 나간 뒤입니다.
+  const schemaPending = job.style_id !== null && styleQuery.isPending
+
+  // 프리필 칸(31개 중 4개)이 있을 때만 강아지 이름을 부릅니다 — 그 칸의 초기값이
+  // 곧 그림에 인쇄될 이름이라, 모르면 폼이 «우리 아이» 라고 잘못 말합니다.
+  const needsPetName = job.pet_id !== null && fields.some((field) => field.prefill === 'pet_name')
+  const { data: petsData } = usePets(needsPetName)
+  const petName = petsData?.items.find((pet) => pet.id === job.pet_id)?.name ?? null
+
+  /** 사용자가 이 화면에서 고친 칸만 들고 있습니다. 나머지는 아래에서 조립합니다. */
+  const [edits, setEdits] = useState<Record<string, string>>({})
+  const [touched, setTouched] = useState<ReadonlySet<string>>(new Set())
+  const [submitted, setSubmitted] = useState(false)
+  const [optionsOpen, setOptionsOpen] = useState(false)
+  const formId = useId()
+
+  /*
+    값을 상태로 «초기화» 하지 않고 그릴 때마다 조립합니다.
+
+    스키마와 강아지 이름은 서로 다른 시점에 도착합니다(W-04 는 그 둘을 맞추려고 효과
+    하나와 ref 두 개를 씁니다). 고친 칸만 들고 있으면 늦게 온 이름·기본값이 저절로
+    따라오고, 초기화 타이밍을 놓쳐 프리필이 영영 빈 칸으로 남는 경로가 없습니다.
+    사용자가 지운 칸은 `edits` 에 `''` 로 남으므로 기본값이 도로 덮지 않습니다.
+  */
+  const values = { ...initialInputValues(fields, petName), ...edits }
+  const problems = inputErrors(fields, values)
+  // 아직 안 만진 칸에 미리 빨간 줄을 긋지 않는 규칙도 W-04 와 같습니다 — 프리필이
+  // 규칙을 어기는 경우가 실제로 있어서(«입덕직캠» 3자 제한) 도착하자마자 나무라게 됩니다.
+  const visibleErrors: Record<string, string> = {}
+  for (const [fieldLabel, message] of Object.entries(problems)) {
+    if (submitted || touched.has(fieldLabel)) visibleErrors[fieldLabel] = message
+  }
+
   // 재료를 모르면 재생성 자체가 불가능합니다. 서버가 답해도 **커스텀 job 인데 문구를
   // 모르는 경우**(style_id: null + 문구도 null)가 남습니다 — 프롬프트 로그가 job 보다
   // 먼저 지워진 경우고(`on_delete=SET_NULL`), 그대로 보내면 스타일도 문구도 없는
@@ -450,6 +516,19 @@ function Regenerate({ job, label, hint }: { job: Job; label: string; hint?: stri
 
   function regenerate() {
     if (!context) return
+
+    /*
+      서버도 같은 규칙으로 400 을 냅니다(`_resolve_input_values`, 크레딧은 안 나갑니다).
+      먼저 막는 이유는 W-04 와 같습니다 — 그 응답은 어느 칸이 왜 틀렸는지 화면이 옮겨
+      적을 만큼 친절하지 않습니다. 접혀 있으면 같이 펼칩니다: 안 보이는 칸을 두고
+      «고칠 곳이 있어요» 라고만 하면 어디를 고치라는 말인지 알 수 없습니다.
+    */
+    if (Object.keys(problems).length > 0) {
+      setSubmitted(true)
+      setOptionsOpen(true)
+      return
+    }
+
     const intent = {
       style_id: context.styleId,
       upload_id: context.uploadId,
@@ -457,12 +536,11 @@ function Regenerate({ job, label, hint }: { job: Job; label: string; hint?: stri
       // 커스텀으로 만든 결과는 같은 문구로 다시 돌려야 합니다 — 비우면 스타일도
       // 문구도 없는 요청이 나갑니다.
       custom_prompt: customPrompt,
-      // `inputs` 는 **아직 못 싣습니다**(이슈 #127). job 응답에 `input_values` 가 없어
-      // 이 job 이 어떤 값으로 만들어졌는지 알 방법이 없고, 안 실으면 서버가 스키마의
-      // `default` 로 채웁니다 — 「히메갸루」로 만든 결과가 「2000년대 갸루」로 다시
-      // 만들어집니다. 값을 아는 건 만든 그 브라우저뿐이라 localStorage 로 메울 수는
-      // 있지만, 그 색인은 «다른 기기·링크로 연 결과» 를 못 답해서 #81 이 지운
-      // 것입니다. 계약이 오면 여기서 `context.inputs` 를 그대로 실으면 됩니다.
+      // 위 폼에서 보여 준 그 값입니다. 화면에 «스타일: 히메갸루» 라고 적어 놓고
+      // 요청에서 빼면 서버가 `default` 로 채워 다른 그림이 나옵니다(이슈 #127).
+      // 값이 달라지면 의도가 달라진 것이므로 멱등 키도 자동으로 갈립니다
+      // (api/idempotency.ts `sameIntent` 가 `inputs` 를 봅니다).
+      inputs: inputsForRequest(fields, values),
     }
     // **새 의도 = 새 키**. 같은 키를 재사용하면 서버가 원래 job 을 그대로 돌려줘
     // 새 결과가 나오지 않습니다(§1 · api/idempotency.ts).
@@ -492,14 +570,83 @@ function Regenerate({ job, label, hint }: { job: Job; label: string; hint?: stri
 
   return (
     <>
+      {/*
+        고를 게 있는 스타일이면 **무엇으로 만들지**를 버튼 앞에 적습니다(24종).
+
+        접어 두는 이유는 이 화면의 배치 때문입니다 — 출구 셋(공유·계산기·쇼핑몰)을
+        감정 최고점에 모아 둔 자리라, 폼을 펼쳐 놓으면 계산기와 쇼핑몰이 한 화면 아래로
+        밀립니다(노트6 · FR-W06-08). 대신 접힌 줄이 값을 그대로 말하므로, 펼치지 않아도
+        «무엇이 나올지 모르는» 상태는 아닙니다.
+      */}
+      {fields.length > 0 && (
+        <section
+          aria-label="스타일 옵션"
+          className="mt-3 rounded-xl border border-rule bg-surface px-3 py-2.5"
+        >
+          <div className="flex items-baseline justify-between gap-2">
+            {/* 두 칸짜리 스타일에서 `truncate` 는 뒤 칸의 값을 통째로 가립니다 —
+                감추면 «변경» 을 눌러야만 알 수 있으니 두 줄까지 풀어 줍니다. */}
+            <p className="line-clamp-2 min-w-0 text-sm">
+              {fields
+                .map((field) => `${field.label}: ${effectiveInputValue(field, values, petName)}`)
+                .join(' · ')}
+            </p>
+            <button
+              type="button"
+              aria-expanded={optionsOpen}
+              aria-controls={formId}
+              onClick={() => setOptionsOpen((open) => !open)}
+              className="shrink-0 text-xs text-ink-3 underline underline-offset-2 hover:text-brand"
+            >
+              {optionsOpen ? '접기' : '변경'}
+            </button>
+          </div>
+          {/* #127 이 오기 전까지 이 값은 «지난번 그 값» 이 아니라 스키마 기본값입니다.
+              적어 두지 않으면 접힌 줄이 방금 만든 그림의 설정처럼 읽힙니다. */}
+          <p className="mt-0.5 text-xs text-ink-3">지난번 값은 불러올 수 없어 기본값이에요</p>
+          <div id={formId} hidden={!optionsOpen}>
+            {optionsOpen && (
+              <StyleInputForm
+                fields={fields}
+                values={values}
+                errors={visibleErrors}
+                petName={petName}
+                title={null}
+                framed={false}
+                onChange={(fieldLabel, value) =>
+                  setEdits((current) => ({ ...current, [fieldLabel]: value }))
+                }
+                onTouch={(fieldLabel) =>
+                  setTouched((current) =>
+                    current.has(fieldLabel) ? current : new Set(current).add(fieldLabel),
+                  )
+                }
+              />
+            )}
+          </div>
+        </section>
+      )}
+
       <button
         type="button"
         onClick={regenerate}
-        disabled={createJob.isPending}
+        // 스키마를 아직 모르는 동안은 못 누릅니다(위 `schemaPending` 주석). 대개
+        // 캐시에 있어 안 보이고, 링크로 처음 연 결과에서만 한 왕복 동안 보입니다.
+        disabled={createJob.isPending || schemaPending}
         className="mt-2 w-full rounded-xl border border-rule-strong bg-surface px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
       >
-        {createJob.isPending ? '보내는 중…' : `${label} · ${cost} 크레딧`}
+        {schemaPending
+          ? '옵션 불러오는 중…'
+          : createJob.isPending
+            ? '보내는 중…'
+            : `${label} · ${cost} 크레딧`}
       </button>
+
+      {submitted && Object.keys(problems).length > 0 && (
+        <p role="alert" className="mt-2 text-center text-sm text-danger">
+          위 옵션에서 고칠 곳이 있어요.
+        </p>
+      )}
 
       {/*
         1요청 1장(Q4 확정)이 되면서 이 버튼이 **"다른 결과"로 가는 유일한 경로**가

@@ -106,8 +106,14 @@ describe('W-06 · 실패한 결과', () => {
       (`credit_cost`)이라야 합니다 — 실패해도 0 이 되지 않으므로(자동 반환은 트랜잭션만
       쌓습니다) 실패 화면도 같은 값을 말할 수 있습니다. 지어낸 숫자를 쓰면 커스텀(2)과
       프리셋(1)이 섞이는 순간 어긋납니다.
+
+      `find` 로 기다리는 이유: 스타일 입력 스키마(`GET /v1/styles/{id}`)가 도착하기
+      전까지 버튼이 «옵션 불러오는 중…» 으로 잠깁니다(이슈 #127 · W06Result Regenerate).
+      스키마를 모르는 채 누르면 고른 값이 빠진 요청이 나가기 때문입니다.
     */
-    expect(screen.getByRole('button', { name: /다시 시도/ })).toHaveAccessibleName(/1 크레딧/)
+    expect(await screen.findByRole('button', { name: /다시 시도/ })).toHaveAccessibleName(
+      /1 크레딧/,
+    )
     // 원본을 그대로 보여 줍니다 — 사진을 다시 올리게 하지 않는다는 표시입니다.
     expect(screen.getByAltText('업로드한 사진')).toBeInTheDocument()
   })

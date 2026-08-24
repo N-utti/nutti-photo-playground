@@ -146,3 +146,24 @@ export function inputsForRequest(
   }
   return Object.keys(payload).length > 0 ? payload : undefined
 }
+
+/**
+ * 접힌 줄에 적을 «지금 값» (W-06 «다시 만들기»).
+ *
+ * 빈 칸을 «없음» 이라고 적으면 거짓입니다 — 서버가 `default` 로, 워커가 강아지
+ * 이름으로 채워서 결과에는 값이 들어갑니다. 그래서 placeholder 와 같은 순서
+ * (값 → default → 강아지 이름)로 **실제로 쓰일 값**을 적습니다. 시드의 31개 칸은
+ * 전부 default 나 prefill 을 가지므로 마지막 «—» 까지 내려오는 칸은 지금 없습니다
+ * (스키마가 늘어날 때를 위한 자리입니다).
+ */
+export function effectiveInputValue(
+  field: StyleInputField,
+  values: Record<string, string>,
+  petName: string | null,
+): string {
+  const value = (values[field.label] ?? '').trim()
+  if (value !== '') return value
+  if (field.default) return field.default
+  if (field.prefill === 'pet_name') return petName ?? PET_NAME_FALLBACK
+  return '—'
+}
