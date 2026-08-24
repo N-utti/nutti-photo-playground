@@ -28,6 +28,7 @@ import { NUTTI_SHOP_URL } from '../app/externalLinks'
 import {
   invalidateAfterJobSettled,
   isFatalJobError,
+  queryKeys,
   useCalculatorLink,
   useCreateJob,
   useJobPolling,
@@ -205,7 +206,13 @@ function ResultPanel({ job }: { job: Job }) {
   return (
     <>
       {/* 노트1 — 원본 대조가 만족도의 근거. 노트4 — 서명은 이미지에 이미 합성돼 있습니다. */}
-      {current && <CompareSlider beforeUrl={job.source_image_url} afterUrl={current.image_url} />}
+      {current && (
+        <CompareSlider
+          jobId={job.job_id}
+          beforeUrl={job.source_image_url}
+          afterUrl={current.image_url}
+        />
+      )}
 
       {/* 출구 1 — 공유가 주 버튼(노트3). */}
       <ShareRow job={job} />
@@ -278,14 +285,71 @@ function ResultPanel({ job }: { job: Job }) {
  * 원본은 계속 잘립니다(`object-cover`) — 사용자 카메라 비율은 결과와 다르고,
  * 두 장을 같은 틀에 겹쳐야 «같은 자리 비교» 라는 이 위젯의 존재 이유가 성립합니다.
  * 잘려도 되는 쪽은 이미 손에 있는 원본이지 방금 만든 결과가 아닙니다.
+ *
+ * ---------------------------------------------------------------------------
+ * 결과를 **못 받아 왔을 때**는 이 구조가 화면을 통째로 지웁니다
+ *
+ * 프레임 높이를 결과 이미지가 만들게 된 대가입니다: 그 한 장이 안 오면 높이가
+ * 사실상 0 이 되고, 겹쳐 놓은 원본(`absolute inset-0`)까지 같이 사라집니다.
+ * 정사각 프레임 시절에는 결과가 깨져도 최소한 원본은 보였습니다 — 즉 이건
+ * 위 결정이 끌고 들어온 **새 회귀**라 여기서 같이 닫습니다.
+ *
+ * 그래서 결과 이미지가 `error` 를 내면 슬라이더를 접고 원본 + 안내로 바꿉니다.
+ * job 은 succeeded 라 «만들기 실패» 가 아니고 크레딧도 정당하게 나간 상태라,
+ * 실패 패널의 붉은 톤(danger)이 아니라 경고 톤(warn)을 씁니다.
  */
-function CompareSlider({ beforeUrl, afterUrl }: { beforeUrl: string; afterUrl: string }) {
+function CompareSlider({
+  jobId,
+  beforeUrl,
+  afterUrl,
+}: {
+  jobId: string
+  beforeUrl: string
+  afterUrl: string
+}) {
   const [position, setPosition] = useState(50)
+  const client = useQueryClient()
+
+  /*
+    실패를 불리언이 아니라 **실패한 주소**로 들고 있습니다. 플래그로 두면 아래
+    재시도가 새 주소를 물어 왔을 때도 «실패» 가 남아 새 이미지를 안 그립니다.
+    효과로 지우는 방법도 있지만 그건 한 렌더 늦게 지워집니다 — 그 한 렌더 동안
+    멀쩡한 결과 위에 «불러오지 못했어요» 가 떠 있습니다.
+  */
+  const [failedUrl, setFailedUrl] = useState<string | null>(null)
+  /*
+    재시도는 `key` 를 갈아 <img> 를 새로 만드는 것으로 합니다 — 흔히 쓰는 `?t=`
+    캐시 버스터는 여기서 못 씁니다. 결과 주소는 서명될 수 있고(쿼리스트링이 서명
+    대상), 파라미터를 하나 붙이는 순간 403 이 됩니다. 실패한 응답은 캐시에 남지
+    않으므로 요소를 새로 만드는 것만으로 실제 요청이 다시 나갑니다.
+  */
+  const [attempt, setAttempt] = useState(0)
+
+  function retry() {
+    setFailedUrl(null)
+    setAttempt((count) => count + 1)
+    /*
+      주소가 만료된 경우는 같은 주소를 다시 받아 봐야 또 실패합니다 — job 을 다시
+      물어 새 `image_url` 을 받아 옵니다. succeeded job 은 폴링이 멈춰 있어서
+      (queries.ts `useJobPolling`) 이걸 안 하면 주소가 영영 안 바뀝니다.
+    */
+    void client.invalidateQueries({ queryKey: queryKeys.job(jobId) })
+  }
+
+  if (failedUrl === afterUrl) {
+    return <ResultUnavailable sourceUrl={beforeUrl} onRetry={retry} />
+  }
 
   return (
     <div className="relative w-full overflow-hidden rounded-xl bg-canvas-2">
       {/* 흐름 안의 유일한 요소 — 이 한 장이 프레임의 높이입니다(위 주석). */}
-      <img src={afterUrl} alt="변환 결과" className="block w-full" />
+      <img
+        key={attempt}
+        src={afterUrl}
+        alt="변환 결과"
+        onError={() => setFailedUrl(afterUrl)}
+        className="block w-full"
+      />
       <div className="absolute inset-0" style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}>
         <img src={beforeUrl} alt="원본" className="size-full object-cover" />
       </div>
@@ -309,6 +373,45 @@ function CompareSlider({ beforeUrl, afterUrl }: { beforeUrl: string; afterUrl: s
         className="pointer-events-none absolute top-1/2 size-7 -translate-x-1/2 -translate-y-1/2 rounded-full border border-rule bg-surface"
         style={{ left: `${position}%` }}
       />
+    </div>
+  )
+}
+
+/**
+ * 결과 이미지를 받아 오지 못했을 때 그 자리에 남는 것.
+ *
+ * 여기서 사실인 것은 둘뿐입니다: **만들기는 끝났고**(job 이 succeeded), **지금 그
+ * 이미지를 못 가져온다**. 왜 못 가져오는지는 화면이 모릅니다 — 연결이 끊겼는지,
+ * 주소가 만료됐는지, 파일이 사라졌는지 `error` 이벤트는 구분해 주지 않습니다.
+ * 그러니 «잠깐 문제예요» 도 «결과는 안전해요» 도 단정하지 않습니다. 둘 다
+ * 틀릴 수 있고, 틀리면 사용자는 다시 만들기(크레딧)를 안 눌러 본 채 떠납니다.
+ *
+ * 원본을 그대로 남기는 건 실패 패널과 같은 이유입니다 — 이 화면에서 사진이 전부
+ * 사라지면 «돈만 나가고 사진도 잃었다» 로 읽힙니다. 여기는 정사각으로 잘라도
+ * 됩니다. 자르면 안 되는 쪽(이름이 인쇄된 결과)이 지금 없는 상황이라, 위 슬라이더가
+ * 프레임을 결과에 맞추던 이유 자체가 성립하지 않습니다.
+ */
+function ResultUnavailable({ sourceUrl, onRetry }: { sourceUrl: string; onRetry: () => void }) {
+  return (
+    <div>
+      <img
+        src={sourceUrl}
+        alt="업로드한 사진"
+        className="aspect-square w-full rounded-xl bg-canvas-2 object-cover"
+      />
+      <div role="status" className="mt-3 rounded-lg border border-warn/30 bg-warn-soft px-3 py-3">
+        <p className="text-sm font-semibold text-warn">결과 이미지를 불러오지 못했어요</p>
+        <p className="mt-0.5 text-sm text-ink-2">
+          만들기는 끝났어요 — 아래 버튼으로 다시 불러와 보세요.
+        </p>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="mt-2 rounded-lg border border-rule-strong bg-surface px-3 py-2 text-xs font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
+        >
+          다시 불러오기
+        </button>
+      </div>
     </div>
   )
 }
