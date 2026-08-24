@@ -45,6 +45,21 @@ function failedJob(errorCode: string): Job {
   }
 }
 
+function succeededJob(): Job {
+  const at = new Date(Date.now() - 30_000).toISOString()
+  return {
+    ...failedJob('GENERATION_FAILED'),
+    status: 'succeeded',
+    queued_at: at,
+    started_at: at,
+    progress: 100,
+    eta_seconds: 0,
+    // Q4 확정으로 1요청 1장 — 배열이지만 길이는 항상 1입니다.
+    results: [{ index: 0, image_url: 'https://cdn.example.test/result_01HQZX.jpg' }],
+    error_code: null,
+  }
+}
+
 function renderResult(job: Job) {
   server.use(http.get(`*/v1/jobs/${JOB_ID}`, () => HttpResponse.json(job)))
   // 결과 화면은 계산기 배너와 인기 스타일도 부릅니다 — 이 파일의 주제가 아니라 잠재웁니다.
@@ -110,5 +125,41 @@ describe('W-06 · 실패한 결과', () => {
     expect(screen.getByRole('button', { name: /다시 시도/ })).toHaveAccessibleName(/1 크레딧/)
     // 원본을 그대로 보여 줍니다 — 사진을 다시 올리게 하지 않는다는 표시입니다.
     expect(screen.getByAltText('업로드한 사진')).toBeInTheDocument()
+  })
+})
+
+/**
+ * 두 번째 갈래 — **결과를 자르지 않는가** (백엔드 #110 착지분).
+ *
+ * jsdom 은 레이아웃을 안 돌리므로 실제 잘림은 못 봅니다. 대신 자르기를 만드는 두
+ * 조건(고정 비율 프레임 + `object-cover`)이 결과 이미지에 다시 붙는 것을 막습니다.
+ * 이건 눈으로 잡기 어려운 종류의 회귀입니다: 목이 정사각 결과를 주던 동안에는
+ * `aspect-square` 가 붙어 있어도 화면이 멀쩡해 보였고, 실제로 그렇게 지내 왔습니다.
+ * 목을 3:4 로 바꿔 둔 지금도 «조금 커 보이는 사진» 과 «위아래가 잘린 사진» 은
+ * 스크린샷으로 구분되지 않습니다 — 잘린 쪽에 이름이 인쇄돼 있는데도요.
+ */
+describe('W-06 · 결과 프레임', () => {
+  it('결과 이미지를 고정 비율로 자르지 않는다', async () => {
+    renderResult(succeededJob())
+
+    const result = await screen.findByAltText('변환 결과')
+    // 프레임 높이는 이 한 장이 만듭니다 — 채워 넣는 이미지가 아니라 흐름 안의 요소.
+    expect(result).not.toHaveClass('object-cover')
+    expect(result).not.toHaveClass('absolute')
+
+    const frame = result.parentElement
+    expect(frame).not.toBeNull()
+    expect(frame?.className).not.toMatch(/\baspect-/)
+  })
+
+  it('겹쳐 놓는 원본 쪽은 계속 프레임에 맞춰 자른다', async () => {
+    /*
+      두 장을 같은 틀에 겹쳐야 «같은 자리 비교» 가 성립합니다. 원본까지 제 비율대로
+      두면 슬라이더 아래에서 두 사진이 어긋나 버립니다. 잘려도 되는 쪽은 이미 손에
+      있는 원본이지 방금 크레딧을 쓰고 받은 결과가 아닙니다.
+    */
+    renderResult(succeededJob())
+
+    expect(await screen.findByAltText('원본')).toHaveClass('object-cover')
   })
 })
