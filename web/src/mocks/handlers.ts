@@ -1164,6 +1164,17 @@ export const handlers = [
       크레딧이 나가는지가 화면 설계의 전제입니다.
 
       차감보다 **앞**입니다 — 서버도 그렇고, 그래서 이 400 에는 크레딧이 나가지 않습니다.
+
+      ---------------------------------------------------------------------------
+      스키마에 없는 라벨은 **400 이 아니라 조용한 무시**입니다 (백엔드 PR #139).
+
+      예전에는 400 `unknown_inputs` 였습니다. 지금 서버는 `logger.info` 로 적고 넘어가며
+      생성을 계속합니다 — 즉 **크레딧이 나가고**, 사용자가 고른 값은 결과에 반영되지
+      않습니다. 400 이던 시절과 손익이 정반대라, 목이 계속 400 을 내면 목에서만 실패하는
+      경로가 생깁니다(그리고 «크레딧은 안 나간다» 는 화면 설계의 전제가 목에서만 참이 됩니다).
+
+      서버가 로그를 남기듯 여기서도 콘솔에 적습니다. 조용히 버리면 목을 켠 채 브라우저를
+      보는 동안 «내가 보낸 값이 왜 안 먹지» 를 추적할 단서가 아무 데도 안 남습니다.
     */
     const inputFields = styleDetailFor(body.style_id ?? -1)?.input_fields ?? []
     if (inputFields.length > 0) {
@@ -1172,9 +1183,7 @@ export const handlers = [
         .filter((label) => !labels.has(label))
         .sort()
       if (unknown.length > 0) {
-        return apiError(400, 'VALIDATION_ERROR', '요청 형식이 올바르지 않습니다', {
-          unknown_inputs: unknown,
-        })
+        console.info('[mock] 스키마에 없는 입력 라벨을 무시합니다:', unknown)
       }
       for (const field of inputFields) {
         const value = (body.inputs?.[field.label] ?? '').trim()

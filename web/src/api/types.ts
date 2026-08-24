@@ -393,7 +393,9 @@ export interface CreateJobBody {
    * 스타일 입력값 `{라벨: 값}` (이슈 #114). 스키마가 없는 스타일·W-08 에서는 생략합니다.
    *
    * 미제공 필드는 서버가 `default` 로 채우므로 **부분 전송이 정상**입니다. 반대로
-   * 스키마에 없는 라벨을 보내면 400 `unknown_inputs` 라, 화면이 임의로 키를 만들면 안 됩니다.
+   * 스키마에 없는 라벨은 서버가 **조용히 버리고 생성을 계속합니다**(백엔드 PR #139 —
+   * 예전에는 400 `unknown_inputs`). 그래서 화면이 임의로 키를 만들면 오류가 아니라
+   * **크레딧이 나간 뒤 값만 사라집니다**. 조립은 app/styleInputs.ts `inputsForRequest` 로만.
    */
   inputs?: Record<string, string>
 }
