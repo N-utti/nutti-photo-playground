@@ -175,13 +175,19 @@ export const styleCatalog: StyleCatalog = (() => {
       // 시드가 넣는 표시명은 파일명 그대로입니다 — `code.replace("_", " ")`.
       name: code.replace(/_/g, ' '),
       /*
-        전 스타일 null 입니다. `thumbnail_url` 은 서버가 `example_keys[0]` 으로 만드는
-        값인데(app/routers/styles.py) 시드는 프롬프트만 넣고 예시 이미지는 안 올립니다
-        (PR #95 "남은 것"). 즉 지금 실서버에 붙이면 카탈로그 39칸이 전부 회색 자리
-        표시자입니다 — 목이 이미지를 채워 주면 그 사실이 착지 직전까지 안 보입니다.
-        이미지가 올라간 뒤의 상태는 아래 `styleCatalogFilled`(시나리오 styles:filled).
+        **전 스타일 채워져 있습니다** (백엔드 PR #141 · 이슈 #140).
+
+        `thumbnail_url` 은 서버가 `example_keys[0]` 으로 만드는 값입니다
+        (app/routers/styles.py). 시드가 프롬프트만 넣던 시절에는 전부 null 이었고
+        실서버 카탈로그가 39칸 회색 자리표시자였는데, 이제 `scripts/seed_styles.py` 가
+        `seeds/thumbnails/{code}.jpg` 를 올리고 `example_keys` 까지 채웁니다.
+
+        2026-08-24 로컬 실측: 39/39 이미지가 뜨고 자리표시자 0 개. 그러니 여기서 null 을
+        주면 **목이 실서버보다 나쁜 상태**를 그리게 됩니다 — 예전과 정반대 방향의 거짓말.
+        썸네일이 없는 상태는 계약상 아직 가능하므로(예시 이미지 없는 스타일) 시나리오
+        `styles:no-images` 로 남겨 둡니다.
       */
-      thumbnail_url: null,
+      thumbnail_url: placeholderImage(code.replace(/_/g, ' ')),
       credit_cost: 1, // 시드는 전 스타일 1 로 넣습니다(운영이 DB 에서 조정).
       uses_pet_name: PET_NAME_CODES.has(code),
       uses_breed: BREED_CODES.has(code),
@@ -196,25 +202,42 @@ export const styleCatalog: StyleCatalog = (() => {
 })()
 
 /**
- * 운영이 예시 이미지(`example_keys`)와 궁합 태그(`fit_tags`)를 채운 **뒤**의 카탈로그.
+ * 예시 이미지가 **한 장도 없는** 스타일들 (시나리오 `styles:no-images`).
  *
- * 지금 DB 는 둘 다 비어 있지만 이건 시드의 후속 작업이지 계약의 변화가 아닙니다.
- * 기본 목을 실제 상태(빈 값)에 맞추면서 이쪽을 같이 두는 이유는, 한쪽만 두면 나머지
- * 한쪽을 브라우저에서 한 번도 못 밟기 때문입니다 — 비어 있는 쪽은 자리 표시자와
- * 캐러셀 생략(W-03)을, 채워진 쪽은 카드 이미지 레이아웃과 6장 캐러셀을 각각 만듭니다.
+ * 시드가 썸네일을 채운 지금(PR #141) 실서버에서는 안 나오는 상태지만, 계약상으로는
+ * 여전히 가능합니다 — `thumbnail_url` 은 `example_keys` 가 비면 null 이고, 그 컬럼을
+ * 강제하는 건 아무것도 없습니다. 기본 목에서 빠진 이 상태를 여기 남겨 두지 않으면
+ * W-02 의 자리표시자와 W-03 의 캐러셀 생략을 브라우저에서 한 번도 못 밟습니다.
  */
-export const styleCatalogFilled: StyleCatalog = {
+export const styleCatalogNoImages: StyleCatalog = {
   sections: styleCatalog.sections.map((section) => ({
     ...section,
-    styles: section.styles.map((style) => ({
-      ...style,
-      thumbnail_url: placeholderImage(style.name),
-    })),
+    styles: section.styles.map((style) => ({ ...style, thumbnail_url: null })),
   })),
   total_count: styleCatalog.total_count,
 }
 
-export function styleDetailFor(styleId: number, filled = false): StyleDetail | null {
+/**
+ * 상세 응답의 예시·궁합 태그 상태 (시나리오로 갈아 끼웁니다).
+ *
+ * 예전에는 «비었다 / 채워졌다» 하나였는데, 그 스위치가 **세 값을 묶고 있었습니다**:
+ * 썸네일 · 예시 · 궁합 태그. PR #141 로 앞의 둘만 채워지면서 셋이 서로 다른 상태가
+ * 됐고, 하나로 두면 서버가 낼 수 없는 조합이 나옵니다.
+ *
+ *   - `seeded`    지금 실서버 — 예시 **1 장**, 궁합 태그 없음 (2026-08-24 실측)
+ *   - `none`      예시 이미지가 없는 스타일 — 캐러셀 생략
+ *   - `rich`      운영이 예시를 더 올리고 궁합 태그를 채운 뒤 — 캐러셀 페이저·궁합 칩
+ *
+ * `rich` 를 남기는 이유는 `example_keys` 가 리스트라서입니다. 시드는 코드당 1 장을
+ * 넣지만 운영이 더 올리면 그날로 다장이 되고, 그때 처음 나타나는 UI(페이저 · «1 / 6»)
+ * 가 있습니다 — 1 장짜리 기본 목만 두면 그 경로를 영영 못 밟습니다.
+ */
+export type StyleImageState = 'seeded' | 'none' | 'rich'
+
+export function styleDetailFor(
+  styleId: number,
+  images: StyleImageState = 'seeded',
+): StyleDetail | null {
   const card = styleCatalog.sections.flatMap((s) => s.styles).find((s) => s.id === styleId)
   if (!card) return null
   return {
@@ -224,21 +247,34 @@ export function styleDetailFor(styleId: number, filled = false): StyleDetail | n
     credit_cost: card.credit_cost,
     /*
       `thumbnail_url` 과 `examples` 는 **같은 `example_keys` 에서 나옵니다** —
-      전자는 `example_keys[0]`, 후자는 전부(app/routers/styles.py). 그러니 카탈로그가
-      널 썸네일을 주는 상태에서 상세만 6 장을 주면 목이 서버가 낼 수 없는 조합을
-      만들어 냅니다. 두 값이 같은 스위치(`filled`)를 보는 이유입니다.
+      전자는 `example_keys[0]`, 후자는 전부(app/routers/styles.py). 그래서 이 둘이
+      어긋나면 목이 서버가 낼 수 없는 조합을 만듭니다. 아래 세 갈래 모두 그 규칙을
+      지킵니다: `examples[0]` 이 곧 카드의 썸네일이고, 빈 배열이면 썸네일도 null 입니다.
     */
-    examples: filled
-      ? Array.from({ length: 6 }, (_, i) => placeholderImage(`${card.name} 예시 ${i + 1}`))
-      : [],
-    // `fit_tags` 도 시드가 안 채운 컬럼입니다(모델 기본값 `[]`) — 지금 서버는 빈 배열.
-    fit_tags: filled
-      ? [
-          { label: '소형견', score: 'good' },
-          { label: '대형견', score: 'good' },
-          { label: '검은 털', score: 'caution' },
-        ]
-      : [],
+    examples:
+      images === 'none'
+        ? []
+        : images === 'rich'
+          ? [
+              placeholderImage(card.name),
+              ...Array.from({ length: 5 }, (_, i) =>
+                placeholderImage(`${card.name} 예시 ${i + 2}`),
+              ),
+            ]
+          : [placeholderImage(card.name)],
+    /*
+      시드는 `fit_tags` 를 안 건드립니다(모델 기본값 `[]`). PR #141 이 채운 건 썸네일
+      뿐이라 **이건 여전히 빈 배열입니다** — 2026-08-24 실측으로 확인했습니다. 채우는
+      경로는 admin API 인데 아직 501 이라, 운영도 넣을 수 없습니다.
+    */
+    fit_tags:
+      images === 'rich'
+        ? [
+            { label: '소형견', score: 'good' },
+            { label: '대형견', score: 'good' },
+            { label: '검은 털', score: 'caution' },
+          ]
+        : [],
     avg_duration_seconds: 24, // 시드가 안 건드리는 컬럼 기본값(app/models.py avg_seconds).
     output_count: 1, // Q4 확정 — 1요청 1장(§3 예시도 1).
     // 상세는 카드와 같은 값을 냅니다(app/routers/styles.py 의 두 응답 모델).
