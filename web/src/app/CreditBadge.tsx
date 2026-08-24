@@ -11,6 +11,12 @@
  *
  * 쿼리는 이 컴포넌트가 직접 구독합니다. 세 화면이 같은 queryKey 를 보므로
  * react-query 가 요청을 합쳐 주고, 화면 쪽에는 배지용 상태가 남지 않습니다.
+ *
+ * 읽어 주는 말은 `aria-label` 이 아니라 **`sr-only` 텍스트**입니다. `<span>` 은 role 이
+ * 없는 generic 이고 ARIA 는 generic 에 이름 붙이는 것을 금지합니다 — 그래서 예전의
+ * `aria-label="보유 크레딧 1개"` 는 접근성 트리에서 그냥 버려졌고, 스크린리더는 «◆ 1»
+ * 을 그대로 읽었습니다(기호는 «검은 다이아몬드» 로 읽히거나 조용히 넘어갑니다).
+ * 값이 «—» 일 때가 특히 나쁩니다 — 모른다는 사실이 읽히지 않고 대시 하나만 남습니다.
  */
 
 import { useCredits } from '../api/queries'
@@ -28,10 +34,14 @@ export function CreditBadge({ showUnit = false }: { showUnit?: boolean }) {
       className={`ml-auto rounded-full border px-3 py-1 font-mono text-sm tabular-nums ${
         balance === null ? 'border-rule bg-surface-2 text-ink-3' : 'border-gold bg-gold-soft'
       }`}
-      aria-label={balance === null ? '보유 크레딧을 불러오지 못했습니다' : `보유 크레딧 ${balance}개`}
     >
-      ◆ {balance ?? '—'}
-      {showUnit && ' 크레딧'}
+      <span aria-hidden>
+        ◆ {balance ?? '—'}
+        {showUnit && ' 크레딧'}
+      </span>
+      <span className="sr-only">
+        {balance === null ? '보유 크레딧을 불러오지 못했습니다' : `보유 크레딧 ${balance}개`}
+      </span>
     </span>
   )
 }
