@@ -235,10 +235,11 @@ async def process_job(job: dict, *, lease: bool = True) -> None:
                 pet_name = (pet_profile.name if pet_profile is not None else None) or "우리 아이"
                 prompt = prompt.replace("[pet name]", pet_name)
             if "[breed]" in prompt:
-                breed = (
-                    pet_profile.breed_label if pet_profile is not None else None
-                ) or "강아지"
-                prompt = prompt.replace("[breed]", breed)
+                breed = pet_profile.breed_label if pet_profile is not None else None
+                estimate = generation_job.source_image.breed_estimate
+                if not breed and isinstance(estimate, dict):
+                    breed = estimate.get("label")
+                prompt = prompt.replace("[breed]", breed or "강아지")
             input_fields = generation_job.style.input_fields
             if input_fields:
                 # 원문 프롬프트가 "written above"로 참조하는 사용자 선택 블록 복원
