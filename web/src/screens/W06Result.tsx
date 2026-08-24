@@ -47,6 +47,7 @@ import {
   initialInputValues,
   inputErrors,
   inputsForRequest,
+  restoredInputValues,
 } from '../app/styleInputs'
 import Thumbnail from '../app/Thumbnail'
 import type { Job, JobErrorCode } from '../api/types'
@@ -595,25 +596,24 @@ function Regenerate({ job, label, hint }: { job: Job; label: string; hint?: stri
   )
 
   /*
-    스타일 입력 스키마 (이슈 #114 → #127).
+    스타일 입력 스키마 (이슈 #114 → #127 착지).
 
-    이 job 이 **어떤 값으로** 만들어졌는지는 아직 아무도 못 답합니다 — 서버는 저장은
-    하지만(`generation_job.input_values`) 응답에 싣지 않고(#127), 그 값을 아는 건 만든
-    브라우저뿐이라 localStorage 로 메우는 건 #81 이 지운 후퇴입니다. 그래서 되살리는
-    대신 **다시 고르게** 합니다: 어떤 칸이 있는지는 스타일이 답하므로(`input_fields`),
-    그 칸을 여기 그려 놓고 실제로 나갈 값을 보여 줍니다.
+    이제 이 job 이 **어떤 값으로** 만들어졌는지 서버가 답합니다(`job.inputs`, 백엔드
+    PR #139). 그 전까지는 되살리는 대신 다시 고르게 하고 «기본값으로 시작해요» 를
+    적어 두는 것이 최선이었습니다 — 값을 못 되살리는 것과 **말없이 바꾸는 것**은 다른
+    문제라, 뒤엣것만 계약 없이 닫아 둔 상태였습니다. 이제 앞엣것도 닫힙니다.
 
-    그냥 두면 요청에 `inputs` 가 안 실리고 서버가 스키마의 `default` 로 채웁니다 —
-    「히메갸루」로 만든 결과가 「2000년대 갸루」로 다시 만들어지고, 같은 버튼·같은
-    크레딧인데 화면에는 이유가 안 보입니다. 값을 못 되살리는 것과 **말없이 바꾸는
-    것**은 다른 문제이고, 뒤엣것은 계약 없이도 닫힙니다.
+    그래도 **스타일 상세는 계속 부릅니다.** `job.inputs` 는 「무엇으로 만들었나」만
+    답하고 「지금 무엇을 고를 수 있나」는 못 답하기 때문입니다 — 칸의 종류·선택지·
+    검증 규칙은 스타일 쪽에만 있습니다. 그리고 그 둘은 **어긋날 수 있습니다**: 운영이
+    job 이후에 칸을 바꾸면 `inputs` 에 없어진 라벨이 남습니다(그래서 아래
+    `restoredInputValues` 가 지금 스키마로 한 번 더 거릅니다).
 
-    #127 이 오면 아래 `initialInputValues(...)` 자리에 `job.inputs` 를 넣으면 됩니다 —
-    폼과 요청 조립은 그대로 쓰고, 접힌 줄 아래 «기본값으로 시작해요» 한 줄이 빠집니다.
-
-    상세 조회는 PR #83(`credit_cost`)으로 한 번 없앴던 그 호출입니다. 그때는 **값을
-    지어내지 않으려고** 부르던 것이라 계약이 답을 주자 사라졌지만, 여기서 묻는 건
-    값이 아니라 «이 스타일에 고를 게 있는가» 라서 job 응답으로는 답이 안 나옵니다.
+    합치는 순서가 규칙입니다 — 기본값 → 지난번 값 → 이 화면에서 고친 값.
+    `job.inputs` 를 그대로 폼 값으로 쓰면 안 되는 이유가 첫 항목입니다: `default` 가
+    없는 `prefill` 칸은 서버가 저장하지 않아(`_resolve_input_values` 가 `continue`)
+    `inputs` 에 **아예 없고**, 워커가 그때 강아지 이름으로 채웁니다. 그 칸을 비운 채
+    두면 이름이 인쇄되는 스타일에서 폼이 «우리 아이» 라고 잘못 말합니다.
   */
   const styleQuery = useStyleDetail(job.style_id)
   const fields = styleQuery.data?.input_fields ?? []
@@ -642,7 +642,9 @@ function Regenerate({ job, label, hint }: { job: Job; label: string; hint?: stri
     따라오고, 초기화 타이밍을 놓쳐 프리필이 영영 빈 칸으로 남는 경로가 없습니다.
     사용자가 지운 칸은 `edits` 에 `''` 로 남으므로 기본값이 도로 덮지 않습니다.
   */
-  const values = { ...initialInputValues(fields, petName), ...edits }
+  // 지난번 값 — 지금 스키마에 있는 칸만(app/styleInputs.ts 주석의 «어긋날 수 있다»).
+  const restored = restoredInputValues(fields, job.inputs)
+  const values = { ...initialInputValues(fields, petName), ...restored, ...edits }
   const problems = inputErrors(fields, values)
   // 아직 안 만진 칸에 미리 빨간 줄을 긋지 않는 규칙도 W-04 와 같습니다 — 프리필이
   // 규칙을 어기는 경우가 실제로 있어서(«입덕직캠» 3자 제한) 도착하자마자 나무라게 됩니다.
@@ -769,9 +771,28 @@ function Regenerate({ job, label, hint }: { job: Job; label: string; hint?: stri
               {optionsOpen ? '접기' : '변경'}
             </button>
           </div>
-          {/* #127 이 오기 전까지 이 값은 «지난번 그 값» 이 아니라 스키마 기본값입니다.
-              적어 두지 않으면 접힌 줄이 방금 만든 그림의 설정처럼 읽힙니다. */}
-          <p className="mt-0.5 text-xs text-ink-3">지난번 값은 불러올 수 없어 기본값이에요</p>
+          {/*
+            접힌 줄의 값이 **어디서 온 것인지** 한 줄로 말합니다. 세 경우가 다릅니다.
+
+            1. 서버가 값을 모름(`inputs: null`) — 옛 job 이거나 응답이 이 필드를 갖기
+               전에 만든 job 입니다. 이때는 기본값이므로 그렇다고 적습니다. 안 적으면
+               접힌 줄이 방금 만든 그림의 설정처럼 읽힙니다.
+            2. 지난번 값을 불러옴 — 그 사실을 적습니다. «다시 만들기» 가 같은 설정으로
+               도는지가 이 버튼을 누를지 말지의 판단 기준입니다(이슈 #127).
+            3. 사용자가 이 화면에서 고침 — 아무 줄도 안 답니다. 지금 값은 방금 본인이
+               고른 것이고 접힌 줄이 이미 그걸 말합니다. 여기서 «불러왔어요» 를 계속
+               띄우면 고친 값을 두고 지난번 값이라고 말하는 셈입니다.
+
+            2 번에서 `restored` 가 비어 있을 수 있습니다 — 칸이 전부 `default` 없는
+            `prefill` 이면 서버가 저장할 값이 없어 `inputs` 가 `{}` 입니다. 그때는
+            불러올 것도 잃을 것도 없으므로(이름은 `pet_id` 로 같은 값이 나옵니다)
+            역시 아무 줄도 안 답니다.
+          */}
+          {job.inputs === null ? (
+            <p className="mt-0.5 text-xs text-ink-3">지난번 값은 불러올 수 없어 기본값이에요</p>
+          ) : Object.keys(edits).length === 0 && Object.keys(restored).length > 0 ? (
+            <p className="mt-0.5 text-xs text-ink-3">지난번에 만든 값 그대로예요</p>
+          ) : null}
           <div id={formId} hidden={!optionsOpen}>
             {optionsOpen && (
               <StyleInputForm

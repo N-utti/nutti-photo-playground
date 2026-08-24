@@ -343,6 +343,25 @@ export interface Job {
    */
   custom_prompt: string | null
   /**
+   * 이 job 이 실제로 쓴 스타일 입력값 (이슈 #127 → 백엔드 PR #139).
+   *
+   * `POST /v1/jobs` 로 **보낸 값이 아니라 서버가 판정한 최종 값**입니다
+   * (`app/routers/jobs.py` `_resolve_input_values` → `generation_job.input_values`).
+   * 셋이 다릅니다:
+   *   - 스키마에 없는 라벨은 빠져 있습니다(서버가 버립니다)
+   *   - 안 보낸 칸에 `default` 가 있으면 **그 기본값이 들어가 있습니다**
+   *   - `default` 도 없는 `prefill` 칸은 **아예 없습니다** — 워커가 그때 강아지 이름
+   *     으로 채우므로 job 이 만들어지는 시점에는 값이 정해지지 않습니다(app/worker.py)
+   *
+   * 마지막 항목 때문에 이 값을 «폼의 완성된 초기값» 으로 그대로 쓰면 안 됩니다. 빠진
+   * 칸은 `initialInputValues` 가 채우던 그 규칙으로 다시 채워야 같은 그림이 나옵니다
+   * (screens/W06Result.tsx `Regenerate`).
+   *
+   * `null` 인 경우: 커스텀 job(`style_id: null`)이거나, 스타일에 `input_fields` 가
+   * 없는 경우입니다. 즉 고를 게 있는 스타일이면 최소한 `{}` 는 옵니다.
+   */
+  inputs: Record<string, string> | null
+  /**
    * 이 job 이 실제로 차감한 크레딧(이슈 #81). 스타일 비용은 스타일마다 다르고
    * 커스텀은 2 라(FR-W08-04) 화면이 «다시 만들기»의 값을 지어내지 않으려면 이 값이
    * 필요합니다.

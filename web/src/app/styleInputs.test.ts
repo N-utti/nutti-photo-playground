@@ -20,6 +20,7 @@ import {
   inputErrors,
   inputsForRequest,
   repriseWithPetName,
+  restoredInputValues,
 } from './styleInputs'
 
 /** 「띠부씰」 — 4자리 숫자 패턴 + 이름 4자 제한(둘 다 실제 매니페스트). */
@@ -167,5 +168,50 @@ describe('inputErrors · inputsForRequest', () => {
   it('보낼 값이 없으면 아예 생략한다', () => {
     expect(inputsForRequest([], {})).toBeUndefined()
     expect(inputsForRequest([SHORT_NAME], { [SHORT_NAME.label]: '  ' })).toBeUndefined()
+  })
+})
+
+describe('restoredInputValues', () => {
+  it('서버가 값을 모르면 빈 객체다 — 기본값이 그대로 살아야 한다', () => {
+    // `null` 은 이 필드가 생기기 전에 만든 job(백엔드 PR #139) 또는 커스텀 job 입니다.
+    expect(restoredInputValues([CLOSED_CHOICE], null)).toEqual({})
+    expect(restoredInputValues([CLOSED_CHOICE], undefined)).toEqual({})
+  })
+
+  it('지난번 값을 그대로 돌려준다', () => {
+    expect(restoredInputValues([CLOSED_CHOICE], { [CLOSED_CHOICE.label]: '90년대 코갸루' })).toEqual({
+      [CLOSED_CHOICE.label]: '90년대 코갸루',
+    })
+  })
+
+  it('지금 스키마에 없는 라벨은 버린다', () => {
+    /*
+      `inputs` 는 job 을 만들던 시점의 스키마로 판정된 값이라, 운영이 그 뒤 칸을 바꾸면
+      없어진 라벨이 남습니다. 안 버리면 접힌 줄에는 적히는데 `inputsForRequest` 는
+      안 싣고, 실려도 서버가 조용히 버립니다 — 화면과 요청이 갈라집니다.
+    */
+    expect(
+      restoredInputValues([CLOSED_CHOICE], {
+        [CLOSED_CHOICE.label]: '히메갸루',
+        [OPEN_CHOICE.label]: '버섯',
+      }),
+    ).toEqual({ [CLOSED_CHOICE.label]: '히메갸루' })
+  })
+
+  it('빈 값은 되살리지 않는다 — 기본값을 빈 칸으로 덮으면 안 된다', () => {
+    // 서버는 빈 값을 저장하지 않지만, 들어와도 `default` 가 있는 칸을 비우면 화면만
+    // 비어 보이고 결과에는 default 가 나옵니다.
+    expect(restoredInputValues([SERIAL], { [SERIAL.label]: '   ' })).toEqual({})
+  })
+
+  it('스키마에 있어도 `inputs` 에 없는 칸은 안 만든다', () => {
+    /*
+      `default` 없는 `prefill` 칸이 그렇습니다 — 서버가 저장하지 않아 응답에 없고,
+      그 자리는 `initialInputValues` 가 강아지 이름으로 채웁니다. 여기서 빈 문자열을
+      만들어 두면 그 이름을 덮어써서 폼이 «우리 아이» 라고 잘못 말하게 됩니다.
+    */
+    expect(restoredInputValues([SHORT_NAME, SERIAL], { [SERIAL.label]: '0103' })).toEqual({
+      [SERIAL.label]: '0103',
+    })
   })
 })

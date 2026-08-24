@@ -33,6 +33,7 @@ function failedJob(errorCode: string): Job {
     upload_id: 'up_01HQZX',
     pet_id: null,
     custom_prompt: null,
+    inputs: null,
     // 실패해도 0 이 되지 않습니다 — 반환은 별도 트랜잭션이라 이 값은 그대로입니다.
     credit_cost: 1,
     queued_at: at,

@@ -106,6 +106,17 @@ interface MockJob {
    * 서버는 `CustomPromptLog.raw_text` 를 그대로 주므로 **앞뒤 공백까지 원문**입니다.
    */
   customPrompt?: string | null
+  /**
+   * 이 job 이 실제로 쓴 스타일 입력값 (이슈 #127 → 백엔드 PR #139).
+   *
+   * **검증을 통과한 최종 값**이지 보낸 값이 아닙니다 — `default` 병합·`trim` 이 끝난
+   * 상태이고, `default` 없는 `prefill` 칸은 들어 있지 않습니다(워커가 채웁니다).
+   *
+   * 옵셔널인 이유는 옛 저장분입니다(`persistJobs`). 이 필드가 생기기 전에 만든 job 은
+   * `undefined` 라, 응답에서는 `null` 로 떨어집니다 — 즉 «값을 모른다» 가 되고 화면은
+   * 기본값으로 시작합니다. 서버에서도 옛 job 이 같은 모양이 될 수 있습니다.
+   */
+  inputs?: Record<string, string> | null
   /** 재료 참조(이슈 #9 A안) — 스펙 §3 이 job 응답에 그대로 싣기로 확정한 값입니다. */
   styleId: number | null
   uploadId: string
@@ -607,6 +618,13 @@ function projectJob(job: MockJob): Job {
       모양이 됩니다. 화면은 그 경우 문구 없는 재생성 대신 «다른 스타일»로 보냅니다.
     */
     custom_prompt: job.customPrompt ?? null,
+    /*
+      이슈 #127 → 백엔드 PR #139. W-06 «다시 만들기» 가 지난번 값을 되살리는 재료입니다.
+
+      옛 저장분(`undefined`)은 `null` 로 떨어뜨립니다 — 빈 객체로 만들면 «고를 게 있는
+      스타일인데 아무 값도 안 썼다» 는, 서버가 낼 수 없는 상태가 됩니다.
+    */
+    inputs: job.inputs ?? null,
     credit_cost: job.creditCost,
     queued_at: new Date(job.createdAt).toISOString(),
     started_at:
@@ -754,6 +772,9 @@ function seededJob(jobId: string): Job | null {
       스타일»을 그립니다 — 보관함에서 연 결과의 실제 동선이 그쪽입니다.
     */
     custom_prompt: null,
+    // 위와 같은 이유로 null 입니다. `style_id` 가 null 이면 서버도 `input_values` 를
+    // 만들지 않으므로(app/routers/jobs.py), 이 둘이 함께 null 인 게 계약상 정합입니다.
+    inputs: null,
     credit_cost: 1,
     // 시드는 이미 끝난 job 이라 두 시각이 같습니다 — 보관함에서 여는 결과의 경과는
     // 아무도 세지 않습니다(W-05 를 거치지 않음).
@@ -1177,6 +1198,19 @@ export const handlers = [
       보는 동안 «내가 보낸 값이 왜 안 먹지» 를 추적할 단서가 아무 데도 안 남습니다.
     */
     const inputFields = styleDetailFor(body.style_id ?? -1)?.input_fields ?? []
+    /*
+      검증을 통과한 **최종 값**. 서버의 `_resolve_input_values` 반환값과 같은 것이고,
+      `generation_job.input_values` 에 저장돼 나중에 job 응답의 `inputs` 로 나옵니다
+      (백엔드 PR #139 · 이슈 #127).
+
+      «보낸 값» 과 다른 지점이 둘입니다 — 안 보낸 칸에 `default` 가 있으면 그 값이
+      **들어가고**, `default` 없는 `prefill` 칸은 **안 들어갑니다**(워커가 그때
+      강아지 이름으로 채웁니다). 목이 이걸 그대로 흉내 내지 않으면 W-06 «다시 만들기»
+      의 복원이 목에서만 완벽해집니다.
+
+      `null` 은 «고를 게 없는 스타일 · 커스텀 job» 입니다. 빈 객체와 다릅니다.
+    */
+    let resolvedInputs: Record<string, string> | null = null
     if (inputFields.length > 0) {
       const labels = new Set(inputFields.map((field) => field.label))
       const unknown = Object.keys(body.inputs ?? {})
@@ -1185,10 +1219,14 @@ export const handlers = [
       if (unknown.length > 0) {
         console.info('[mock] 스키마에 없는 입력 라벨을 무시합니다:', unknown)
       }
+      resolvedInputs = {}
       for (const field of inputFields) {
         const value = (body.inputs?.[field.label] ?? '').trim()
         // 빈 값은 서버가 default 로 채웁니다 — 검증 대상이 아닙니다.
-        if (!value) continue
+        if (!value) {
+          if (field.default) resolvedInputs[field.label] = field.default
+          continue
+        }
         const reason =
           field.max_length && [...value].length > field.max_length
             ? 'max_length'
@@ -1205,6 +1243,8 @@ export const handlers = [
             reason,
           })
         }
+        // 서버도 `trim()` 한 값을 저장합니다 — 원문이 아니라 이 값이 워커에게 갑니다.
+        resolvedInputs[field.label] = value
       }
     }
 
@@ -1225,6 +1265,8 @@ export const handlers = [
       // 그대로 싣습니다(PR #83 테스트가 `"  우주복을 입혀줘  "` 로 못 박음). 여기서
       // trim 하면 목만 다듬은 문구를 주게 되고, 화면이 그 차이를 못 밟습니다.
       customPrompt: body.custom_prompt,
+      // 보낸 값이 아니라 위에서 판정한 최종 값입니다(서버 `_resolve_input_values`).
+      inputs: resolvedInputs,
       styleId: body.style_id,
       uploadId: body.upload_id,
       petId: body.pet_id ?? null,
