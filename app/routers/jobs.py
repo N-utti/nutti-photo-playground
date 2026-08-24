@@ -27,6 +27,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
+# 커스텀 프롬프트 job(연결된 style 없음)용 폴백 — seed의 실측값과 동일.
+_DEFAULT_AVG_SECONDS = 48
+
 # ponytail: v1 하드코딩 키워드, 운영 데이터로 확장 예정.
 _CUSTOM_PROMPT_BLOCKLIST = (
     "품종",
@@ -266,9 +269,17 @@ async def get_job(job_id: str, member: Member = Depends(get_current_member)):
     progress = eta_seconds = status_message = results = error_code = None
     if job.status == JobStatus.QUEUED:
         progress = 0
-        eta_seconds = job.style.avg_seconds if job.style is not None else 24
+        eta_seconds = (
+            job.style.avg_seconds
+            if job.style is not None
+            else _DEFAULT_AVG_SECONDS
+        )
     elif job.status == JobStatus.PROCESSING:
-        avg = job.style.avg_seconds if job.style is not None else 24
+        avg = (
+            job.style.avg_seconds
+            if job.style is not None
+            else _DEFAULT_AVG_SECONDS
+        )
         elapsed = (
             max(0, (datetime.now(timezone.utc) - job.started_at).total_seconds())
             if job.started_at is not None

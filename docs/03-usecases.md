@@ -71,7 +71,7 @@
 - **대안 흐름**(엣지 매핑)
   - **A1 = FR-EDGE-03 (크레딧 부족, P0)**: `POST /v1/jobs` 이전(또는 응답)에서 잔액 부족 감지 → job을 만들지 않고 "크레딧 받기" 시트를 인라인 오버레이로 표시(UC-09 재사용, 주문 보상이 최상단) → 크레딧 획득 후 **동일 Idempotency-Key로 재시도**.
   - **A2 = FR-EDGE-01 (생성 실패 · 모델 오류, P0)**: `running → failed`, 크레딧 자동 반환(`credit_ledger.dedupe_key = refund:<job_uuid>`), 실패 안내 + 재시도 버튼 노출, 원본 이미지는 유지.
-  - **A3 = FR-EDGE-02 (타임아웃 60초 초과, P0)**: `running`이 60초를 넘기면 `background`로 전환(상태값은 유지, 정상 차감 확정) — 사용자는 "알림 받고 나가기"로 이탈 가능, 서버는 계속 처리하고 재방문 시 동일 `job_id`로 상태 복원(§2 상태머신 참고).
+  - **A3 = FR-EDGE-02 (타임아웃 90초 초과, P0)**: `running`이 90초를 넘기면 `background`로 전환(상태값은 유지, 정상 차감 확정) — 사용자는 "알림 받고 나가기"로 이탈 가능, 서버는 계속 처리하고 재방문 시 동일 `job_id`로 상태 복원(§2 상태머신 참고).
   - A4 = FR-EDGE-13 (부적절한 커스텀 프롬프트, P0, W-08 경유): 커스텀 프롬프트 생성 시에만 해당 — 상세 흐름은 UC-08.
 
 ### UC-05 · 결과 확인 ([#p06](wireframe-spec-v0.5.html#p06))
@@ -111,7 +111,7 @@ stateDiagram-v2
     [*] --> queued: POST /v1/jobs (Idempotency-Key)\n크레딧 차감(트랜잭션)
     queued --> running: 워커가 lease 획득\n(lease_expires_at 설정, attempt_count+1)
     running --> queued: lease 만료(워커 장애)\n자동 회수 · attempt_count 유지
-    running --> running: 60초 초과 → background 전환\n(status 값은 running 유지, 정상 차감 확정)
+    running --> running: 90초 초과 → background 전환\n(status 값은 running 유지, 정상 차감 확정)
     running --> succeeded: 모델 응답 성공
     running --> failed: 모델 오류
     running --> safety_blocked: 생성 후 안전 필터 차단
@@ -122,7 +122,7 @@ stateDiagram-v2
 
 - **queued → running**: 워커가 Postgres `FOR UPDATE SKIP LOCKED` 큐에서 job을 집어 `lease_expires_at`을 설정.
 - **running → queued (lease 회수)**: 워커가 죽거나 `lease_expires_at`을 넘기면 다른 워커가 같은 job을 재시도(`attempt_count` 증가). 무한 재시도 방지 임계는 구현 시 결정.
-- **background 전환(FR-EDGE-02)**: 60초를 넘겨도 실패가 아니라 "진행 중"이 이어지는 것 — 클라이언트 UX만 백그라운드 모드로 바뀌고 서버 상태값은 `running`을 유지. 완료되면 `succeeded`/`failed`로 정상 전이.
+- **background 전환(FR-EDGE-02)**: 90초를 넘겨도 실패가 아니라 "진행 중"이 이어지는 것 — 클라이언트 UX만 백그라운드 모드로 바뀌고 서버 상태값은 `running`을 유지. 완료되면 `succeeded`/`failed`로 정상 전이.
 - **failed(FR-EDGE-01) / safety_blocked(FR-EDGE-13)**: 둘 다 크레딧을 즉시 자동 반환. `dedupe_key`가 다르면 (`job:<uuid>` 최초 차감과 `refund:<uuid>` 반환) 별개 원장 행이므로 중복 반환은 발생하지 않음. 위 상태머신은 개념 모델이며, DB 저장값은 `status='failed'` + `error_code='SAFETY_BLOCKED'`로 압축 표현됨([04-erd.md](04-erd.md) §2.6 상태 모델링 노트).
 
 ---

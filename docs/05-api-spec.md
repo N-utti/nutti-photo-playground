@@ -90,7 +90,7 @@
 | 적용 예시 캐러셀(6장) | `GET /v1/styles/{style_id}` → `examples[]` |
 | 타이틀·크레딧 비용 | `GET /v1/styles/{style_id}` → `name`, `credit_cost` |
 | 적합도 태그 칩(소형견◎/대형견◎/검은털△) | `GET /v1/styles/{style_id}` → `fit_tags[]` |
-| "평균 24초 · 1장 생성" | `GET /v1/styles/{style_id}` → `avg_duration_seconds`, `output_count` |
+| "평균 48초 · 1장 생성" | `GET /v1/styles/{style_id}` → `avg_duration_seconds`, `output_count` |
 | "이 스타일로 만들기" | 네비게이션(W-04로), 생성 자체는 `POST /v1/jobs` |
 
 ### W-04 · 사진 업로드 · 품질 체크 ([#p04](wireframe-spec-v0.5.html#p04))
@@ -525,10 +525,10 @@
 
 `style_id`·`upload_id`·`pet_id`(이슈 #9 A안): 이 job을 만든 재료 참조. W-06 "다시 만들기"(같은 재료 + 새 Idempotency-Key)와 "이 사진으로 다른 스타일"(같은 `upload_id` + 다른 `style_id`)이 이 세 필드로 `POST /v1/jobs`를 재조립합니다(FR-W06-04·FR-W06-07). 커스텀 프롬프트 job은 `style_id: null`, 펫 프로필이 연결되지 않은 이미지는 `pet_id: null`.
 
-`queued_at`·`started_at`(이슈 #41, 2026-08-10 확정): 모든 job 응답에 포함되는 ISO 8601 시각 — `started_at`은 워커가 집기 전까지 `null`. FR-EDGE-02(60초 초과 → 백그라운드 전환) 판정은 **`started_at` 기준**입니다(큐 대기 시간 불포함 — NFR-PERF-01의 "생성 처리" 정의와 일치). 프론트의 localStorage `startedAt` 색인은 이 필드로 대체.
+`queued_at`·`started_at`(이슈 #41, 2026-08-10 확정): 모든 job 응답에 포함되는 ISO 8601 시각 — `started_at`은 워커가 집기 전까지 `null`. FR-EDGE-02(90초 초과 → 백그라운드 전환) 판정은 **`started_at` 기준**입니다(큐 대기 시간 불포함 — NFR-PERF-01의 "생성 처리" 정의와 일치). 프론트의 localStorage `startedAt` 색인은 이 필드로 대체.
 
 ```json
-// 200 — 진행 중(60초 이내)
+// 200 — 진행 중(90초 이내)
 {
   "job_id": "b3e13c4a-2f1e-4a3a-9b1e-1234567890ab",
   "status": "processing",
@@ -790,7 +790,7 @@
 
 1. `POST /v1/jobs`(헤더 `Idempotency-Key: <새 UUID>`) → 202, `{job_id, status: "queued"}`.
 2. `GET /v1/jobs/{job_id}`를 **2초 간격, 지수 백오프(2s → 4s → 8s …)**로 폴링. 서버는 큐 길이 기반으로 `eta_seconds`·`progress`를 계산.
-3. `status`가 `processing`으로 60초를 넘겨도 실패가 아님 — W-05 "알림 받고 나가기"로 이탈 가능. 서버는 계속 처리, 재조회 시 상태가 그대로 복원.
+3. `status`가 `processing`으로 90초를 넘겨도 실패가 아님 — W-05 "알림 받고 나가기"로 이탈 가능. 서버는 계속 처리, 재조회 시 상태가 그대로 복원.
 4. `status: "succeeded"` → `results[]`(1장) 반환, W-06 전환.
 5. `status: "failed"` → `error_code`(`GENERATION_FAILED` 또는 `SAFETY_BLOCKED`) 포함, 크레딧 자동 반환(`credit_ledger`에 `refund:<job_uuid>` 기록) — 사용자는 별도 요청 없이 `GET /v1/credits`에서 반환된 잔액 확인.
 
@@ -837,7 +837,7 @@ W-11 프롬프트 운영 콘솔 전용. 별도 인증 경계(`admin_user` 세션
       "sort_order": 1,
       "credit_cost": 1,
       "output_count": 1,
-      "avg_seconds": 24,
+      "avg_seconds": 48,
       "selection_rate": 0.184,
       "share_rate": 0.41,
       "shop_click_rate": 0.12
@@ -851,7 +851,7 @@ W-11 프롬프트 운영 콘솔 전용. 별도 인증 경계(`admin_user` 세션
       "sort_order": 4,
       "credit_cost": 2,
       "output_count": 1,
-      "avg_seconds": 24,
+      "avg_seconds": 48,
       "selection_rate": 0.097,
       "share_rate": 0.08,
       "shop_click_rate": 0.02
@@ -871,7 +871,7 @@ W-11 프롬프트 운영 콘솔 전용. 별도 인증 경계(`admin_user` 세션
   "section": "직업",
   "credit_cost": 1,
   "output_count": 1,
-  "avg_seconds": 24,
+  "avg_seconds": 48,
   "progress_message": null,
   "fit_tags": [],
   "example_keys": []
@@ -888,7 +888,7 @@ W-11 프롬프트 운영 콘솔 전용. 별도 인증 경계(`admin_user` 세션
   "sort_order": 0,
   "credit_cost": 1,
   "output_count": 1,
-  "avg_seconds": 24,
+  "avg_seconds": 48,
   "progress_message": null,
   "fit_tags": [],
   "example_keys": [],
@@ -915,7 +915,7 @@ W-11 프롬프트 운영 콘솔 전용. 별도 인증 경계(`admin_user` 세션
   "sort_order": 0,
   "credit_cost": 1,
   "output_count": 1,
-  "avg_seconds": 24,
+  "avg_seconds": 48,
   "progress_message": null,
   "fit_tags": [],
   "example_keys": [],
@@ -939,7 +939,7 @@ W-11 프롬프트 운영 콘솔 전용. 별도 인증 경계(`admin_user` 세션
   "sort_order": 0,
   "credit_cost": 1,
   "output_count": 1,
-  "avg_seconds": 24,
+  "avg_seconds": 48,
   "updated_at": "2026-08-03T11:00:00+09:00"
 }
 ```

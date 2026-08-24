@@ -73,6 +73,7 @@ async def test_seed_from_dir_creates_records_and_is_idempotent(tmp_path: Path):
     assert styles["3D_피규어"].name == "3D 피규어"
     assert styles["3D_피규어"].section == "피규어·장난감"
     assert styles["3D_피규어"].credit_cost == 1
+    assert styles["3D_피규어"].avg_seconds == 48
     assert styles["3D_피규어"].sort_order == 0
     assert styles["3D_피규어"].status == StyleStatus.PUBLIC
     assert styles["레고"].sort_order == 1
@@ -98,6 +99,7 @@ async def test_seed_from_dir_creates_records_and_is_idempotent(tmp_path: Path):
     assert second == {"created": 0, "skipped": 4}
     refreshed = await Style.get(code="견생네컷")
     assert refreshed.input_fields == manifest["견생네컷"]
+    assert refreshed.avg_seconds == 48
     assert await Style.all().count() == 4
     assert await StylePromptVersion.all().count() == 4
 

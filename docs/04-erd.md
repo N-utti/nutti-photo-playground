@@ -66,7 +66,7 @@ erDiagram
         text status "draft/public/ab/retired"
         int sort_order
         int output_count "기본 1, Q4 확정"
-        int avg_seconds "기본 24"
+        int avg_seconds "기본 24(시드가 실측값 48로 백필)"
         text progress_message "NULL"
         jsonb fit_tags
         jsonb example_keys "R2 key 6개"
@@ -231,7 +231,7 @@ erDiagram
 | `status` | TEXT | NOT NULL, CHECK IN (`draft`,`public`,`ab`,`retired`) | |
 | `sort_order` | INT | NOT NULL DEFAULT 0 | 시즌 섹션 노출 순서(W-11에서 운영이 조정) |
 | `output_count` | INT | NOT NULL DEFAULT 1 | **Q4 확정(2026-08-04): 1요청 1장.** 컬럼은 산출 수 상향 대비로 유지 |
-| `avg_seconds` | INT | NOT NULL DEFAULT 24 | |
+| `avg_seconds` | INT | NOT NULL DEFAULT 24 | (시드가 실측값 48로 백필) |
 | `progress_message` | TEXT | NULL | W-05 스타일별 진행 문구 |
 | `fit_tags` | JSONB | NOT NULL DEFAULT `[]` | 적합도 태그(소형견◎ 등) |
 | `example_keys` | JSONB | NOT NULL DEFAULT `[]` | 적용 예시 이미지 R2 key 6개 |
@@ -292,7 +292,7 @@ erDiagram
 제약: **`UNIQUE(member_id, idempotency_key)`** — 전역 유니크가 아니라 회원 단위(§1 공통규약, 05-api-spec §1과 정합).
 인덱스: **`(status, lease_expires_at)`** — 06-architecture-deployment.md §2.1 `FOR UPDATE SKIP LOCKED` 폴링 쿼리가 이 인덱스를 스캔.
 
-> **상태 모델링 노트(03-usecases.md와의 정합)**: [03-usecases.md §2](03-usecases.md)의 상태머신은 `queued/running/succeeded/failed/safety_blocked`를 개념적으로 구분된 결과로 그립니다. DB 컬럼 레벨에서는 `status`가 `queued/processing/succeeded/failed` 4값만 가지고, **`safety_blocked`는 `status='failed'` + `error_code='SAFETY_BLOCKED'`로 표현**됩니다(별도 status 값이 아님) — 개념 모델과 구현 모델의 압축 차이이며 모순이 아닙니다. "타임아웃 → 백그라운드 전환"도 마찬가지로 별도 status 값 없이 `status='processing'`이 60초를 넘겨 유지되는 것으로 표현됩니다.
+> **상태 모델링 노트(03-usecases.md와의 정합)**: [03-usecases.md §2](03-usecases.md)의 상태머신은 `queued/running/succeeded/failed/safety_blocked`를 개념적으로 구분된 결과로 그립니다. DB 컬럼 레벨에서는 `status`가 `queued/processing/succeeded/failed` 4값만 가지고, **`safety_blocked`는 `status='failed'` + `error_code='SAFETY_BLOCKED'`로 표현**됩니다(별도 status 값이 아님) — 개념 모델과 구현 모델의 압축 차이이며 모순이 아닙니다. "타임아웃 → 백그라운드 전환"도 마찬가지로 별도 status 값 없이 `status='processing'`이 90초를 넘겨 유지되는 것으로 표현됩니다.
 
 ### 2.7 `generation_result` — 결과 이미지 N장
 
