@@ -1,3 +1,4 @@
+import logging
 import random
 import re
 import uuid
@@ -21,6 +22,8 @@ from app.models import (
     StylePromptVersion,
 )
 from app.storage import public_url
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -68,6 +71,7 @@ class JobResponse(BaseModel):
     status: str
     style_id: int | None
     custom_prompt: str | None
+    inputs: dict[str, str] | None
     credit_cost: int
     upload_id: str
     pet_id: str | None
@@ -103,7 +107,7 @@ def _resolve_input_values(
     labels = {field["label"] for field in input_fields}
     unknown = sorted(set(inputs) - labels)
     if unknown:
-        raise _validation_error({"unknown_inputs": unknown})
+        logger.info("Ignoring unknown job input labels: %s", unknown)
     resolved = {}
     for field in input_fields:
         label = field["label"]
@@ -290,6 +294,7 @@ async def get_job(job_id: str, member: Member = Depends(get_current_member)):
         "status": job.status.value,
         "style_id": job.style_id,
         "custom_prompt": custom_prompt,
+        "inputs": job.input_values,
         "credit_cost": job.credit_cost,
         "upload_id": str(job.source_image.id),
         "pet_id": str(job.source_image.pet_profile_id) if job.source_image.pet_profile_id else None,
