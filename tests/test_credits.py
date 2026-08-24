@@ -48,6 +48,10 @@ async def _set_credit_amounts():
     await AppSetting.create(key="daily_free_amount", value=4)
 
 
+async def _set_custom_prompt_credit_cost():
+    await AppSetting.create(key="custom_prompt_credit_cost", value="3")
+
+
 async def _member_and_entries(member_id: str):
     member = await Member.get(id=member_id)
     entries = await CreditLedger.filter(member_id=member_id).order_by("id")
@@ -63,6 +67,7 @@ def test_earn_actions_and_claims_transition_states(client: TestClient):
     assert before.status_code == 200
     assert before.json() == {
         "balance": 5,
+        "custom_prompt_credit_cost": 2,
         "earn_actions": [
             {"action": "order", "amount": 30, "status": "available", "cta": "쇼핑몰 →"},
             {"action": "link_account", "amount": 5, "status": "available", "cta": "연동하기"},
@@ -104,6 +109,7 @@ def test_guest_earn_actions_require_login(client: TestClient):
     assert response.status_code == 200
     assert response.json() == {
         "balance": 3,
+        "custom_prompt_credit_cost": 2,
         "earn_actions": [
             {"action": "order", "amount": 20, "status": "login_required", "cta": "로그인"},
             {
@@ -121,6 +127,16 @@ def test_guest_earn_actions_require_login(client: TestClient):
             {"action": "daily", "amount": 1, "status": "login_required", "cta": "로그인"},
         ],
     }
+
+
+def test_custom_prompt_credit_cost_uses_app_setting(client: TestClient):
+    _, headers = _session(client, MemberKind.MEMBER)
+    client.portal.call(_set_custom_prompt_credit_cost)
+
+    response = client.get("/v1/credits", headers=headers)
+
+    assert response.status_code == 200
+    assert response.json()["custom_prompt_credit_cost"] == 3
 
 
 def test_claim_rejects_duplicate_invalid_action_and_guest(client: TestClient):
