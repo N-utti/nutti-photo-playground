@@ -84,6 +84,7 @@ async def _preset_job(
     prompt_text: str = "수채화로 변환",
     pet_name: str | None = None,
     breed_label: str | None = None,
+    breed_estimate: dict | None = None,
     input_fields: list | None = None,
     input_values: dict | None = None,
 ):
@@ -104,6 +105,7 @@ async def _preset_job(
         pet_profile=pet_profile,
         storage_key=source_key,
         quality_check={},
+        breed_estimate=breed_estimate,
     )
     style = await Style.create(
         id=1,
@@ -322,6 +324,43 @@ async def test_preset_replaces_breed(monkeypatch: pytest.MonkeyPatch):
     await worker.process_job({"id": str(job.id)})
 
     assert "말티푸" in prompts[0]
+    assert "[breed]" not in prompts[0]
+
+
+async def test_preset_replaces_breed_falls_back_to_vision_estimate(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    _, job, original = await _preset_job(
+        prompt_text="[breed]을 수채화로 변환",
+        breed_estimate={"label": "토이푸들", "confidence": 0.9},
+    )
+    prompts = []
+
+    async def capture_prompt(_original, prompt, _style_name, model_config=None):
+        prompts.append(prompt)
+        return original
+
+    monkeypatch.setattr(worker, "_generate_image", capture_prompt)
+    await worker.process_job({"id": str(job.id)})
+
+    assert "토이푸들" in prompts[0]
+    assert "[breed]" not in prompts[0]
+
+
+async def test_preset_replaces_breed_defaults_without_estimate(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    _, job, original = await _preset_job(prompt_text="[breed]을 수채화로 변환")
+    prompts = []
+
+    async def capture_prompt(_original, prompt, _style_name, model_config=None):
+        prompts.append(prompt)
+        return original
+
+    monkeypatch.setattr(worker, "_generate_image", capture_prompt)
+    await worker.process_job({"id": str(job.id)})
+
+    assert "강아지" in prompts[0]
     assert "[breed]" not in prompts[0]
 
 
