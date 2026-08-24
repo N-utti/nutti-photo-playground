@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from tortoise.expressions import Q
 
 from app.auth import get_current_member
-from app.credits import grant_credits
+from app.credits import custom_prompt_credit_cost, grant_credits
 from app.models import AppSetting, CreditLedger, CreditReason, GenerationJob, Member, MemberKind
 
 router = APIRouter(prefix="/credits", tags=["credits"])
@@ -35,6 +35,7 @@ class EarnActionResponse(BaseModel):
 class CreditsResponse(BaseModel):
     balance: int
     earn_actions: list[EarnActionResponse]
+    custom_prompt_credit_cost: int
 
 
 class ClaimCreditRequest(BaseModel):
@@ -106,7 +107,11 @@ async def get_credits(member: Member = Depends(get_current_member)):
         for action in earn_actions:
             action.update(status="login_required", cta="로그인")
     # ponytail: API는 원장 캐시의 실제 값을 전달하고 화면용 0 클램프는 프론트에 맡긴다.
-    return {"balance": member.credit_balance, "earn_actions": earn_actions}
+    return {
+        "balance": member.credit_balance,
+        "earn_actions": earn_actions,
+        "custom_prompt_credit_cost": await custom_prompt_credit_cost(),
+    }
 
 
 @router.post("/claim", response_model=ClaimCreditResponse)

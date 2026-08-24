@@ -696,6 +696,7 @@
 // 200
 {
   "balance": 11,
+  "custom_prompt_credit_cost": 2,
   "earn_actions": [
     { "action": "order", "amount": 20, "status": "available", "cta": "쇼핑몰 →" },
     { "action": "link_account", "amount": 3, "status": "done", "cta": null },
@@ -704,6 +705,8 @@
   ]
 }
 ```
+custom_prompt_credit_cost는 app_setting 정책값이며, 미설정 시 2로 폴백한다.
+
 `status` 값: `available`(가능) / `done`(이미 완료, `link_account`·`follow_ig`처럼 1회 한정) / `tomorrow`(오늘 이미 받음, `daily` 전용) / `login_required`(게스트 — 크레딧 획득은 **회원 전용**, 이슈 #52).
 
 **게스트 응답**: 게스트에게는 4행 전부 `status: "login_required"`, `cta: "로그인"`으로 내려갑니다. 게스트가 `POST /v1/credits/claim`을 호출하면 `403 MEMBER_ONLY`(§1) — 401이 아니므로 게스트 세션은 유지됩니다.

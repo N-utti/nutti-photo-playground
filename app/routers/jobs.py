@@ -9,9 +9,8 @@ from pydantic import BaseModel
 from tortoise.transactions import in_transaction
 
 from app.auth import get_current_member
-from app.credits import charge_credits
+from app.credits import charge_credits, custom_prompt_credit_cost
 from app.models import (
-    AppSetting,
     CustomPromptLog,
     GenerationJob,
     GenerationResult,
@@ -191,8 +190,7 @@ async def create_job(
         if body.custom_prompt is None:
             raise _validation_error()
         style = prompt_version = None
-        setting = await AppSetting.get_or_none(key="custom_prompt_credit_cost")
-        cost = int(setting.value) if setting is not None else 2
+        cost = await custom_prompt_credit_cost()
         # ponytail: 과한 정규화 없이 원문의 앞뒤 공백 제거와 소문자화만 한다.
         normalized_text = body.custom_prompt.strip().lower()
         log_values = {

@@ -6,7 +6,7 @@ import uuid
 from tortoise.exceptions import IntegrityError
 from tortoise.transactions import in_transaction
 
-from app.models import CreditLedger, Member
+from app.models import AppSetting, CreditLedger, Member
 
 logger = logging.getLogger(__name__)
 
@@ -105,3 +105,8 @@ async def charge_credits(
     member.credit_balance = balance_after
     await member.save(update_fields=["credit_balance"], using_db=connection)
     return True, balance_after
+
+
+async def custom_prompt_credit_cost() -> int:
+    setting = await AppSetting.get_or_none(key="custom_prompt_credit_cost")
+    return int(setting.value) if setting is not None else 2
