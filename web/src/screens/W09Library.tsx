@@ -482,6 +482,8 @@ function SelectionBar({
   const [saving, setSaving] = useState(false)
   // 한 장이라도 저장이 아니라 «열기» 로 끝났으면 안내합니다 (saveImage 참고).
   const [opened, setOpened] = useState(false)
+  // 아예 못 받은 장수. 0 이 아니면 «다 됐다» 고 말하면 안 됩니다.
+  const [failedCount, setFailedCount] = useState(0)
   const disabled = items.length === 0 || pending || saving
 
   return (
@@ -494,8 +496,12 @@ function SelectionBar({
             onClick={() => {
               setSaving(true)
               setOpened(false)
+              setFailedCount(0)
               void saveAll(items)
-                .then(setOpened)
+                .then((result) => {
+                  setOpened(result.opened)
+                  setFailedCount(result.failed)
+                })
                 .finally(() => setSaving(false))
             }}
             className="flex-1 rounded-xl border border-rule-strong px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
@@ -519,6 +525,11 @@ function SelectionBar({
         {opened && (
           <p className="mt-2 text-center text-xs text-ink-3">
             일부는 새 탭에 열었어요 — 이미지를 길게 눌러 저장해 주세요.
+          </p>
+        )}
+        {failedCount > 0 && (
+          <p role="alert" className="mt-2 text-center text-sm text-danger">
+            {failedCount}장은 저장하지 못했어요.
           </p>
         )}
       </div>
@@ -551,7 +562,7 @@ function SelectionBar({
 }
 
 /**
- * 일괄 저장. 한 장이라도 저장이 아니라 «새 탭에 열기» 로 끝났으면 true.
+ * 일괄 저장. 어떻게 끝났는지를 장수로 돌려줍니다.
  *
  * 브라우저에는 "여러 파일을 한 번에 받기"가 없어서 한 장씩 순서대로 받는 게 전부입니다.
  * 사이에 간격을 두는 이유는 연속 클릭을 팝업 차단이 묶어서 막기 때문입니다.
@@ -560,15 +571,21 @@ function SelectionBar({
  * `download` 는 같은 출처에서만 먹어서 CDN 이 붙으면 저장이 «열기» 가 됩니다. 이제
  * fetch → blob 으로 받아 저장하고, CORS 가 아직 안 열려 실패한 것만 예전처럼 엽니다
  * (PR #78 이 CDN 설정 시 CORS 를 필수 조건으로 문서에 박아 뒀습니다).
+ *
+ * 못 받은 장수를 따로 세는 이유: 일괄 저장은 **일부만 실패하는 게 정상 경로**입니다
+ * (지워진 결과·만료된 서명이 섞입니다). 그걸 «열기» 와 한 칸에 담으면 20장을 고르고
+ * 3장을 잃은 사람에게 화면이 아무 말도 안 하게 됩니다.
  */
-async function saveAll(items: LibraryItem[]): Promise<boolean> {
+async function saveAll(items: LibraryItem[]): Promise<{ opened: boolean; failed: number }> {
   let opened = false
+  let failed = 0
   for (const item of items) {
     const outcome = await saveImage(item.image_url, `nutti-${item.result_id}.jpg`)
     if (outcome === 'opened') opened = true
+    if (outcome === 'failed') failed += 1
     await new Promise((resolve) => window.setTimeout(resolve, 300))
   }
-  return opened
+  return { opened, failed }
 }
 
 // ---------------------------------------------------------------- 빈 상태 · 게스트
