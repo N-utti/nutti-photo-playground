@@ -10,7 +10,7 @@
  *   upload:warn | upload:nodog | upload:multi | upload:face | upload:face-block | upload:block
  *   job:fail | job:safety | job:retries | job:unknown-error | job:flaky | job:slow | job:queued
  *   credit:empty
- *   styles:filled
+ *   styles:no-images | styles:rich
  *   session:expired | guest:ratelimited | session:lost | auth:statefail | cafe24:linked
  *   refresh:fail | refresh:429
  *
@@ -41,7 +41,7 @@ import {
   petList,
   placeholderImage,
   styleCatalog,
-  styleCatalogFilled,
+  styleCatalogNoImages,
   styleDetailFor,
   uploadBlocked,
   uploadHumanFaceBlocked,
@@ -1015,8 +1015,9 @@ export const handlers = [
     const section = url.searchParams.get('section')
     const limit = Number(url.searchParams.get('limit')) || undefined
 
-    // 예시 이미지는 시드 이후의 운영 작업이라 기본은 빈 상태입니다(mocks/fixtures.ts).
-    const catalog = scenario() === 'styles:filled' ? styleCatalogFilled : styleCatalog
+    // 기본은 **지금 실서버 그대로** — 시드가 썸네일을 채웁니다(PR #141, mocks/fixtures.ts).
+    // 예시 이미지가 없는 스타일은 계약상 여전히 가능해서 시나리오로 남겨 뒀습니다.
+    const catalog = scenario() === 'styles:no-images' ? styleCatalogNoImages : styleCatalog
 
     let sections = catalog.sections
     if (section === 'popular') {
@@ -1046,8 +1047,13 @@ export const handlers = [
 
   http.get(`${BASE}/styles/:styleId`, async ({ params }) => {
     await delay(120)
-    // 상세의 예시·궁합 태그도 카탈로그 썸네일과 같은 스위치를 봅니다(fixtures.ts).
-    const detail = styleDetailFor(Number(params.styleId), scenario() === 'styles:filled')
+    // 상세의 예시는 카탈로그 썸네일과 **같은 `example_keys`** 에서 나오므로 같은
+    // 시나리오를 봅니다 — 한쪽만 채우면 서버가 낼 수 없는 조합이 됩니다(fixtures.ts).
+    const forced = scenario()
+    const detail = styleDetailFor(
+      Number(params.styleId),
+      forced === 'styles:no-images' ? 'none' : forced === 'styles:rich' ? 'rich' : 'seeded',
+    )
     if (!detail) return apiError(404, 'NOT_FOUND', '스타일을 찾을 수 없습니다')
     return HttpResponse.json(detail)
   }),

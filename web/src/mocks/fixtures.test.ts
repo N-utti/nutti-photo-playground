@@ -28,7 +28,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { styleCatalog } from './fixtures'
+import { styleCatalog, styleCatalogNoImages, styleDetailFor } from './fixtures'
 import mockManifest from './styleInputs.json'
 
 /**
@@ -68,6 +68,45 @@ describe('목 픽스처 · 백엔드 시드 대조', () => {
   it('시드 프롬프트와 스타일 카드를 실제로 읽었다', () => {
     expect(PROMPT_FILES.length).toBeGreaterThan(30)
     expect(cards.length).toBe(PROMPT_FILES.length)
+  })
+
+  it('썸네일을 채운다는 전제가 시드에 실제로 근거가 있다', () => {
+    /*
+      목이 전 스타일에 썸네일을 주는 건 `scripts/seed_styles.py` 가
+      `seeds/thumbnails/{code}.jpg` 를 올리고 `example_keys` 를 채우기 때문입니다
+      (백엔드 PR #141). 그 파일이 **프롬프트와 1:1 로 맞을 때만** 참인 전제입니다 —
+      새 프롬프트를 썸네일 없이 추가하면 시드가 `warning: no thumbnail` 만 찍고 넘어가
+      그 스타일의 `example_keys` 는 빈 채로 남습니다. 그때 실서버는 자리표시자를,
+      목은 이미지를 그리는 옛 상태로 조용히 되돌아갑니다.
+    */
+    const thumbnails = readdirSync(repoPath('seeds', 'thumbnails')).filter((file) =>
+      file.endsWith('.jpg'),
+    )
+    expect(thumbnails.sort()).toEqual(PROMPT_FILES.map((file) => file.replace(/\.txt$/, '.jpg')).sort())
+    expect(cards.every((card) => card.thumbnail_url !== null)).toBe(true)
+  })
+
+  it('상세의 examples[0] 이 카드 썸네일과 같다 — 둘은 같은 example_keys 다', () => {
+    /*
+      서버는 `thumbnail_url = example_keys[0]`, `examples = example_keys` 전부로
+      만듭니다(app/routers/styles.py). 목이 이 둘을 따로 지어내면 «썸네일은 있는데
+      상세는 캐러셀이 없다» 같은, 서버가 낼 수 없는 조합이 나옵니다.
+    */
+    for (const state of ['seeded', 'rich'] as const) {
+      const detail = styleDetailFor(cards[0].id, state)
+      expect(detail?.examples[0]).toBe(cards[0].thumbnail_url)
+    }
+    // 예시가 없으면 썸네일도 없어야 짝이 맞습니다.
+    expect(styleDetailFor(cards[0].id, 'none')?.examples).toEqual([])
+    expect(styleCatalogNoImages.sections[0].styles[0].thumbnail_url).toBeNull()
+  })
+
+  it('실서버가 아직 안 채우는 값은 목 기본값도 비어 있다', () => {
+    // `fit_tags` 를 채우는 경로는 admin API 인데 501 이라 운영도 넣을 수 없습니다.
+    // 2026-08-24 로컬 실측: `GET /v1/styles/{id}` → `fit_tags: []`, `examples` 1 장.
+    const detail = styleDetailFor(cards[0].id)
+    expect(detail?.fit_tags).toEqual([])
+    expect(detail?.examples).toHaveLength(1)
   })
 
   it('입력 스키마 사본이 seeds/style_inputs.json 과 완전히 같다', () => {
