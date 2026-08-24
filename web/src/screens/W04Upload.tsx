@@ -52,7 +52,7 @@ import {
 import { StyleInputForm } from '../app/StyleInputForm'
 import Thumbnail from '../app/Thumbnail'
 import { clearUploadDraft, readUploadDraft, writeUploadDraft } from '../api/uploadDraft'
-import type { Pet, StyleInputField, UploadIssue, UploadResult } from '../api/types'
+import type { BreedEstimate, Pet, StyleInputField, UploadIssue, UploadResult } from '../api/types'
 import InsufficientCreditOverlay from './InsufficientCreditOverlay'
 
 /** `app/routers/uploads.py` 의 `_ALLOWED_CONTENT_TYPES`·`_MAX_FILE_SIZE` 와 같은 값입니다. */
@@ -109,6 +109,12 @@ export default function W04Upload() {
     계약 필드가 착지하면서 함께 지웠습니다.
   */
   const namesTheImage = style?.uses_pet_name ?? false
+  /*
+    같은 성격의 두 번째 플래그입니다 — 워커가 `[breed]` 도 치환합니다(백엔드 #131 A안
+    → PR #137). `uses_pet_name` 과 **독립**이고, 지금 둘 다 참인 건 3D_피규어 한 종뿐
+    입니다. 무엇이 인쇄될지는 이 사진의 추정값이 정하므로 판정은 BreedNotice 안에.
+  */
+  const printsBreed = style?.uses_breed ?? false
   const selectedPetName = petsData?.items.find((pet) => pet.id === petId)?.name ?? null
 
   /*
@@ -185,6 +191,16 @@ export default function W04Upload() {
           // 같은 사진을 이미 통과시켰으므로 품질 체크를 다시 보여줄 이유가 없습니다.
           blocking_issue: null,
           warnings: [],
+          /*
+            **모르는 것이지 없는 것이 아닙니다.** 서버는 이 사진의 추정값을 여전히
+            들고 있고(`source_image.breed_estimate`) 워커도 그 값을 씁니다 — 다만
+            `GET /v1/jobs/{id}` 가 안 내려줍니다. 그래서 재사용 경로에서는 견종 예고
+            (BreedNotice)가 안 뜹니다: 같은 사진인데 처음 올릴 때는 «토이푸들» 이라고
+            했다가 다시 올 때는 아무 말도 안 하는 셈입니다.
+
+            지어내지 않는 쪽을 고릅니다. 계약이 답을 주면 그때 채웁니다(#127 이
+            `inputs` 로 같은 모양을 이미 한 번 메웠습니다).
+          */
           breed_estimate: null,
         })
         /*
@@ -383,6 +399,7 @@ export default function W04Upload() {
             petId={petId}
             petName={selectedPetName}
             namesTheImage={namesTheImage}
+            printsBreed={printsBreed}
             onPetSaved={setPetId}
             onPickAnother={pickAnother}
             onStart={startGeneration}
@@ -671,6 +688,8 @@ interface ConfirmPanelProps {
   petName: string | null
   /** 이 스타일이 그림에 이름을 인쇄하는가 (PR #98). */
   namesTheImage: boolean
+  /** 이 스타일이 그림에 견종을 인쇄하는가 (백엔드 #131 A안 → PR #137). */
+  printsBreed: boolean
   onPetSaved: (petId: string) => void
   onPickAnother: () => void
   onStart: () => void
@@ -697,6 +716,7 @@ function ConfirmPanel({
   petId,
   petName,
   namesTheImage,
+  printsBreed,
   onPetSaved,
   onPickAnother,
   onStart,
@@ -801,6 +821,16 @@ function ConfirmPanel({
       )}
 
       {/*
+        견종 예고 (백엔드 #131 A안 → PR #137).
+
+        `namesTheImage` 와 **따로** 겁니다. 두 플래그는 독립이고, 지금 둘 다 참인 건
+        3D_피규어 한 종뿐이라 우연히 같이 나타날 뿐입니다.
+      */}
+      {!blocked && !styleMissing && printsBreed && (
+        <BreedNotice estimate={upload.breed_estimate} />
+      )}
+
+      {/*
         스타일별 입력 폼 (이슈 #114).
 
         만들기 버튼 **앞**에 둡니다 — 이름 예고(PR #98)와 같은 이유입니다. 버튼을 누른
@@ -902,6 +932,49 @@ function WarningCard({ warning }: { warning: UploadIssue }) {
         <p className="mt-0.5 text-sm text-ink-2">{hint}</p>
       )}
     </div>
+  )
+}
+
+/**
+ * 그림에 견종이 들어가는 스타일의 예고 (서버 `uses_breed` · 백엔드 #131 A안 → PR #137).
+ *
+ * **왜 W-03 이 아니라 여기인가.** `uses_breed` 는 «이 스타일이 견종을 인쇄하는가» 만
+ * 답하고, 실제로 인쇄될지는 **그 사진에서 견종이 잡혔는가** 로 갈립니다. 워커의 폴백은
+ * `pet_profile.breed_label` → `source_image.breed_estimate["label"]` → «강아지» 인데
+ * (app/worker.py), 첫 번째는 쓰는 API 가 없어 늘 NULL 이고(`app/routers/pets.py` 는
+ * `name` 만 받습니다) 마지막으로 떨어지면 3D_피규어 프롬프트가 라벨을 통째로 뺍니다
+ * («If the breed is the generic word "강아지", omit the breed label entirely»).
+ *
+ * 그러니 사진을 올리기 전에 «견종도 인쇄됩니다» 라고 쓰면 사진마다 참·거짓이 갈리는
+ * 약속이 됩니다. 여기서는 **이 사진의 추정값을 이미 손에 들고 있어서**(§3
+ * `POST /v1/uploads` 응답) 그 사진에 대해 참인 말만 할 수 있습니다.
+ *
+ * 화면이 보는 값과 워커가 쓸 값이 **같은 행**입니다 — 둘 다
+ * `source_image.breed_estimate` 이고, `breed_label` 이 늘 NULL 이라 폴백 순서상
+ * 앞지르는 값도 없습니다. 즉 여기 적힌 견종이 실제로 그림에 들어갈 견종입니다.
+ *
+ * `confidence` 로 거르지 않습니다. 워커가 안 거르기 때문입니다 — 0.41 이든 0.9 든
+ * 라벨이 있으면 그대로 프롬프트에 들어갑니다. 여기서만 «믿을 만한 것» 을 골라 내면
+ * 화면이 안 나온다고 한 견종이 그림에는 나옵니다.
+ *
+ * 라벨이 없으면 아무 말도 안 합니다. 견종이 안 들어가는 건 결함이 아니라 그냥 없는
+ * 것이고, W-03 이 견종을 예고하지 않으므로 정정할 기대도 없습니다. 잡히지도 않은
+ * 견종을 두고 «못 찾았어요» 라고 쓰면 사용자가 고칠 수 없는 일을 걱정하게 됩니다.
+ */
+function BreedNotice({ estimate }: { estimate: BreedEstimate | null }) {
+  /*
+    세 필드가 **각각** null 일 수 있습니다 — 서버가 비전 응답을 그대로 흘려보냅니다
+    (`app/routers/uploads.py` `BreedEstimate`). `code` 나 `confidence` 만 오고 `label`
+    이 비는 경우도 계약상 가능하고, 그때 워커가 쓸 값은 «강아지» 입니다.
+  */
+  const label = estimate?.label?.trim()
+  if (!label) return null
+
+  return (
+    <p className="mt-3 rounded-lg border border-rule bg-surface-2 px-3 py-2.5 text-sm text-ink-2">
+      이 사진에서 <span className="font-semibold text-ink">«{label}»</span> 로 보여요 — 그림에
+      견종도 함께 들어갑니다.
+    </p>
   )
 }
 
