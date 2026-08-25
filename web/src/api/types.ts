@@ -251,7 +251,13 @@ export interface UploadIssue {
  * 적힌 화면이 나오지 않도록 여기서 미리 사실대로 적어 둡니다.
  */
 export interface BreedEstimate {
-  /** 계산기 견종 42종 코드표와 값 도메인을 공유(§2 W-07 계약 노트). */
+  /**
+   * 비전 모델이 준 코드. **계산기와 값 도메인을 공유하지 않습니다** — §2 W-07 계약
+   * 노트는 아직 «42종 코드표와 일치» 라고 적혀 있지만 Q9 확정(PR #122)으로 계산기에
+   * 코드 체계가 없다는 게 실측됐고, 서버도 매칭에 `label` 만 씁니다
+   * (`app/routers/results.py` · `app/worker.py` 둘 다 `estimate["label"]`).
+   * 즉 이 필드를 읽어 견종을 판단하는 코드는 어디에도 없어야 합니다.
+   */
   code: string | null
   label: string | null
   confidence: number | null
@@ -441,10 +447,22 @@ export interface ShareResult {
 
 // ---------------------------------------------------------------- 계산기 연결
 
+/**
+ * Q9 확정(PR #122, 계산기 실측): 계산기에 코드 체계가 없어 **한글 견종명이 곧 키**라
+ * `breed_code` 와 `breed_label` 이 **같은 값**입니다(예: 둘 다 `"토이푸들"`). 목록은
+ * 40종이고 스냅샷은 `app/breeds.py` — 목록 밖 견종은 `"믹스견"` 으로 떨어집니다
+ * (FR-EDGE-11). 세 필드는 **함께** 채워지거나 함께 null 입니다.
+ *
+ * 견종 후보는 펫 프로필 기입값(`pet_profile.breed_label`) → 비전 추정 라벨 순인데,
+ * 그 칸을 채우는 API 가 아직 없어(`POST /v1/pets` 에 견종 필드 없음) 오늘 오는 값은
+ * 언제나 사진 추정입니다. 화면이 «사진에서» 라고 말하는 근거가 여기까지입니다.
+ */
 export interface CalculatorLink {
   /** 추정 완전 실패 시 세 필드 모두 null, URL 에서 breed 파라미터 생략(FR-EDGE-10). */
   breed_code: string | null
+  /** `breed_code` 와 같은 한글 견종명 — 표시용으로 갈라져 있을 뿐입니다. */
   breed_label: string | null
+  /** `"소형"` · `"중형"` · `"대형"` (`app/breeds.py`). 견종을 알면 반드시 함께 옵니다. */
   size_label: string | null
   /** UTM 까지 서버가 조립해 내려주므로 클라이언트는 그대로 사용. */
   calculator_url: string

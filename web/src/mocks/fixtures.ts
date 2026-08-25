@@ -321,7 +321,19 @@ export const uploadWarned: UploadResult = {
   warnings: [
     { code: 'QUALITY_WARNING', message: '얼굴이 조금 어두워요', detail: { issues: ['dark'] } },
   ],
-  breed_estimate: { code: 'mixed', label: '믹스견', confidence: 0.41 },
+  /*
+    FR-EDGE-11 · **계산기 40종에 없는 견종**이 여기서 시작됩니다(Q9 확정, PR #122).
+
+    예전엔 이 자리에 `{code:'mixed', label:'믹스견'}` 이 들어 있었는데, 그건 폴백을
+    흉내 낸 게 아니라 폴백의 *결과*를 미리 적어 둔 것이었습니다. 믹스견은 계산기
+    목록에 실재하는 항목이라 그대로 매칭될 뿐, «목록 밖 견종이 믹스견으로 바뀌는»
+    순간은 아무 데서도 안 일어납니다. 목록에 없는 이름을 넣어야 그 갈래가 밟힙니다.
+
+    `code` 를 null 로 두는 것도 일부러입니다 — 서버가 매칭에 쓰는 건 `label` 이고
+    (`app/routers/results.py`), 비전이 주는 `code` 는 계산기와 값 도메인을 공유하지
+    않습니다. 코드가 없어도 견종은 넘어가야 맞습니다.
+  */
+  breed_estimate: { code: null, label: '골든두들', confidence: 0.41 },
 }
 
 /**
