@@ -275,7 +275,21 @@ export function styleDetailFor(
             { label: '검은 털', score: 'caution' },
           ]
         : [],
-    avg_duration_seconds: 24, // 시드가 안 건드리는 컬럼 기본값(app/models.py avg_seconds).
+    /*
+      2026-08-25 로컬 실측값입니다(`GET /v1/styles/4` · `/11` → 48).
+
+      전에는 24 였고 «시드가 안 건드리는 컬럼 기본값» 이라고 적혀 있었는데, 백엔드
+      #146 이 그 전제를 바꿨습니다 — 이제 `scripts/seed_styles.py` 가 `_AVG_SECONDS = 48`
+      (실측 중앙값 47.4초, fal gpt-image-2 n=19)로 **기존 행까지 백필합니다**. 시드
+      출력이 `skip:` 이라 안 건드리는 것처럼 보이지만 그 분기도 `avg_seconds` 를
+      `update()` 합니다.
+
+      **숫자만 보고 따라 고치지 마세요.** 이 값은 «스크립트 상수» 가 아니라 «그 스크립트를
+      돌린 뒤의 DB» 를 대변합니다. 시드를 다시 돌리지 않은 서버는 여전히 24 이고, 목이
+      먼저 48 을 말하면 서버를 앞질러 거짓말하는 게 됩니다. 바꿀 때는 시드 → API 실측 →
+      이 값 순서로(절차는 인수인계 05번 §3 #134 행).
+    */
+    avg_duration_seconds: 48,
     output_count: 1, // Q4 확정 — 1요청 1장(§3 예시도 1).
     // 상세는 카드와 같은 값을 냅니다(app/routers/styles.py 의 두 응답 모델).
     uses_pet_name: card.uses_pet_name,
