@@ -258,14 +258,14 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
           «토큰이 만료되었습니다» 만 뜨고 다음 행동을 아무도 말해 주지 않습니다.
           끊긴 것으로 확정하고 재로그인을 안내합니다.
         */
-        if (!sentRefresh && !keepsSessionOn401(path)) dropSession(kind)
+        if (!sentRefresh && !keepsSessionOn401(path)) dropSessionIfCurrent(kind, token)
       }
     }
 
     // 만료가 아닌 401 은 재발급으로 풀리지 않습니다. 서버가 거절한 토큰을 들고 있으면
     // 이후 모든 요청이 같은 401 이므로 지우고, 다음 행동은 화면이 사용자에게 묻습니다.
     if (parsed.code === 'UNAUTHORIZED' && token && !keepsSessionOn401(path)) {
-      dropSession(kind)
+      dropSessionIfCurrent(kind, token)
     }
     throw parsed
   }
@@ -325,6 +325,34 @@ function dropSession(kind: 'guest' | 'member' | null): void {
 }
 
 /**
+ * **내가 보낸 토큰이 아직 저장소의 그 토큰일 때만** 세션을 버립니다.
+ *
+ * 백엔드 PR #119(이슈 #11 M6) 전까지 회원 액세스 토큰은 서명만으로 검증돼서, 한 번
+ * 유효했던 토큰이 남은 수명 안에 401 로 바뀌는 일이 없었습니다. 이제 로그아웃이
+ * `member.token_version` 을 올려 **발급된 액세스를 즉시 전부 무효화**하므로, 그 창이
+ * 생겼습니다:
+ *
+ *   1. 마이페이지가 회원 토큰 M 으로 조회 몇 개를 띄워 둔 채
+ *   2. 사용자가 로그아웃 → 서버가 M 을 무효화 → `session.clear()` → 새 게스트 G 발급
+ *      (api/queries.ts `useLogout` 이 한 동작으로 묶습니다)
+ *   3. 1번의 응답이 이제야 도착 — M 은 죽었으니 401 `UNAUTHORIZED`
+ *
+ * 여기서 무조건 `session.clear()` 하면 **방금 받은 G 를 지웁니다**. `ensureSession()`
+ * 은 이미 지나갔으므로 아무도 다시 발급하지 않고, 앱은 토큰이 하나도 없는 채로 남아
+ * 이후 모든 요청이 401 이 됩니다 — 로그아웃 한 번이 앱을 멈춰 세우는 셈입니다.
+ *
+ * 판정 재료는 이 파일이 이미 쓰는 «보낼 때 찍어 둔 값» 그대로입니다(`request` 의
+ * `kind`·`sentRefresh` 주석). 지금 저장소에 다른 토큰이 있다는 건 그 사이 누군가
+ * 세션을 갈아 끼웠다는 뜻이고, 그렇다면 이 401 은 **지금 세션의 소식이 아닙니다**.
+ *
+ * 게스트 재발급(`reissueGuestSession`)과 겹치는 창도 같은 이유로 함께 막힙니다.
+ */
+function dropSessionIfCurrent(kind: 'guest' | 'member' | null, sentToken: string | null): void {
+  if (session.token !== sentToken) return
+  dropSession(kind)
+}
+
+/**
  * 만료된 회원 액세스 토큰을 리프레시로 갈아 끼웁니다 (PR #57, 이슈 #47).
  *
  * 게스트 재발급과 겉모습은 같지만 의미가 정반대입니다 — 저쪽은 **다른 사람이 되는**
@@ -376,8 +404,16 @@ function rotateMemberSession(sentRefresh: string): Promise<boolean> {
         401 은 위조·만료·이미 회전된 토큰의 재사용입니다(§3) — 다시 물어봐도 답이 같으니
         여기서 세션을 접고 재로그인을 안내합니다. 나머지(네트워크 단절·429)는 지금만
         안 되는 것이라 토큰을 버리지 않습니다. 버리면 잠깐의 단절이 로그아웃이 됩니다.
+
+        단, **내가 보낸 리프레시가 아직 저장소의 그것일 때만** 접습니다. 회전 중에
+        사용자가 로그아웃하면 서버가 리프레시를 폐기하므로 이 회전은 401 로 끝나는데,
+        그 시점의 저장소에는 이미 새 게스트가 서 있습니다(api/queries.ts `useLogout`).
+        그걸 지우면 사용자가 스스로 끝낸 세션을 두고 «로그인이 만료됐어요» 를 띄우면서
+        새 게스트까지 날립니다 — `dropSessionIfCurrent` 와 같은 이유, 같은 판정입니다.
       */
-      if (isApiError(error) && error.status === 401) dropSession('member')
+      if (isApiError(error) && error.status === 401 && session.refreshToken === sentRefresh) {
+        dropSession('member')
+      }
       /*
         429 는 «지금만 안 된다» 중에서도 유일하게 **끝을 아는** 실패라 따로 알립니다
         (이슈 #11 R3). 토큰을 그대로 두는 건 위와 같지만, 조용히 두면 만료된 액세스로
