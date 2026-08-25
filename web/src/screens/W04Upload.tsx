@@ -52,7 +52,13 @@ import {
 import { StyleInputForm } from '../app/StyleInputForm'
 import Thumbnail from '../app/Thumbnail'
 import { clearUploadDraft, readUploadDraft, writeUploadDraft } from '../api/uploadDraft'
-import type { Pet, StyleInputField, UploadIssue, UploadResult } from '../api/types'
+import type {
+  BreedEstimate,
+  Pet,
+  StyleInputField,
+  UploadIssue,
+  UploadResult,
+} from '../api/types'
 import InsufficientCreditOverlay from './InsufficientCreditOverlay'
 
 /** `app/routers/uploads.py` 의 `_ALLOWED_CONTENT_TYPES`·`_MAX_FILE_SIZE` 와 같은 값입니다. */
@@ -114,6 +120,32 @@ export default function W04Upload() {
     계약 필드가 착지하면서 함께 지웠습니다.
   */
   const namesTheImage = style?.uses_pet_name ?? false
+
+  /*
+    짝 필드 `uses_breed` — **여기서만** 말합니다 (백엔드 #131 A안 착지분).
+
+    오랫동안 이 플래그는 받아만 두고 어느 화면에도 안 그렸습니다. 계약은 참인데
+    결과물에 한 번도 안 나타났기 때문입니다: 워커가 `[breed]` 를 `pet_profile.
+    breed_label` 로만 채우는데 그 컬럼을 쓰는 API 가 없어 늘 NULL → «강아지» →
+    3D_피규어 프롬프트가 «강아지면 견종 라벨을 통째로 빼라» 고 지시합니다.
+
+    그 전제가 사라졌습니다. 워커가 비전 추정으로 한 단계 더 내려갑니다
+    (`app/worker.py` — `breed_label` → `source_image.breed_estimate["label"]` →
+    «강아지»). 즉 이제 **실제로 인쇄됩니다**.
+
+    그런데 «항상» 은 아니라서, 말할 수 있는 자리가 이 화면 하나뿐입니다. 견종은
+    사용자가 넣는 값이 아니라 사진에서 **추정한** 값이고, 비전이 확신 못 하면 빈 채로
+    옵니다(PR #59) — 그러면 예전처럼 라벨이 빠집니다. W-02 카탈로그·W-03 상세는
+    업로드 **전**이라 그 사진의 견종을 모르므로, 거기서 «견종도 인쇄돼요» 라고 하면
+    보장할 수 없는 걸 예고하게 됩니다. 이름(`uses_pet_name`)과 갈리는 지점이 정확히
+    여기입니다 — 이름은 우리가 받아서 넣으니 예고가 곧 약속이지만, 견종은 아닙니다.
+
+    그래서 **사진이 손에 들어온 뒤**, 크레딧을 쓰기 직전인 확인 단계에서, 그 사진의
+    추정값이 실제로 있을 때만 말합니다. 없으면 아무 말도 안 합니다 — 침묵은 거짓이
+    아니지만 «견종은 안 들어가요» 는 다음 사진에서 틀립니다.
+  */
+  const printsBreed = style?.uses_breed ?? false
+
   const selectedPetName = petsData?.items.find((pet) => pet.id === petId)?.name ?? null
   /** 이름 없이 만들기를 눌러 멈춰 있는 상태. 저장되면 `petId` 가 생겨 스스로 꺼집니다. */
   const nameBlocking = nameSubmitted && namesTheImage && petId === null
@@ -409,6 +441,7 @@ export default function W04Upload() {
             petId={petId}
             petName={selectedPetName}
             namesTheImage={namesTheImage}
+            printsBreed={printsBreed}
             nameBlocking={nameBlocking}
             onPetSaved={setPetId}
             onPickAnother={pickAnother}
@@ -698,6 +731,8 @@ interface ConfirmPanelProps {
   petName: string | null
   /** 이 스타일이 그림에 이름을 인쇄하는가 (PR #98). */
   namesTheImage: boolean
+  /** 이 스타일이 그림에 견종을 인쇄하는가 (`uses_breed`, 백엔드 #131). */
+  printsBreed: boolean
   onPetSaved: (petId: string) => void
   onPickAnother: () => void
   onStart: () => void
@@ -726,6 +761,7 @@ function ConfirmPanel({
   petId,
   petName,
   namesTheImage,
+  printsBreed,
   onPetSaved,
   onPickAnother,
   onStart,
@@ -833,6 +869,16 @@ function ConfirmPanel({
           uploadId={askNameHere ? upload.upload_id : null}
           onPetSaved={onPetSaved}
         />
+      )}
+
+      {/*
+        견종 예고 (`uses_breed`, 백엔드 #131 A안). 이름 카드와 **따로** 두는 이유는
+        둘이 하는 일이 다르기 때문입니다 — 이름 카드는 값을 받아 내고(요구), 이쪽은
+        이미 정해진 값을 알릴 뿐입니다(예고). 견종은 사용자가 고칠 수 없으니 요구할
+        것이 없고, 같은 카드에 합치면 «이 견종을 바꾸려면?» 이라는 없는 질문이 생깁니다.
+      */}
+      {!blocked && !styleMissing && printsBreed && (
+        <BreedPrintNotice estimate={upload.breed_estimate} />
       )}
 
       {/*
@@ -1011,6 +1057,45 @@ function PetNameNotice({
           hint="이 스타일은 그림에 이름이 인쇄돼요. 저장하면 다음에 올 때 이 사진으로 바로 시작할 수 있어요."
         />
       )}
+    </section>
+  )
+}
+
+/**
+ * 그림에 **견종이 인쇄되는** 스타일에서 무엇이 박힐지 말하는 자리
+ * (`uses_breed` · 백엔드 #131 A안 — 위 `printsBreed` 주석이 전체 맥락).
+ *
+ * 이름 예고와 형태를 맞췄지만 성격이 다릅니다. 이름은 우리가 받아서 넣으니 예고가
+ * 곧 약속인데, 견종은 **사진에서 추정한 값**이라 그렇지 않습니다. 그래서 값만 적지
+ * 않고 어디서 온 값인지 함께 적습니다 — W-07 계산기가 같은 추정을 두고 이미 그
+ * 규칙을 씁니다(`api/calculatorLink.ts` — 단정하면 신뢰를 잃으므로 출처를 밝힙니다).
+ * 두 화면이 같은 값을 두고 다른 말투를 쓰면 그중 하나는 반드시 과합니다.
+ *
+ * **값이 없으면 아무것도 안 그립니다.** 세 필드가 각각 null 이 될 수 있고
+ * (`api/types.ts` BreedEstimate — 서버가 비전 응답을 그대로 흘려보냅니다) 라벨이
+ * 빈 문자열로 오는 경우도 실재합니다(`api/calculatorLink.test.ts` 가 그 케이스를
+ * 잡고 있습니다). 그때 «견종 · » 같은 반쪽 문장을 그리느니 침묵이 맞습니다.
+ *
+ * 침묵을 «견종은 안 들어가요» 로 바꾸지 마세요. 지금 사진에 대해서는 참이지만
+ * 다음 사진에서 바로 틀리고, 그 한 줄 때문에 사용자는 되는 조합을 포기합니다.
+ *
+ * 재사용 경로(다른 스타일로 이어가기 · 저장된 강아지 선택)도 여기서 조용합니다 —
+ * `GET /v1/jobs/{id}` 도 `GET /v1/pets` 도 추정값을 안 주기 때문에 프론트가 모릅니다
+ * (`upload.breed_estimate` 를 `null` 로 채우는 두 자리). 서버는 알고 있으므로 그림에는
+ * 정상적으로 인쇄됩니다 — 말을 못 할 뿐이지 기능이 빠지는 게 아닙니다.
+ */
+function BreedPrintNotice({ estimate }: { estimate: BreedEstimate | null }) {
+  const label = estimate?.label?.trim()
+  if (!label) return null
+
+  return (
+    <section className="mt-3 rounded-lg border border-rule bg-surface-2 px-3 py-3">
+      {/* 이름 예고와 같은 «항목 · 값» 형식입니다 — 변수 뒤에 조사를 붙이면 받침에
+          따라 문장이 깨집니다(«토이푸들» 가 ✗). 그 판단은 PetNameNotice 주석에. */}
+      <p className="text-sm text-ink-2">
+        그림에 들어갈 견종 · <span className="font-semibold text-ink">{label}</span>
+      </p>
+      <p className="mt-0.5 text-xs text-ink-3">사진에서 추정한 견종이에요</p>
     </section>
   )
 }

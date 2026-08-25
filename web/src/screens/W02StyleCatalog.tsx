@@ -14,8 +14,11 @@
  *   7. 크레딧 비용은 카드에 유지
  *
  * 노트 밖에서 카드가 하나 더 말하는 것: **이름이 그림에 인쇄되는 스타일**
- * (`uses_pet_name`, 백엔드 #111). 짝 필드인 `uses_breed` 는 받아만 두고 아직 안
- * 그립니다 — 이유는 screens/W03StyleDetail.tsx 헤더에 한 곳으로 적어 뒀습니다.
+ * (`uses_pet_name`, 백엔드 #111). 짝 필드인 `uses_breed` 는 받아만 두고 여기서는
+ * 안 그립니다 — 견종은 사진에서 **추정**하는 값이라 업로드 전인 이 화면에서는
+ * 무엇이 박힐지 모르기 때문입니다. 말할 수 있는 자리는 사진이 손에 들어온 뒤인
+ * W-04 확인 단계 하나뿐이고, 판단 근거는 screens/W03StyleDetail.tsx 헤더에 한
+ * 곳으로 적어 뒀습니다.
  */
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'

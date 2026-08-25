@@ -18,6 +18,7 @@ import { Route, Routes } from 'react-router'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { renderWithProviders } from '../test/render'
 import { server } from '../test/server'
+import { uploadNoDog } from '../mocks/fixtures'
 import type { StyleDetail } from '../api/types'
 import W04Upload from './W04Upload'
 
@@ -328,5 +329,96 @@ describe('W-04 · 그림에 들어가는 이름', () => {
       */
       expect(await screen.findByDisplayValue('콩이')).toHaveAccessibleName('반려견 이름')
     })
+  })
+})
+
+/**
+ * 짝 필드 `uses_breed` — 그림에 들어가는 **견종** (백엔드 #131 A안 착지분).
+ *
+ * 이름과 다르게 이 값은 사용자가 넣는 게 아니라 사진에서 추정한 것이라, 예고가 곧
+ * 약속이 아닙니다. 그래서 여기서 잡는 건 문구의 내용보다 **말하는 조건**입니다 —
+ * 틀리는 방향이 둘이고 둘 다 조용히 틀립니다:
+ *
+ *   1. 추정이 없는데 말한다 → «토이푸들» 을 기대하고 크레딧을 쓰는데 결과에는 견종이
+ *      아예 빠져 있습니다(프롬프트가 «강아지» 면 라벨을 통째로 뺍니다).
+ *   2. 추정이 있는데 안 말한다 → #131 이전으로 되돌아간 것이고, 아무도 눈치채지
+ *      못합니다. **없는 것은 눈에 띄지 않습니다.**
+ */
+describe('W-04 · 그림에 들어가는 견종', () => {
+  beforeEach(() => {
+    sessionStorage.clear()
+  })
+
+  it('견종이 인쇄되는 스타일에서 추정값이 있으면 출처를 밝히고 말한다', async () => {
+    mockStyle({ code: '3D_피규어', name: '3D 피규어', uses_breed: true })
+    const { container } = renderUpload()
+
+    await uploadPhoto(container)
+
+    /*
+      기본 목 업로드가 «토이푸들» 을 답합니다(mocks/fixtures.ts uploadOk). 값 뒤에
+      조사를 붙이지 않는 «항목 · 값» 형식이라 받침 유무와 무관하게 문장이 섭니다.
+    */
+    expect(screen.getByText('토이푸들')).toBeInTheDocument()
+    expect(screen.getByText(/그림에 들어갈 견종/)).toBeInTheDocument()
+    /*
+      출처를 반드시 함께 답니다. 견종은 비전 추정이라 틀릴 수 있고, 단정하면 W-07
+      계산기가 같은 값을 두고 «사진에서 추정» 이라고 말하는 것과 어긋납니다 — 두 화면이
+      같은 값에 다른 확신을 실으면 그중 하나는 반드시 과합니다.
+    */
+    expect(screen.getByText('사진에서 추정한 견종이에요')).toBeInTheDocument()
+  })
+
+  it('견종을 못 알아본 사진에서는 아무 말도 안 한다 (FR-EDGE-08)', async () => {
+    /*
+      `uploadNoDog` 는 `breed_estimate: null` 입니다 — 강아지를 못 찾았으니 견종도
+      없습니다. 이때 워커의 `[breed]` 는 «강아지» 로 떨어지고 3D_피규어 프롬프트가
+      라벨을 통째로 빼므로, 여기서 말하면 그냥 거짓말입니다.
+
+      «견종은 안 들어가요» 로 바꾸는 것도 안 됩니다. 지금 사진에 대해서만 참이고
+      다음 사진에서 바로 틀리는데, 그 한 줄 때문에 사용자는 되는 조합을 포기합니다.
+    */
+    server.use(http.post('*/v1/uploads', () => HttpResponse.json(uploadNoDog)))
+    mockStyle({ code: '3D_피규어', name: '3D 피규어', uses_breed: true })
+    const { container } = renderUpload()
+
+    await uploadPhoto(container)
+
+    expect(screen.queryByText(/그림에 들어갈 견종/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/추정한 견종/)).not.toBeInTheDocument()
+  })
+
+  it('견종을 안 쓰는 스타일이면 추정값이 있어도 말하지 않는다', async () => {
+    /*
+      `uses_breed` 는 프롬프트 원문에 `[breed]` 가 있는지를 서버가 계산한 값입니다
+      (mocks/fixtures.test.ts 가 그 정합을 잡습니다). 없는 스타일에서 견종을 예고하면
+      결과물과 무관한 정보를 크레딧 쓰기 직전에 들이미는 셈입니다.
+    */
+    mockStyle({ code: '찜질방', name: '찜질방', uses_breed: false })
+    const { container } = renderUpload()
+
+    await uploadPhoto(container)
+
+    expect(screen.queryByText('토이푸들')).not.toBeInTheDocument()
+    expect(screen.queryByText(/그림에 들어갈 견종/)).not.toBeInTheDocument()
+  })
+
+  it('재사용 경로에서는 조용하다 — 프론트가 그 사진의 추정을 모릅니다', async () => {
+    /*
+      «이 사진으로 다른 스타일»(FR-W06-07)로 들어오면 사진은 이어받지만 견종 추정은
+      못 받습니다 — `GET /v1/jobs/{id}` 가 그 값을 안 줍니다. 서버는 알고 있어서
+      그림에는 정상적으로 인쇄되고, 화면만 말을 못 하는 상태입니다.
+
+      이 테스트가 지키는 건 **지어내지 않는 것**입니다. 여기서 목의 기본 업로드
+      («토이푸들»)가 새어 나오면, 화면이 다른 사진의 견종을 이 사진의 것인 양 말합니다.
+    */
+    mockReuseJob(null)
+    mockStyle({ code: '3D_피규어', name: '3D 피규어', uses_breed: true })
+    renderUpload(`&from_job=${REUSE_JOB_ID}`)
+
+    await screen.findByRole('button', { name: /이대로 만들기/ }, { timeout: 5000 })
+
+    expect(screen.queryByText(/그림에 들어갈 견종/)).not.toBeInTheDocument()
+    expect(screen.queryByText('토이푸들')).not.toBeInTheDocument()
   })
 })
