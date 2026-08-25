@@ -511,15 +511,33 @@ function jobDuration(): number {
  * 잔액만 0으로 떨어뜨리면 이후는 실제 규칙(`balance < cost` → 402)이 처리합니다.
  *
  * `credit:custom-cost-3` 은 같은 장치를 **1** 로 씁니다. 이 시나리오의 목적은 커스텀
- * 비용이 2 가 아닌 서버(§3 에 노출이 없는 `app_setting` 값, 이슈 #149)를 흉내내는
- * 것이고, 그 값을 화면이 배우는 유일한 통로가 402 의 `required` 입니다. 기본 잔액
- * 11 을 그대로 두면 402 가 안 나서 목이 «비용 3» 을 만들어도 화면은 끝까지 2 라고
- * 적습니다 — 즉 시나리오가 아무것도 재현하지 못합니다. 1 이면 3 에 모자라 402 가
- * 나고, 시트에서 2 를 받으면 정확히 3 이 되어 재시도까지 이어집니다.
+ * 비용이 2 가 아닌 서버(`app_setting` 값, 이슈 #149)를 흉내내는 것입니다. 이제 화면은
+ * 그 값을 요청 전에 압니다 — `GET /v1/credits` 의 `custom_prompt_credit_cost` (PR #151).
+ *
+ * 그래도 잔액을 1 로 떨어뜨립니다. 라벨이 3 이라고 적히는 것만 보면 **고지액과 차감액이
+ * 같은지**는 확인되지 않습니다 — 402 까지 가야 서버가 실제로 요구한 값이 나옵니다.
+ * 1 이면 3 에 모자라 402 가 나고, 시트에서 2 를 받으면 정확히 3 이 되어 재시도까지
+ * 이어집니다.
  */
 const SCENARIO_BALANCE: Record<string, number> = {
   'credit:empty': 0,
   'credit:custom-cost-3': 1,
+}
+
+/**
+ * 커스텀 프롬프트 비용 — 목의 `app_setting.custom_prompt_credit_cost` 입니다.
+ *
+ * 두 곳이 이 값을 씁니다: `GET /v1/credits` 가 화면에 **말하는** 값과 `POST /v1/jobs`
+ * 가 실제로 **빼 가는** 값. 실서버는 같은 헬퍼(`app.credits.custom_prompt_credit_cost`)
+ * 를 둘 다 부르므로 목도 하나여야 합니다 — 갈라 놓으면 «2 크레딧» 이라고 적어 두고
+ * 3 을 빼 가는 화면을 목이 정상으로 보여 주게 됩니다.
+ *
+ * 기본 2 는 실서버 실측값입니다(그 행이 없어서 폴백). `credit:custom-cost-3` 은
+ * 운영이 그 행을 3 으로 넣은 서버를 흉내냅니다 — 이슈 #149 가 «지금 2 가 맞는 건
+ * 우연» 이라고 적은 그 상태를 브라우저로 밟는 유일한 방법입니다.
+ */
+function customPromptCost(): number {
+  return scenario() === 'credit:custom-cost-3' ? 3 : 2
 }
 let balanceApplied = false
 function applyEmptyScenario() {
@@ -1187,18 +1205,13 @@ export const handlers = [
       §4 시나리오3 의 진입 조건인데, 비용이 항상 1 이면 잔액이 0 이 되기 전까지
       INSUFFICIENT_CREDIT 이 한 번도 나오지 않습니다.
 
-      커스텀 프롬프트는 스타일과 무관하게 **서버 설정값**입니다 — `app_setting`
-      `custom_prompt_credit_cost` 이고 행이 없을 때만 2 로 떨어집니다
-      (`app/routers/jobs.py`). 그래서 기본은 2 지만 «2 가 아닌 경우» 를 밟을 방법이
-      있어야 합니다. W-08 은 그 값을 §3 어디에서도 못 읽어(이슈 #149) 화면에 2 를
-      적어 두고 402 의 `required` 로만 정정하는데, 목이 늘 2 면 그 정정이 브라우저에서
-      한 번도 일어나지 않습니다 — 코드로만 참인 경로가 됩니다.
-      시나리오 `credit:custom-cost-3` 이 그 상태를 만듭니다.
+      커스텀 프롬프트는 스타일과 무관하게 **서버 설정값**입니다 — `customPromptCost()`
+      가 그 값의 유일한 출처고, `GET /v1/credits` 가 화면에 알려 주는 값도 같은
+      함수에서 나옵니다. 둘을 따로 적으면 «2 크레딧» 이라고 말해 놓고 3 을 빼 가는
+      목이 됩니다 — 정확히 이슈 #149 가 실서버에서 걱정하던 그 상태입니다.
     */
     const cost = body.custom_prompt
-      ? scenario() === 'credit:custom-cost-3'
-        ? 3
-        : 2
+      ? customPromptCost()
       : (styleDetailFor(body.style_id ?? -1)?.credit_cost ?? 1)
 
     /*
@@ -1542,10 +1555,20 @@ export const handlers = [
       세션에서만 다르게 보이면 되고, 시나리오를 끄면 원래 잔액으로 돌아와야 합니다.
     */
     if (expiredSession(request) === 'reissued') {
-      return HttpResponse.json({ balance: 1, earn_actions: guestAware(state.credits.earn_actions) })
+      return HttpResponse.json({
+        balance: 1,
+        earn_actions: guestAware(state.credits.earn_actions),
+        custom_prompt_credit_cost: customPromptCost(),
+      })
     }
     applyEmptyScenario()
-    return HttpResponse.json({ ...state.credits, earn_actions: guestAware(state.credits.earn_actions) })
+    return HttpResponse.json({
+      ...state.credits,
+      earn_actions: guestAware(state.credits.earn_actions),
+      // 픽스처의 2 를 그대로 흘리지 않습니다 — 시나리오가 «3 인 서버» 를 만들면
+      // 차감액(POST /v1/jobs)과 고지액이 갈라집니다.
+      custom_prompt_credit_cost: customPromptCost(),
+    })
   }),
 
   http.post(`${BASE}/credits/claim`, async ({ request }) => {

@@ -72,7 +72,7 @@ localStorage.setItem('nutti.mock.scenario', 'job:flaky')    // 생성 중 3~18�
 localStorage.setItem('nutti.mock.scenario', 'job:slow')     // 150초 job → 60초에서 W-05 백그라운드 전환(FR-EDGE-02)
 localStorage.setItem('nutti.mock.scenario', 'job:queued')   // 워커가 안 집는 job — started_at=null 인 큐 대기(PR #60)
 localStorage.setItem('nutti.mock.scenario', 'credit:empty') // 잔액 0에서 시작 → 402 → 시트에서 받고 재시도
-localStorage.setItem('nutti.mock.scenario', 'credit:custom-cost-3') // 커스텀 비용이 2가 아닌 서버(app_setting, 이슈 #149) — 잔액 1로 시작해 W-08이 402의 required로 «만들기 · 3 크레딧»을 배움
+localStorage.setItem('nutti.mock.scenario', 'credit:custom-cost-3') // 커스텀 비용이 2가 아닌 서버(app_setting, 이슈 #149) — W-02·W-04 링크와 W-08 버튼이 요청 전에 «3 크레딧»을 말하고, 잔액 1이라 402까지 이어짐
 localStorage.setItem('nutti.mock.scenario', 'styles:no-images') // 예시 이미지가 없는 스타일 — 자리표시자·캐러셀 생략(기본 목은 시드가 채운 실서버 그대로 1장)
 localStorage.setItem('nutti.mock.scenario', 'styles:rich')      // 운영이 예시를 더 올리고 궁합 태그를 채운 뒤 — 캐러셀 페이저·궁합 칩
 localStorage.setItem('nutti.mock.scenario', 'session:expired') // 액세스 만료 — 게스트는 재발급 → 404, 회원은 리프레시 회전으로 조용히 복구(PR #57)
@@ -258,6 +258,7 @@ src/
 | [#81](https://github.com/N-utti/nutti-photo-playground/issues/81) | job 응답에 `custom_prompt`·`credit_cost` 없음 | W-06 «다시 만들기» — W-08 커스텀 job 한정 | 해결 (PR #83). 커스텀 결과를 **다른 기기·링크로 열어도** 같은 문구·같은 비용으로 다시 만듭니다. 이 필드가 로컬 색인의 마지막 존재 이유였어서 `api/jobContext.ts` 를 호출부째 삭제했고, 맥락 조립은 `app/reuseFromJob.ts` `contextFromJob` 하나로 모였습니다. `credit_cost` 덕에 W-06 이 비용을 알아내려 스타일 상세를 따로 부르던 조회도 없어졌습니다 |
 | [#127](https://github.com/N-utti/nutti-photo-playground/issues/127) | job 응답에 `input_values` 없음 | W-06 «다시 만들기» — `input_fields` 를 가진 24종 한정 | 대기 — **지난 값 되살리기**는 계약이 와야 합니다(로컬 색인으로 메우는 건 #81 이 지운 후퇴라 하지 않습니다). 다만 «말없이 기본값으로 바꾸는» 절반은 계약 없이 닫았습니다: W-06 이 스타일 스키마(`input_fields`)를 읽어 **다시 만들 때 쓸 값**을 접힌 줄로 보여 주고, 거기서 고친 값이 그대로 `inputs` 로 나갑니다(`screens/W06Result.tsx` `Regenerate`). 접힌 줄 아래 «기본값으로 시작해요» 한 줄이 그 값이 지난번 선택이 아님을 말합니다. 계약이 오면 `initialInputValues(...)` 자리에 `job.inputs` 를 넣고 그 한 줄을 지우면 됩니다 — 폼과 요청 조립은 그대로입니다. 스키마 변경 뒤 재생성(400 `unknown_inputs`)을 서버가 흡수할지 프론트가 거를지는 그때 함께 확정됩니다 |
 | [#131](https://github.com/N-utti/nutti-photo-playground/issues/131) | 워커의 `[breed]` 치환이 항상 «강아지» 로 떨어짐 | W-02 카드 배지·W-03 상세의 **견종** 예고 | 대기. `uses_breed` 자체는 맞지만(프롬프트에 `[breed]` 가 있음) 워커가 `pet_profile.breed_label` 만 보고, 그 컬럼을 쓰는 API 경로가 없어 항상 NULL → «강아지» → 3D_피규어 프롬프트가 견종 라벨을 통째로 뺍니다. **즉 인쇄된 적이 없습니다.** 그래서 플래그는 받아만 두고 문구는 안 답니다 — 판단 근거는 `screens/W03StyleDetail.tsx` 헤더. `uses_pet_name` 쪽은 이미 화면에 있습니다(W-02 «이름 인쇄» 배지 · W-03 예고 · W-04 확인 단계) |
+| [#149](https://github.com/N-utti/nutti-photo-playground/issues/149) | 커스텀 프롬프트 비용(`app_setting.custom_prompt_credit_cost`)을 읽을 경로 없음 | W-02 하단 링크·W-04 업로드 후 링크·W-08 만들기 버튼 | 해결 (A안 → PR #151). `GET /v1/credits` 가 `custom_prompt_credit_cost` 를 답합니다. 프론트가 지어내던 상수(`CUSTOM_PROMPT_COST_ESTIMATE = 2`)는 삭제했고, 세 화면이 같은 쿼리에서 읽습니다(`app/customPromptCost.ts` — 잔액 배지가 이미 구독 중이라 왕복은 그대로 0). **모르는 동안은 숫자를 감춥니다** — 로딩 중에 2 를 그리면 화면이 먼저 단정하고 나중에 정정합니다. 402 의 `required` 는 여전히 정책값을 덮습니다(화면을 열어 둔 사이 운영이 값을 바꾼 경우) |
 
 [#11](https://github.com/N-utti/nutti-photo-playground/issues/11)(auth 보안 후속 M3~M6·L1~L6)은 **프론트가 막히는 지점이 없어** 위 표에 넣지 않습니다 — 확인 근거는
 이슈 코멘트에 남겼습니다(오픈 리다이렉트는 `app/authReturn.ts` 가 이미 막고, 동시 가입 경합을

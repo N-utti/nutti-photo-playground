@@ -165,15 +165,17 @@ describe('W-08 · 직접 만들기', () => {
     await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument())
   })
 
-  it('서버가 알려 준 비용이 2 가 아니면 버튼 라벨까지 그 값으로 정정한다', async () => {
+  it('402 가 알려 준 비용이 정책값과 다르면 그쪽이 이긴다', async () => {
     /*
-      커스텀 비용은 서버 설정(`app_setting.custom_prompt_credit_cost`)이고 이 화면은
-      그 값을 읽을 경로가 없습니다(이슈 #149) — 그래서 2 를 적어 두고 시작합니다.
-      402 의 `required` 가 실제 값을 알려 주는 **유일한 순간**입니다.
+      비용은 이제 요청 전에 압니다 — `GET /v1/credits` 의 `custom_prompt_credit_cost`
+      (이슈 #149 → PR #151). 목의 기본값은 2 고, 화면 셋이 그 값을 읽는지는
+      `app/customPromptCost.test.tsx` 가 봅니다.
 
-      오버레이만 고치면 «3 크레딧이 필요해요» 를 읽고 크레딧을 받아 돌아온 사용자가
-      여전히 «만들기 · 2 크레딧» 을 누릅니다 — 서버가 방금 정정해 준 숫자를 화면이
-      계속 부인하는 셈이고, 그러면 정정의 값이 절반으로 줄어듭니다.
+      그럼에도 402 의 `required` 를 계속 믿는 이유가 여기 있습니다: 화면을 열어 둔
+      사이 운영이 `app_setting` 을 바꾸면 캐시된 정책값은 낡고, **방금 거절한 서버가
+      말한 값**이 참입니다. 오버레이만 고치면 «3 크레딧이 필요해요» 를 읽고 크레딧을
+      받아 돌아온 사용자가 여전히 «만들기 · 2 크레딧» 을 누릅니다 — 서버가 방금
+      정정해 준 숫자를 화면이 계속 부인하는 셈입니다.
     */
     withPhoto()
     server.use(
@@ -195,10 +197,8 @@ describe('W-08 · 직접 만들기', () => {
     renderWithProviders(<W08Creative />)
 
     await user.type(await screen.findByLabelText('우리 애를 무엇으로 만들까요?'), '눈 오는 날 산책')
-    // 배우기 전에는 추정치입니다 — 그 자체는 틀린 게 아니라 아직 모르는 상태입니다.
-    expect(screen.getByRole('button', { name: '만들기 · 2 크레딧' })).toBeEnabled()
-
-    await user.click(screen.getByRole('button', { name: '만들기 · 2 크레딧' }))
+    // 402 를 맞기 전에는 목이 내려 준 정책값(2)입니다 — 지어낸 값이 아닙니다.
+    await user.click(await screen.findByRole('button', { name: '만들기 · 2 크레딧' }))
 
     await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument())
     expect(screen.getByRole('dialog')).toHaveTextContent('3 크레딧이 필요한데')

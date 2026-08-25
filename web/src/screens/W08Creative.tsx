@@ -8,7 +8,8 @@
  *   2. 빈 입력창을 주지 않습니다 — "우리 애를 __ 로 만들어줘" 문장 틀 + 예시 칩.
  *      백지 프롬프트는 초보자 이탈의 전형입니다(FR-W08-02).
  *   3. 할 수 있는 것과 없는 것을 **입력 단계에서** 못박습니다(FR-W08-03).
- *   4. 비용 2크레딧 — 커스텀은 실패율이 높아 재생성이 잦습니다(FR-W08-04).
+ *   4. 비용을 버튼에 박습니다 — 커스텀은 실패율이 높아 재생성이 잦습니다(FR-W08-04).
+ *      FR 이 적은 «2크레딧» 은 서버 폴백값이지 고정값이 아닙니다(app/customPromptCost.ts).
  *
  * 사진은 이 화면에서 새로 올리지 않고 W-04 가 남긴 업로드 초안을 이어받습니다
  * (api/uploadDraft.ts). 품질 체크·고양이 차단·펫 저장을 여기 한 번 더 구현하면
@@ -28,7 +29,7 @@ import { useCreateJob } from '../api/queries'
 import { clearUploadDraft, readUploadDraft } from '../api/uploadDraft'
 import BackButton from '../app/BackButton'
 import { CreditBadge } from '../app/CreditBadge'
-import { CUSTOM_PROMPT_COST_ESTIMATE } from '../app/customPromptCost'
+import { useCustomPromptCost } from '../app/customPromptCost'
 import { promptRejectionReason } from '../app/promptFilter'
 import { useReuseFromJob } from '../app/reuseFromJob'
 import InsufficientCreditOverlay from './InsufficientCreditOverlay'
@@ -37,10 +38,11 @@ import InsufficientCreditOverlay from './InsufficientCreditOverlay'
 const EXAMPLE_CHIPS = ['눈 오는 날 산책', '80년대 앨범 커버', '도자기 인형', '파일럿']
 
 /*
- * 비용(FR-W08-04)은 `app/customPromptCost.ts` 가 갖고 있습니다 — 같은 숫자를 W-02·W-04
- * 링크도 말하기 때문입니다. 「프리셋의 2배」라고 적던 예전 주석은 두 군데가 틀렸습니다:
- * 프리셋 비용은 스타일마다 다르고(운영이 DB 에서 조정), 서버가 «같은 값으로 계산» 한다는
- * 것도 `app_setting` 이 비어 있을 때만 참입니다.
+ * 비용(FR-W08-04)의 출처는 서버입니다 — `GET /v1/credits` 의 `custom_prompt_credit_cost`
+ * (이슈 #149 A안, PR #151). 읽는 자리를 `app/customPromptCost.ts` 로 모아 둔 이유는 같은
+ * 숫자를 W-02·W-04 링크도 말하기 때문입니다. 「프리셋의 2배」라고 적던 예전 주석은 두
+ * 군데가 틀렸습니다: 프리셋 비용은 스타일마다 다르고(운영이 DB 에서 조정), 서버가 «같은
+ * 값으로 계산» 한다는 것도 `app_setting` 이 비어 있을 때만 참입니다.
  */
 
 /**
@@ -74,20 +76,20 @@ export default function W08Creative() {
   )
 
   /**
-   * 402 가 실어 준 `required` — 서버의 실제 커스텀 비용을 **이 화면이 알 수 있는 유일한
-   * 순간**입니다(app/customPromptCost.ts 참고).
+   * 비용은 이제 **요청 전에** 압니다 — `GET /v1/credits` 의 `custom_prompt_credit_cost`
+   * (이슈 #149 A안). 예전에는 이 화면이 2 를 적어 두고 402 를 맞아야만 배웠습니다.
    *
-   * 배운 뒤에는 버튼 라벨도 그 값으로 정정합니다. 오버레이만 고치면 «3 크레딧이
-   * 필요해요» 를 읽고 크레딧을 받아 돌아온 사용자가 여전히 «만들기 · 2 크레딧» 을
-   * 누르게 됩니다 — 서버가 방금 정정해 준 숫자를 화면이 계속 부인하는 셈입니다.
-   *
-   * 세션에 남기지 않고 화면 수명 안에서만 씁니다. 서버 상태를 클라이언트가 대신
+   * 402 의 `required` 는 그래도 남깁니다. 둘이 어긋나는 순간이 실제로 있습니다 —
+   * 화면을 열어 둔 사이 운영이 `app_setting` 을 바꾸면 캐시된 정책값은 낡고, 방금
+   * 거절한 서버가 말한 `required` 가 참입니다. 그래서 배운 값이 정책값을 덮습니다.
+   * 세션에는 남기지 않습니다(화면 수명 안에서만) — 서버 상태를 클라이언트가 대신
    * 기억하는 구조는 이 repo 가 이미 한 번 지운 후퇴입니다(이슈 #9 의 `jobContext.ts`).
-   * 잔액이 충분한 첫 요청은 402 를 안 받으니 배울 기회도 없습니다 — 그 절반은 #149
-   * 가 와야 닫힙니다.
+   *
+   * 모르는 동안(`null`) 숫자를 지어내지 않습니다 — 라벨에서 비용만 빠집니다.
    */
-  const [serverCost, setServerCost] = useState<number | null>(null)
-  const cost = serverCost ?? CUSTOM_PROMPT_COST_ESTIMATE
+  const policyCost = useCustomPromptCost()
+  const [chargedCost, setChargedCost] = useState<number | null>(null)
+  const cost = chargedCost ?? policyCost
 
   // 노트3 — 판정 규칙은 app/promptFilter.ts. 통과 못 하면 버튼도 잠깁니다.
   const rejection = promptRejectionReason(prompt)
@@ -134,11 +136,14 @@ export default function W08Creative() {
         onError: (error) => {
           if (isApiError(error, 'INSUFFICIENT_CREDIT')) {
             const detail = error.detail as { required?: number; balance?: number } | undefined
-            if (detail?.required !== undefined) setServerCost(detail.required)
-            setInsufficient({
-              required: detail?.required ?? cost,
-              balance: detail?.balance ?? 0,
-            })
+            if (detail?.required !== undefined) setChargedCost(detail.required)
+            // 필요한 크레딧을 모르면 오버레이가 «몇 크레딧이 필요한지» 를 못 씁니다.
+            // 그 경우엔 열지 않고 버튼 아래 오류 문구로 넘깁니다 — 0 을 적어 두면
+            // 화면이 «0 크레딧이 필요한데» 라는 말을 하게 됩니다.
+            const required = detail?.required ?? cost
+            if (required !== null) {
+              setInsufficient({ required, balance: detail?.balance ?? 0 })
+            }
           }
         },
       },
@@ -237,10 +242,21 @@ export default function W08Creative() {
               disabled={!prompt.trim() || rejection !== null || createJob.isPending}
               className="mt-4 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99] disabled:opacity-50"
             >
-              {createJob.isPending ? '만드는 중…' : `만들기 · ${cost} 크레딧`}
+              {createJob.isPending
+                ? '만드는 중…'
+                : cost === null
+                  ? // 비용을 아직 모릅니다. 버튼은 살려 둡니다 — `GET /v1/credits` 가
+                    // 실패한 상태에서 잠그면 만들기 자체가 막다른 길이 됩니다.
+                    '만들기'
+                  : `만들기 · ${cost} 크레딧`}
             </button>
 
-            {createJob.error && !isApiError(createJob.error, 'INSUFFICIENT_CREDIT') && (
+            {/*
+              오버레이를 못 연 402(= `required` 도 정책값도 모르는 경우)에서 화면이 아무
+              말도 안 하지 않게, 조건을 «부족 오류가 아님» 이 아니라 «오버레이가 안 떴음»
+              으로 둡니다. 오버레이를 닫은 뒤에도 방금 실패한 이유가 남습니다.
+            */}
+            {createJob.error && !insufficient && (
               <p role="alert" className="mt-2 text-center text-sm text-danger">
                 {serverRejection(createJob.error) ?? createJob.error.message}
               </p>

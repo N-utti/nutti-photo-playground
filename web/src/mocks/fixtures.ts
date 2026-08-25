@@ -405,6 +405,13 @@ export const petList: Pet[] = [
 
 export const initialCredits: Credits = {
   balance: 11,
+  /*
+    실서버 실측값입니다 — `app_setting` 에 `custom_prompt_credit_cost` 행이 없어서
+    `GET /v1/credits` 가 폴백 2 를 내려 줍니다(app/credits.py). admin 라우터가
+    `not_implemented` 라 그 행을 만들 수단 자체가 없습니다. «2 가 아닌 서버» 는
+    시나리오 `credit:custom-cost-3` 으로 밟습니다 — handlers.ts 의 customPromptCost().
+  */
+  custom_prompt_credit_cost: 2,
   earn_actions: [
     { action: 'order', amount: 20, status: 'available', cta: '쇼핑몰 →' },
     // 미연동이 기본값입니다 — done 으로 고정해 두면 연동 CTA(카페24 authorize → 콜백 +3)를
