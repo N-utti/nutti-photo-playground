@@ -15,9 +15,18 @@ import { Link } from 'react-router'
 import { session } from '../api/client'
 import AccountSheet from './AccountSheet'
 
-export type UnavailableReason = 'guest-reset' | 'not-found' | 'error'
+export type UnavailableReason = 'guest-reset' | 'deleted' | 'not-found' | 'error'
 
 const COPY: Record<UnavailableReason, { title: string; body: string }> = {
+  /*
+    이 브라우저가 보관함에서 지운 결과(app/deletedResults.ts). 사고가 아니라 사용자가
+    시킨 일이라, 이유를 짐작하는 다른 문구와 달리 그냥 사실만 말하고 끝냅니다 —
+    «다른 기기일 수 있어요» 도, 로그인 유도도 여기서는 틀립니다.
+  */
+  deleted: {
+    title: '삭제한 결과입니다',
+    body: '보관함에서 지운 사진이에요. 지운 결과는 되돌릴 수 없습니다.',
+  },
   'guest-reset': {
     title: '결과를 불러올 수 없습니다',
     body: '게스트 세션이 만료돼 이전 결과에 접근할 수 없어요. 로그인 없이 만든 결과는 만들었던 브라우저에서 30일 동안만 열립니다.',
@@ -66,8 +75,11 @@ export default function JobUnavailable({
         지금 이 결과가 돌아오지는 않습니다 — 이미 잃은 세션의 자산은 병합 대상이 아닙니다.
         그래서 "복구"가 아니라 **다음부터**라고 말합니다. 여기서 과장하면 로그인한 뒤
         결과가 없는 걸 보고 두 번 실망합니다.
+
+        `deleted` 는 빠집니다 — 본인이 지운 사진을 두고 «앞으로는 계정에 쌓여요» 라고
+        하면, 잃어버린 적 없는 것을 잃은 셈 치고 로그인을 권하는 말이 됩니다.
       */}
-      {isGuest && reason !== 'error' && (
+      {isGuest && reason !== 'error' && reason !== 'deleted' && (
         <>
           <p className="mt-4 text-xs text-ink-3">
             지금 로그인해도 이 결과는 돌아오지 않아요. 다만 앞으로 만드는 결과는 계정에

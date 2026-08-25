@@ -5,13 +5,18 @@
  * 하는데, 세 경우 모두 사용자 눈에는 "결과가 안 나온다" 로 똑같이 보입니다:
  *
  *   guest-reset : 게스트 세션이 만료됨 — 이 브라우저에서 30일이 지났거나 초기화됨
+ *   deleted     : 이 브라우저가 보관함에서 지운 결과(app/deletedResults.ts)
  *   not-found   : 주소가 틀렸거나 다른 기기에서 만든 결과
  *   error       : 서버가 일시적으로 답을 못 함
  *
- * 가장 조심할 곳은 **로그인 유도를 언제 하느냐**입니다. 앞의 둘은 로그인이 «다음부터»
- * 를 바꾸지만, 일시적 오류에까지 "지금 로그인해도 이 결과는 돌아오지 않아요" 를 띄우면
- * 잠시 뒤 새로고침하면 될 일을 영구 손실로 오해하게 만듭니다 — 사고를 과장하는 쪽이
- * 안내를 안 하는 것보다 나쁩니다.
+ * 가장 조심할 곳은 **로그인 유도를 언제 하느냐**입니다. 앞의 둘 중 `guest-reset` 과
+ * `not-found` 는 로그인이 «다음부터» 를 바꾸지만, 일시적 오류에까지 "지금 로그인해도
+ * 이 결과는 돌아오지 않아요" 를 띄우면 잠시 뒤 새로고침하면 될 일을 영구 손실로
+ * 오해하게 만듭니다 — 사고를 과장하는 쪽이 안내를 안 하는 것보다 나쁩니다.
+ *
+ * `deleted` 도 같은 이유로 빠집니다. 방향은 반대인데 결과는 같습니다 — 본인이 지운
+ * 사진을 두고 «앞으로는 계정에 쌓여요» 라고 하면, 잃은 적 없는 것을 잃은 셈 치고
+ * 로그인을 권하는 말이 됩니다.
  */
 
 import { screen } from '@testing-library/react'
@@ -42,6 +47,26 @@ describe('JobUnavailable', () => {
 
     expect(screen.getByRole('heading', { name: '결과를 찾을 수 없습니다' })).toBeInTheDocument()
     expect(screen.getByText(/다른 기기·브라우저에서 만든 결과일 수 있어요/)).toBeInTheDocument()
+  })
+
+  it('지운 결과는 주소·기기 탓을 하지 않는다', () => {
+    /*
+      `not-found` 와 갈라야 하는 이유입니다. 자기가 지운 사진을 열었는데 «주소가
+      잘못됐거나 다른 기기에서 만든 결과» 라고 하면, 앱이 자기가 한 일을 사용자
+      환경 탓으로 돌립니다 — 그 사용자는 없는 문제를 찾아 나섭니다.
+    */
+    renderWithProviders(<JobUnavailable reason="deleted" />)
+
+    expect(screen.getByRole('heading', { name: '삭제한 결과입니다' })).toBeInTheDocument()
+    expect(screen.queryByText(/다른 기기·브라우저에서 만든 결과일 수 있어요/)).not.toBeInTheDocument()
+  })
+
+  it('지운 결과에는 게스트에게도 로그인을 권하지 않는다', () => {
+    // 기본 세션은 게스트라 다른 사유였다면 유도가 떴을 자리입니다.
+    renderWithProviders(<JobUnavailable reason="deleted" />)
+
+    expect(screen.queryByText(LOGIN_NUDGE)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '로그인하기' })).not.toBeInTheDocument()
   })
 
   it('어느 경우든 새로 만들 길을 준다', () => {
