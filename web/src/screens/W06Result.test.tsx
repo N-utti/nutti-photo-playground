@@ -285,3 +285,94 @@ describe('W-06 · 열 수 없는 결과', () => {
     expect(await screen.findByRole('heading', { name: '결과를 찾을 수 없습니다' })).toBeInTheDocument()
   })
 })
+
+/**
+ * 지워진 결과가 **404 로 오지 않는** 경우 (이슈 #152 · 백엔드 PR #157).
+ *
+ * 위 describe 는 404 를 다룹니다. 그런데 백엔드가 확정한 계약은 다릅니다 — 보관함에서
+ * 지운 결과의 job 은 **200 · succeeded · `results: []`** 로 오고, 404 가 되는 건
+ * `POST /jobs/{id}/share` 뿐입니다(이슈 #152 코멘트). 파기 배치도 오브젝트만 지우고
+ * 행은 남기므로(`scripts/purge_deleted.py`) 시간이 지나도 404 로 바뀌지 않습니다.
+ *
+ * 이 갈래를 안 잡으면 화면이 **«완성» 이라고 말하면서 빈 자리에 저장·공유 버튼을**
+ * 띄웁니다. 눌러 봐야 share 가 404 라 아무 일도 안 일어나고, 사용자는 방금 자기가
+ * 지운 사진을 두고 앱이 왜 공유를 권하는지 알 수 없습니다. **없는 것은 눈에 띄지
+ * 않아서** 화면만 보는 QA 로는 «버튼이 남아 있다» 를 결함으로 알아채기 어렵습니다.
+ */
+describe('W-06 · 지워진 결과', () => {
+  function removedJob(): Job {
+    // 서버가 `deleted_at` 인 결과를 빼고 내려주는 모양 그대로입니다. status 는 그대로
+    // succeeded 이고 job 재료(style_id·upload_id·credit_cost)도 전부 살아 있습니다.
+    return { ...succeededJob(), results: [] }
+  }
+
+  /*
+    「다시 만들기」는 스타일 스키마가 도착해야 눌립니다(W06Result `schemaPending` —
+    칸을 모르는 채 보내면 값이 통째로 빠진 요청이 나가고 크레딧은 이미 나갑니다).
+    그 상세를 안 주면 버튼이 «옵션 불러오는 중…» 에 머물러, 이 describe 가 검증하려는
+    «출구가 남아 있는가» 를 못 봅니다.
+  */
+  function mockStyleDetail() {
+    server.use(
+      http.get('*/v1/styles/:styleId', () =>
+        HttpResponse.json({
+          id: 8,
+          code: '레고',
+          name: '레고',
+          credit_cost: 1,
+          examples: [],
+          fit_tags: [],
+          avg_duration_seconds: 48,
+          output_count: 1,
+          uses_pet_name: false,
+          uses_breed: false,
+          input_fields: [],
+        }),
+      ),
+    )
+  }
+
+  it('«완성» 이 아니라 지운 사진이라고 말한다', async () => {
+    renderResult(removedJob())
+
+    expect(await screen.findByText('보관함에서 지운 사진이에요')).toBeInTheDocument()
+    // 제목이 본문과 다른 말을 하면 안 됩니다 — 지운 사진을 «완성» 이라고 부르는 셈입니다.
+    expect(screen.getByRole('heading', { name: '지운 사진' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '완성' })).not.toBeInTheDocument()
+  })
+
+  it('없는 결과를 두고 저장·공유를 권하지 않는다', async () => {
+    renderResult(removedJob())
+    await screen.findByText('보관함에서 지운 사진이에요')
+
+    expect(screen.queryByRole('button', { name: '저장' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '인스타 공유' })).not.toBeInTheDocument()
+  })
+
+  it('원본 사진과 «다시 만들기» 는 남긴다', async () => {
+    /*
+      지운 건 결과물이고 업로드는 그대로입니다. 사진까지 치우면 «돈만 나가고 사진도
+      잃었다» 가 되고, 200 이라 재료(`upload_id`·`style_id`·`inputs`)가 전부 손에
+      있으므로 **같은 설정으로 다시 만들 수 있습니다** — 404 화면이 못 주는 출구입니다.
+    */
+    mockStyleDetail()
+    renderResult(removedJob())
+    await screen.findByText('보관함에서 지운 사진이에요')
+
+    expect(screen.getByRole('img', { name: '업로드한 사진' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /다시 만들기/ })).toBeInTheDocument()
+  })
+
+  it('출구 셋(공유·계산기·쇼핑몰)을 늘어놓지 않는다', async () => {
+    /*
+      그 배치는 «감정 최고점에 모은다» 는 근거 위에 서 있습니다(FR-W06-08 · 노트6).
+      지운 사진을 열었더니 «수제간식 보러가기» 가 뜨면, 와이어프레임 콜아웃이 경고한
+      바로 그 모양 — 출구가 광고로 읽히는 화면이 됩니다.
+    */
+    renderResult(removedJob())
+    await screen.findByText('보관함에서 지운 사진이에요')
+
+    expect(screen.queryByText('누띠 수제간식 보러가기')).not.toBeInTheDocument()
+    expect(screen.queryByText(/간식량 계산하기/)).not.toBeInTheDocument()
+  })
+})
