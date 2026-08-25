@@ -332,3 +332,20 @@ def test_deleted_result_is_hidden_from_job_and_share(client: TestClient):
     assert job.json()["results"] == []
     assert share.status_code == 404
     assert share.json()["error"]["code"] == "NOT_FOUND"
+
+
+def test_library_cursor_must_match_pet_scope(client: TestClient):
+    member_id, headers = _session(client)
+    pet_id = client.portal.call(_create_pet, member_id)
+    client.portal.call(partial(_create_result, member_id, pet_id=pet_id))
+    other_scope = client.portal.call(_create_result, member_id)
+
+    # 본인 소유지만 pet 스코프 밖의 result를 커서로 주면 400 — 조용히 누락되지 않는다.
+    response = client.get(
+        "/v1/library",
+        headers=headers,
+        params={"pet_id": pet_id, "cursor": other_scope["result_id"]},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
