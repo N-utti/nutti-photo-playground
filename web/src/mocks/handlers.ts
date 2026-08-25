@@ -32,6 +32,7 @@ import type {
   PetSummary,
   UploadResult,
 } from '../api/types'
+import { BREED_SIZES, MIX_BREED } from './calculatorBreeds'
 import {
   RESULT_SIZE,
   SOURCE_SIZE,
@@ -81,9 +82,21 @@ function petSummary(pet: Pet): PetSummary {
   return { id: pet.id, name: pet.name, thumbnail_url: pet.thumbnail_url }
 }
 
-/** 계산기 42종 코드표의 사이즈 축(§3 예시: toy_poodle=소형, mixed=중형). */
-function sizeForBreed(code: string): string {
-  return code === 'mixed' ? '중형' : '소형'
+/**
+ * 견종 추정 → 계산기가 아는 이름·크기 (Q9 확정, PR #122 착지분).
+ *
+ * 서버가 보는 건 `code` 가 아니라 **`label`** 입니다(`app/routers/results.py` —
+ * `estimate.get("label")`). 계산기에 코드 체계가 없어서 한글 이름이 곧 키이기
+ * 때문인데, 그래서 비전이 준 `code` 는 여기서 쓸 자리가 없습니다.
+ *
+ * 반환: 매칭되면 그 이름·크기 / 목록 밖이면 믹스견(FR-EDGE-11) / 후보가 아예
+ * 없으면 null(FR-EDGE-10).
+ */
+function calculatorBreed(label: string | null | undefined): { name: string; size: string } | null {
+  const candidate = label?.trim()
+  if (!candidate) return null
+  const name = candidate in BREED_SIZES ? candidate : MIX_BREED
+  return { name, size: BREED_SIZES[name] }
 }
 
 // ---------------------------------------------------------------- 목 상태
@@ -1474,13 +1487,19 @@ export const handlers = [
     const breed = job ? breedForUpload(job.uploadId) : uploadOk.breed_estimate
 
     /*
-      `breed.code` 는 **null 이 될 수 있습니다** (PR #59 착지분 — 비전이 견종을 확신하지
-      못하면 필드가 빈 채로 옵니다). 코드가 없으면 크기표를 못 찾으므로 견종 자체를
-      모르는 것과 같이 다룹니다 — FR-EDGE-10 이 말하는 «세 필드 모두 null + URL 에서
-      breed 파라미터 생략» 이 그 상태입니다.
+      추정 라벨을 계산기 40종에 맞춰 봅니다(PR #122 · `calculatorBreeds.ts`). 라벨이
+      비어 오는 일이 실제로 있고(PR #59 — 비전이 확신하지 못하면 필드가 빈 채로 옵니다),
+      그때가 FR-EDGE-10 이 말하는 «세 필드 모두 null + URL 에서 breed 파라미터 생략»
+      입니다. 라벨이 있는데 목록 밖이면 믹스견으로 떨어집니다(FR-EDGE-11).
+
+      서버는 여기서 **펫 프로필 기입값(`breed_label`)을 먼저** 봅니다. 그 칸을 채우는
+      API 가 아직 없어(`POST /v1/pets` 에 견종 필드 없음) 오늘은 늘 비어 있고, 따라서
+      후보는 언제나 비전 추정입니다 — 화면이 «사진에서» 라고 말해도 되는 근거입니다.
+      펫에 견종을 받는 날 이 전제와 문구가 함께 바뀝니다.
     */
-    const breedCode = breed?.code ?? null
-    const size = breedCode ? sizeForBreed(breedCode) : null
+    const matched = calculatorBreed(breed?.label)
+    const breedCode = matched?.name ?? null
+    const size = matched?.size ?? null
     /*
       이름은 **저장된 강아지가 있을 때만** 붙습니다. 상수로 넣어 두면 펫을 고르지 않고
       만든 결과에도 «콩이는 하루 몇 g까지…»가 떠서, 배너가 남의 강아지 이름을 말합니다.
@@ -1499,8 +1518,9 @@ export const handlers = [
     ].join('&')
 
     return HttpResponse.json({
+      // 계산기에 코드 체계가 없어 `breed_code` = `breed_label` = 한글 견종명입니다(Q9).
       breed_code: breedCode,
-      breed_label: breedCode ? breed?.label ?? null : null,
+      breed_label: breedCode,
       size_label: size,
       // 서버가 UTM 까지 붙여 완성해 내려주는 값입니다(FR-W07-03) — 프론트는 가공하지 않습니다.
       calculator_url: `https://nutti.co.kr/calculator.html?${query}`,

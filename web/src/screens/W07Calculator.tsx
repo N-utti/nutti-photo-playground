@@ -94,10 +94,18 @@ function HandoffCard({
         <p className="mt-1 text-sm text-ink-2">{summary.text}</p>
 
         {/* 노트4 — 믹스견은 판별이 부정확합니다. 단정하면 신뢰를 잃으므로 출처를
-            밝히고 되돌아갈 길이 있다는 걸 넘어가기 **전에** 말합니다. */}
-        {summary.prefilled && (
+            밝히고 되돌아갈 길이 있다는 걸 넘어가기 **전에** 말합니다.
+
+            믹스견일 때 "사진에서 가져온 값" 이라고 하지 않는 이유: 그 값은 사진에서
+            읽은 게 아니라 **읽은 견종이 계산기 목록에 없어서 대신 넣은 값**일 수
+            있습니다(FR-EDGE-11 — 응답만으로는 구분이 안 됩니다. `calculatorLink.ts`).
+            사진 탓으로 돌리면 사용자는 사진을 다시 찍고, 고쳐야 할 자리는 계산기
+            1단계입니다. */}
+        {summary.kind !== 'unknown' && (
           <p className="mt-2 rounded-lg bg-good-soft px-3 py-2 text-xs text-good">
-            사진에서 가져온 값이에요. 다르면 계산기 1단계에서 바꿀 수 있어요.
+            {summary.kind === 'mixed'
+              ? '계산기 1단계에서 견종을 직접 고를 수 있어요.'
+              : '사진에서 가져온 값이에요. 다르면 계산기 1단계에서 바꿀 수 있어요.'}
           </p>
         )}
 

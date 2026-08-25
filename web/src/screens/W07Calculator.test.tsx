@@ -1,7 +1,7 @@
 /**
  * W-07 · 계산기로 넘기기 (screens/W07Calculator.tsx · §2 W-07 · FR-EDGE-10/11).
  *
- * 이 화면의 값어치는 **1단계(견종 42종 그리드)를 건너뛰는 것**입니다. 거기가 이탈이
+ * 이 화면의 값어치는 **1단계(견종 40종 그리드)를 건너뛰는 것**입니다. 거기가 이탈이
  * 가장 큰 구간이라, 사진에서 견종을 알아냈으면 2단계부터 시작시킵니다.
  *
  * 그래서 틀리는 방향이 둘입니다. 견종을 모르는데 안다고 하면 사용자는 남의 강아지
@@ -35,10 +35,11 @@ function mockLink(overrides: Record<string, unknown> = {}) {
   server.use(
     http.get('*/v1/calculator-link', () =>
       HttpResponse.json({
-        calculator_url: 'https://nutti.co.kr/calculator.html?name=콩이&breed=poodle',
-        breed_code: 'poodle',
-        breed_label: '푸들',
-        size_label: '소형견',
+        calculator_url: 'https://nutti.co.kr/calculator.html?name=콩이&breed=토이푸들&size=소형',
+        // Q9 확정(PR #122): 계산기에 코드 체계가 없어 code = label = 한글 견종명입니다.
+        breed_code: '토이푸들',
+        breed_label: '토이푸들',
+        size_label: '소형',
         ...overrides,
       }),
     ),
@@ -51,7 +52,7 @@ describe('W-07 · 계산기로 넘기기', () => {
     renderAt('?job_id=job_01HQZX')
 
     expect(await screen.findByRole('heading', { name: '콩이는 하루 몇 g까지 괜찮을까?' })).toBeInTheDocument()
-    expect(screen.getByText('사진에서 푸들 · 소형견으로 봤어요 · 2단계부터 시작')).toBeInTheDocument()
+    expect(screen.getByText('사진에서 토이푸들 · 소형으로 봤어요 · 2단계부터 시작')).toBeInTheDocument()
   })
 
   it('사진에서 가져온 값이라고 밝히고 고칠 수 있다고 말한다', async () => {
@@ -80,9 +81,26 @@ describe('W-07 · 계산기로 넘기기', () => {
     expect(screen.queryByText(/사진에서 가져온 값이에요/)).not.toBeInTheDocument()
   })
 
+  it('믹스견으로 넘길 때는 «사진에서 가져온 값» 이라고 하지 않는다 (FR-EDGE-11)', async () => {
+    /*
+      Q9 확정(PR #122) 뒤 이 응답은 두 사연을 한 값으로 보냅니다 — 비전이 진짜
+      믹스견을 봤거나, 본 견종이 계산기 40종에 없어 서버가 대신 넣었거나. 뒤쪽이면
+      «사진에서 가져온 값» 은 사진 탓이 아닌 것을 사진 탓으로 돌리는 말이고, 그러면
+      사용자는 고쳐야 할 자리(계산기 1단계)가 아니라 사진을 다시 찍습니다.
+    */
+    mockLink({ breed_code: '믹스견', breed_label: '믹스견', size_label: '중형' })
+    renderAt('?job_id=job_01HQZX')
+
+    expect(
+      await screen.findByText('견종을 하나로 좁히지 못해 믹스견 · 중형으로 넘겨요 · 2단계부터 시작'),
+    ).toBeInTheDocument()
+    expect(screen.getByText('계산기 1단계에서 견종을 직접 고를 수 있어요.')).toBeInTheDocument()
+    expect(screen.queryByText(/사진에서 가져온 값이에요/)).not.toBeInTheDocument()
+  })
+
   it('이름을 모르면 «우리 아이»로 묻는다', async () => {
     // 저장된 강아지가 없는 경우입니다 — 게스트 첫 방문이 정확히 여기입니다.
-    mockLink({ calculator_url: 'https://nutti.co.kr/calculator.html?breed=poodle' })
+    mockLink({ calculator_url: 'https://nutti.co.kr/calculator.html?breed=토이푸들&size=소형' })
     renderAt('?job_id=job_01HQZX')
 
     expect(await screen.findByRole('heading', { name: '우리 아이는 하루 몇 g까지 괜찮을까?' })).toBeInTheDocument()
@@ -93,7 +111,7 @@ describe('W-07 · 계산기로 넘기기', () => {
       FR-W07-03 — UTM 까지 서버가 붙여 완성해 줍니다. 화면이 파라미터를 다시 조립하면
       유입 경로 집계가 어긋나고, 그건 «이 출구가 쓸모 있는가» 를 판단할 유일한 근거입니다.
     */
-    const url = 'https://nutti.co.kr/calculator.html?name=콩이&breed=poodle&utm_source=playground'
+    const url = 'https://nutti.co.kr/calculator.html?name=콩이&breed=토이푸들&utm_source=playground'
     mockLink({ calculator_url: url })
     renderAt('?job_id=job_01HQZX')
 
