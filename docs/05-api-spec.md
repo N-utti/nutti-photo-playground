@@ -133,7 +133,7 @@
 | 계산기 배너 문구("사진에서 푸들로 봤어요") + URL | `GET /v1/calculator-link?pet_id=` → `{breed_code, breed_label, size_label, calculator_url}` |
 | URL 표기(`calculator.html?name=…&breed=…&size=…`) | 위 응답의 `calculator_url`을 그대로 사용(서버가 완성된 URL 반환, UTM 포함) |
 
-**계약 노트**: `breed_code`의 값 도메인은 계산기 측 **견종 42종 코드표**와 일치해야 합니다(놀이터 저장소 밖의 계산기 자산과 공유하는 계약, `07-decisions.md#Q9`). 견종 추정 실패(믹스견 등 매칭 불가) 시 `breed_code: "mixed"` 폴백값을 반환하고, 완전 실패 시 `breed_code: null` → 계산기 1단계부터 시작(URL에 breed 파라미터 생략).
+**계약 노트**(Q9 확정, PR #122·이슈 #161): 계산기는 별도 코드 체계 없이 **한글 견종명이 키**(`calculator.js` `BREEDS` 40종)라 `breed_code` = `breed_label` = 한글명입니다(`app/breeds.py` 스냅샷, `07-decisions.md#Q9`). 목록에 없거나 매칭 불가 시 `breed_code: "믹스견"` 폴백, 완전 실패 시 `breed_code: null` → 계산기 1단계부터 시작(URL에 breed 파라미터 생략). 3케이스 예시는 §3 `GET /v1/calculator-link` 참고. 비전의 `breed_estimate.code`는 이 값 도메인과 무관합니다(§3 업로드 노트).
 
 ### W-08 · 크리에이티브 모드 ([#p08](wireframe-spec-v0.5.html#p08))
 
@@ -434,6 +434,7 @@
   "breed_estimate": { "code": "mixed", "label": "믹스견", "confidence": 0.41 }
 }
 ```
+`breed_estimate.code`는 비전 모델 내부 식별자로, 계산기 견종 키와 값 도메인을 공유하지 않습니다(이슈 #161). 서버(`calculator-link`·워커 `[breed]` 치환)는 **`label`로만** 매칭하므로 클라이언트도 `code`를 계산기 값으로 쓰지 마세요.
 ```json
 // 200 — 차단(고양이 감지, FR-EDGE-07)
 {
@@ -617,7 +618,7 @@
 
 쿼리: `pet_id?` 또는 `job_id?`
 
-**Q9 확정(2026-08-19, 계산기 실측)**: 계산기(calculator/js/calculator.js의 `BREEDS` 40종)는 별도 코드 체계 없이 **한글 견종명이 키**다 — 따라서 `breed_code`=`breed_label`=한글명(app/breeds.py가 40종·크기 스냅샷 보유, 계산기 목록 변경 시 함께 갱신). 견종 후보는 펫 프로필 기입값 → 비전 추정 라벨 순. ⚠️ 계산기에 프리필 **수신** 코드는 아직 없음(파라미터는 무해하게 무시됨) — 수신부는 카페24 스마트디자인 쪽 후속 작업.
+**Q9 확정(2026-08-19, 계산기 실측)**: 계산기(calculator/js/calculator.js의 `BREEDS` 40종)는 별도 코드 체계 없이 **한글 견종명이 키**다 — 따라서 `breed_code`=`breed_label`=한글명(app/breeds.py가 40종·크기 스냅샷 보유, 계산기 목록 변경 시 함께 갱신). 견종 후보는 펫 프로필 기입값 → 비전 추정 라벨 순 — 단 `pet_profile.breed_code/breed_label`을 쓰는 API가 아직 없어(#131-B, W-12 시점) 현재는 항상 NULL이고 실제로는 비전 라벨 갈래만 탄다. ⚠️ 계산기에 프리필 **수신** 코드는 아직 없음(파라미터는 무해하게 무시됨) — 수신부는 카페24 스마트디자인 쪽 후속 작업.
 
 ```json
 // 200 — 정상 매칭
