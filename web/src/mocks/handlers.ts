@@ -424,7 +424,7 @@ const SERVER_PROMPT_BLOCKLIST = [
   '검은색으로',
 ]
 
-/** 생성에 걸리는 시간. W-03 "평균 24초"보다 짧게 잡아 개발 반복을 빠르게 합니다. */
+/** 생성에 걸리는 시간. W-03 이 말하는 평균(48초)보다 짧게 잡아 개발 반복을 빠르게 합니다. */
 const JOB_DURATION_MS = 12_000
 
 /**
@@ -625,7 +625,7 @@ function projectJob(job: MockJob): Job {
     이 상태는 PR #60 이 만들어 낸 새 엣지입니다. 그전에는 시각이 아예 없어 대기와
     처리를 구분할 수단도 없었는데, 이제 `started_at: null` 이 «아직 시작 안 함»을
     분명히 말합니다. 화면이 그때 무엇을 할지(§3 판정 기준은 started_at, 그런데
-    대기도 90초를 넘으면 «약 24초»가 거짓말이 됨)를 브라우저에서 밟아 보려면 목이
+    대기도 90초를 넘으면 «약 48초»가 거짓말이 됨)를 브라우저에서 밟아 보려면 목이
     이 상태를 만들 수 있어야 합니다.
   */
   const QUEUE_MS = scenario() === 'job:queued' ? Number.POSITIVE_INFINITY : INITIAL_QUEUE_MS
