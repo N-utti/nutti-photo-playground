@@ -238,6 +238,42 @@ describe('W-09 · 보관함', () => {
     expect(screen.getByRole('button', { name: '로그인하고 보관하기' })).toBeInTheDocument()
   })
 
+  it('보관함이 회원 전용이면 실패가 아니라 로그인할 자리를 준다 (403 MEMBER_ONLY)', async () => {
+    /*
+      보관함은 회원 기능입니다(§2 W-06 저장). 실서버의 게스트 응답은 실패가 아니라
+      **403 `MEMBER_ONLY`** 인데(백엔드 PR #156 · 이슈 #52 의 그 코드), 일반 오류로
+      흘리면 «불러오지 못했어요 · 다시 시도» 가 뜹니다. 다시 눌러도 영영 같은 답이 오고
+      게스트는 자기 사진이 사라졌다고 읽습니다 — 눌러야 할 버튼은 재시도가 아니라
+      로그인입니다.
+
+      «아직 보관된 사진이 없어요»(빈 상태)로 떨어져도 안 됩니다. 게스트의 결과는 없는 게
+      아니라 목록으로 안 묶일 뿐이라(만든 브라우저에서 30일 · Q7) 그건 거짓말입니다.
+
+      목은 아직 게스트에게도 목록을 줍니다 — 보관함 구현(PR #156·#157)이 열려 있는 동안
+      목이 서버를 앞지르지 않게 두고, 이 응답만 여기서 덮습니다.
+    */
+    server.use(
+      http.get('*/v1/library', () =>
+        HttpResponse.json(
+          { error: { code: 'MEMBER_ONLY', message: '로그인이 필요합니다', detail: {} } },
+          { status: 403 },
+        ),
+      ),
+    )
+    renderLibrary()
+
+    expect(await screen.findByText('로그인하면 여기에 모여요')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '로그인하고 보관하기' })).toBeInTheDocument()
+    expect(screen.queryByText('보관함을 불러오지 못했어요.')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '다시 시도' })).not.toBeInTheDocument()
+    expect(screen.queryByText('아직 보관된 사진이 없어요')).not.toBeInTheDocument()
+    /*
+      «이 브라우저에만 남아 있어요» 는 **아래 목록을 가리키는 말**이라 목록이 없으면
+      무엇을 두고 하는 말인지 알 수 없습니다. 로그인 버튼이 두 개 뜨는 것도 같은 문제고요.
+    */
+    expect(screen.queryByText('이 브라우저에만 남아 있어요')).not.toBeInTheDocument()
+  })
+
   it('강아지 필터를 고르면 URL 에 남는다', async () => {
     /*
       결과를 열었다가 뒤로 오면 보던 필터가 남아야 합니다 — 이 앱은 화면 상태를 URL 로
