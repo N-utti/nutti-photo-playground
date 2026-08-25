@@ -25,7 +25,7 @@ npm run test     # vitest — 컴포넌트 회귀 테스트
 오리진(:5173)에 붙습니다. API는 200인데 화면에 이미지가 하나도 안 뜨는 상태가 되어
 «백엔드가 아직 안 됐나»로 오진하기 쉽습니다.
 
-### 실서버로 지금 밟을 수 있는 범위 (2026-08-12 실측)
+### 실서버로 지금 밟을 수 있는 범위 (2026-08-25 실측)
 
 「전 엔드포인트 501」은 옛말입니다. 다만 **부분 전환**이라 목을 끄면 못 밟는 화면이 있습니다.
 
@@ -38,10 +38,16 @@ npm run test     # vitest — 컴포넌트 회귀 테스트
 | 크레딧·클레임·원장 | `/credits*` | 구현 |
 | 생성 요청·조회 | `POST /jobs`, `GET /jobs/{id}` | 구현 |
 | 실제 생성(워커) | `app/worker.py` | 구현 — 별도 프로세스로 띄워야 job이 진행됩니다 |
+| 공유 이미지 | `POST /jobs/{id}/share` | 구현 (PR #73) |
+| 계산기 연결 | `GET /calculator-link` | 구현 (PR #122 — 2026-08-19) |
 | **보관함** | `GET·DELETE /library` | **501** — W-09 |
-| **계산기 연결** | `GET /calculator-link` | **501** — W-06 배너·W-07 |
-| **공유 이미지** | `POST /jobs/{id}/share` | **501** — W-06 공유 |
 | **이벤트 비콘** | `POST /events` | **501** (실패를 삼키므로 화면은 안 막힘) |
+| **운영 콘솔** | `/admin/*` | **501** — W-11(화면 자체가 미구현) |
+
+이 표는 `app/routers/*.py` 에서 `not_implemented()` 를 찾으면 그 자리에서 검산됩니다 —
+2026-08-25 기준 남은 건 `library` · `events` · `admin` 셋뿐입니다. **표가 «501» 이라고
+적혀 있다는 이유로 목을 계속 믿지 마세요**: 공유는 08-12 이전, 계산기 연결은 08-19 에
+구현됐는데 이 표는 08-25 까지 둘 다 501 이라고 말하고 있었습니다.
 
 **목을 끄기 전에 백엔드를 최신으로 맞춥니다.** 띄워 둔 채로 며칠 지난 uvicorn 은 그때의
 라우팅을 그대로 서빙합니다 — 2026-08-21 에 `DELETE /v1/auth/me` 가 **405** 로 돌아왔는데
@@ -59,7 +65,7 @@ localhost:8000/openapi.json` 의 `paths['/v1/auth/me']` 키로 확인됩니다).
 브라우저 콘솔에서:
 
 ```js
-localStorage.setItem('nutti.mock.scenario', 'upload:warn')  // 품질 경고(비차단) · 견종은 믹스견
+localStorage.setItem('nutti.mock.scenario', 'upload:warn')  // 품질 경고(비차단) · 견종은 계산기 목록 밖(→ 믹스견 폴백)
 localStorage.setItem('nutti.mock.scenario', 'upload:nodog') // 강아지 미검출 경고(FR-EDGE-08) · 견종 추정 실패
 localStorage.setItem('nutti.mock.scenario', 'upload:multi') // 여러 마리(FR-EDGE-09)
 localStorage.setItem('nutti.mock.scenario', 'upload:face')  // 사람 얼굴 — policy=warn (FR-EDGE-06)
@@ -338,12 +344,18 @@ src/
    `retry`·`refetchInterval`·W-05·W-06이 전부 이걸 씁니다. 목 시나리오 `job:flaky`로
    전 구간을 밟을 수 있습니다.
 11. **계산기 배너 문구는 업로드가 정합니다.** `GET /v1/calculator-link` 가 돌려주는
-   견종은 그 job 이 쓴 업로드의 `breed_estimate` 에서 나옵니다 — 목도 job → upload 로
-   따라갑니다. 그래서 «강아지를 못 찾은 사진»(`upload:nodog`)으로 만든 결과는 배너가
-   «견종을 확인하지 못했어요 · 1단계부터»(FR-EDGE-10)로, 믹스견(`upload:warn`)은
-   «믹스견 · 중형»(FR-EDGE-11)으로 떨어집니다. 이름은 **저장된 강아지가 있을 때만**
-   붙고(없으면 «우리 아이는»), W-06 배너와 W-07 화면이 같은 문장을 말하는지는
-   `api/calculatorLink.ts` 한 곳이 보장합니다.
+   견종은 그 job 이 쓴 업로드의 `breed_estimate` **`label`** 에서 나옵니다(서버가 매칭에
+   쓰는 건 `code` 가 아닙니다 — 계산기에 코드 체계가 없어 **한글 견종명이 곧 키**이고
+   목록은 40종, `app/breeds.py`). 목도 job → upload 로 따라갑니다. 그래서
+   «강아지를 못 찾은 사진»(`upload:nodog`)은 «견종을 확인하지 못했어요 · 1단계부터»
+   (FR-EDGE-10)로, **목록 밖 견종**(`upload:warn` — 목 픽스처가 «골든두들»)은
+   «견종을 하나로 좁히지 못해 믹스견 · 중형으로 넘겨요»(FR-EDGE-11)로 떨어집니다.
+   폴백 문구가 «사진에서 …으로 봤어요» 가 **아닌** 이유: 그 믹스견은 사진에서 읽은 값이
+   아니라 읽은 견종이 목록에 없어 대신 넣은 값일 수 있고, 응답만으로는 둘을 구분할 수
+   없습니다. 이름은 **저장된 강아지가 있을 때만** 붙고(없으면 «우리 아이는»), W-06 배너와
+   W-07 화면이 같은 문장을 말하는지는 `api/calculatorLink.ts` 한 곳이 보장합니다.
+   목이 그 세 갈래를 **실제로 만들어 내는지**는 `mocks/calculatorLink.handler.test.ts` 가
+   봅니다 — 화면 테스트는 응답을 직접 써 넣고 시작하므로 거기서는 안 보이는 자리입니다.
 12. **회복 가능한 에러로 화면을 헐지 마세요.** W-05·W-06은 `error`가 있어도 이미 받아 둔
    `job`이 있고 치명적이지 않으면 `JobUnavailable`로 넘어가지 않습니다. 넘어가면 아직
    살아 있는 작업 앞에서 사용자가 보는 건 재시도 버튼이 없는 «새로 만들기»뿐이고,
