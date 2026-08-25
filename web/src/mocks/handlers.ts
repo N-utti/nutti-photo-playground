@@ -1375,21 +1375,31 @@ export const handlers = [
       }
     }
 
-    // 보관함에서 지운 결과. 논리삭제된 뒤에는 이 주소도 닫히는 게 계약입니다
-    // (jobResultsDeleted 참고 — 서버 쪽은 이슈 #152).
-    if (jobResultsDeleted(String(params.jobId))) {
-      return apiError(404, 'NOT_FOUND', '작업을 찾을 수 없습니다')
-    }
+    /*
+      보관함에서 지운 결과 (jobResultsDeleted 참고).
+
+      **404 가 아니라 빈 `results` 로 200 입니다.** 여기는 오랫동안 404 였는데, 그건
+      «논리삭제되면 이 주소도 닫힌다» 는 목의 추측이었습니다. 백엔드가 이슈 #152
+      코멘트에서 계약을 확정했습니다 — 조회는 `results: []` 로 200, `share` 만 404
+      (PR #157). job 자체는 살아 있고 사라지는 건 결과물뿐입니다.
+
+      그 차이가 화면을 가릅니다. 404 면 «열 수 없는 결과» 한 장으로 끝나지만, 200 이면
+      `style_id`·`upload_id`·`inputs` 가 손에 들어와 **같은 설정으로 다시 만들 수**
+      있습니다(screens/W06Result.tsx `RemovedResultPanel`). 목이 404 를 주는 동안은
+      그 화면을 브라우저에서 한 번도 못 밟습니다.
+    */
+    const removed = jobResultsDeleted(String(params.jobId))
 
     if (!job) {
       // 보관함 시드에서 열린 과거 결과. 없으면 목록의 모든 항목이 404 로 이어져
       // 보관함 → 결과 상세라는 이 화면의 존재 이유(FR-W09-03)를 못 밟습니다.
       const seeded = seededJob(String(params.jobId))
-      if (seeded) return HttpResponse.json(seeded)
+      if (seeded) return HttpResponse.json(removed ? { ...seeded, results: [] } : seeded)
       return apiError(404, 'NOT_FOUND', '작업을 찾을 수 없습니다')
     }
 
     const projected = projectJob(job)
+    if (removed) return HttpResponse.json({ ...projected, results: [] })
     // 실패 확정 시 크레딧 자동 반환(§4 시나리오2 5단계) — 1회만.
     //
     // 반환 표시는 `refunded` 입니다. 예전에는 `creditCost` 를 0 으로 만들어 겸했는데,
@@ -1425,9 +1435,18 @@ export const handlers = [
     // `/jobs/{id}` 와 같은 소유권 판정 — 재발급된 게스트에게 이 job 은 남의 것입니다(§3).
     if (expiredSession(request) === 'reissued') return notFound()
 
+    /*
+      지운 결과는 **여기서만 404 입니다.** 조회(`GET /jobs/{id}`)는 빈 `results` 로
+      200 을 주는데 share 는 404 로 갈라집니다 — 백엔드가 이슈 #152 코멘트에서 그렇게
+      확정했고, 서버 코드도 두 자리가 다릅니다(`app/routers/jobs.py` — 조회는 필터로
+      결과를 비우고, share 는 결과가 없으면 `_not_found()`).
+
+      목이 이 갈래를 안 흉내 내면 «화면은 지워진 걸 아는데 공유 버튼만 살아 있는»
+      상태를 못 밟습니다. 그건 W-06 이 막아야 하는 바로 그 화면입니다.
+    */
     const own = state.jobs.get(jobId)
     const job = own ? projectJob(own) : seededJob(jobId)
-    const result = job?.results?.[0]
+    const result = jobResultsDeleted(jobId) ? undefined : job?.results?.[0]
     if (!result) return notFound()
 
     return HttpResponse.json({ share_image_url: result.image_url })

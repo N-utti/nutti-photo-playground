@@ -161,7 +161,10 @@ export default function W06Result() {
         {/* 대기 화면(W-05)은 끝나는 순간 `replace` 로 여기 자리를 넘겼으므로,
             한 칸 뒤는 만들기를 시작한 화면입니다 — 끝난 진행 막대로 되돌아가지 않습니다. */}
         <BackButton fallback="/styles" />
-        <h1 className="text-base font-bold">{job?.status === 'failed' ? '실패' : '완성'}</h1>
+        {/* 결과가 지워진 job 을 «완성» 이라고 부르면 제목이 본문과 다른 말을 합니다. */}
+        <h1 className="text-base font-bold">
+          {job?.status === 'failed' ? '실패' : resultRemoved(job) ? '지운 사진' : '완성'}
+        </h1>
         <CreditBadge />
       </header>
 
@@ -176,6 +179,27 @@ export default function W06Result() {
       </main>
     </div>
   )
+}
+
+/**
+ * 만들기는 성공했는데 **결과가 없는** job — 보관함에서 지운 사진입니다 (이슈 #152).
+ *
+ * 서버가 `deleted_at` 인 결과를 `results[]` 에서 빼면서 생기는 상태입니다(백엔드
+ * PR #157). job 자체는 200 · succeeded 로 그대로 오고 `results` 만 빕니다 —
+ * **404 가 아닙니다.** 이슈 #152 에서 프론트는 404 를 요청했지만(이미 «열 수 없는
+ * 결과» 화면이 있으니까) 백엔드가 갈라서 정했습니다: 조회는 빈 `results` 로 200,
+ * `POST /jobs/{id}/share` 만 404. 그 결정이 이슈 코멘트에 적혀 있습니다.
+ *
+ * 그래서 이 판정이 필요합니다. 없으면 화면이 «완성» 이라고 말하면서 빈 자리에
+ * 저장·공유 버튼을 띄웁니다 — 지운 사진을 공유하라고 권하는 셈이고, 눌러 봐야
+ * share 가 404 라 아무 일도 안 일어납니다.
+ *
+ * `results` 는 `[] | null` 둘 다 올 수 있어(§3 — 진행 중인 job 은 null) 그릴 게
+ * 없다는 사실 하나로 판정합니다. 진행 중인 job 은 여기 오기 전에 대기 화면으로
+ * 돌려보내지므로(위 `useEffect`) succeeded 조건만으로 충분합니다.
+ */
+function resultRemoved(job: Job | undefined): boolean {
+  return job?.status === 'succeeded' && !job.results?.[0]
 }
 
 // ---------------------------------------------------------------- 실패 (FR-EDGE-01)
@@ -211,23 +235,26 @@ function ResultPanel({ job }: { job: Job }) {
   const current = job.results?.[0] ?? null
 
   // 노트: 결과를 실제로 본 시점을 W-11 집계의 기준선으로 씁니다(04-erd metric_event).
+  //
+  // 지워진 결과는 세지 않습니다 — 볼 그림이 없는데 «결과를 봤다» 로 집계하면, 이
+  // 지표를 쓰는 쪽(만족도·재생성률의 분모)이 조용히 부풀어 오릅니다.
   const viewLogged = useRef(false)
   useEffect(() => {
-    if (viewLogged.current) return
+    if (viewLogged.current || current === null) return
     viewLogged.current = true
     void events.track({ event_type: 'result_view', properties: { job_id: job.job_id } })
-  }, [job.job_id])
+  }, [job.job_id, current])
+
+  if (current === null) return <RemovedResultPanel job={job} />
 
   return (
     <>
       {/* 노트1 — 원본 대조가 만족도의 근거. 노트4 — 서명은 이미지에 이미 합성돼 있습니다. */}
-      {current && (
-        <CompareSlider
-          jobId={job.job_id}
-          beforeUrl={job.source_image_url}
-          afterUrl={current.image_url}
-        />
-      )}
+      <CompareSlider
+        jobId={job.job_id}
+        beforeUrl={job.source_image_url}
+        afterUrl={current.image_url}
+      />
 
       {/* 출구 1 — 공유가 주 버튼(노트3). */}
       <ShareRow job={job} />
@@ -265,6 +292,45 @@ function ResultPanel({ job }: { job: Job }) {
 
       {/* 노트7 — 같은 업로드로 2회차. */}
       <OtherStyles jobId={job.job_id} />
+    </>
+  )
+}
+
+/**
+ * 지워진 결과의 자리 (이슈 #152 · 위 `resultRemoved` 주석이 판정 근거).
+ *
+ * **원본 사진은 남습니다.** 지운 건 결과물이고 업로드는 그대로라, 여기서 사진까지
+ * 치우면 «돈만 나가고 사진도 잃었다» 가 됩니다 — 실패 패널·`ResultUnavailable` 이
+ * 같은 이유로 원본을 남깁니다. 다만 여기는 사고가 아니라 **사용자가 시킨 일**이라
+ * 톤이 다릅니다: 경고(warn)도 오류(danger)도 아니고 사실만 적습니다.
+ *
+ * `JobUnavailable` 의 `deleted` 로 보내지 않는 이유는 **재료가 손에 있기** 때문입니다.
+ * 그 화면은 job 을 아예 못 읽는 404 용이라 줄 수 있는 게 «새로 만들기»(카탈로그)
+ * 하나뿐인데, 여기서는 200 으로 `style_id`·`upload_id`·`inputs`·`custom_prompt`·
+ * `credit_cost` 가 전부 옵니다. 즉 **같은 설정으로 다시 만들 수 있습니다** —
+ * 지운 사진을 다시 보고 싶은 사람에게 그게 정확히 필요한 것이고, 카탈로그로
+ * 내보내면 같은 사진을 다시 올리게 됩니다.
+ *
+ * 출구 셋(공유·계산기·쇼핑몰)은 **전부 뺍니다.** 그 배치는 «감정 최고점에 모은다» 는
+ * 근거 위에 서 있는데(FR-W06-08 · 노트6) 지금은 최고점이 아닙니다. 지운 사진을
+ * 열었더니 «간식량 계산하기»·«수제간식 보러가기» 가 뜨면, 와이어프레임 콜아웃이
+ * 경고한 바로 그 모양 — 출구가 광고로 읽히는 화면이 됩니다.
+ */
+function RemovedResultPanel({ job }: { job: Job }) {
+  return (
+    <>
+      <img
+        src={job.source_image_url}
+        alt="업로드한 사진"
+        className="aspect-square w-full rounded-xl bg-canvas-2 object-cover"
+      />
+      <div className="mt-3 rounded-lg border border-rule bg-surface-2 px-3 py-3">
+        <p className="text-sm font-semibold">보관함에서 지운 사진이에요</p>
+        <p className="mt-0.5 text-sm text-ink-2">
+          지운 결과는 되돌릴 수 없어요. 사진은 그대로 있으니 다시 만들 수 있어요.
+        </p>
+      </div>
+      <Regenerate job={job} label="다시 만들기" />
     </>
   )
 }
