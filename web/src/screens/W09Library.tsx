@@ -35,6 +35,7 @@ import { useDeleteLibraryItems, useLibrary, useMe, usePets } from '../api/querie
 import ConfirmDialog from '../app/ConfirmDialog'
 import { CreditBadge } from '../app/CreditBadge'
 import { TabBar } from '../app/TabBar'
+import { rememberDeletedJobs } from '../app/deletedResults'
 import { useGuestSessionReset } from '../app/guestSession'
 import { saveImage } from '../app/saveImage'
 import type { LibraryItem, LibraryMonth } from '../api/types'
@@ -221,7 +222,19 @@ export default function W09Library() {
           onDelete={() =>
             remove.mutate(
               selectedItems.map((item) => item.result_id),
-              { onSuccess: () => setSelected(null) },
+              {
+                onSuccess: () => {
+                  /*
+                    지웠다는 사실을 이 브라우저가 기억합니다(app/deletedResults.ts).
+                    같은 결과의 `/jobs/{job_id}` 주소는 히스토리·북마크·공유 링크에
+                    그대로 남아 있고, 서버가 논리삭제를 반영하기 시작하면(이슈 #152)
+                    그 주소는 404 가 됩니다 — 그때 화면이 «주소가 잘못됐다» 고 하지
+                    않게 하려는 근거입니다. 성공 콜백에만 답니다.
+                  */
+                  rememberDeletedJobs(selectedItems.map((item) => item.job_id))
+                  setSelected(null)
+                },
+              },
             )
           }
         />

@@ -24,6 +24,7 @@ import { beginJobAttempt, clearJobAttempt, resumeJobAttempt } from '../api/idemp
 import { forgetActiveJob } from '../app/activeJob'
 import BackButton from '../app/BackButton'
 import { CreditBadge } from '../app/CreditBadge'
+import { wasDeletedHere } from '../app/deletedResults'
 import { NUTTI_SHOP_URL } from '../app/externalLinks'
 import {
   invalidateAfterJobSettled,
@@ -131,10 +132,23 @@ export default function W06Result() {
   // 결과물을 «찾을 수 없다»로 덮는 셈입니다.
   if (error && (job == null || isFatalJobError(error))) {
     const status = error instanceof ApiError ? error.status : 0
+    /*
+      404 의 이유를 서버는 말해 주지 않습니다. 이 브라우저가 보관함에서 지운 결과라면
+      그 이유를 아는 건 우리뿐이라(app/deletedResults.ts), 세션·주소 탓으로 설명하기
+      전에 먼저 봅니다. 게스트 리셋보다 앞에 두는 이유: 리셋은 «열 수 없다» 의 흔한
+      원인이지만 삭제는 **이 job 에 대해 확인된 사실**이라 더 구체적입니다.
+    */
+    const deletedHere = status === 404 && wasDeletedHere(jobId)
     return (
       <JobUnavailable
         reason={
-          guestReset ? 'guest-reset' : status === 404 || status === 401 ? 'not-found' : 'error'
+          deletedHere
+            ? 'deleted'
+            : guestReset
+              ? 'guest-reset'
+              : status === 404 || status === 401
+                ? 'not-found'
+                : 'error'
         }
         detail={status >= 500 ? error.message : undefined}
       />

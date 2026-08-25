@@ -16,7 +16,8 @@ import { fireEvent, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
 import { Route, Routes } from 'react-router'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
+import { rememberDeletedJobs } from '../app/deletedResults'
 import { renderWithProviders } from '../test/render'
 import { server } from '../test/server'
 import type { Job } from '../api/types'
@@ -231,5 +232,56 @@ describe('W-06 · 공유 패널', () => {
     expect(screen.getByRole('button', { name: '이미지 저장' })).toBeDisabled()
     // 볼 그림이 없는데 «저장해서 올려 주세요» 는 안내가 아니라 딴소리입니다.
     expect(screen.queryByText(/저장해서 인스타그램에 올려 주세요/)).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * 네 번째 갈래 — **없는 결과를 무엇 탓으로 설명하는가**.
+ *
+ * 404 하나에 이유가 여럿 겹칩니다: 주소가 틀렸거나, 다른 기기에서 만들었거나, 게스트
+ * 세션이 리셋됐거나, **본인이 보관함에서 지웠거나**. 서버는 «없다» 만 말하고 이유는
+ * 말하지 않으므로, 마지막 경우를 아는 건 지우기를 누른 이 브라우저뿐입니다
+ * (app/deletedResults.ts · 이슈 #152).
+ *
+ * 구분이 없으면 자기가 지운 사진 앞에서 «주소가 잘못됐거나 다른 기기·브라우저에서
+ * 만든 결과일 수 있어요» 를 읽게 됩니다 — 앱이 자기가 한 일을 사용자 환경 탓으로
+ * 돌리는 문장이고, 그 사용자는 없는 문제를 찾아 나섭니다.
+ */
+describe('W-06 · 열 수 없는 결과', () => {
+  afterEach(() => {
+    // 앱 저장소라 `resetMockState` 밖입니다(app/deletedResults.ts).
+    localStorage.removeItem('nutti.deleted-jobs')
+  })
+
+  function renderMissing() {
+    server.use(
+      http.get(`*/v1/jobs/${JOB_ID}`, () =>
+        HttpResponse.json({ code: 'NOT_FOUND', message: '작업을 찾을 수 없습니다' }, { status: 404 }),
+      ),
+    )
+    server.use(http.get('*/v1/styles', () => HttpResponse.json({ sections: [] })))
+
+    return renderWithProviders(
+      <Routes>
+        <Route path="/jobs/:jobId" element={<W06Result />} />
+      </Routes>,
+      { route: `/jobs/${JOB_ID}` },
+    )
+  }
+
+  it('이 브라우저가 지운 결과면 그렇다고 말한다', async () => {
+    rememberDeletedJobs([JOB_ID])
+    renderMissing()
+
+    expect(await screen.findByRole('heading', { name: '삭제한 결과입니다' })).toBeInTheDocument()
+  })
+
+  it('지운 적 없는 결과는 예전처럼 «찾을 수 없습니다»로 남는다', async () => {
+    // 기록이 없는 404 까지 삭제로 설명하면, 다른 기기에서 만든 결과를 지웠다고
+    // 말하게 됩니다 — 사용자는 하지도 않은 일을 했다고 믿습니다.
+    rememberDeletedJobs(['some-other-job'])
+    renderMissing()
+
+    expect(await screen.findByRole('heading', { name: '결과를 찾을 수 없습니다' })).toBeInTheDocument()
   })
 })

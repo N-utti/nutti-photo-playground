@@ -12,16 +12,19 @@
  * 답하는 계약이라(이슈 #33) 그대로 두면 «이 강아지로 만든 결과가 없다» 처럼 보입니다 —
  * 실제로는 강아지가 없는 것이고 결과는 «전체» 에 그대로 있습니다.
  *
- * 삭제 요청까지 밟는 테스트는 두지 않습니다. 목의 삭제는 localStorage 에 영속되는
- * 데다(`resetMockState` 가 걷어내긴 합니다) 이 파일이 묻는 건 «무엇이 선택됐는가» 지
- * «삭제가 되는가» 가 아닙니다.
+ * 삭제 **요청**까지 밟는 갈래도 뒤늦게 붙였습니다. 원래는 «무엇이 선택됐는가» 만 묻고
+ * 요청은 두지 않았는데, 그러는 동안 이 화면의 본래 일 두 가지가 아무 테스트도 붙잡지
+ * 않고 있었습니다 — 지운 결과가 **목록에서 실제로 빠지는지**(논리삭제 반영), 그리고
+ * 타일이 **결과 상세로 이어지는지**(FR-W09-03). 목 상태가 테스트 사이로 새는 문제는
+ * `resetMockState` 가 이미 맡고 있습니다(test/mockReset.test.ts).
  */
 
-import { screen } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
 import { Route, Routes } from 'react-router'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
+import { wasDeletedHere } from '../app/deletedResults'
 import { renderWithProviders } from '../test/render'
 import { server } from '../test/server'
 import W09Library from './W09Library'
@@ -34,6 +37,15 @@ function renderLibrary(search = '') {
     { route: `/library${search}` },
   )
 }
+
+/*
+  «이 브라우저가 지운 결과» 기록은 **앱** 저장소라 `resetMockState` 가 걷어내지
+  않습니다(그건 목 상태 담당). 안 지우면 성공 케이스가 남긴 기록을 실패 케이스가
+  물려받아, 실패한 삭제도 기억한 것처럼 보입니다 — 키는 app/deletedResults.ts.
+*/
+afterEach(() => {
+  localStorage.removeItem('nutti.deleted-jobs')
+})
 
 /** 선택 모드로 들어가 첫 항목을 고릅니다. */
 async function selectFirstItem(user: ReturnType<typeof userEvent.setup>) {
@@ -91,6 +103,94 @@ describe('W-09 · 보관함', () => {
     await user.click(screen.getByRole('button', { name: '선택' }))
 
     expect(screen.getByRole('button', { name: '삭제' })).toBeDisabled()
+  })
+
+  it('결과 타일은 그 job 의 상세로 이어진다', async () => {
+    /*
+      FR-W09-03 «원본도 함께 보관» 이 화면에 닿는 지점입니다. 이 화면은 비교 슬라이더도
+      재생성도 스스로 만들지 않고 W-06 으로 보내는 쪽을 택했으므로(노트3), 이 링크가
+      끊기면 보관함은 **열 수 없는 사진 목록**이 됩니다.
+    */
+    renderLibrary()
+
+    await screen.findByText('2026년 8월')
+    const tile = screen.getAllByRole('link', { name: /결과$/ })[0]
+
+    // §3 예시의 첫 항목 — 목 픽스처가 이 id 를 고정으로 씁니다.
+    expect(tile).toHaveAttribute('href', '/jobs/b3e13c4a-2f1e-4a3a-9b1e-1234567890ab')
+  })
+
+  it('지운 결과는 목록에서 빠지고 선택 모드도 끝난다', async () => {
+    /*
+      논리삭제 반영. 서버는 204 만 주고 무엇이 남았는지 말하지 않으므로 화면은 목록을
+      다시 읽습니다(api/queries.ts `useDeleteLibraryItems`). 그 무효화가 빠지면 방금
+      지운 사진이 그대로 걸려 있고, 사용자는 삭제가 안 된 줄 알고 한 번 더 누릅니다.
+
+      선택 모드가 안 끝나는 것도 같은 종류입니다 — 지워서 사라진 항목의 선택이 남으면
+      앱바가 «1장 선택» 이라고 적힌 채 고른 게 하나도 안 보이는 상태가 됩니다.
+    */
+    const user = userEvent.setup()
+    renderLibrary()
+
+    await screen.findByText('2026년 8월')
+    const first = screen.getAllByRole('link', { name: /결과$/ })[0].getAttribute('aria-label')
+    await selectFirstItem(user)
+    await user.click(screen.getByRole('button', { name: '삭제' }))
+    // 확인 창 안의 «삭제» — 바닥 선택 바의 것과 이름이 같아 마지막 것을 집습니다.
+    const confirm = within(await screen.findByRole('dialog')).getByRole('button', { name: '삭제' })
+    await user.click(confirm)
+
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: first! })).not.toBeInTheDocument()
+    })
+    expect(screen.getByRole('button', { name: '선택' })).toBeInTheDocument()
+    expect(screen.queryByText(/장 선택/)).not.toBeInTheDocument()
+  })
+
+  it('지웠다는 사실을 이 브라우저가 기억한다', async () => {
+    /*
+      이슈 #152 의 프론트 절반(app/deletedResults.ts). 지운 결과의 `/jobs/{job_id}`
+      주소는 히스토리·북마크에 그대로 남아 있고, 서버가 논리삭제를 조회에 반영하면
+      그 주소는 404 가 됩니다 — 그때 W-06 이 «주소가 잘못됐거나 다른 기기» 라고 하지
+      않으려면 지운 게 우리라는 사실이 여기서 남아야 합니다.
+
+      **성공한 삭제만** 기록해야 합니다. 실패한 요청까지 적으면 서버에 멀쩡히 살아
+      있는 결과를 두고 지웠다고 말하게 됩니다.
+    */
+    const user = userEvent.setup()
+    renderLibrary()
+
+    await screen.findByText('2026년 8월')
+    await selectFirstItem(user)
+    await user.click(screen.getByRole('button', { name: '삭제' }))
+    await user.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: '삭제' }),
+    )
+
+    await waitFor(() => {
+      expect(wasDeletedHere('b3e13c4a-2f1e-4a3a-9b1e-1234567890ab')).toBe(true)
+    })
+  })
+
+  it('삭제가 실패하면 지웠다고 기억하지 않는다', async () => {
+    server.use(
+      http.delete('*/v1/library', () =>
+        HttpResponse.json({ code: 'SERVER_ERROR', message: '실패' }, { status: 500 }),
+      ),
+    )
+    const user = userEvent.setup()
+    renderLibrary()
+
+    await screen.findByText('2026년 8월')
+    await selectFirstItem(user)
+    await user.click(screen.getByRole('button', { name: '삭제' }))
+    await user.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: '삭제' }),
+    )
+
+    // 실패는 화면이 말하고, 선택은 다시 시도할 수 있게 남습니다.
+    expect(await screen.findByRole('alert')).toHaveTextContent('삭제하지 못했어요')
+    expect(wasDeletedHere('b3e13c4a-2f1e-4a3a-9b1e-1234567890ab')).toBe(false)
   })
 
   it('지워진 강아지 필터는 걷어내고 전체를 보여 준다', async () => {

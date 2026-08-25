@@ -768,6 +768,23 @@ function libraryEntries(): LibraryItem[] {
     .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
 }
 
+/**
+ * 이 job 의 결과가 **전부** 보관함에서 지워졌는지.
+ *
+ * 논리삭제는 `deleted_at` 을 찍는 것으로 끝나지 않고, 그 뒤로는 조회에서 빠지는 것이
+ * 계약입니다(06-architecture §4 삭제 경로). 지금 서버는 `/jobs` 에서 그 컬럼을 안
+ * 봐서 지운 사진이 그대로 열리지만(이슈 #152), 목이 그 결함까지 흉내 내면 «지우고
+ * 나서 그 주소로 돌아온 사람» 을 화면에서 영영 못 밟습니다. 그래서 계약 쪽을 그립니다.
+ *
+ * `every` 인 이유: 삭제 단위는 결과이고 job 이 아닙니다. 지금은 1요청 1장이라(Q4)
+ * 한 장뿐이지만, 결과가 여럿이 되면 «일부만 지운 job» 은 계속 열려야 합니다.
+ */
+function jobResultsDeleted(jobId: string): boolean {
+  const seeded = libraryItems.filter((item) => item.job_id === jobId)
+  const resultIds = seeded.length > 0 ? seeded.map((item) => item.result_id) : [`${jobId}:0`]
+  return resultIds.every((id) => state.deletedResults.has(id))
+}
+
 /** 시드 항목의 `job_id` 로 들어온 상세 요청. 보관함에서 결과를 열면 여기로 옵니다. */
 function seededJob(jobId: string): Job | null {
   const item = libraryItems.find((entry) => entry.job_id === jobId)
@@ -1343,6 +1360,12 @@ export const handlers = [
       if (elapsed >= FLAKY_OUTAGE_MS.from && elapsed < FLAKY_OUTAGE_MS.to) {
         return apiError(503, 'SERVICE_UNAVAILABLE', '일시적으로 응답할 수 없습니다')
       }
+    }
+
+    // 보관함에서 지운 결과. 논리삭제된 뒤에는 이 주소도 닫히는 게 계약입니다
+    // (jobResultsDeleted 참고 — 서버 쪽은 이슈 #152).
+    if (jobResultsDeleted(String(params.jobId))) {
+      return apiError(404, 'NOT_FOUND', '작업을 찾을 수 없습니다')
     }
 
     if (!job) {

@@ -88,6 +88,13 @@ localStorage.removeItem('nutti.mock.scenario')              // 정상
 보관함에서 지운 결과는 `nutti.mock.library-deleted` 에 남습니다(새로고침해도 유지).
 시드를 되돌리려면 `localStorage.removeItem('nutti.mock.library-deleted')`.
 
+**지운 결과의 `/jobs/{job_id}` 주소는 목에서 404 입니다.** 논리삭제된 결과가 조회에서
+빠지는 게 계약이고(`06-architecture` §4 삭제 경로), 지금 서버는 그 필터가 없어서 지운
+사진이 그대로 열립니다 — 백엔드 이슈 #152. 목이 그 결함까지 흉내 내면 «지우고 나서 그
+주소로 돌아온 사람» 을 화면에서 밟을 수 없으므로 계약 쪽을 그립니다. 그 화면(«삭제한
+결과입니다»)은 지운 게 이 브라우저일 때만 뜹니다(`app/deletedResults.ts`, 키는
+`nutti.deleted-jobs` — 지우면 «결과를 찾을 수 없습니다» 로 돌아갑니다).
+
 로컬 로그인 목: 비밀번호 `nutti1234`만 성공(그 외 401 `INVALID_CREDENTIALS`), 이메일
 `taken@nutti.co.kr`로 가입하면 409 `EMAIL_TAKEN`. 소셜·카페24 `authorize`는 프로바이더
 대신 **우리 콜백 라우트로 되돌려** 왕복 전체를 로컬에서 밟을 수 있게 합니다.
@@ -141,7 +148,8 @@ localStorage.removeItem('nutti.mock.scenario')              // 정상
 | `screens/W07Calculator.test.tsx` | 견종을 모르는데 안다고 해서 **남의 강아지 기준 간식량**을 넘기는 것 |
 | `screens/EarnActionList.test.tsx` | 매출 직결 줄이 응답 순서에 밀리는 것 · 게스트에게 받지 못할 보상을 약속하는 것 |
 | `screens/W08Creative.test.tsx` | 서버가 막은 문구에 **서버 원문**을 띄워 무엇을 고칠지 모르게 하는 것 · 안내만 띄우고 버튼은 열어 두는 것 |
-| `screens/W09Library.test.tsx` | 필터를 바꿔도 선택이 남아 **화면에 없는 사진이 삭제**되는 것 · 지워진 강아지 필터를 결과 없음으로 오해시키는 것 |
+| `screens/W09Library.test.tsx` | 필터를 바꿔도 선택이 남아 **화면에 없는 사진이 삭제**되는 것 · 지워진 강아지 필터를 결과 없음으로 오해시키는 것 · 지운 사진이 목록에 그대로 남아 한 번 더 누르게 하는 것 |
+| `app/deletedResults.test.ts` | 저장소에 남은 이상한 값 하나가 **보관함 삭제 성공 콜백 한가운데서** 터지는 것 |
 | `screens/W10Credits.test.tsx` | 못 불러온 잔액을 0으로 적어 "크레딧이 없다"고 단정하는 것(ADR-02) |
 | `screens/W12MyPage.test.tsx` | 히스토리 `state.from`을 믿고 「뒤로」가 **외부 사이트**로 나가는 것 · 부가 정보 실패에 계정 경고를 띄우는 것 |
 | `screens/AccountSheet.test.tsx` | 429에 "잠시 뒤"로 뭉개 사용자가 30초마다 다시 누르게 하는 것 · 모드를 바꿔도 앞의 오류가 남는 것 |
