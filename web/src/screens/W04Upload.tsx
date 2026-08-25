@@ -23,7 +23,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { isApiError } from '../api/client'
 import BackButton from '../app/BackButton'
 import { CreditBadge } from '../app/CreditBadge'
-import { CUSTOM_PROMPT_COST_ESTIMATE } from '../app/customPromptCost'
+import { customPromptLinkLabel, useCustomPromptCost } from '../app/customPromptCost'
 import {
   beginJobAttempt,
   clearJobAttempt,
@@ -745,6 +745,11 @@ function ConfirmPanel({
 }: ConfirmPanelProps) {
   const blocked = upload.blocking_issue
 
+  // 아래 W-08 링크가 말하는 비용(서버 정책값). prop 으로 받지 않는 이유는 이 화면의
+  // 앱바 배지가 이미 같은 쿼리를 구독하고 있어서입니다 — 부모를 거치면 같은 값이
+  // 두 경로로 흐르고, 한쪽만 갱신되는 날이 옵니다.
+  const customPromptCost = useCustomPromptCost()
+
   /*
     이름 안내를 띄우는 자리에서 저장 폼도 같이 받습니다 — 아래쪽 기본 저장 폼과
     **둘 다 뜨면 안 됩니다**. 두 개의 «이름» 입력이 한 화면에 있으면 어느 쪽이
@@ -807,7 +812,7 @@ function ConfirmPanel({
             to={withReuse('/creative', fromJobId)}
             className="mt-3 block text-center text-sm text-ink-2 underline hover:text-brand"
           >
-            원하는 걸 직접 써서 만들기 · {CUSTOM_PROMPT_COST_ESTIMATE} 크레딧
+            {customPromptLinkLabel(customPromptCost)}
           </Link>
         </>
       )}

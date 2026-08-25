@@ -23,7 +23,7 @@ import { Link, Outlet, useMatch } from 'react-router'
 import { useStyles } from '../api/queries'
 import { AccountEntry } from '../app/AccountEntry'
 import { CreditBadge } from '../app/CreditBadge'
-import { CUSTOM_PROMPT_COST_ESTIMATE } from '../app/customPromptCost'
+import { customPromptLinkLabel, useCustomPromptCost } from '../app/customPromptCost'
 import { useReuseFromJob, withReuse, type JobContext } from '../app/reuseFromJob'
 import { TabBar } from '../app/TabBar'
 import Thumbnail from '../app/Thumbnail'
@@ -37,6 +37,10 @@ export default function W02StyleCatalog() {
   // 맥락이 여기서 끊기면 같은 사진을 다시 올리게 되므로(app/reuseFromJob.ts) 카드
   // 링크와 W-03 시트로 그대로 넘깁니다.
   const reuse = useReuseFromJob()
+
+  // 하단 W-08 링크가 말하는 비용. 앱바 배지가 이미 같은 쿼리를 구독하므로 왕복이
+  // 늘지 않습니다 — 모르는 동안 숫자를 감추는 이유는 app/customPromptCost.ts.
+  const customPromptCost = useCustomPromptCost()
 
   // W-03 시트가 이 화면 위에 렌더됩니다(routes.tsx). 시트가 떠 있는 동안
   // 뒤 그리드는 탭 이동·스크린리더 대상에서 빠져야 모달로서 성립합니다.
@@ -232,7 +236,7 @@ export default function W02StyleCatalog() {
             to={withReuse('/creative', reuse.jobId)}
             className="mt-4 mb-8 block rounded-xl border border-rule px-4 py-3 text-center text-sm text-ink-2 hover:border-rule-strong hover:bg-surface-2 hover:text-ink"
           >
-            원하는 걸 직접 써서 만들기 · {CUSTOM_PROMPT_COST_ESTIMATE} 크레딧
+            {customPromptLinkLabel(customPromptCost)}
           </Link>
         </main>
       </div>

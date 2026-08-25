@@ -504,6 +504,14 @@ export interface Credits {
   /** ADR-02 로 음수가 될 수 있습니다. 표시는 max(0, balance), 판정은 balance >= cost. */
   balance: number
   earn_actions: EarnActionRow[]
+  /**
+   * 커스텀 프롬프트(W-08 「직접 만들기」) 1회 비용 — `app_setting.custom_prompt_credit_cost`
+   * 이고 그 행이 없을 때만 서버가 2 로 떨어집니다(이슈 #149 A안, PR #151).
+   *
+   * 프리셋 비용(`StyleCard.credit_cost`)과 달리 스타일에 딸린 값이 아니라 **정책값**이라
+   * 여기 실립니다. 잔액을 보는 화면은 이미 전부 이 쿼리를 구독하므로 왕복이 늘지 않습니다.
+   */
+  custom_prompt_credit_cost: number
 }
 
 export interface ClaimResult {
