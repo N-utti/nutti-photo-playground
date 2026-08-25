@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -6,7 +7,6 @@ from pydantic import BaseModel
 from tortoise.expressions import Q
 
 from app.auth import get_current_member
-from app.common import not_implemented
 from app.models import GenerationResult, JobStatus, Member, MemberKind
 from app.storage import public_url
 
@@ -104,5 +104,27 @@ async def list_library(
 
 
 @router.delete("/library", status_code=204)
-async def delete_library_items(body: DeleteLibraryRequest):
-    not_implemented()
+async def delete_library_items(
+    body: DeleteLibraryRequest, member: Member = Depends(get_current_member)
+):
+    if member.kind != MemberKind.MEMBER:
+        raise HTTPException(
+            status_code=403,
+            detail={"code": "MEMBER_ONLY", "message": "로그인이 필요합니다", "detail": {}},
+        )
+    try:
+        parsed_ids = [uuid.UUID(result_id) for result_id in body.ids]
+    except ValueError as exc:
+        raise _validation_error() from exc
+
+    if parsed_ids:
+        owned_ids = await GenerationResult.filter(
+            id__in=parsed_ids,
+            job__member_id=member.id,
+            deleted_at__isnull=True,
+        ).values_list("id", flat=True)
+        if owned_ids:
+            await GenerationResult.filter(id__in=owned_ids).update(
+                deleted_at=datetime.now(timezone.utc)
+            )
+    return None

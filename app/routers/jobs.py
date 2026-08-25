@@ -290,7 +290,9 @@ async def get_job(job_id: str, member: Member = Depends(get_current_member)):
     elif job.status == JobStatus.SUCCEEDED:
         progress = 100
         eta_seconds = 0
-        rows = await GenerationResult.filter(job_id=job.id).order_by("seq")
+        rows = await GenerationResult.filter(
+            job_id=job.id, deleted_at__isnull=True
+        ).order_by("seq")
         results = [
             {"index": result.seq - 1, "image_url": public_url(result.storage_key)}
             for result in rows
@@ -331,7 +333,11 @@ async def share_result(
     job = await GenerationJob.get_or_none(id=parsed_job_id, member_id=member.id)
     if job is None:
         raise _not_found()
-    result = await GenerationResult.filter(job_id=job.id).order_by("seq").first()
+    result = (
+        await GenerationResult.filter(job_id=job.id, deleted_at__isnull=True)
+        .order_by("seq")
+        .first()
+    )
     if result is None:
         raise _not_found()
     return {"share_image_url": public_url(result.storage_key)}
