@@ -1,5 +1,5 @@
 import uuid
-from zoneinfo import ZoneInfo
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -12,11 +12,29 @@ from app.storage import public_url
 
 router = APIRouter(tags=["library"])
 
-_KST = ZoneInfo("Asia/Seoul")
+_KST = timezone(timedelta(hours=9))
 
 
 class DeleteLibraryRequest(BaseModel):
     ids: list[str]
+
+
+class LibraryItemResponse(BaseModel):
+    job_id: str
+    result_id: str
+    image_url: str
+    pet_id: str | None
+    created_at: datetime
+
+
+class LibraryMonthResponse(BaseModel):
+    label: str
+    items: list[LibraryItemResponse]
+
+
+class LibraryResponse(BaseModel):
+    months: list[LibraryMonthResponse]
+    next_cursor: str | None
 
 
 def _validation_error() -> HTTPException:
@@ -30,7 +48,7 @@ def _validation_error() -> HTTPException:
     )
 
 
-@router.get("/library")
+@router.get("/library", response_model=LibraryResponse)
 async def list_library(
     pet_id: str | None = None,
     cursor: str | None = None,
@@ -42,26 +60,26 @@ async def list_library(
             detail={"code": "MEMBER_ONLY", "message": "로그인이 필요합니다", "detail": {}},
         )
 
-    query = GenerationResult.filter(
-        job__member_id=member.id,
-        job__status=JobStatus.SUCCEEDED,
-        deleted_at__isnull=True,
-    )
+    # 커서 검증도 같은 스코프(소유·pet)로 — 다른 pet의 result를 커서로 주면 400.
+    # deleted_at·status는 스코프에서 뺀다: 1페이지 마지막 항목을 지운 뒤 2페이지를
+    # 요청해도 커서가 계속 유효해야 하므로.
+    scope: dict = {"job__member_id": member.id}
     if pet_id is not None:
         try:
-            parsed_pet_id = uuid.UUID(pet_id)
+            scope["job__source_image__pet_profile_id"] = uuid.UUID(pet_id)
         except ValueError as exc:
             raise _validation_error() from exc
-        query = query.filter(job__source_image__pet_profile_id=parsed_pet_id)
+
+    query = GenerationResult.filter(
+        job__status=JobStatus.SUCCEEDED, deleted_at__isnull=True, **scope
+    )
 
     if cursor is not None:
         try:
             cursor_id = uuid.UUID(cursor)
         except ValueError as exc:
             raise _validation_error() from exc
-        cursor_result = await GenerationResult.get_or_none(
-            id=cursor_id, job__member_id=member.id
-        )
+        cursor_result = await GenerationResult.get_or_none(id=cursor_id, **scope)
         if cursor_result is None:
             raise _validation_error()
         query = query.filter(
