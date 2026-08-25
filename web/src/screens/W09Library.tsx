@@ -27,10 +27,15 @@
  * 사진이 없어요»를 띄웁니다. 만든 적 있는 사람에게 그건 사실이 아니고, 결과가 사라진
  * 이유를 들을 곳이 앱 안에 사라집니다(그전까지 안내는 job URL 로 직접 들어온 W-05·W-06
  * 에만 있었습니다). 탭바로 들어온 사용자가 여기서 처음 만나므로 이 화면이 말해야 합니다.
+ *
+ * (그 «200 + 빈 배열» 은 목이 게스트에게도 목록을 주는 지금 기준입니다. 보관함은 원래
+ * 회원 기능이라 실서버의 게스트 응답은 **403 `MEMBER_ONLY`** 이고 — 백엔드 PR #156 —
+ * 그때는 리셋 안내가 위에, 로그인 안내가 목록 자리에 함께 뜹니다. 아래 `memberOnly`.)
  */
 
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
+import { isApiError } from '../api/client'
 import { useDeleteLibraryItems, useLibrary, useMe, usePets } from '../api/queries'
 import ConfirmDialog from '../app/ConfirmDialog'
 import { CreditBadge } from '../app/CreditBadge'
@@ -79,6 +84,22 @@ export default function W09Library() {
   const library = useLibrary(petId)
   const months = mergeMonths(library.data?.pages ?? [])
   const items = months.flatMap((month) => month.items)
+
+  /*
+    보관함은 **회원 기능**입니다(§2 W-06 저장 — "로그인 회원은 결과가 자동으로 보관함에
+    남음, 게스트는 계정 연동 필요"). 그래서 게스트의 `GET /v1/library` 는 실패가 아니라
+    **403 `MEMBER_ONLY`** 로 옵니다 — 클레임·연동·탈퇴가 이미 쓰는 그 코드입니다(이슈 #52).
+
+    그걸 일반 오류로 흘리면 «보관함을 불러오지 못했어요 · 다시 시도» 가 뜹니다. 다시
+    눌러도 영영 같은 답이 오고, 게스트는 자기 사진이 사라졌다고 읽습니다 — **실패가 아닌
+    상황을 실패로 보여 주는 것**이라 눌러야 할 버튼(로그인)이 화면에서 지워집니다.
+
+    오늘 목은 게스트에게도 목록을 주므로 이 분기는 안 탑니다. 목을 지금 고치지 않는 건
+    보관함 구현(백엔드 PR #156·#157)이 **아직 열려 있기 때문**입니다 — 서버보다 목이
+    앞서면 이 저장소에서 이미 두 번 난 사고(#142·#144)를 반복합니다. 머지되면 목을
+    계약에 맞추고, 그때 이 갈래가 브라우저에서도 밟힙니다.
+  */
+  const memberOnly = isApiError(library.error, 'MEMBER_ONLY')
 
   // null = 선택 모드 아님. 빈 Set 과 구분해야 "다 해제했을 때"도 모드가 유지됩니다.
   const [selected, setSelected] = useState<Set<string> | null>(null)
@@ -146,7 +167,10 @@ export default function W09Library() {
         {guestReset ? (
           <GuestResetNotice onLogin={() => setLoginSheet(true)} />
         ) : (
-          me?.kind === 'guest' && <GuestNotice onLogin={() => setLoginSheet(true)} />
+          // 목록이 회원 전용으로 막힌 경우 `GuestNotice` 는 얹지 않습니다 — "이 브라우저에만
+          // 남아 있어요" 는 **아래 목록을 가리키는 말**이라, 목록이 없는 화면에서는 무엇을
+          // 두고 하는 말인지 알 수 없습니다. 그 자리는 아래 `MemberOnlyNotice` 가 맡습니다.
+          !memberOnly && me?.kind === 'guest' && <GuestNotice onLogin={() => setLoginSheet(true)} />
         )}
 
         <PetFilter pets={pets} value={petId} onChange={selectPet} />
@@ -157,6 +181,8 @@ export default function W09Library() {
               <div key={index} className="aspect-square animate-pulse rounded bg-canvas-rule/70" />
             ))}
           </div>
+        ) : memberOnly ? (
+          <MemberOnlyNotice onLogin={() => setLoginSheet(true)} />
         ) : library.isError ? (
           <div className="mt-4 rounded-xl border border-rule bg-surface px-4 py-5 text-center">
             <p className="text-sm text-ink-2">보관함을 불러오지 못했어요.</p>
@@ -674,6 +700,36 @@ function GuestNotice({ onLogin }: { onLogin: () => void }) {
         로그인하고 보관하기
       </button>
     </section>
+  )
+}
+
+/**
+ * 보관함이 회원 전용이라 목록을 못 받은 경우(403 `MEMBER_ONLY`).
+ *
+ * **«없어요» 가 아니라 «아직 여기 안 모여요» 라고 말합니다.** 게스트의 결과는 사라진 게
+ * 아니라 목록으로 묶이지 않을 뿐이고(만든 브라우저에서 30일 · Q7 · 이슈 #5), 그 차이를
+ * 뭉개면 사용자는 사진을 잃었다고 믿습니다. 빈 상태(`EmptyState`)를 재사용하지 않는
+ * 이유도 그것입니다 — 거기 적힌 «아직 보관된 사진이 없어요» 는 여기서 **거짓**입니다.
+ *
+ * 실패 화면(다시 시도)도 아닙니다. 다시 눌러도 같은 403 이 오고, 정말 필요한 동작은
+ * 재시도가 아니라 로그인입니다.
+ */
+function MemberOnlyNotice({ onLogin }: { onLogin: () => void }) {
+  return (
+    <div className="mt-4 rounded-xl border border-rule bg-surface px-4 py-5">
+      <p className="text-sm font-semibold">로그인하면 여기에 모여요</p>
+      <p className="mt-1 text-sm text-ink-2">
+        지금까지 만든 사진은 만들었던 브라우저에서 30일 동안 열 수 있어요. 보관함으로
+        모아 두려면 로그인이 필요해요.
+      </p>
+      <button
+        type="button"
+        onClick={onLogin}
+        className="mt-4 w-full rounded-xl border border-rule-strong px-4 py-2.5 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
+      >
+        로그인하고 보관하기
+      </button>
+    </div>
   )
 }
 
