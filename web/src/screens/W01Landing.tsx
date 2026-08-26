@@ -20,7 +20,7 @@
 
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import { Link } from 'react-router'
-import { events } from '../api/endpoints'
+import { track } from '../app/analytics'
 import { useMe, useStyles } from '../api/queries'
 import { memberLabel } from '../app/memberIdentity'
 import { TabBar } from '../app/TabBar'
@@ -186,7 +186,7 @@ export default function W01Landing() {
  * 비콘 실패는 endpoints.ts 에서 삼키므로 이동을 막지 않습니다.
  */
 function trackCtaClick() {
-  void events.track({ event_type: 'landing_cta_click', properties: { screen: 'W-01' } })
+  track({ event_type: 'landing_cta_click', properties: { screen: 'W-01' } })
 }
 
 function PreviewCard({ style }: { style: StyleCard }) {

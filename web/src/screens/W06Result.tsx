@@ -19,7 +19,7 @@ import { Link, useNavigate, useParams } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { ApiError, isApiError } from '../api/client'
 import { calculatorHeadline, estimateSummary } from '../api/calculatorLink'
-import { events } from '../api/endpoints'
+import { track } from '../app/analytics'
 import { beginJobAttempt, clearJobAttempt, resumeJobAttempt } from '../api/idempotency'
 import { forgetActiveJob } from '../app/activeJob'
 import BackButton from '../app/BackButton'
@@ -242,7 +242,7 @@ function ResultPanel({ job }: { job: Job }) {
   useEffect(() => {
     if (viewLogged.current || current === null) return
     viewLogged.current = true
-    void events.track({ event_type: 'result_view', properties: { job_id: job.job_id } })
+    track({ event_type: 'result_view', properties: { job_id: job.job_id } })
   }, [job.job_id, current])
 
   if (current === null) return <RemovedResultPanel job={job} />
@@ -274,7 +274,7 @@ function ResultPanel({ job }: { job: Job }) {
         target="_blank"
         rel="noreferrer"
         onClick={() =>
-          void events.track({
+          track({
             event_type: 'shop_exit_click',
             properties: { job_id: job.job_id },
           })
@@ -540,7 +540,7 @@ function ShareRow({ job }: { job: Job }) {
           type="button"
           disabled={share.isPending}
           onClick={() => {
-            void events.track({
+            track({
               event_type: 'share_click',
               properties: { job_id: job.job_id },
             })
@@ -955,7 +955,7 @@ function CalculatorBanner({ jobId }: { jobId: string }) {
     <a
       href={link.calculator_url}
       onClick={() =>
-        void events.track({
+        track({
           event_type: 'calculator_exit_click',
           properties: { job_id: jobId, breed_code: link.breed_code },
         })

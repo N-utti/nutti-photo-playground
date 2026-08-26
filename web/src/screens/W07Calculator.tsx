@@ -21,7 +21,7 @@
 import { Link, useSearchParams } from 'react-router'
 import { isApiError } from '../api/client'
 import { calculatorHeadline, estimateSummary } from '../api/calculatorLink'
-import { events } from '../api/endpoints'
+import { track } from '../app/analytics'
 import { useCalculatorLink } from '../api/queries'
 import BackButton from '../app/BackButton'
 import type { CalculatorLink } from '../api/types'
@@ -148,7 +148,7 @@ function HandoffCard({
         <a
           href={link.calculator_url}
           onClick={() =>
-            void events.track({
+            track({
               event_type: 'calculator_exit_click',
               properties: { job_id: jobId ?? null, pet_id: petId ?? null, breed_code: link.breed_code },
             })

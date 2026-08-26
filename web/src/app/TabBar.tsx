@@ -39,7 +39,7 @@
  */
 
 import { Link, useLocation } from 'react-router'
-import { events } from '../api/endpoints'
+import { track } from './analytics'
 import { NUTTI_SHOP_URL } from './externalLinks'
 
 /**
@@ -99,7 +99,7 @@ export function TabBar() {
             target="_blank"
             rel="noreferrer"
             onClick={() =>
-              void events.track({ event_type: 'shop_exit_click', properties: { from: 'tabbar' } })
+              track({ event_type: 'shop_exit_click', properties: { from: 'tabbar' } })
             }
             className="flex flex-col items-center gap-0.5 py-2 text-[11px] text-ink-3 hover:text-ink"
           >

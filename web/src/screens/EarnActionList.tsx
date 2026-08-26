@@ -13,7 +13,7 @@
 import { useState } from 'react'
 import { useLocation } from 'react-router'
 import { isApiError } from '../api/client'
-import { events } from '../api/endpoints'
+import { track } from '../app/analytics'
 import { useAuthorizeRedirect, useClaimCredit, useCredits, useMe } from '../api/queries'
 import { rememberAuthReturn } from '../app/authReturn'
 import {
@@ -230,7 +230,7 @@ function EarnCta({ row, claiming, onClaim, onLinkAccount, onLogin, linking, memb
         href={NUTTI_SHOP_URL}
         target="_blank"
         rel="noreferrer"
-        onClick={() => void events.track({ event_type: 'shop_exit_click', properties: { from: 'W-10' } })}
+        onClick={() => track({ event_type: 'shop_exit_click', properties: { from: 'W-10' } })}
         className="shrink-0 rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99]"
       >
         {row.cta ?? '쇼핑몰 →'}
