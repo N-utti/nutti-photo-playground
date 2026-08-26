@@ -26,6 +26,7 @@ from app.auth import (
     state_identity,
     verify_password,
 )
+from app.common import api_error, member_only, unauthorized
 from app.credits import grant_credits
 from app.models import (
     CreditLedger,
@@ -120,31 +121,15 @@ class MeResponse(BaseModel):
 
 
 def _bad_gateway() -> HTTPException:
-    return HTTPException(
-        status_code=502,
-        detail={"code": "BAD_GATEWAY", "message": "Cafe24 authentication failed", "detail": {}},
-    )
-
-
-def _unauthorized() -> HTTPException:
-    return HTTPException(
-        status_code=401,
-        detail={"code": "UNAUTHORIZED", "message": "Invalid or missing authentication token", "detail": {}},
-    )
+    return api_error(502, "BAD_GATEWAY", "Cafe24 authentication failed")
 
 
 def _already_member() -> HTTPException:
-    return HTTPException(
-        status_code=409,
-        detail={"code": "ALREADY_MEMBER", "message": "Already signed in as a member", "detail": {}},
-    )
+    return api_error(409, "ALREADY_MEMBER", "Already signed in as a member")
 
 
 def _invalid_credentials() -> HTTPException:
-    return HTTPException(
-        status_code=401,
-        detail={"code": "INVALID_CREDENTIALS", "message": "Invalid email or password", "detail": {}},
-    )
+    return api_error(401, "INVALID_CREDENTIALS", "Invalid email or password")
 
 
 def _client_ip(request: Request) -> str:
@@ -166,19 +151,24 @@ def _prune_expired_buckets(buckets: dict[str, deque[float]], now: float) -> None
             del buckets[expired_key]
 
 
-def _check_bucket(buckets: dict[str, deque[float]], key: str, limit: int) -> None:
-    now = time.monotonic()
-    _prune_expired_buckets(buckets, now)
-    requests = buckets.setdefault(key, deque())
+def _raise_if_limited(requests: deque[float], now: float, limit: int) -> None:
     while requests and requests[0] <= now - 3600:
         requests.popleft()
     if len(requests) >= limit:
         retry_after = max(1, math.ceil(requests[0] + 3600 - now))
-        raise HTTPException(
-            status_code=429,
-            detail={"code": "RATE_LIMITED", "message": "Authentication rate limit exceeded", "detail": {}},
+        raise api_error(
+            429,
+            "RATE_LIMITED",
+            "Authentication rate limit exceeded",
             headers={"Retry-After": str(retry_after)},
         )
+
+
+def _check_bucket(buckets: dict[str, deque[float]], key: str, limit: int) -> None:
+    now = time.monotonic()
+    _prune_expired_buckets(buckets, now)
+    requests = buckets.setdefault(key, deque())
+    _raise_if_limited(requests, now, limit)
     requests.append(now)
 
 
@@ -193,15 +183,7 @@ def _peek_bucket(buckets: dict[str, deque[float]], key: str, limit: int) -> None
     requests = buckets.get(key)
     if not requests:
         return
-    while requests and requests[0] <= now - 3600:
-        requests.popleft()
-    if len(requests) >= limit:
-        retry_after = max(1, math.ceil(requests[0] + 3600 - now))
-        raise HTTPException(
-            status_code=429,
-            detail={"code": "RATE_LIMITED", "message": "Authentication rate limit exceeded", "detail": {}},
-            headers={"Retry-After": str(retry_after)},
-        )
+    _raise_if_limited(requests, now, limit)
 
 
 def _record_failure(buckets: dict[str, deque[float]], key: str) -> None:
@@ -218,6 +200,93 @@ def _check_guest_rate_limit(request: Request) -> None:
     except HTTPException as exc:
         exc.detail["message"] = "Guest token issuance rate limit exceeded"
         raise
+
+
+async def _require_guest(authorization: str | None) -> Member:
+    identity = identity_from_authorization(authorization)
+    if identity is None:
+        raise unauthorized()
+    guest_id, kind = identity
+    if kind == "member":
+        raise _already_member()
+    if kind != "guest":
+        raise unauthorized()
+    guest = await Member.filter(
+        id=guest_id,
+        kind=MemberKind.GUEST,
+        merged_into_id__isnull=True,
+    ).first()
+    if guest is None:
+        raise unauthorized()
+    return guest
+
+
+async def _lock_guest(connection, guest_id) -> Member:
+    guest = await Member.filter(
+        id=guest_id,
+        kind=MemberKind.GUEST,
+        merged_into_id__isnull=True,
+    ).select_for_update().using_db(connection).first()
+    if guest is None:
+        raise unauthorized()
+    return guest
+
+
+async def _issue_oauth_state(member: Member) -> str:
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=5)
+    nonce = secrets.token_urlsafe(32)
+    member.oauth_state_nonce = nonce
+    member.oauth_state_expires_at = expires_at
+    await member.save(update_fields=["oauth_state_nonce", "oauth_state_expires_at"])
+    return create_state(member.id, nonce, expires_at)
+
+
+async def _consume_oauth_state(
+    member_id, nonce: str, kind: MemberKind
+) -> None:
+    async with in_transaction() as connection:
+        member = await Member.filter(
+            id=member_id,
+            kind=kind,
+            merged_into_id__isnull=True,
+        ).select_for_update().using_db(connection).first()
+        if (
+            member is None
+            or member.oauth_state_nonce is None
+            or not secrets.compare_digest(member.oauth_state_nonce, nonce)
+            or member.oauth_state_expires_at is None
+            or member.oauth_state_expires_at <= datetime.now(timezone.utc)
+        ):
+            raise unauthorized()
+        member.oauth_state_nonce = None
+        member.oauth_state_expires_at = None
+        await member.save(
+            update_fields=["oauth_state_nonce", "oauth_state_expires_at"],
+            using_db=connection,
+        )
+
+
+def _rotate_refresh_token(member: Member) -> str:
+    refresh_token = secrets.token_urlsafe(32)
+    member.refresh_token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
+    member.refresh_expires_at = datetime.now(timezone.utc) + timedelta(
+        seconds=settings.jwt_refresh_expires_in
+    )
+    return refresh_token
+
+
+async def _auth_callback_response(
+    target: Member, refresh_token: str, merged: bool
+) -> AuthCallbackResponse:
+    target = await Member.get(id=target.id)
+    return AuthCallbackResponse(
+        token=create_token(target.id, "member", target.token_version),
+        refresh_token=refresh_token,
+        member_id=str(target.id),
+        kind="member",
+        merged=merged,
+        credit_balance=target.credit_balance,
+    )
 
 
 async def _exchange_cafe24_code(code: str) -> dict:
@@ -381,15 +450,8 @@ async def issue_guest_token(request: Request) -> GuestTokenResponse:
 @router.get("/cafe24/authorize", response_model=AuthorizeResponse)
 async def cafe24_authorize(member: Member = Depends(get_current_member)) -> AuthorizeResponse:
     if member.kind != MemberKind.MEMBER:
-        raise HTTPException(
-            status_code=403,
-            detail={"code": "MEMBER_ONLY", "message": "로그인이 필요합니다", "detail": {}},
-        )
-    expires_at = datetime.now(timezone.utc) + timedelta(minutes=5)
-    nonce = secrets.token_urlsafe(32)
-    member.oauth_state_nonce = nonce
-    member.oauth_state_expires_at = expires_at
-    await member.save(update_fields=["oauth_state_nonce", "oauth_state_expires_at"])
+        raise member_only()
+    state = await _issue_oauth_state(member)
     query = urlencode(
         {
             "client_id": settings.cafe24_client_id,
@@ -397,7 +459,7 @@ async def cafe24_authorize(member: Member = Depends(get_current_member)) -> Auth
             "redirect_uri": settings.cafe24_redirect_uri,
             "response_type": "code",
             "scope": settings.cafe24_scope,
-            "state": create_state(member.id, nonce, expires_at),
+            "state": state,
         }
     )
     return AuthorizeResponse(
@@ -408,26 +470,7 @@ async def cafe24_authorize(member: Member = Depends(get_current_member)) -> Auth
 @router.get("/cafe24/callback", response_model=Cafe24LinkResponse)
 async def cafe24_callback(code: str, state: str) -> Cafe24LinkResponse:
     member_id, nonce = state_identity(state)
-    async with in_transaction() as connection:
-        member = await Member.filter(
-            id=member_id,
-            kind=MemberKind.MEMBER,
-            merged_into_id__isnull=True,
-        ).select_for_update().using_db(connection).first()
-        if (
-            member is None
-            or member.oauth_state_nonce is None
-            or not secrets.compare_digest(member.oauth_state_nonce, nonce)
-            or member.oauth_state_expires_at is None
-            or member.oauth_state_expires_at <= datetime.now(timezone.utc)
-        ):
-            raise _unauthorized()
-        member.oauth_state_nonce = None
-        member.oauth_state_expires_at = None
-        await member.save(
-            update_fields=["oauth_state_nonce", "oauth_state_expires_at"],
-            using_db=connection,
-        )
+    await _consume_oauth_state(member_id, nonce, MemberKind.MEMBER)
 
     try:
         token_data = await _exchange_cafe24_code(code)
@@ -443,31 +486,25 @@ async def cafe24_callback(code: str, state: str) -> Cafe24LinkResponse:
             merged_into_id__isnull=True,
         ).select_for_update().using_db(connection).first()
         if member is None:
-            raise _unauthorized()
+            raise unauthorized()
         existing = await Member.filter(
             kind=MemberKind.MEMBER,
             cafe24_member_id=cafe24_member_id,
         ).using_db(connection).first()
         if existing is not None and existing.id != member.id:
-            raise HTTPException(
-                status_code=409,
-                detail={
-                    "code": "CAFE24_ALREADY_LINKED",
-                    "message": "Cafe24 account is already linked",
-                    "detail": {},
-                },
+            raise api_error(
+                409,
+                "CAFE24_ALREADY_LINKED",
+                "Cafe24 account is already linked",
             )
         if (
             member.cafe24_member_id is not None
             and member.cafe24_member_id != cafe24_member_id
         ):
-            raise HTTPException(
-                status_code=409,
-                detail={
-                    "code": "CAFE24_ALREADY_LINKED",
-                    "message": "Member is already linked to another Cafe24 account",
-                    "detail": {},
-                },
+            raise api_error(
+                409,
+                "CAFE24_ALREADY_LINKED",
+                "Member is already linked to another Cafe24 account",
             )
         member.cafe24_member_id = cafe24_member_id
         if member.order_reward_cutoff is None:
@@ -497,27 +534,8 @@ async def social_authorize(
     provider: Literal["kakao", "naver"],
     authorization: str | None = Header(None, alias="Authorization"),
 ) -> AuthorizeResponse:
-    identity = identity_from_authorization(authorization)
-    if identity is None:
-        raise _unauthorized()
-    guest_id, kind = identity
-    if kind == "member":
-        raise _already_member()
-    if kind != "guest":
-        raise _unauthorized()
-    guest = await Member.filter(
-        id=guest_id,
-        kind=MemberKind.GUEST,
-        merged_into_id__isnull=True,
-    ).first()
-    if guest is None:
-        raise _unauthorized()
-    expires_at = datetime.now(timezone.utc) + timedelta(minutes=5)
-    nonce = secrets.token_urlsafe(32)
-    guest.oauth_state_nonce = nonce
-    guest.oauth_state_expires_at = expires_at
-    await guest.save(update_fields=["oauth_state_nonce", "oauth_state_expires_at"])
-    state = create_state(guest.id, nonce, expires_at)
+    guest = await _require_guest(authorization)
+    state = await _issue_oauth_state(guest)
     if provider == "kakao":
         url = "https://kauth.kakao.com/oauth/authorize"
         client_id = settings.kakao_rest_api_key
@@ -542,26 +560,7 @@ async def social_callback(
     provider: Literal["kakao", "naver"], code: str, state: str
 ) -> AuthCallbackResponse:
     guest_id, nonce = state_identity(state)
-    async with in_transaction() as connection:
-        guest = await Member.filter(
-            id=guest_id,
-            kind=MemberKind.GUEST,
-            merged_into_id__isnull=True,
-        ).select_for_update().using_db(connection).first()
-        if (
-            guest is None
-            or guest.oauth_state_nonce is None
-            or not secrets.compare_digest(guest.oauth_state_nonce, nonce)
-            or guest.oauth_state_expires_at is None
-            or guest.oauth_state_expires_at <= datetime.now(timezone.utc)
-        ):
-            raise _unauthorized()
-        guest.oauth_state_nonce = None
-        guest.oauth_state_expires_at = None
-        await guest.save(
-            update_fields=["oauth_state_nonce", "oauth_state_expires_at"],
-            using_db=connection,
-        )
+    await _consume_oauth_state(guest_id, nonce, MemberKind.GUEST)
 
     try:
         if provider == "kakao":
@@ -598,13 +597,7 @@ async def social_callback(
     for attempt in range(2):
         try:
             async with in_transaction() as connection:
-                guest = await Member.filter(
-                    id=guest_id,
-                    kind=MemberKind.GUEST,
-                    merged_into_id__isnull=True,
-                ).select_for_update().using_db(connection).first()
-                if guest is None:
-                    raise _unauthorized()
+                await _lock_guest(connection, guest_id)
                 target, merged = await _merge_or_promote_guest(
                     connection,
                     guest_id,
@@ -613,11 +606,7 @@ async def social_callback(
                     nickname=nickname,
                 )
                 # ponytail: concurrent login is last-commit-wins; an earlier refresh gets 401, then the client re-logs in. Use a session table for multi-device support.
-                refresh_token = secrets.token_urlsafe(32)
-                target.refresh_token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
-                target.refresh_expires_at = datetime.now(timezone.utc) + timedelta(
-                    seconds=settings.jwt_refresh_expires_in
-                )
+                refresh_token = _rotate_refresh_token(target)
                 await target.save(
                     update_fields=["refresh_token_hash", "refresh_expires_at"],
                     using_db=connection,
@@ -627,15 +616,7 @@ async def social_callback(
             if attempt:
                 raise
 
-    target = await Member.get(id=target.id)
-    return AuthCallbackResponse(
-        token=create_token(target.id, "member", target.token_version),
-        refresh_token=refresh_token,
-        member_id=str(target.id),
-        kind="member",
-        merged=merged,
-        credit_balance=target.credit_balance,
-    )
+    return await _auth_callback_response(target, refresh_token, merged)
 
 
 @router.post("/register", status_code=201, response_model=AuthCallbackResponse)
@@ -645,60 +626,23 @@ async def register(
     authorization: str | None = Header(None, alias="Authorization"),
 ) -> AuthCallbackResponse:
     _check_bucket(_register_requests, _client_ip(request), _REGISTER_IP_RATE_LIMIT)
-    identity = identity_from_authorization(authorization)
-    if identity is None:
-        raise _unauthorized()
-    guest_id, kind = identity
-    if kind == "member":
-        raise _already_member()
-    if kind != "guest":
-        raise _unauthorized()
-    guest = await Member.filter(
-        id=guest_id,
-        kind=MemberKind.GUEST,
-        merged_into_id__isnull=True,
-    ).first()
-    if guest is None:
-        raise _unauthorized()
+    guest = await _require_guest(authorization)
+    guest_id = guest.id
     # scrypt(~40ms)를 트랜잭션 밖에서 수행 — DB 커넥션·행 잠금 점유 방지
     password_hash = await asyncio.to_thread(hash_password, body.password)
     for attempt in range(2):
         try:
             async with in_transaction() as connection:
                 if await Member.filter(email=body.email).using_db(connection).exists():
-                    raise HTTPException(
-                        status_code=409,
-                        detail={
-                            "code": "EMAIL_TAKEN",
-                            "message": "Email is already registered",
-                            "detail": {},
-                        },
-                    )
-                guest = await Member.filter(
-                    id=guest_id,
-                    kind=MemberKind.GUEST,
-                    merged_into_id__isnull=True,
-                ).select_for_update().using_db(connection).first()
-                if guest is None:
-                    raise _unauthorized()
+                    raise api_error(409, "EMAIL_TAKEN", "Email is already registered")
+                await _lock_guest(connection, guest_id)
                 target, merged = await _merge_or_promote_guest(
                     connection, guest_id, id_field="email", id_value=body.email
                 )
                 if merged:
-                    raise HTTPException(
-                        status_code=409,
-                        detail={
-                            "code": "EMAIL_TAKEN",
-                            "message": "Email is already registered",
-                            "detail": {},
-                        },
-                    )
+                    raise api_error(409, "EMAIL_TAKEN", "Email is already registered")
                 target.password_hash = password_hash
-                refresh_token = secrets.token_urlsafe(32)
-                target.refresh_token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
-                target.refresh_expires_at = datetime.now(timezone.utc) + timedelta(
-                    seconds=settings.jwt_refresh_expires_in
-                )
+                refresh_token = _rotate_refresh_token(target)
                 await target.save(
                     update_fields=[
                         "password_hash",
@@ -712,15 +656,7 @@ async def register(
             if attempt:
                 raise
 
-    target = await Member.get(id=target.id)
-    return AuthCallbackResponse(
-        token=create_token(target.id, "member", target.token_version),
-        refresh_token=refresh_token,
-        member_id=str(target.id),
-        kind="member",
-        merged=False,
-        credit_balance=target.credit_balance,
-    )
+    return await _auth_callback_response(target, refresh_token, False)
 
 
 @router.post("/login", response_model=AuthCallbackResponse)
@@ -732,21 +668,8 @@ async def login(
     _check_bucket(_login_requests, f"ip:{_client_ip(request)}", _LOGIN_IP_RATE_LIMIT)
     email_key = f"email:{body.email}"
     _peek_bucket(_login_requests, email_key, _LOGIN_EMAIL_RATE_LIMIT)
-    identity = identity_from_authorization(authorization)
-    if identity is None:
-        raise _unauthorized()
-    guest_id, kind = identity
-    if kind == "member":
-        raise _already_member()
-    if kind != "guest":
-        raise _unauthorized()
-    guest = await Member.filter(
-        id=guest_id,
-        kind=MemberKind.GUEST,
-        merged_into_id__isnull=True,
-    ).first()
-    if guest is None:
-        raise _unauthorized()
+    guest = await _require_guest(authorization)
+    guest_id = guest.id
     member = await Member.filter(email=body.email, kind=MemberKind.MEMBER).first()
     if member is None:
         await asyncio.to_thread(verify_password, body.password, DUMMY_PASSWORD_HASH)
@@ -758,35 +681,17 @@ async def login(
     _login_requests.pop(email_key, None)
 
     async with in_transaction() as connection:
-        guest = await Member.filter(
-            id=guest_id,
-            kind=MemberKind.GUEST,
-            merged_into_id__isnull=True,
-        ).select_for_update().using_db(connection).first()
-        if guest is None:
-            raise _unauthorized()
+        await _lock_guest(connection, guest_id)
         target, merged = await _merge_or_promote_guest(
             connection, guest_id, id_field="email", id_value=body.email
         )
-        refresh_token = secrets.token_urlsafe(32)
-        target.refresh_token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
-        target.refresh_expires_at = datetime.now(timezone.utc) + timedelta(
-            seconds=settings.jwt_refresh_expires_in
-        )
+        refresh_token = _rotate_refresh_token(target)
         await target.save(
             update_fields=["refresh_token_hash", "refresh_expires_at"],
             using_db=connection,
         )
 
-    target = await Member.get(id=target.id)
-    return AuthCallbackResponse(
-        token=create_token(target.id, "member", target.token_version),
-        refresh_token=refresh_token,
-        member_id=str(target.id),
-        kind="member",
-        merged=merged,
-        credit_balance=target.credit_balance,
-    )
+    return await _auth_callback_response(target, refresh_token, merged)
 
 
 @router.post("/refresh", response_model=RefreshResponse)
@@ -808,10 +713,8 @@ async def refresh(body: RefreshRequest, request: Request) -> RefreshResponse:
             or member.refresh_expires_at <= now
         ):
             _record_failure(_refresh_requests, client_ip)
-            raise _unauthorized()
-        refresh_token = secrets.token_urlsafe(32)
-        member.refresh_token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
-        member.refresh_expires_at = now + timedelta(seconds=settings.jwt_refresh_expires_in)
+            raise unauthorized()
+        refresh_token = _rotate_refresh_token(member)
         await member.save(
             update_fields=["refresh_token_hash", "refresh_expires_at"],
             using_db=connection,
@@ -868,10 +771,7 @@ async def withdraw(member: Member = Depends(get_current_member)) -> None:
     배치가 deleted_at 기준으로 수행한다. 카페24 쇼핑몰 회원에는 무영향.
     """
     if member.kind != MemberKind.MEMBER:
-        raise HTTPException(
-            status_code=403,
-            detail={"code": "MEMBER_ONLY", "message": "로그인이 필요합니다", "detail": {}},
-        )
+        raise member_only()
     now = datetime.now(timezone.utc)
     async with in_transaction() as connection:
         locked = await Member.filter(

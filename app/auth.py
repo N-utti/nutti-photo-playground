@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 import jwt
 from fastapi import Header, HTTPException
 
+from app.common import unauthorized
 from app.models import Member
 from app.settings import settings
 
@@ -36,11 +37,6 @@ DUMMY_PASSWORD_HASH = (
     "scrypt$16384$8$1$000102030405060708090a0b0c0d0e0f$"
     "6ff0724275ec81a23988ba3fffa6d60911e8b2ef48618d692c114ce55f485590"
 )
-
-
-def _unauthorized(code: str = "UNAUTHORIZED") -> HTTPException:
-    message = "Token has expired" if code == "TOKEN_EXPIRED" else "Invalid or missing authentication token"
-    return HTTPException(status_code=401, detail={"code": code, "message": message, "detail": {}})
 
 
 def create_token(member_id: uuid.UUID, kind: str, version: int) -> str:
@@ -82,15 +78,15 @@ def state_identity(state: str) -> tuple[uuid.UUID, str]:
             raise ValueError
         return uuid.UUID(payload["sub"]), payload["nonce"]
     except (jwt.InvalidTokenError, TypeError, ValueError) as exc:
-        raise _unauthorized() from exc
+        raise unauthorized() from exc
 
 
 def _decode_authorization(authorization: str | None) -> dict:
     if not authorization:
-        raise _unauthorized()
+        raise unauthorized()
     scheme, separator, token = authorization.partition(" ")
     if scheme.lower() != "bearer" or not separator or not token.strip():
-        raise _unauthorized()
+        raise unauthorized()
     try:
         return jwt.decode(
             token.strip(),
@@ -99,9 +95,9 @@ def _decode_authorization(authorization: str | None) -> dict:
             options={"require": ["sub", "kind", "exp"]},
         )
     except jwt.ExpiredSignatureError as exc:
-        raise _unauthorized("TOKEN_EXPIRED") from exc
+        raise unauthorized("TOKEN_EXPIRED") from exc
     except jwt.InvalidTokenError as exc:
-        raise _unauthorized() from exc
+        raise unauthorized() from exc
 
 
 def identity_from_authorization(authorization: str | None) -> tuple[uuid.UUID, str] | None:
@@ -121,7 +117,7 @@ async def get_current_member(authorization: str | None = Header(None, alias="Aut
     try:
         member_id = uuid.UUID(payload["sub"])
     except (TypeError, ValueError) as exc:
-        raise _unauthorized() from exc
+        raise unauthorized() from exc
 
     member = await Member.get_or_none(id=member_id)
     if (
@@ -132,5 +128,5 @@ async def get_current_member(authorization: str | None = Header(None, alias="Aut
         # ponytail: 구버전 토큰(ver 클레임 없음)은 0으로 간주 — 초기 token_version과 일치
         or payload.get("ver", 0) != member.token_version
     ):
-        raise _unauthorized()
+        raise unauthorized()
     return member
