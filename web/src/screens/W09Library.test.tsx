@@ -19,17 +19,35 @@
  * `resetMockState` 가 이미 맡고 있습니다(test/mockReset.test.ts).
  */
 
-import { screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
 import { Route, Routes } from 'react-router'
 import { afterEach, describe, expect, it } from 'vitest'
 import { wasDeletedHere } from '../app/deletedResults'
+import { mockAsMember } from '../mocks/handlers'
 import { renderWithProviders } from '../test/render'
 import { server } from '../test/server'
 import W09Library from './W09Library'
 
+/**
+ * 목록이 나오는 갈래는 **회원만** 볼 수 있습니다 — 게스트의 `GET /v1/library` 는 403
+ * `MEMBER_ONLY` 입니다(백엔드 PR #156). 목이 그 계약을 그대로 답하므로, 목록을 보는
+ * 테스트는 먼저 로그인해야 합니다. `/auth/me` 응답만 꾸미는 방식으로는 부족합니다 —
+ * 회원 여부를 보는 건 화면이 아니라 **목의 보관함 핸들러**입니다.
+ */
 function renderLibrary(search = '') {
+  mockAsMember()
+  return renderWithProviders(
+    <Routes>
+      <Route path="/library" element={<W09Library />} />
+    </Routes>,
+    { route: `/library${search}` },
+  )
+}
+
+/** 로그인하지 않은 채로 여는 경우 — 회원 전용·게스트 안내 갈래가 씁니다. */
+function renderLibraryAsGuest(search = '') {
   return renderWithProviders(
     <Routes>
       <Route path="/library" element={<W09Library />} />
@@ -202,7 +220,9 @@ describe('W-09 · 보관함', () => {
       펫 목록이 도착하기 **전에는** 판단하지 않는 것도 같은 조심입니다. 로딩 중의 빈
       배열을 근거로 삼으면 멀쩡한 필터가 매 진입마다 지워집니다.
     */
-    renderLibrary('?pet_id=pet_deleted_0000')
+    // 지워진 펫의 id 도 형식은 uuid 입니다 — 아무 문자열이나 넣으면 서버가 빈 목록이
+    // 아니라 400 을 냅니다(`uuid.UUID(pet_id)`). 그건 이 테스트가 말하는 상황이 아닙니다.
+    renderLibrary('?pet_id=b6f9e6b0-0000-4000-8000-000000000404')
 
     // 필터가 걷혔으므로 전체 목록이 그대로 보입니다.
     expect(await screen.findByText('2026년 8월')).toBeInTheDocument()
@@ -227,40 +247,20 @@ describe('W-09 · 보관함', () => {
     expect(screen.getByRole('button', { name: '전체 보기' })).toBeInTheDocument()
   })
 
-  it('게스트에게는 결과가 이 브라우저에만 있다고 알린다', async () => {
+  it('게스트에게는 실패가 아니라 로그인할 자리를 준다 (403 MEMBER_ONLY)', async () => {
     /*
-      게스트 결과는 만든 브라우저에서만 열립니다(PO 결정 B+A). 그 사실을 말하지 않으면
-      기기를 바꾼 뒤에야 알게 되고, 그때는 이미 되돌릴 수 없습니다.
-    */
-    renderLibrary()
-
-    expect(await screen.findByText('이 브라우저에만 남아 있어요')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '로그인하고 보관하기' })).toBeInTheDocument()
-  })
-
-  it('보관함이 회원 전용이면 실패가 아니라 로그인할 자리를 준다 (403 MEMBER_ONLY)', async () => {
-    /*
-      보관함은 회원 기능입니다(§2 W-06 저장). 실서버의 게스트 응답은 실패가 아니라
-      **403 `MEMBER_ONLY`** 인데(백엔드 PR #156 · 이슈 #52 의 그 코드), 일반 오류로
-      흘리면 «불러오지 못했어요 · 다시 시도» 가 뜹니다. 다시 눌러도 영영 같은 답이 오고
-      게스트는 자기 사진이 사라졌다고 읽습니다 — 눌러야 할 버튼은 재시도가 아니라
-      로그인입니다.
+      보관함은 회원 기능입니다(§2 W-06 저장). 게스트 응답은 실패가 아니라 **403
+      `MEMBER_ONLY`** 인데(백엔드 PR #156 · 이슈 #52 의 그 코드), 일반 오류로 흘리면
+      «불러오지 못했어요 · 다시 시도» 가 뜹니다. 다시 눌러도 영영 같은 답이 오고 게스트는
+      자기 사진이 사라졌다고 읽습니다 — 눌러야 할 버튼은 재시도가 아니라 로그인입니다.
 
       «아직 보관된 사진이 없어요»(빈 상태)로 떨어져도 안 됩니다. 게스트의 결과는 없는 게
       아니라 목록으로 안 묶일 뿐이라(만든 브라우저에서 30일 · Q7) 그건 거짓말입니다.
 
-      목은 아직 게스트에게도 목록을 줍니다 — 보관함 구현(PR #156·#157)이 열려 있는 동안
-      목이 서버를 앞지르지 않게 두고, 이 응답만 여기서 덮습니다.
+      **응답을 여기서 덮지 않습니다.** 목이 이미 그 계약을 답하므로(PR #156·#157 착지),
+      덮으면 목과 화면 중 어느 쪽이 맞는지 이 테스트가 더는 못 봅니다.
     */
-    server.use(
-      http.get('*/v1/library', () =>
-        HttpResponse.json(
-          { error: { code: 'MEMBER_ONLY', message: '로그인이 필요합니다', detail: {} } },
-          { status: 403 },
-        ),
-      ),
-    )
-    renderLibrary()
+    renderLibraryAsGuest()
 
     expect(await screen.findByText('로그인하면 여기에 모여요')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '로그인하고 보관하기' })).toBeInTheDocument()
@@ -268,10 +268,51 @@ describe('W-09 · 보관함', () => {
     expect(screen.queryByRole('button', { name: '다시 시도' })).not.toBeInTheDocument()
     expect(screen.queryByText('아직 보관된 사진이 없어요')).not.toBeInTheDocument()
     /*
-      «이 브라우저에만 남아 있어요» 는 **아래 목록을 가리키는 말**이라 목록이 없으면
-      무엇을 두고 하는 말인지 알 수 없습니다. 로그인 버튼이 두 개 뜨는 것도 같은 문제고요.
+      로그인 버튼은 **하나**여야 합니다. 여기에 «이 브라우저에만 남아 있어요» 배너가 하나
+      더 있었는데, 목록이 오지 않는 화면에서 목록을 가리키는 말이라 걷어냈습니다.
     */
-    expect(screen.queryByText('이 브라우저에만 남아 있어요')).not.toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: '로그인하고 보관하기' })).toHaveLength(1)
+  })
+
+  it('한 번에 지울 수 있는 장수를 넘겨서는 고를 수 없다', async () => {
+    /*
+      서버가 한 삭제 요청을 100개로 끊습니다(`ids: Field(max_length=100)`, 백엔드 PR
+      #157). 넘겨서 보내면 400 이 오고 화면은 «삭제하지 못했어요 · 잠시 뒤 다시 시도» 로
+      끝나는데 — **다시 눌러도 영영 같은 답입니다.** 그 문구는 서버가 잠깐 아픈 것처럼
+      들리고, 실제로 해야 할 일(나눠서 지우기)은 화면 어디에도 안 적혀 있습니다.
+
+      그래서 고르는 단계에서 막습니다. 막기만 하면 탭했는데 체크가 안 들어오는 화면이
+      되므로 이유를 함께 답니다.
+    */
+    server.use(
+      http.get('*/v1/library', () =>
+        HttpResponse.json({
+          months: [
+            {
+              label: '2026년 8월',
+              items: Array.from({ length: 110 }, (_, index) => ({
+                job_id: `b3e13c4a-2f1e-4a3a-9b1e-${String(index).padStart(12, '0')}`,
+                result_id: `e5f6a7b8-0000-4000-8000-${String(index).padStart(12, '0')}`,
+                image_url: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=',
+                pet_id: null,
+                created_at: '2026-08-03T10:00:00+09:00',
+              })),
+            },
+          ],
+          next_cursor: null,
+        }),
+      ),
+    )
+    const user = userEvent.setup()
+    renderLibrary()
+
+    await screen.findByText('2026년 8월')
+    await user.click(screen.getByRole('button', { name: '선택' }))
+    // 110장을 다 탭합니다 — 상한이 없으면 110장이 한 요청에 실립니다.
+    for (const tile of screen.getAllByRole('button', { name: /결과$/ })) fireEvent.click(tile)
+
+    expect(screen.getByText('100장 선택')).toBeInTheDocument()
+    expect(screen.getByText(/한 번에 100장까지 고를 수 있어요/)).toBeInTheDocument()
   })
 
   it('강아지 필터를 고르면 URL 에 남는다', async () => {
