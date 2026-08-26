@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from tortoise.transactions import in_transaction
 
 from app.auth import get_current_member
+from app.common import api_error, not_found, validation_error
 from app.credits import charge_credits, custom_prompt_credit_cost
 from app.models import (
     CustomPromptLog,
@@ -91,17 +92,6 @@ class ShareRequest(BaseModel):
     channel: str
 
 
-def _validation_error(detail: dict | None = None) -> HTTPException:
-    return HTTPException(
-        status_code=400,
-        detail={
-            "code": "VALIDATION_ERROR",
-            "message": "요청 형식이 올바르지 않습니다",
-            "detail": detail or {},
-        },
-    )
-
-
 def _resolve_input_values(
     input_fields: list, inputs: dict[str, str]
 ) -> dict[str, str]:
@@ -120,24 +110,32 @@ def _resolve_input_values(
             # default 없는 필드(prefill=pet_name 등)는 워커가 채운다
             continue
         if field.get("max_length") and len(value) > field["max_length"]:
-            raise _validation_error({"input": label, "reason": "max_length"})
+            raise validation_error(detail={"input": label, "reason": "max_length"})
         if field.get("pattern") and not re.fullmatch(field["pattern"], value):
-            raise _validation_error({"input": label, "reason": "pattern"})
+            raise validation_error(detail={"input": label, "reason": "pattern"})
         if (
             field.get("type") == "choice"
             and not field.get("allow_custom")
             and value not in {option["value"] for option in field.get("options", [])}
         ):
-            raise _validation_error({"input": label, "reason": "not_in_options"})
+            raise validation_error(detail={"input": label, "reason": "not_in_options"})
         resolved[label] = value
     return resolved
 
 
 def _not_found() -> HTTPException:
-    return HTTPException(
-        status_code=404,
-        detail={"code": "NOT_FOUND", "message": "Job, upload, or style not found", "detail": {}},
-    )
+    return not_found("Job, upload, or style not found")
+
+
+async def _get_owned_job(job_id: str, member: Member) -> GenerationJob:
+    try:
+        parsed_job_id = uuid.UUID(job_id)
+    except ValueError as exc:
+        raise _not_found() from exc
+    job = await GenerationJob.get_or_none(id=parsed_job_id, member_id=member.id)
+    if job is None:
+        raise _not_found()
+    return job
 
 
 @router.post("", status_code=202, response_model=CreateJobResponse)
@@ -149,7 +147,7 @@ async def create_job(
     try:
         key = uuid.UUID(idempotency_key)
     except ValueError as exc:
-        raise _validation_error() from exc
+        raise validation_error() from exc
 
     existing = await GenerationJob.filter(
         member_id=member.id, idempotency_key=key
@@ -188,7 +186,7 @@ async def create_job(
         # ponytail: 워커가 실제 생성 시점에 재검증한다(그 사이 버전이 retired될 수 있음).
     else:
         if body.custom_prompt is None:
-            raise _validation_error()
+            raise validation_error()
         style = prompt_version = None
         cost = await custom_prompt_credit_cost()
         # ponytail: 과한 정규화 없이 원문의 앞뒤 공백 제거와 소문자화만 한다.
@@ -204,7 +202,7 @@ async def create_job(
                 moderation={"input_filter_blocked": True, "reason": "breed_color_change"},
                 job=None,
             )
-            raise _validation_error({"reason": "input_filter_blocked"})
+            raise validation_error(detail={"reason": "input_filter_blocked"})
 
     async with in_transaction() as connection:
         log = (
@@ -238,26 +236,18 @@ async def create_job(
             connection=connection,
         )
         if not charged:
-            raise HTTPException(
-                status_code=402,
-                detail={
-                    "code": "INSUFFICIENT_CREDIT",
-                    "message": "크레딧이 부족합니다",
-                    "detail": {"required": cost, "balance": balance},
-                },
+            raise api_error(
+                402,
+                "INSUFFICIENT_CREDIT",
+                "크레딧이 부족합니다",
+                {"required": cost, "balance": balance},
             )
     return {"job_id": str(job.id), "status": "queued"}
 
 
 @router.get("/{job_id}", response_model=JobResponse)
 async def get_job(job_id: str, member: Member = Depends(get_current_member)):
-    try:
-        parsed_job_id = uuid.UUID(job_id)
-    except ValueError as exc:
-        raise _not_found() from exc
-    job = await GenerationJob.get_or_none(id=parsed_job_id, member_id=member.id)
-    if job is None:
-        raise _not_found()
+    job = await _get_owned_job(job_id, member)
     await job.fetch_related("source_image", "style")
     custom_prompt = None
     if job.custom_prompt_id is not None:
@@ -265,19 +255,11 @@ async def get_job(job_id: str, member: Member = Depends(get_current_member)):
         custom_prompt = log.raw_text if log is not None else None
 
     progress = eta_seconds = status_message = results = error_code = None
+    avg = job.style.avg_seconds if job.style is not None else _DEFAULT_AVG_SECONDS
     if job.status == JobStatus.QUEUED:
         progress = 0
-        eta_seconds = (
-            job.style.avg_seconds
-            if job.style is not None
-            else _DEFAULT_AVG_SECONDS
-        )
+        eta_seconds = avg
     elif job.status == JobStatus.PROCESSING:
-        avg = (
-            job.style.avg_seconds
-            if job.style is not None
-            else _DEFAULT_AVG_SECONDS
-        )
         elapsed = (
             max(0, (datetime.now(timezone.utc) - job.started_at).total_seconds())
             if job.started_at is not None
@@ -326,13 +308,7 @@ async def share_result(
     body: ShareRequest,
     member: Member = Depends(get_current_member),
 ):
-    try:
-        parsed_job_id = uuid.UUID(job_id)
-    except ValueError as exc:
-        raise _not_found() from exc
-    job = await GenerationJob.get_or_none(id=parsed_job_id, member_id=member.id)
-    if job is None:
-        raise _not_found()
+    job = await _get_owned_job(job_id, member)
     result = (
         await GenerationResult.filter(job_id=job.id, deleted_at__isnull=True)
         .order_by("seq")

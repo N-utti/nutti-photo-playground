@@ -1,9 +1,10 @@
 import hashlib
 import json
 
-from fastapi import APIRouter, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Query, Request, Response
 from pydantic import BaseModel
 
+from app.common import not_found
 from app.models import PromptVersionStatus, Style, StylePromptVersion, StyleStatus
 from app.storage import public_url
 
@@ -117,10 +118,7 @@ async def get_style(style_id: int):
     style = await Style.get_or_none(id=style_id)
     # ponytail: draft is pre-publication content, so exposing only public/AB is the safe default without preview auth.
     if style is None or style.status not in (StyleStatus.PUBLIC, StyleStatus.AB):
-        raise HTTPException(
-            status_code=404,
-            detail={"code": "NOT_FOUND", "message": "Style not found", "detail": {}},
-        )
+        raise not_found("Style not found")
     prompt_texts = await StylePromptVersion.filter(
         style_id=style.id,
         status=PromptVersionStatus.ACTIVE,

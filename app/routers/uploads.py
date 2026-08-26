@@ -2,12 +2,13 @@ import base64
 import io
 import uuid
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from openai import AsyncOpenAI
 from PIL import Image, ImageFilter, ImageOps, ImageStat, UnidentifiedImageError
 from pydantic import BaseModel
 
 from app.auth import get_current_member
+from app.common import not_found, unauthorized, validation_error
 from app.models import AppSetting, Member, MemberKind, PetProfile, SourceImage
 from app.settings import settings
 from app.storage import public_url, save_bytes
@@ -58,11 +59,14 @@ class _VisionResult(BaseModel):
     breed: BreedEstimate | None = None
 
 
-def _validation_error(message: str) -> HTTPException:
-    return HTTPException(
-        status_code=400,
-        detail={"code": "VALIDATION_ERROR", "message": message, "detail": {}},
-    )
+def _blocked(code: str, message: str) -> dict:
+    return {
+        "upload_id": None,
+        "image_url": None,
+        "blocking_issue": {"code": code, "message": message},
+        "warnings": [],
+        "breed_estimate": None,
+    }
 
 
 def _process_image(data: bytes) -> tuple[Image.Image, bytes]:
@@ -147,28 +151,25 @@ async def upload_photo(
     member: Member = Depends(get_current_member),
 ):
     if file.content_type not in _ALLOWED_CONTENT_TYPES:
-        raise _validation_error("지원하지 않는 이미지 형식입니다")
+        raise validation_error("지원하지 않는 이미지 형식입니다")
     data = await file.read()
     if len(data) > _MAX_FILE_SIZE:
-        raise _validation_error("파일 크기는 10MB 이하여야 합니다")
+        raise validation_error("파일 크기는 10MB 이하여야 합니다")
 
     pet = None
     if pet_id is not None:
         try:
             pet_uuid = uuid.UUID(pet_id)
         except ValueError as exc:
-            raise _validation_error("pet_id 형식이 올바르지 않습니다") from exc
+            raise validation_error("pet_id 형식이 올바르지 않습니다") from exc
         pet = await PetProfile.filter(id=pet_uuid, member_id=member.id).first()
         if pet is None:
-            raise HTTPException(
-                status_code=404,
-                detail={"code": "NOT_FOUND", "message": "Pet not found", "detail": {}},
-            )
+            raise not_found("Pet not found")
 
     try:
         image, jpeg_bytes = _process_image(data)
     except (Image.DecompressionBombError, UnidentifiedImageError, OSError, ValueError) as exc:
-        raise _validation_error("올바른 이미지 파일이 아닙니다") from exc
+        raise validation_error("올바른 이미지 파일이 아닙니다") from exc
 
     quality = _quality_check(image)
     vision = await _analyze_vision(jpeg_bytes)
@@ -190,31 +191,13 @@ async def upload_photo(
     }
 
     if vision_values["is_cat"]:
-        return {
-            "upload_id": None,
-            "image_url": None,
-            "blocking_issue": {
-                "code": "CAT_DETECTED",
-                "message": "누띠는 강아지 전용이에요. 다른 사진을 골라주세요.",
-            },
-            "warnings": [],
-            "breed_estimate": None,
-        }
+        return _blocked("CAT_DETECTED", "누띠는 강아지 전용이에요. 다른 사진을 골라주세요.")
 
     warnings = []
     if vision_values["human_face"]:
         policy = await _human_face_policy()
         if policy == "block":
-            return {
-                "upload_id": None,
-                "image_url": None,
-                "blocking_issue": {
-                    "code": "HUMAN_FACE_DETECTED",
-                    "message": "사람 얼굴이 포함된 사진은 사용할 수 없어요.",
-                },
-                "warnings": [],
-                "breed_estimate": None,
-            }
+            return _blocked("HUMAN_FACE_DETECTED", "사람 얼굴이 포함된 사진은 사용할 수 없어요.")
         if policy == "warn":
             warnings.append(
                 {
@@ -258,14 +241,7 @@ async def upload_photo(
 
     # 비전 분석 왕복 사이에 탈퇴가 커밋됐으면 저장하지 않는다(#22 in-flight 창)
     if await Member.filter(id=member.id, withdrawn_at__isnull=False).exists():
-        raise HTTPException(
-            status_code=401,
-            detail={
-                "code": "UNAUTHORIZED",
-                "message": "Invalid or missing authentication token",
-                "detail": {},
-            },
-        )
+        raise unauthorized()
     key = f"uploads/{uuid.uuid4()}.jpg"
     await save_bytes(key, jpeg_bytes, "image/jpeg")
     source = await SourceImage.create(

@@ -1,17 +1,17 @@
 import uuid
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from tortoise.expressions import Q
 
 from app.auth import get_current_member
+from app.common import KST, api_error, member_only, validation_error
 from app.credits import custom_prompt_credit_cost, grant_credits
 from app.models import AppSetting, CreditLedger, CreditReason, GenerationJob, Member, MemberKind
 
 router = APIRouter(prefix="/credits", tags=["credits"])
 
-_KST = timezone(timedelta(hours=9))
 _AMOUNT_DEFAULTS = {
     "order_reward_amount": 20,
     "link_account_amount": 3,
@@ -60,7 +60,7 @@ class LedgerResponse(BaseModel):
 
 
 def _kst_today() -> date:
-    return datetime.now(_KST).date()
+    return datetime.now(KST).date()
 
 
 async def _amounts() -> dict[str, int]:
@@ -117,19 +117,9 @@ async def get_credits(member: Member = Depends(get_current_member)):
 @router.post("/claim", response_model=ClaimCreditResponse)
 async def claim_credit(body: ClaimCreditRequest, member: Member = Depends(get_current_member)):
     if member.kind == MemberKind.GUEST:
-        raise HTTPException(
-            status_code=403,
-            detail={"code": "MEMBER_ONLY", "message": "로그인이 필요합니다", "detail": {}},
-        )
+        raise member_only()
     if body.action not in {"follow_ig", "daily"}:
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "code": "VALIDATION_ERROR",
-                "message": "요청 형식이 올바르지 않습니다",
-                "detail": {},
-            },
-        )
+        raise validation_error()
 
     amounts = await _amounts()
     if body.action == "follow_ig":
@@ -141,13 +131,11 @@ async def claim_credit(body: ClaimCreditRequest, member: Member = Depends(get_cu
         reason = "daily_free"
 
     if not await grant_credits(member.id, amount, reason, dedupe_key):
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "code": "ALREADY_CLAIMED",
-                "message": "이미 받은 크레딧이에요",
-                "detail": {"action": body.action},
-            },
+        raise api_error(
+            409,
+            "ALREADY_CLAIMED",
+            "이미 받은 크레딧이에요",
+            {"action": body.action},
         )
     await member.refresh_from_db(fields=["credit_balance"])
     return {"balance": member.credit_balance, "amount_granted": amount}
@@ -164,24 +152,10 @@ async def get_credit_ledger(
             if not 0 < cursor_id < 2**63:
                 raise ValueError
         except ValueError as exc:
-            raise HTTPException(
-                status_code=400,
-                detail={
-                    "code": "VALIDATION_ERROR",
-                    "message": "요청 형식이 올바르지 않습니다",
-                    "detail": {},
-                },
-            ) from exc
+            raise validation_error() from exc
         cursor_entry = await CreditLedger.get_or_none(member=member, id=cursor_id)
         if cursor_entry is None:
-            raise HTTPException(
-                status_code=400,
-                detail={
-                    "code": "VALIDATION_ERROR",
-                    "message": "요청 형식이 올바르지 않습니다",
-                    "detail": {},
-                },
-            )
+            raise validation_error()
         query = query.filter(
             Q(created_at__lt=cursor_entry.created_at)
             | Q(created_at=cursor_entry.created_at, id__lt=cursor_entry.id)
@@ -211,7 +185,7 @@ async def get_credit_ledger(
             {
                 "reason": entry.reason.value,
                 "ref_label": ref_label,
-                "occurred_on": entry.created_at.astimezone(_KST).date(),
+                "occurred_on": entry.created_at.astimezone(KST).date(),
                 "amount": entry.amount,
             }
         )

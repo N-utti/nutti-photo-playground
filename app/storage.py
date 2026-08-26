@@ -9,14 +9,18 @@ from app.settings import settings
 MEDIA_ROOT = "var/media"
 
 
+def _r2_client():
+    return boto3.client(
+        "s3",
+        endpoint_url=settings.r2_endpoint_url,
+        aws_access_key_id=settings.r2_access_key_id,
+        aws_secret_access_key=settings.r2_secret_access_key,
+    )
+
+
 async def save_bytes(key: str, data: bytes, content_type: str) -> None:
     if settings.r2_endpoint_url:
-        client = boto3.client(
-            "s3",
-            endpoint_url=settings.r2_endpoint_url,
-            aws_access_key_id=settings.r2_access_key_id,
-            aws_secret_access_key=settings.r2_secret_access_key,
-        )
+        client = _r2_client()
         await asyncio.to_thread(
             client.put_object,
             Bucket=settings.r2_bucket_name,
@@ -35,12 +39,7 @@ async def save_bytes(key: str, data: bytes, content_type: str) -> None:
 async def delete_bytes(key: str) -> None:
     """오브젝트 삭제 — 없는 키는 무시(멱등, 파기 배치 재실행 대비)."""
     if settings.r2_endpoint_url:
-        client = boto3.client(
-            "s3",
-            endpoint_url=settings.r2_endpoint_url,
-            aws_access_key_id=settings.r2_access_key_id,
-            aws_secret_access_key=settings.r2_secret_access_key,
-        )
+        client = _r2_client()
         await asyncio.to_thread(
             client.delete_object,
             Bucket=settings.r2_bucket_name,
@@ -54,12 +53,7 @@ async def delete_bytes(key: str) -> None:
 
 async def load_bytes(key: str) -> bytes:
     if settings.r2_endpoint_url:
-        client = boto3.client(
-            "s3",
-            endpoint_url=settings.r2_endpoint_url,
-            aws_access_key_id=settings.r2_access_key_id,
-            aws_secret_access_key=settings.r2_secret_access_key,
-        )
+        client = _r2_client()
         response = await asyncio.to_thread(
             client.get_object,
             Bucket=settings.r2_bucket_name,

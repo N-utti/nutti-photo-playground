@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.auth import get_current_member
 from app.breeds import BREED_SIZES, MIX_BREED
+from app.common import not_found, validation_error
 from app.models import GenerationJob, Member, PetProfile, SourceImage
 
 router = APIRouter(tags=["results"])
@@ -19,10 +20,7 @@ _UTM = {
 
 
 def _not_found() -> HTTPException:
-    return HTTPException(
-        status_code=404,
-        detail={"code": "NOT_FOUND", "message": "Pet or job not found", "detail": {}},
-    )
+    return not_found("Pet or job not found")
 
 
 async def _resolve_pet_and_estimate(
@@ -65,14 +63,7 @@ async def get_calculator_link(
     member: Member = Depends(get_current_member),
 ):
     if pet_id is None and job_id is None:
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "code": "VALIDATION_ERROR",
-                "message": "pet_id 또는 job_id가 필요합니다",
-                "detail": {},
-            },
-        )
+        raise validation_error("pet_id 또는 job_id가 필요합니다")
     pet, estimate = await _resolve_pet_and_estimate(member.id, pet_id, job_id)
 
     # 견종 후보: 펫 프로필 기입값 → 비전 추정 라벨 (FR-EDGE-10: 없으면 breed 생략)

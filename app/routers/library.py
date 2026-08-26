@@ -1,18 +1,16 @@
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from tortoise.expressions import Q
 
 from app.auth import get_current_member
+from app.common import KST, member_only, validation_error
 from app.models import GenerationResult, JobStatus, Member, MemberKind
 from app.storage import public_url
 
 router = APIRouter(tags=["library"])
-
-_KST = timezone(timedelta(hours=9))
-
 
 class DeleteLibraryRequest(BaseModel):
     # uuid 파싱·개수 상한은 pydantic이 → 400 VALIDATION_ERROR(main.py 핸들러)
@@ -37,17 +35,6 @@ class LibraryResponse(BaseModel):
     next_cursor: str | None
 
 
-def _validation_error() -> HTTPException:
-    return HTTPException(
-        status_code=400,
-        detail={
-            "code": "VALIDATION_ERROR",
-            "message": "요청 형식이 올바르지 않습니다",
-            "detail": {},
-        },
-    )
-
-
 @router.get("/library", response_model=LibraryResponse)
 async def list_library(
     pet_id: str | None = None,
@@ -55,10 +42,7 @@ async def list_library(
     member: Member = Depends(get_current_member),
 ):
     if member.kind != MemberKind.MEMBER:
-        raise HTTPException(
-            status_code=403,
-            detail={"code": "MEMBER_ONLY", "message": "로그인이 필요합니다", "detail": {}},
-        )
+        raise member_only()
 
     # 커서 검증도 같은 스코프(소유·pet)로 — 다른 pet의 result를 커서로 주면 400.
     # deleted_at·status는 스코프에서 뺀다: 1페이지 마지막 항목을 지운 뒤 2페이지를
@@ -68,7 +52,7 @@ async def list_library(
         try:
             scope["job__source_image__pet_profile_id"] = uuid.UUID(pet_id)
         except ValueError as exc:
-            raise _validation_error() from exc
+            raise validation_error() from exc
 
     query = GenerationResult.filter(
         job__status=JobStatus.SUCCEEDED, deleted_at__isnull=True, **scope
@@ -78,10 +62,10 @@ async def list_library(
         try:
             cursor_id = uuid.UUID(cursor)
         except ValueError as exc:
-            raise _validation_error() from exc
+            raise validation_error() from exc
         cursor_result = await GenerationResult.get_or_none(id=cursor_id, **scope)
         if cursor_result is None:
-            raise _validation_error()
+            raise validation_error()
         query = query.filter(
             Q(created_at__lt=cursor_result.created_at)
             | Q(created_at=cursor_result.created_at, id__lt=cursor_result.id)
@@ -95,7 +79,7 @@ async def list_library(
     page = results[:20]
     months = []
     for result in page:
-        created_at = result.created_at.astimezone(_KST)
+        created_at = result.created_at.astimezone(KST)
         key = (created_at.year, created_at.month)
         if not months or months[-1]["key"] != key:
             months.append(
@@ -126,10 +110,7 @@ async def delete_library_items(
     body: DeleteLibraryRequest, member: Member = Depends(get_current_member)
 ):
     if member.kind != MemberKind.MEMBER:
-        raise HTTPException(
-            status_code=403,
-            detail={"code": "MEMBER_ONLY", "message": "로그인이 필요합니다", "detail": {}},
-        )
+        raise member_only()
     if body.ids:
         owned_ids = await GenerationResult.filter(
             id__in=body.ids,

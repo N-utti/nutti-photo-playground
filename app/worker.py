@@ -184,6 +184,13 @@ async def _refund(
     )
 
 
+async def _fail_job(generation_job: GenerationJob, error_code: str) -> None:
+    generation_job.status = JobStatus.FAILED
+    generation_job.error_code = error_code
+    generation_job.finished_at = datetime.now(timezone.utc)
+    await generation_job.save(update_fields=["status", "error_code", "finished_at"])
+
+
 async def fetch_next_job() -> dict | None:
     # ponytail: 락 공백 제거 — 멀티 워커 스케일아웃 대비(06-arch §2.4)
     async with in_transaction() as connection:
@@ -223,16 +230,14 @@ async def process_job(job: dict, *, lease: bool = True) -> None:
             prompt_version = await StylePromptVersion.get(id=generation_job.prompt_version_id)
             prompt = prompt_version.prompt_text
             model_config = prompt_version.model_config
-            pet_profile = None
-            if (
-                "[pet name]" in prompt or "[breed]" in prompt
-            ) and generation_job.source_image.pet_profile_id is not None:
-                pet_profile = await PetProfile.get(
-                    id=generation_job.source_image.pet_profile_id
-                )
+            # ponytail: 프롬프트에 자리표시자가 없어도 그냥 한 번 조회한다 — 이미지 생성 수십 초 대비 무시 가능.
+            pet_profile_id = generation_job.source_image.pet_profile_id
+            pet_profile = (
+                await PetProfile.get_or_none(id=pet_profile_id) if pet_profile_id is not None else None
+            )
+            # ponytail: 프로필이나 이름이 없으면 별도 정책 없이 고정 호칭을 쓴다.
+            pet_name = (pet_profile.name if pet_profile is not None else None) or "우리 아이"
             if "[pet name]" in prompt:
-                # ponytail: 프로필이나 이름이 없으면 별도 정책 없이 고정 호칭을 쓴다.
-                pet_name = (pet_profile.name if pet_profile is not None else None) or "우리 아이"
                 prompt = prompt.replace("[pet name]", pet_name)
             if "[breed]" in prompt:
                 breed = pet_profile.breed_label if pet_profile is not None else None
@@ -248,16 +253,7 @@ async def process_job(job: dict, *, lease: bool = True) -> None:
                 for field in input_fields:
                     value = values.get(field["label"]) or field.get("default")
                     if not value and field.get("prefill") == "pet_name":
-                        if (
-                            pet_profile is None
-                            and generation_job.source_image.pet_profile_id is not None
-                        ):
-                            pet_profile = await PetProfile.get(
-                                id=generation_job.source_image.pet_profile_id
-                            )
-                        value = (
-                            pet_profile.name if pet_profile is not None else None
-                        ) or "우리 아이"
+                        value = pet_name
                     if value:
                         lines.append(f"{field['label']}: {value}")
                 if lines:
@@ -298,24 +294,15 @@ async def process_job(job: dict, *, lease: bool = True) -> None:
         generation_job.finished_at = datetime.now(timezone.utc)
         await generation_job.save(update_fields=["status", "finished_at"])
     except _MissingPromptError:
-        generation_job.status = JobStatus.FAILED
-        generation_job.error_code = "GENERATION_FAILED"
-        generation_job.finished_at = datetime.now(timezone.utc)
-        await generation_job.save(update_fields=["status", "error_code", "finished_at"])
+        await _fail_job(generation_job, "GENERATION_FAILED")
         await _refund(generation_job)
     except Exception as exc:
         if _is_safety_block(exc):
             # ponytail: moderation 거부는 재시도해도 같은 결과 — 즉시 종결(FR-EDGE-13)
-            generation_job.status = JobStatus.FAILED
-            generation_job.error_code = "SAFETY_BLOCKED"
-            generation_job.finished_at = datetime.now(timezone.utc)
-            await generation_job.save(update_fields=["status", "error_code", "finished_at"])
+            await _fail_job(generation_job, "SAFETY_BLOCKED")
             await _refund(generation_job, reason="safety_block_refund")
         elif generation_job.attempt_count >= MAX_ATTEMPTS:
-            generation_job.status = JobStatus.FAILED
-            generation_job.error_code = "MAX_RETRIES_EXCEEDED"
-            generation_job.finished_at = datetime.now(timezone.utc)
-            await generation_job.save(update_fields=["status", "error_code", "finished_at"])
+            await _fail_job(generation_job, "MAX_RETRIES_EXCEEDED")
             await _refund(generation_job)
         else:
             generation_job.status = JobStatus.QUEUED

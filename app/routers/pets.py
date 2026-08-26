@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from tortoise.transactions import in_transaction
 
 from app.auth import get_current_member
+from app.common import not_found
 from app.models import Member, PetProfile, SourceImage
 from app.storage import public_url
 
@@ -40,10 +41,7 @@ class PetListResponse(BaseModel):
 
 
 def _not_found() -> HTTPException:
-    return HTTPException(
-        status_code=404,
-        detail={"code": "NOT_FOUND", "message": "Pet or upload not found", "detail": {}},
-    )
+    return not_found("Pet or upload not found")
 
 
 def _thumbnail_url(pet: PetProfile) -> str | None:
