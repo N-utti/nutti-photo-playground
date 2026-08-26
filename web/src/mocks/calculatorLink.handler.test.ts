@@ -13,7 +13,7 @@
 
 import { afterEach, describe, expect, it } from 'vitest'
 import { BREED_SIZES, MIX_BREED } from './calculatorBreeds'
-import { petList, uploadNoDog, uploadOk, uploadWarned } from './fixtures'
+import { libraryItems, petList, uploadNoDog, uploadOk, uploadWarned } from './fixtures'
 
 const SCENARIO_KEY = 'nutti.mock.scenario'
 
@@ -135,5 +135,36 @@ describe('목 · GET /v1/calculator-link?pet_id=', () => {
 
     expect(response.status).toBe(404)
     expect((await response.json()).error.code).toBe('NOT_FOUND')
+  })
+})
+
+/**
+ * `?job_id=` 로 들어온 **시드 job** — 보관함에서 연 과거 결과입니다.
+ *
+ * 이 경로는 W-06 계산기 배너가 씁니다. 서버는 `job.source_image.pet_profile_id` 로 펫을
+ * 찾아 URL 에 `name=` 을 넣는데, 목이 그 자리를 비워 두면 **콩이 것을 열어도 배너가
+ * «우리 아이는» 이라고** 부릅니다 — 이름 없는 경우를 위한 폴백이 이름을 아는 결과를
+ * 덮는 것이라, 보관함에서 «콩이» 로 필터까지 걸고 들어온 사용자에게 특히 이상합니다.
+ */
+describe('목 · GET /v1/calculator-link?job_id= (보관함 시드)', () => {
+  it('보관함에서 연 결과는 그 강아지 이름을 부른다', async () => {
+    const item = libraryItems[0]
+    const pet = petList.find((entry) => entry.id === item.pet_id)
+    expect(pet).toBeDefined()
+
+    const link = await (await fetch(`/v1/calculator-link?job_id=${item.job_id}`)).json()
+
+    expect(link.calculator_url).toContain(`name=${pet!.name}`)
+  })
+
+  it('펫 없이 만든 결과는 이름을 지어내지 않는다', async () => {
+    // 시드에 `pet_id: null` 항목이 하나 있습니다(펫을 지운 뒤 남은 결과 · 이슈 #12 결정4).
+    // 여기서 이름이 붙으면 화면이 **남의 강아지 이름**을 부르게 됩니다.
+    const orphan = libraryItems.find((item) => item.pet_id === null)
+    expect(orphan).toBeDefined()
+
+    const link = await (await fetch(`/v1/calculator-link?job_id=${orphan!.job_id}`)).json()
+
+    expect(link.calculator_url).not.toContain('name=')
   })
 })
