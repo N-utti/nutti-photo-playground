@@ -9,13 +9,17 @@
  * 길 중간에 확인 화면을 끼우면 출구에 마찰만 늘어납니다.
  *
  * 그럼 이 라우트는 무엇인가: 결과가 눈앞에 없을 때의 진입입니다. §2 W-07 이
- * `?pet_id=` 를 `?job_id=` 와 나란히 규정하는 경로 — 보관함(W-09)·마이페이지에서
- * "이 강아지 간식량"으로 들어오는 자리입니다. 그 두 화면이 아직 없어서 **오늘은
- * 이 라우트로 들어오는 링크가 앱 안에 없습니다**(딥링크·복귀 URL 로만 도달).
- * W-09 가 붙을 때 연결하면 됩니다.
+ * `?pet_id=` 를 `?job_id=` 와 나란히 규정하는 경로 — 보관함(W-09)에서 강아지를 고르면
+ * 뜨는 «이 강아지 간식량 계산하기» 가 그 링크입니다(`W09Library` `PetFilter`).
+ *
+ * **`?pet_id=` 는 세 갈래를 다 냅니다.** 서버는 그 펫의 **최신 사진** 추정을 따라가므로
+ * (`app/routers/results.py` `_resolve_pet_and_estimate`), 사진이 한 장도 없는 강아지는
+ * `breed_code: null` 로 와서 계산기 1단계부터 시작합니다(FR-EDGE-10). 그리고 **없는
+ * 강아지는 404** 입니다 — 폴백이 아닙니다. 아래 `notFound` 갈래가 그 자리입니다.
  */
 
 import { Link, useSearchParams } from 'react-router'
+import { isApiError } from '../api/client'
 import { calculatorHeadline, estimateSummary } from '../api/calculatorLink'
 import { events } from '../api/endpoints'
 import { useCalculatorLink } from '../api/queries'
@@ -30,6 +34,15 @@ export default function W07Calculator() {
   const params = { pet_id: petId, job_id: jobId }
 
   const { data: link, isPending, isError, error, refetch } = useCalculatorLink(params)
+
+  /*
+    404 는 **재시도로 풀리지 않습니다.** 가리키는 강아지나 결과가 없는 주소라(서버는
+    폴백 없이 `_not_found`), «다시 시도» 를 누르면 영영 같은 답이 옵니다. 이 자리에
+    실제로 오는 사람은 마이페이지에서 강아지를 지운 뒤 히스토리·북마크로 돌아온
+    경우입니다 — 고장이 아니라 **없어진 것**이라 그렇게 말하고, 계산기는 1단계부터
+    쓰면 되므로 나가는 길을 답니다.
+  */
+  const notFound = isApiError(error, 'NOT_FOUND')
 
   return (
     <div className="min-h-full bg-paper pb-16">
@@ -56,6 +69,29 @@ export default function W07Calculator() {
           </div>
         ) : isPending ? (
           <div className="h-40 animate-pulse rounded-xl bg-rule/60" />
+        ) : notFound ? (
+          <div className="rounded-xl border border-rule bg-surface px-4 py-5">
+            <p className="text-sm font-semibold">그 강아지를 찾을 수 없어요</p>
+            <p className="mt-1 text-sm text-ink-2">
+              지웠거나 다른 계정에서 만든 강아지예요. 계산기는 1단계부터도 쓸 수 있어요.
+            </p>
+            <div className="mt-4 grid gap-2">
+              {/* 서버에 물어볼 게 없으므로 쿼리 없는 진입으로 보냅니다 — 거기서 계산기
+                  1단계로 나가는 길을 이미 답니다(위 «어떤 강아지인지 알 수 없어요»). */}
+              <Link
+                to="/calculator"
+                className="block rounded-xl border border-rule-strong px-4 py-3 text-center text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
+              >
+                계산기 1단계부터 하기
+              </Link>
+              <Link
+                to="/library"
+                className="block rounded-xl px-4 py-2 text-center text-sm text-ink-2 hover:text-brand"
+              >
+                보관함으로
+              </Link>
+            </div>
+          </div>
         ) : isError ? (
           <div className="rounded-xl border border-rule bg-surface px-4 py-5 text-center">
             <p className="text-sm text-ink-2">계산기 링크를 불러오지 못했어요.</p>

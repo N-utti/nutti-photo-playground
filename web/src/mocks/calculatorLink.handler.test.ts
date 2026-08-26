@@ -13,7 +13,7 @@
 
 import { afterEach, describe, expect, it } from 'vitest'
 import { BREED_SIZES, MIX_BREED } from './calculatorBreeds'
-import { uploadNoDog, uploadOk, uploadWarned } from './fixtures'
+import { petList, uploadNoDog, uploadOk, uploadWarned } from './fixtures'
 
 const SCENARIO_KEY = 'nutti.mock.scenario'
 
@@ -84,5 +84,56 @@ describe('목 · GET /v1/calculator-link', () => {
     expect(link.calculator_url).not.toContain('size=')
     // 견종을 몰라도 계산기로 가는 길 자체는 남습니다(UTM 포함).
     expect(link.calculator_url).toContain('utm_campaign=calculator_handoff')
+  })
+})
+
+/**
+ * `?pet_id=` — 보관함(W-09)에서 강아지를 골라 들어오는 진입.
+ *
+ * 서버는 여기서도 같은 체인을 탑니다: 펫 → **그 펫의 최신 업로드** → 견종
+ * (`app/routers/results.py` `_resolve_pet_and_estimate`). 목이 이 경로를 오랫동안
+ * 상수(정상 케이스)로 답해서, W-09 가 링크를 단 뒤에도 나머지 갈래가 브라우저에서
+ * 한 번도 안 밟혔습니다.
+ */
+describe('목 · GET /v1/calculator-link?pet_id=', () => {
+  const linkForPet = async (petId: string) => fetch(`/v1/calculator-link?pet_id=${petId}`)
+
+  it('사진이 있는 강아지는 그 사진의 추정을 따라간다', async () => {
+    const pet = petList[0]
+    expect(pet.latest_upload_id).toBe(uploadOk.upload_id)
+
+    const link = await (await linkForPet(pet.id)).json()
+
+    expect(link.breed_code).toBe(uploadOk.breed_estimate?.label)
+    // 이름은 저장된 강아지가 있을 때만 붙습니다.
+    expect(link.calculator_url).toContain(`name=${pet.name}`)
+  })
+
+  it('사진이 한 장도 없는 강아지는 견종이 비어 온다 (FR-EDGE-10)', async () => {
+    /*
+      **이 갈래가 목에 없던 것입니다.** «두부» 는 `latest_upload_id: null` 이라 추정할
+      사진 자체가 없고, 서버는 `breed_code: null` 을 답합니다 — 계산기 1단계부터입니다.
+      목이 여기에 토이푸들을 채워 넣는 동안 W-09 → W-07 은 늘 정상 케이스만 보였고,
+      «사진에서 토이푸들로 봤어요» 가 **사진이 없는 강아지에게** 떴습니다.
+    */
+    const pet = petList[1]
+    expect(pet.latest_upload_id).toBeNull()
+
+    const link = await (await linkForPet(pet.id)).json()
+
+    expect(link.breed_code).toBeNull()
+    expect(link.size_label).toBeNull()
+    expect(link.calculator_url).not.toContain('breed=')
+    // 견종은 몰라도 이름은 압니다 — 저장된 강아지니까요.
+    expect(link.calculator_url).toContain(`name=${pet.name}`)
+  })
+
+  it('없는 강아지는 폴백이 아니라 404 다', async () => {
+    // 마이페이지에서 강아지를 지운 뒤 히스토리·북마크로 돌아오는 자리입니다. 200 을
+    // 주면 지워진 강아지로 앱 밖 계산기에 넘어가고, 거기서는 되돌릴 곳이 없습니다.
+    const response = await linkForPet('b6f9e6b0-0000-4000-8000-000000000404')
+
+    expect(response.status).toBe(404)
+    expect((await response.json()).error.code).toBe('NOT_FOUND')
   })
 })

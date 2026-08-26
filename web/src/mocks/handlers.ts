@@ -1533,6 +1533,18 @@ export const handlers = [
     (`UploadResult.breed_estimate`). 그래서 job → upload → 견종으로 따라갑니다 —
     "강아지를 못 찾은 사진"(upload:nodog)이 결과 화면 출구까지 어떻게 이어지는지가
     이 경로에서만 보입니다.
+
+    **`?pet_id=` 도 같은 체인을 탑니다**(`app/routers/results.py`
+    `_resolve_pet_and_estimate`): 펫 → **그 펫의 최신 업로드** → 견종. 목은 여기를
+    오랫동안 상수(정상 케이스)로 답했는데, 그게 거짓인 자리가 시드에 이미 있습니다 —
+    «두부» 는 `latest_upload_id: null` 이라 사진이 한 장도 없고, 실서버는 그 펫에
+    `breed_code: null` 을 답합니다(FR-EDGE-10, 계산기 1단계부터). W-09 가 «이 강아지
+    간식량 계산하기» 링크를 달면서 이 경로가 앱 안에서 실제로 도달 가능해졌으므로,
+    목이 정상만 답하면 그 갈래는 브라우저에서 영영 안 밟힙니다.
+
+    서버가 보는 건 `pet.breed_label or pet.breed_code` → 비전 라벨 순인데, 앞의 둘은
+    **채우는 API 가 없어 항상 NULL** 입니다(이슈 #161, #131-B 시점). 그래서 목은 비전
+    라벨 갈래만 그립니다 — 펫에 견종을 받는 날 이 전제가 바뀝니다.
   */
   http.get(`${BASE}/calculator-link`, async ({ request }) => {
     await delay(120)
@@ -1540,9 +1552,30 @@ export const handlers = [
     const jobId = query_.get('job_id')
     const job = jobId ? state.jobs.get(jobId) : null
     // 두 진입이 있습니다(§2): 결과에서 오면 `job_id`, 보관함 강아지 필터에서 오면 `pet_id`.
-    const petId = query_.get('pet_id') ?? job?.petId ?? null
-    // 펫 진입(W-09 → W-07)과 시드 job 은 업로드를 되짚을 수 없어 정상 케이스로 둡니다.
-    const breed = job ? breedForUpload(job.uploadId) : uploadOk.breed_estimate
+    const queryPetId = query_.get('pet_id')
+    const petId = queryPetId ?? job?.petId ?? null
+
+    /*
+      없는 펫·남의 펫은 폴백이 아니라 **404** 입니다(`PetProfile.filter(...)` → `_not_found`).
+      마이페이지에서 강아지를 지운 뒤에도 `/calculator?pet_id=` 주소는 히스토리·북마크에
+      그대로 남으므로 실제로 밟히는 자리입니다. 목이 200 을 주면 지워진 강아지로 계산기에
+      넘어가는 화면이 되고, 그건 앱 밖으로 나가는 링크라 되돌릴 곳도 없습니다.
+    */
+    const pet = queryPetId ? petList.find((entry) => entry.id === queryPetId) : undefined
+    if (queryPetId && !pet) return apiError(404, 'NOT_FOUND', '강아지를 찾을 수 없습니다')
+
+    /*
+      펫 진입은 그 펫의 최신 업로드를 따라갑니다. `latest_upload_id` 가 없으면 사진이
+      한 장도 없는 펫이라 추정 자체가 없습니다 — 정상 케이스로 메우지 않습니다.
+      시드 job(`state.jobs` 밖)은 업로드를 되짚을 수단이 없어 정상 케이스로 둡니다.
+    */
+    const breed = pet
+      ? pet.latest_upload_id
+        ? breedForUpload(pet.latest_upload_id)
+        : null
+      : job
+        ? breedForUpload(job.uploadId)
+        : uploadOk.breed_estimate
 
     /*
       추정 라벨을 계산기 40종에 맞춰 봅니다(PR #122 · `calculatorBreeds.ts`). 라벨이
@@ -1550,10 +1583,8 @@ export const handlers = [
       그때가 FR-EDGE-10 이 말하는 «세 필드 모두 null + URL 에서 breed 파라미터 생략»
       입니다. 라벨이 있는데 목록 밖이면 믹스견으로 떨어집니다(FR-EDGE-11).
 
-      서버는 여기서 **펫 프로필 기입값(`breed_label`)을 먼저** 봅니다. 그 칸을 채우는
-      API 가 아직 없어(`POST /v1/pets` 에 견종 필드 없음) 오늘은 늘 비어 있고, 따라서
-      후보는 언제나 비전 추정입니다 — 화면이 «사진에서» 라고 말해도 되는 근거입니다.
-      펫에 견종을 받는 날 이 전제와 문구가 함께 바뀝니다.
+      후보가 언제나 비전 추정인 것(위 주석)이 화면이 «사진에서» 라고 말해도 되는
+      근거입니다. 펫에 견종을 받는 날 이 전제와 문구가 함께 바뀝니다.
     */
     const matched = calculatorBreed(breed?.label)
     const breedCode = matched?.name ?? null
@@ -1564,7 +1595,7 @@ export const handlers = [
       그러면 `calculatorLink.ts` 가 이름 없는 경우를 위해 준비한 «우리 아이는» 도 영영
       안 나옵니다 — 게스트 첫 방문이 정확히 그 경우입니다.
     */
-    const petName = petList.find((pet) => pet.id === petId)?.name ?? null
+    const petName = petList.find((entry) => entry.id === petId)?.name ?? null
     // §3 예시가 한글을 인코딩하지 않은 채로 보여 주므로 목도 같은 모양을 냅니다.
     // 견종을 모르면 breed·size 파라미터 자체가 빠집니다(FR-EDGE-10).
     const query = [
