@@ -1559,9 +1559,20 @@ export const handlers = [
     const query_ = new URL(request.url).searchParams
     const jobId = query_.get('job_id')
     const job = jobId ? state.jobs.get(jobId) : null
-    // 두 진입이 있습니다(§2): 결과에서 오면 `job_id`, 보관함 강아지 필터에서 오면 `pet_id`.
+
+    /*
+      두 진입이 있습니다(§2): 결과에서 오면 `job_id`, 보관함 강아지 필터에서 오면 `pet_id`.
+
+      `job_id` 로 왔는데 **시드 job**(`state.jobs` 밖, 보관함에서 연 과거 결과)이면
+      보관함 항목에서 펫을 되찾습니다. 서버는 `job.source_image.pet_profile_id` 로 펫을
+      찾아 URL 에 `name=` 을 넣는데, 목은 그 자리를 비워 둬서 **콩이 것을 열어도 배너가
+      «우리 아이는» 이라고** 불렀습니다. `calculatorLink.ts` 가 이름 없는 경우를 위해
+      준비한 폴백인데, 이름을 아는 결과에서 그게 뜨면 폴백이 정상 케이스를 덮습니다 —
+      보관함에서 «콩이» 로 필터까지 걸고 들어온 사용자에게 특히 그렇습니다.
+    */
     const queryPetId = query_.get('pet_id')
-    const petId = queryPetId ?? job?.petId ?? null
+    const seeded = jobId ? libraryItems.find((item) => item.job_id === jobId) : undefined
+    const petId = queryPetId ?? job?.petId ?? seeded?.pet_id ?? null
 
     /*
       없는 펫·남의 펫은 폴백이 아니라 **404** 입니다(`PetProfile.filter(...)` → `_not_found`).
