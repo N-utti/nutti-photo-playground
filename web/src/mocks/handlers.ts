@@ -9,7 +9,7 @@
  * 시나리오 강제: localStorage 에 `nutti.mock.scenario` 를 넣으면 해당 케이스로 고정됩니다.
  *   upload:warn | upload:nodog | upload:multi | upload:face | upload:face-block | upload:block
  *   job:fail | job:safety | job:retries | job:unknown-error | job:flaky | job:slow | job:queued
- *   credit:empty
+ *   credit:empty | credit:clawback | credit:custom-cost-3
  *   styles:no-images | styles:rich
  *   session:expired | guest:ratelimited | session:lost | auth:statefail | cafe24:linked
  *   refresh:fail | refresh:429
@@ -550,10 +550,18 @@ function jobDuration(): number {
  * 같은지**는 확인되지 않습니다 — 402 까지 가야 서버가 실제로 요구한 값이 나옵니다.
  * 1 이면 3 에 모자라 402 가 나고, 시트에서 2 를 받으면 정확히 3 이 되어 재시도까지
  * 이어집니다.
+ *
+ * `credit:clawback` 은 **음수** 입니다 — FR-EDGE-05 · ADR-02(04-erd §3.3). 주문 보상
+ * +20 을 받은 뒤 그 주문이 취소되면 전액을 회수하고, `member.credit_balance` 에 하한
+ * CHECK 가 없어 잔액이 음수가 됩니다. 0 으로 흉내 낼 수 없는 이유는 화면이 그 둘을
+ * 다르게 다루기 때문입니다: 표시는 `max(0, balance)` 라 똑같이 «0» 이지만 **판정은
+ * 원값**이라(`balance >= cost`) −9 는 +10 을 받아도 여전히 못 만듭니다. 0 이면 +1 에
+ * 바로 풀립니다 — «받았는데 왜 아직 안 되지» 가 여기서만 나옵니다.
  */
 const SCENARIO_BALANCE: Record<string, number> = {
   'credit:empty': 0,
   'credit:custom-cost-3': 1,
+  'credit:clawback': -9,
 }
 
 /**

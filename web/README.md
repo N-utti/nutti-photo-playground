@@ -75,9 +75,10 @@ localStorage.setItem('nutti.mock.scenario', 'job:fail')     // GENERATION_FAILED
 localStorage.setItem('nutti.mock.scenario', 'job:safety')   // SAFETY_BLOCKED — 안전 필터 차단, 재시도 없이 즉시 실패 + 크레딧 반환(PR #70)
 localStorage.setItem('nutti.mock.scenario', 'job:retries')  // MAX_RETRIES_EXCEEDED — 시도 3회를 태우며 processing↔queued 를 오간 뒤 실패
 localStorage.setItem('nutti.mock.scenario', 'job:flaky')    // 생성 중 3~18초 503 → W-05가 화면을 헐지 않고 자력 복구
-localStorage.setItem('nutti.mock.scenario', 'job:slow')     // 150초 job → 60초에서 W-05 백그라운드 전환(FR-EDGE-02)
+localStorage.setItem('nutti.mock.scenario', 'job:slow')     // 150초 job → 90초에서 W-05 지연 안내로 전환(FR-EDGE-02 · NFR-PERF-01)
 localStorage.setItem('nutti.mock.scenario', 'job:queued')   // 워커가 안 집는 job — started_at=null 인 큐 대기(PR #60)
 localStorage.setItem('nutti.mock.scenario', 'credit:empty') // 잔액 0에서 시작 → 402 → 시트에서 받고 재시도
+localStorage.setItem('nutti.mock.scenario', 'credit:clawback') // 주문 취소 회수로 잔액이 **음수**(-9) — FR-EDGE-05 · ADR-02. 표시는 0인데 판정은 원값이라, 크레딧을 받아도 숫자가 안 움직이고 만들기도 계속 막힘
 localStorage.setItem('nutti.mock.scenario', 'credit:custom-cost-3') // 커스텀 비용이 2가 아닌 서버(app_setting, 이슈 #149) — W-02·W-04 링크와 W-08 버튼이 요청 전에 «3 크레딧»을 말하고, 잔액 1이라 402까지 이어짐
 localStorage.setItem('nutti.mock.scenario', 'styles:no-images') // 예시 이미지가 없는 스타일 — 자리표시자·캐러셀 생략(기본 목은 시드가 채운 실서버 그대로 1장)
 localStorage.setItem('nutti.mock.scenario', 'styles:rich')      // 운영이 예시를 더 올리고 궁합 태그를 채운 뒤 — 캐러셀 페이저·궁합 칩
