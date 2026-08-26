@@ -93,17 +93,30 @@ async def _create_result(
     }
 
 
-def test_library_requires_member(client: TestClient):
+async def _deleted_at_by_id(*result_ids: str) -> list[datetime | None]:
+    rows = await GenerationResult.filter(id__in=result_ids).order_by("id")
+    by_id = {str(row.id): row.deleted_at for row in rows}
+    return [by_id[result_id] for result_id in result_ids]
+
+
+def test_library_requires_member_for_get_and_delete(client: TestClient):
     _, headers = _session(client, MemberKind.GUEST)
 
-    response = client.get("/v1/library", headers=headers)
+    responses = [
+        client.get("/v1/library", headers=headers),
+        client.request("DELETE", "/v1/library", headers=headers, json={"ids": []}),
+    ]
 
-    assert response.status_code == 403
-    assert response.json()["error"] == {
-        "code": "MEMBER_ONLY",
-        "message": "로그인이 필요합니다",
-        "detail": {},
-    }
+    assert [response.status_code for response in responses] == [403, 403]
+    assert all(
+        response.json()["error"]
+        == {
+            "code": "MEMBER_ONLY",
+            "message": "로그인이 필요합니다",
+            "detail": {},
+        }
+        for response in responses
+    )
 
 
 def test_library_groups_by_kst_month_and_returns_item_fields(client: TestClient):
@@ -257,6 +270,68 @@ def test_library_cursor_pagination_and_validation(client: TestClient):
     assert invalid.status_code == foreign_cursor.status_code == 400
     assert invalid.json()["error"]["code"] == "VALIDATION_ERROR"
     assert foreign_cursor.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_delete_library_items_is_owned_and_idempotent(client: TestClient):
+    member_id, headers = _session(client)
+    other_id, _ = _session(client)
+    owned = [client.portal.call(_create_result, member_id) for _ in range(3)]
+    foreign = client.portal.call(_create_result, other_id)
+    ids = [owned[0]["result_id"], owned[1]["result_id"], foreign["result_id"]]
+
+    first = client.request("DELETE", "/v1/library", headers=headers, json={"ids": ids})
+    deleted = client.portal.call(_deleted_at_by_id, *ids)
+    repeated = client.request(
+        "DELETE", "/v1/library", headers=headers, json={"ids": ids}
+    )
+    invalid = client.request(
+        "DELETE",
+        "/v1/library",
+        headers=headers,
+        json={"ids": [owned[2]["result_id"], "not-a-uuid"]},
+    )
+    untouched = client.portal.call(_deleted_at_by_id, owned[2]["result_id"])
+
+    assert first.status_code == repeated.status_code == 204
+    assert deleted[0] is not None and deleted[1] is not None
+    assert deleted[2] is None
+    assert invalid.status_code == 400
+    assert invalid.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert untouched == [None]
+
+
+def test_delete_library_accepts_empty_ids(client: TestClient):
+    _, headers = _session(client)
+
+    response = client.request(
+        "DELETE", "/v1/library", headers=headers, json={"ids": []}
+    )
+
+    assert response.status_code == 204
+
+
+def test_deleted_result_is_hidden_from_job_and_share(client: TestClient):
+    member_id, headers = _session(client)
+    result = client.portal.call(_create_result, member_id)
+
+    deleted = client.request(
+        "DELETE",
+        "/v1/library",
+        headers=headers,
+        json={"ids": [result["result_id"]]},
+    )
+    job = client.get(f"/v1/jobs/{result['job_id']}", headers=headers)
+    share = client.post(
+        f"/v1/jobs/{result['job_id']}/share",
+        headers=headers,
+        json={"channel": "instagram"},
+    )
+
+    assert deleted.status_code == 204
+    assert job.status_code == 200
+    assert job.json()["results"] == []
+    assert share.status_code == 404
+    assert share.json()["error"]["code"] == "NOT_FOUND"
 
 
 def test_library_cursor_must_match_pet_scope(client: TestClient):
