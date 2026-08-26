@@ -462,6 +462,17 @@ export const ledgerEntries: LedgerEntry[] = [
   // §3 예시에는 없지만 서버가 실제로 내려주는 사유입니다(app/models.py CreditReason) —
   // 세이프티 차단 반환. 목에 없으면 W-10 B 의 라벨 표에 이 값이 있는지 확인할 길이 없습니다.
   { reason: 'safety_block_refund', ref_label: '레고', occurred_on: '2026-07-27', amount: 1 },
+  /*
+    주문 취소 회수 (FR-EDGE-05 · 04-erd §3.2 `order_clawback`). 같은 이유로 넣습니다 —
+    `ledgerFormat.ts` 에 «주문 취소» 라벨이 **적혀만** 있고 목이 그 행을 못 만들어서,
+    이 표에서 그 라벨이 실제로 나오는지도 음수 표기(−, U+2212 · `text-danger`)가
+    맞는지도 확인할 길이 없었습니다. 원장에서 **금액이 큰 음수**는 여기서만 나옵니다
+    (생성 차감은 −1·−2 라 자릿수가 다릅니다).
+
+    바로 위 `order_reward` 와 같은 주문(`#20260802`)입니다 — 짝이 안 맞으면 표가
+    «받은 적 없는 주문을 회수당한» 이력을 보여 주게 됩니다.
+  */
+  { reason: 'order_clawback', ref_label: '#20260802', occurred_on: '2026-07-26', amount: -20 },
 ]
 
 /**

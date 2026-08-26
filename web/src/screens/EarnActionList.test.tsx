@@ -16,6 +16,7 @@
  */
 
 import { screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { renderWithProviders } from '../test/render'
@@ -156,6 +157,51 @@ describe('EarnActionList', () => {
 
     await screen.findByText('오늘의 무료')
     expect(screen.getByText('내일 다시')).toBeInTheDocument()
+  })
+
+  it('받았는데 잔액이 여전히 음수면 숫자가 왜 안 움직이는지 말한다 (FR-EDGE-05)', async () => {
+    /*
+      주문 취소 회수(`order_clawback`)로 잔액이 음수가 된 회원입니다. ADR-02 로 표시는
+      `max(0, balance)` 라 «보유 크레딧» 은 계속 0 이고, 판정은 원값이라 만들기도 계속
+      막힙니다.
+
+      그 상태에서 «+2 크레딧을 받았어요» 만 띄우면 **화면이 스스로를 반박합니다** —
+      받았다고 말하면서 숫자는 0 그대로고, 만들러 가면 여전히 402 입니다. 사용자에게
+      남는 건 «받았다는데 왜 안 늘지» 뿐이고, 답(원장의 «주문 취소 −20»)은 이미 앱 안에
+      있는데 아무도 그리로 안 보냅니다.
+
+      빚의 크기는 말하지 않습니다 — 숨기는 게 ADR-02 의 결정이라 여기서 뒤집지 않고,
+      닫는 건 «말없이» 쪽 절반입니다.
+    */
+    asMember()
+    server.use(
+      http.post('*/v1/credits/claim', () =>
+        // −9 에서 +2 → 여전히 −7. 표시는 0 에서 0 으로, 아무것도 안 움직입니다.
+        HttpResponse.json({ balance: -7, amount_granted: 2 }),
+      ),
+    )
+    const user = userEvent.setup()
+    renderWithProviders(<EarnActionList />)
+
+    await user.click(await screen.findByRole('button', { name: '받기' }))
+
+    expect(await screen.findByText(/\+2 크레딧을 받았어요/)).toBeInTheDocument()
+    expect(screen.getByText(/보유 크레딧에는 아직 반영되지 않았어요/)).toBeInTheDocument()
+  })
+
+  it('잔액이 양수로 돌아오면 그 안내는 붙지 않는다', async () => {
+    // 평상시에 이 문장이 뜨면 멀쩡히 늘어난 잔액을 두고 «반영 안 됐다» 고 거짓말합니다.
+    asMember()
+    server.use(
+      http.post('*/v1/credits/claim', () => HttpResponse.json({ balance: 13, amount_granted: 2 })),
+    )
+    const user = userEvent.setup()
+    renderWithProviders(<EarnActionList />)
+
+    await user.click(await screen.findByRole('button', { name: '받기' }))
+
+    expect(await screen.findByText(/\+2 크레딧을 받았어요/)).toBeInTheDocument()
+    expect(screen.queryByText(/아직 반영되지 않았어요/)).not.toBeInTheDocument()
   })
 })
 

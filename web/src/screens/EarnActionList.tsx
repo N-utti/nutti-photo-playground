@@ -44,7 +44,15 @@ export default function EarnActionList() {
   const { data: me } = useMe()
   const claim = useClaimCredit()
   const authorize = useAuthorizeRedirect()
-  const [granted, setGranted] = useState<{ action: EarnAction; amount: number } | null>(null)
+  /*
+    `balance` 까지 들고 있는 이유는 아래 안내 문구입니다 — 받은 뒤 잔액이 여전히 음수면
+    화면의 «보유 크레딧» 숫자가 **안 움직입니다**(ADR-02 표시 규칙 `max(0, balance)`).
+  */
+  const [granted, setGranted] = useState<{
+    action: EarnAction
+    amount: number
+    balance: number
+  } | null>(null)
   /**
    * 로그인 시트를 왜 열었는지 (PR #58).
    *
@@ -101,7 +109,8 @@ export default function EarnActionList() {
   function handleClaim(action: ClaimableAction) {
     setGranted(null)
     claim.mutate(action, {
-      onSuccess: ({ amount_granted }) => setGranted({ action, amount: amount_granted }),
+      onSuccess: ({ amount_granted, balance }) =>
+        setGranted({ action, amount: amount_granted, balance }),
     })
   }
 
@@ -130,9 +139,31 @@ export default function EarnActionList() {
       )}
 
       {granted && (
-        <p role="status" className="mt-2 text-center text-sm font-semibold text-good">
-          {EARN_COPY[granted.action]?.title ?? '크레딧'} · +{granted.amount} 크레딧을 받았어요
-        </p>
+        <>
+          <p role="status" className="mt-2 text-center text-sm font-semibold text-good">
+            {EARN_COPY[granted.action]?.title ?? '크레딧'} · +{granted.amount} 크레딧을 받았어요
+          </p>
+          {/*
+            **받았는데 숫자가 안 움직이는 경우**(FR-EDGE-05 · ADR-02).
+
+            회수(`order_clawback`)로 잔액이 음수가 되면 표시는 `max(0, balance)` 라 계속
+            «0» 이고, 판정은 원값이라 만들기도 계속 막힙니다. 그 상태에서 위 줄만 띄우면
+            화면이 «+2 받았어요» 라고 말하면서 보유 크레딧 0 을 그대로 두는 셈이라 —
+            **화면이 스스로를 반박합니다.** 사용자에게 남는 건 «받았다는데 왜 안 늘지,
+            왜 아직 못 만들지» 뿐이고, 답은 원장에 이미 있는데 아무도 그리로 안 보냅니다.
+
+            빚의 크기는 말하지 않습니다. 숨기는 게 ADR-02 의 결정이고 여기서 뒤집을 일이
+            아닙니다 — 닫는 건 «말없이» 쪽 절반입니다. 원인도 단정하지 않습니다(음수를
+            만드는 사유가 회수 하나라는 보장이 계약에 없습니다). 확실한 것만 말하고
+            내역으로 보냅니다 — 아래 «받은 내역 보기» 가 그 줄들을 그대로 보여 줍니다.
+          */}
+          {granted.balance <= 0 && (
+            <p className="mt-1 text-center text-xs text-ink-2">
+              지난 차감이 남아 있어 보유 크레딧에는 아직 반영되지 않았어요. 아래 «받은
+              내역»에서 확인할 수 있어요.
+            </p>
+          )}
+        </>
       )}
 
       {claim.isError && (
