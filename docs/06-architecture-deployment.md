@@ -205,10 +205,10 @@ AWS 표준 아웃바운드 요율(프리티어 소진 후 일반적으로 알려
 | `GUEST_RATE_LIMIT_PER_HOUR` | 게스트 발급 IP당 시간당 한도(기본 30) | 인메모리 — 워커 수만큼 배가됨(이슈 #15) |
 | `ADMIN_ALERT_SLACK_WEBHOOK_URL` | 관리자 알림(토큰 만료·백업 실패·헬스체크 다운) | §6.1, §9 |
 | `SENTRY_DSN` | 에러 트래킹(§9) | |
-| `GA4_MEASUREMENT_ID` | GA4 속성 ID(§10) | |
+| `GA4_MEASUREMENT_ID` | GA4 속성 ID(§11) — **`G-KG0XE6F5XT`**(쇼핑몰·계산기와 같은 속성, 실측) | 프론트는 `web/.env.production`의 `VITE_GA4_MEASUREMENT_ID`로 따로 갖습니다 |
 | `BACKUP_R2_BUCKET_NAME` | 백업 전용 R2 버킷(이미지 버킷과 분리) | §8 |
 | `APP_ENV` | `production` \| `staging` | |
-| `CORS_ALLOWED_ORIGINS` | 허용 오리진(놀이터 서브도메인, 쇼핑몰) | |
+| `CORS_ALLOWED_ORIGINS` | 허용 오리진 — **`https://play.nutti.co.kr`**(2026-08-26 확정), 쇼핑몰 | API를 프론트와 **같은 오리진**에 얹으면 불필요. 그 선택은 아직 미정(`web/.env.production`의 `VITE_API_BASE_URL`이 자리표시자) |
 | `LOG_LEVEL` | 로그 레벨 | |
 
 ### 프록시 전환 체크리스트 (이슈 #15 · #11 N2)
@@ -254,7 +254,7 @@ Tortoise ORM 모델 변경으로부터 Aerich가 자동 생성한 마이그레�
 
 측정 목적과 지표 정의는 [01-prd.md §6](01-prd.md)을 참고하세요. 이 절은 **기술적 배선**만 다룹니다.
 
-- **크로스도메인 GA4**: 하나의 GA4 속성(§ `GA4_MEASUREMENT_ID`)에 놀이터 서브도메인(예: `play.nutti.co.kr`, `wireframe-spec-v0.5.html#open` 참고)과 `nutti.co.kr`을 GA4 관리자 설정의 "도메인 간 측정"(cross-domain measurement) 목록에 등록해, 도메인 전환 시 세션이 끊기지 않게 합니다. 계산기(`calculator.html`)는 이미 `js/ga.js`가 붙어 있으므로 같은 속성에 편입합니다.
+- **크로스도메인 GA4**: 하나의 GA4 속성(§ `GA4_MEASUREMENT_ID` — **`G-KG0XE6F5XT`**, `nutti.co.kr/calculator/js/ga.js`의 `var GA_ID` 실측값. 쇼핑몰 본체도 카페24 Google Tag 컨테이너 `GT-MBH8R5DC`를 거쳐 같은 속성으로 보냅니다)에 놀이터 서브도메인(**`play.nutti.co.kr` — 2026-08-26 확정**)과 `nutti.co.kr`을 GA4 관리자 설정의 "도메인 간 측정"(cross-domain measurement) 목록에 등록해, 도메인 전환 시 세션이 끊기지 않게 합니다. 계산기(`calculator.html`)는 이미 `js/ga.js`가 붙어 있으므로 같은 속성에 편입합니다. 등록 절차·확인 방법(도착 URL의 `_gl=`)은 `web/README.md` "GA4 배선" 절에 있습니다.
 - **UTM 파라미터 규약**: 놀이터 → 쇼핑몰/계산기로 나가는 아웃바운드 링크에 `utm_source=nutti_playground&utm_medium=referral&utm_campaign=<맥락>`을 부착합니다. `<맥락>` 값 예: `result_exit`(W-06 쇼핑몰 행), `calculator_handoff`(W-07). 이 파라미터는 API가 반환하는 정적 링크에 서버가 미리 붙여 반환하거나(예: 쇼핑몰 행), `GET /v1/calculator-link` 응답의 `calculator_url`에 서버가 조립 시 포함합니다(05-api-spec §2 W-07 참고).
 - **GA4 vs `metric_event` 경계**: 01-prd §6에서 정의한 대로, GA4는 마케팅 기여·크로스도메인 세션을 담당하고 `metric_event`는 W-11 운영 콘솔의 스타일별 성과(선택률·공유율·쇼핑몰 클릭률) 산출용 내부 로그입니다. 두 시스템에 같은 이벤트가 중복 기록될 수 있으나 소유 시스템과 보존 기간이 다릅니다(GA4=구글 정책, `metric_event`=90일, 04-erd 참고).
 

@@ -187,7 +187,7 @@
 **OAuth 공통 규칙**:
 
 - `authorize` 계열은 302 리다이렉트가 아니라 **200 `{"authorize_url": ...}`**을 반환합니다. state가 호출 주체의 토큰에 바인딩되어 Authorization 헤더가 필수인데, 브라우저 링크 이동으로는 헤더를 실을 수 없기 때문 — 프론트는 fetch로 URL을 받아 `window.location`으로 이동합니다.
-- 프로바이더 콘솔에 등록하는 redirect_uri는 **프론트 라우트**(예: `https://play.nutti.co.kr/auth/callback/kakao`)입니다. 프론트는 쿼리로 받은 `code`·`state`를 아래 콜백 엔드포인트에 fetch로 전달해 세션 JSON을 받습니다.
+- 프로바이더 콘솔에 등록하는 redirect_uri는 **프론트 라우트**입니다 — 놀이터 도메인이 `play.nutti.co.kr`로 확정(2026-08-26)되어 등록값은 `https://play.nutti.co.kr/auth/callback/{kakao|naver|cafe24}` 세 개입니다(카카오·네이버·카페24 콘솔 각각). 프로바이더는 등록값과 **정확히** 일치해야 받아 주므로 스킴·후행 슬래시까지 그대로여야 하고, 프론트가 이 경로(`web/src/screens/AuthCallback.tsx`)를 바꾸면 콘솔 세 곳도 같이 바꿔야 합니다. 프론트는 쿼리로 받은 `code`·`state`를 아래 콜백 엔드포인트에 fetch로 전달해 세션 JSON을 받습니다.
 - `state`는 서명 JWT + DB nonce(`member.oauth_state_nonce`, 5분 만료)로 **일회성**입니다. 재사용·주체 불일치·만료는 전부 401.
 - **이미 회원인 토큰**으로 `register`/`login`/소셜 `authorize`를 호출하면 `409 ALREADY_MEMBER`(로그인 수단 추가는 MVP 미지원 — 이슈 #17). 프론트는 `/me`의 `kind`가 `member`면 로그인 시트를 띄우지 않습니다.
 
