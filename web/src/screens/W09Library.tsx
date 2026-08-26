@@ -22,15 +22,12 @@
  * 아니라 빈 목록으로 답하는 계약이라(05-api-spec §3, 이슈 #33) 그대로 두면 결과가 없는
  * 강아지처럼 보입니다.
  *
- * **게스트 세션 리셋을 여기서도 받습니다**(이슈 #5). 재발급은 새 member_id 라 목록이
- * 200 + 빈 배열로 옵니다 — 에러가 아니라서 화면은 아무 일도 없었던 것처럼 «아직 보관된
- * 사진이 없어요»를 띄웁니다. 만든 적 있는 사람에게 그건 사실이 아니고, 결과가 사라진
- * 이유를 들을 곳이 앱 안에 사라집니다(그전까지 안내는 job URL 로 직접 들어온 W-05·W-06
- * 에만 있었습니다). 탭바로 들어온 사용자가 여기서 처음 만나므로 이 화면이 말해야 합니다.
- *
- * (그 «200 + 빈 배열» 은 목이 게스트에게도 목록을 주는 지금 기준입니다. 보관함은 원래
- * 회원 기능이라 실서버의 게스트 응답은 **403 `MEMBER_ONLY`** 이고 — 백엔드 PR #156 —
- * 그때는 리셋 안내가 위에, 로그인 안내가 목록 자리에 함께 뜹니다. 아래 `memberOnly`.)
+ * **게스트 세션 리셋을 여기서도 받습니다**(이슈 #5). 재발급된 세션은 새 게스트이므로
+ * 목록 응답은 **403 `MEMBER_ONLY`**(아래 `memberOnly`) — 리셋됐다는 사실은 그 응답
+ * 어디에도 없습니다. 결과가 사라진 이유를 들을 곳이 그전까지는 job URL 로 직접 들어온
+ * W-05·W-06 에만 있었고, 탭바로 들어온 사용자는 여기서 처음 만납니다. 그래서 리셋
+ * 안내를 위에, 로그인 안내를 목록 자리에 **함께** 답니다 — 앞은 «왜 없어졌나», 뒤는
+ * «앞으로 어떻게 남기나» 라 서로를 대신하지 못합니다.
  */
 
 import { useEffect, useRef, useState } from 'react'
@@ -45,6 +42,21 @@ import { useGuestSessionReset } from '../app/guestSession'
 import { saveImage } from '../app/saveImage'
 import type { LibraryItem, LibraryMonth } from '../api/types'
 import AccountSheet from './AccountSheet'
+
+/**
+ * 한 번에 지울 수 있는 장수.
+ *
+ * 서버가 한 요청을 100개로 끊습니다(`DeleteLibraryRequest.ids: Field(max_length=100)`,
+ * 백엔드 PR #157). 넘겨서 보내면 400 이 오고 화면은 «삭제하지 못했어요 · 다시 시도» 로
+ * 끝나는데, **다시 눌러도 영영 같은 답입니다** — 101장을 고른 사람에게 그 문구는 서버가
+ * 잠깐 아픈 것처럼 들리고, 실제로 해야 할 일(나눠서 지우기)은 화면 어디에도 없습니다.
+ * 쪼개서 보내지 않는 이유는 부분 실패입니다: 150장을 두 번에 나눠 보내다 뒤가 실패하면
+ * 100장이 지워진 채로 «삭제하지 못했어요» 가 뜹니다.
+ *
+ * 그래서 **고르는 단계에서** 막고 이유를 말합니다. 저장도 같은 선택을 쓰므로 함께 묶이는데,
+ * 100장을 한 장씩 받는 것도 이미 상한에 가까운 일이라 그대로 둡니다(`saveAll`).
+ */
+const DELETE_LIMIT = 100
 
 export default function W09Library() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -94,10 +106,10 @@ export default function W09Library() {
     눌러도 영영 같은 답이 오고, 게스트는 자기 사진이 사라졌다고 읽습니다 — **실패가 아닌
     상황을 실패로 보여 주는 것**이라 눌러야 할 버튼(로그인)이 화면에서 지워집니다.
 
-    오늘 목은 게스트에게도 목록을 주므로 이 분기는 안 탑니다. 목을 지금 고치지 않는 건
-    보관함 구현(백엔드 PR #156·#157)이 **아직 열려 있기 때문**입니다 — 서버보다 목이
-    앞서면 이 저장소에서 이미 두 번 난 사고(#142·#144)를 반복합니다. 머지되면 목을
-    계약에 맞추고, 그때 이 갈래가 브라우저에서도 밟힙니다.
+    보관함 구현(백엔드 PR #156·#157)이 착지해서 목도 그 계약으로 옮겼습니다 — 게스트로
+    이 화면을 열면 브라우저에서도 이 갈래가 그대로 밟힙니다. 그전까지 목은 게스트에게도
+    목록을 줬고(서버보다 앞서지 않으려는 의도적 지연 — #142·#144 가 그 반대 사고),
+    이 화면은 테스트에만 존재했습니다.
   */
   const memberOnly = isApiError(library.error, 'MEMBER_ONLY')
 
@@ -120,7 +132,8 @@ export default function W09Library() {
     setSelected((current) => {
       const next = new Set(current ?? [])
       if (next.has(resultId)) next.delete(resultId)
-      else next.add(resultId)
+      // 상한에 닿으면 더 고르지 않습니다 — 이유는 선택 바가 말합니다.
+      else if (next.size < DELETE_LIMIT) next.add(resultId)
       return next
     })
   }
@@ -164,14 +177,16 @@ export default function W09Library() {
       </header>
 
       <main className="mx-auto w-full max-w-md px-4 py-4">
-        {guestReset ? (
-          <GuestResetNotice onLogin={() => setLoginSheet(true)} />
-        ) : (
-          // 목록이 회원 전용으로 막힌 경우 `GuestNotice` 는 얹지 않습니다 — "이 브라우저에만
-          // 남아 있어요" 는 **아래 목록을 가리키는 말**이라, 목록이 없는 화면에서는 무엇을
-          // 두고 하는 말인지 알 수 없습니다. 그 자리는 아래 `MemberOnlyNotice` 가 맡습니다.
-          !memberOnly && me?.kind === 'guest' && <GuestNotice onLogin={() => setLoginSheet(true)} />
-        )}
+        {/*
+          게스트 안내는 리셋된 경우에만 남았습니다.
+
+          여기에는 «이 브라우저에만 남아 있어요» 배너가 하나 더 있었습니다 — 목록 위에
+          얹어서 지속성을 알리는 자리였는데, 게스트에게 목록이 **아예 안 오는** 지금은
+          띄울 수 없습니다(403). 조건은 `!memberOnly` 라 응답을 기다리는 동안 잠깐 떴다가
+          403 이 오면 사라지는, 화면이 먼저 말하고 뒤늦게 정정하는 배너였습니다. 하던 말
+          (게스트 결과는 만든 브라우저에서 30일)은 `MemberOnlyNotice` 가 그대로 합니다.
+        */}
+        {guestReset && <GuestResetNotice onLogin={() => setLoginSheet(true)} />}
 
         <PetFilter pets={pets} value={petId} onChange={selectPet} />
 
@@ -243,6 +258,7 @@ export default function W09Library() {
       {selected && (
         <SelectionBar
           items={selectedItems}
+          atLimit={selected.size >= DELETE_LIMIT}
           pending={remove.isPending}
           failed={remove.isError}
           onDelete={() =>
@@ -508,11 +524,13 @@ function dayLabel(createdAt: string): string {
 
 function SelectionBar({
   items,
+  atLimit,
   pending,
   failed,
   onDelete,
 }: {
   items: LibraryItem[]
+  atLimit: boolean
   pending: boolean
   failed: boolean
   onDelete: () => void
@@ -556,6 +574,15 @@ function SelectionBar({
             삭제
           </button>
         </div>
+        {/*
+          더 고를 수 없게 된 순간에만 말합니다. 탭했는데 체크가 안 들어오는 게 이 상한이
+          모습을 드러내는 방식이라, 이유가 없으면 화면이 고장 난 것으로 읽힙니다.
+        */}
+        {atLimit && (
+          <p role="status" className="mt-2 text-center text-xs text-ink-3">
+            한 번에 {DELETE_LIMIT}장까지 고를 수 있어요. 나눠서 지워 주세요.
+          </p>
+        )}
         {failed && (
           <p role="alert" className="mt-2 text-center text-sm text-danger">
             삭제하지 못했어요. 잠시 뒤 다시 시도해 주세요.
@@ -675,31 +702,6 @@ function EmptyState({
         스타일 고르러 가기
       </Link>
     </div>
-  )
-}
-
-/**
- * 게스트 안내.
- *
- * 목록을 가리지 않고 위에 얹습니다 — 게스트도 방금 만든 결과는 갖고 있고(같은 브라우저
- * 한정), 여기서 목록을 감추면 "만들었는데 없어졌다"가 됩니다. 말할 수 있는 건 **지속성**
- * 뿐이라 그것만 말합니다(§2 W-06 저장 · Q7).
- */
-function GuestNotice({ onLogin }: { onLogin: () => void }) {
-  return (
-    <section className="mb-3 rounded-xl border border-rule bg-surface px-4 py-3">
-      <p className="text-sm font-semibold">이 브라우저에만 남아 있어요</p>
-      <p className="mt-1 text-sm text-ink-2">
-        로그인하면 지금까지 만든 결과가 계정에 남아서, 브라우저를 바꿔도 열 수 있어요.
-      </p>
-      <button
-        type="button"
-        onClick={onLogin}
-        className="mt-3 w-full rounded-xl border border-rule-strong px-4 py-2.5 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
-      >
-        로그인하고 보관하기
-      </button>
-    </section>
   )
 }
 

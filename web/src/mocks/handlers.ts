@@ -356,6 +356,25 @@ export function resetMockState(): void {
   localStorage.removeItem(SCENARIO_KEY)
 }
 
+/**
+ * 목을 **로그인한 회원** 상태로 세웁니다. **테스트 전용 진입점**입니다.
+ *
+ * `GET /auth/me` 응답만 덮는 기존 `asMember()` 패턴(W12MyPage.test 등)으로는 부족한
+ * 화면이 생겼습니다 — 보관함처럼 **목이 스스로 회원 여부를 보고 갈리는** 엔드포인트는
+ * `/auth/me` 를 아무리 회원으로 꾸며도 403 을 계속 냅니다. 화면과 목이 서로 다른 답을
+ * 보는 그 상태가 테스트에서만 성립하는 세계고, 그건 목을 두는 이유를 지웁니다.
+ *
+ * 토큰·리프레시는 만들지 않습니다. 목은 Authorization 을 검사하지 않고, 여기서 굳이
+ * 회전을 흉내 내면 `session:expired` 시나리오의 판정(`expiredSession`)이 흔들립니다.
+ */
+export function mockAsMember(): void {
+  state.me.kind = 'member'
+  state.me.email = 'member@nutti.co.kr'
+  state.me.nickname = '콩이엄마'
+  if (!state.me.providers.includes('kakao')) state.me.providers.push('kakao')
+  persist()
+}
+
 /** 목 authorize_url — 프로바이더 대신 우리 콜백 라우트로 되돌립니다. */
 function mockAuthorizeUrl(provider: string): string {
   return `${location.origin}/auth/callback/${provider}?code=mock-code&state=mock-state-${crypto.randomUUID()}`
@@ -757,8 +776,24 @@ function projectJob(job: MockJob): Job {
 
 // ---------------------------------------------------------------- 보관함 조립
 
-/** 한 페이지에 담는 개수. 시드(8건)보다 작아야 «더 보기»가 목 위에서 눌립니다. */
+/**
+ * 한 페이지에 담는 개수. 시드(8건)보다 작아야 «더 보기»가 목 위에서 눌립니다.
+ *
+ * 실서버는 20 입니다(app/routers/library.py `.limit(21)`). 목이 일부러 작게 잡는 건
+ * 페이지가 **하나로 끝나면 커서·월 병합이 목 위에서 한 번도 안 밟히기** 때문입니다 —
+ * 시드를 21건으로 불리면 그리드가 화면 두 배가 되고, 그러느니 경계를 앞으로 당깁니다.
+ * 프론트는 이 숫자를 모릅니다(커서는 불투명 값) 그래서 작아도 계약을 어기지 않습니다.
+ */
 const LIBRARY_PAGE_SIZE = 6
+
+/**
+ * 한 삭제 요청에 담기는 상한 (`DeleteLibraryRequest.ids: Field(max_length=100)`,
+ * 백엔드 PR #157). 넘기면 pydantic 이 걸러 400 `VALIDATION_ERROR` 입니다.
+ */
+const LIBRARY_DELETE_LIMIT = 100
+
+/** `uuid.UUID(...)` 가 받아 주는 범위. 서버가 파싱에 실패하면 400 입니다. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /**
  * '2026-08-03T10:00:00+09:00' → '2026년 8월'.
@@ -781,8 +816,12 @@ function monthLabel(createdAt: string): string {
  *
  * 삭제는 항목을 지우는 대신 `deletedResults` 로 가립니다. job 자체는 남겨야
  * `/jobs/{id}` 주소가 계속 열리고(Q7 복원), 그건 보관함 삭제와 다른 사안입니다.
+ *
+ * 정렬은 서버의 `order_by("-created_at", "-id")` 를 그대로 옮깁니다. 같은 시각이 둘
+ * 이상이면(시드는 8/2 가 두 건입니다) 순서가 흔들리는데, 커서가 **마지막 항목의 위치**
+ * 로 다음 페이지를 정하므로 흔들리는 순간 항목이 겹치거나 사라집니다.
  */
-function libraryEntries(): LibraryItem[] {
+function librarySorted(): LibraryItem[] {
   const fromJobs: LibraryItem[] = [...state.jobs.values()]
     .filter((job) => projectJob(job).status === 'succeeded')
     .map((job) => ({
@@ -794,9 +833,16 @@ function libraryEntries(): LibraryItem[] {
       created_at: new Date(job.createdAt).toISOString(),
     }))
 
-  return [...fromJobs, ...libraryItems]
-    .filter((item) => !state.deletedResults.has(item.result_id))
-    .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
+  return [...fromJobs, ...libraryItems].sort(
+    (a, b) =>
+      Date.parse(b.created_at) - Date.parse(a.created_at) ||
+      b.result_id.localeCompare(a.result_id),
+  )
+}
+
+/** 목록에 실제로 나가는 것 — 논리삭제분은 빠집니다. */
+function libraryEntries(): LibraryItem[] {
+  return librarySorted().filter((item) => !state.deletedResults.has(item.result_id))
 }
 
 /**
@@ -1548,24 +1594,62 @@ export const handlers = [
     await delay(150)
 
     /*
-      재발급 뒤의 보관함. 여기서 404 를 주면 안 됩니다 — 새 게스트에게 이전 결과는
-      «막힌» 게 아니라 **없는** 것이라, 실서버는 200 + 빈 목록을 냅니다. 그 차이가
-      화면을 가릅니다: 404 면 오류 화면이, 빈 목록이면 «아직 없어요»가 뜨고, 후자가
-      사고를 침묵으로 덮는 진짜 경로입니다(W09Library 의 리셋 안내).
+      보관함은 **회원 기능**이라 게스트에게는 목록이 아니라 403 `MEMBER_ONLY` 가
+      갑니다(app/routers/library.py, 백엔드 PR #156).
+
+      이 목은 오래 게스트에게도 목록을 줬습니다. 구현이 열려 있는 동안 목이 서버를
+      앞지르지 않게 둔 것이었는데(#142·#144 가 그 반대로 났던 사고), 서버가 착지했으니
+      이제 목이 서버를 따라갑니다. 그전까지 W-09 의 `MemberOnlyNotice` 는 테스트에서만
+      존재하고 브라우저에서는 한 번도 안 뜨는 화면이었습니다.
+
+      재발급 직후(`expiredSession === 'reissued'`)도 여기서는 따로 갈리지 않습니다 —
+      재발급된 세션은 새 **게스트**라 같은 403 입니다. 화면은 리셋 안내를 위에, 로그인
+      안내를 목록 자리에 함께 답니다(W09Library). 그전에 여기 있던 «200 + 빈 목록» 은
+      회원 전용이 아니던 시절의 추측이었고, 그 경로로는 «아직 보관된 사진이 없어요» 가
+      떠서 사고가 침묵으로 덮였습니다.
     */
-    if (expiredSession(request) === 'reissued') {
-      return HttpResponse.json({ months: [], next_cursor: null })
+    if (state.me.kind !== 'member') {
+      return apiError(403, 'MEMBER_ONLY', '로그인이 필요합니다')
     }
 
     const url = new URL(request.url)
     const petId = url.searchParams.get('pet_id')
-    // 커서 값의 형식은 서버가 정합니다(§1 은 불투명 문자열로만 규정) — 목은 오프셋을
-    // 씁니다. 프론트는 이 값을 해석하지 않고 그대로 되돌려주기만 해야 합니다.
-    const offset = Number(url.searchParams.get('cursor') ?? 0) || 0
+    const cursor = url.searchParams.get('cursor')
 
-    const all = libraryEntries()
-    const filtered = petId ? all.filter((item) => item.pet_id === petId) : all
-    const slice = filtered.slice(offset, offset + LIBRARY_PAGE_SIZE)
+    // 서버는 `uuid.UUID(pet_id)` 로 파싱합니다 — 형식이 아니면 빈 목록이 아니라 400 입니다.
+    // (없는 펫·지워진 펫은 형식이 맞으므로 그대로 빈 목록입니다. 이슈 #33)
+    if (petId !== null && !UUID_RE.test(petId)) {
+      return apiError(400, 'VALIDATION_ERROR', '요청 형식이 올바르지 않습니다')
+    }
+
+    /*
+      커서는 오프셋이 아니라 **직전 페이지 마지막 항목의 `result_id`** 입니다
+      (백엔드 PR #156 — keyset). 오프셋으로 흉내 내던 동안 목에는 실서버에 없는 버그가
+      있었습니다: 1페이지에서 한 장을 지우고 «더 보기» 를 누르면 뒤가 한 칸 당겨져
+      **한 장이 통째로 건너뛰어집니다.**
+
+      그래서 커서 항목은 삭제분까지 포함한 목록(`librarySorted`)에서 찾습니다 — 서버도
+      커서 스코프에서 `deleted_at` 을 뺍니다("1페이지 마지막을 지운 뒤 2페이지를
+      요청해도 커서가 유효해야 한다"). 스코프 밖의 커서는 400 입니다.
+    */
+    const inScope = (item: LibraryItem) => !petId || item.pet_id === petId
+    const anchor = cursor
+      ? librarySorted().find((item) => item.result_id === cursor && inScope(item))
+      : undefined
+    if (cursor && !anchor) {
+      return apiError(400, 'VALIDATION_ERROR', '요청 형식이 올바르지 않습니다')
+    }
+
+    const filtered = libraryEntries().filter(inScope)
+    const after = anchor
+      ? filtered.findIndex(
+          (item) =>
+            Date.parse(item.created_at) < Date.parse(anchor.created_at) ||
+            (item.created_at === anchor.created_at && item.result_id < anchor.result_id),
+        )
+      : 0
+    const start = after === -1 ? filtered.length : after
+    const slice = filtered.slice(start, start + LIBRARY_PAGE_SIZE)
 
     const months: LibraryMonth[] = []
     for (const item of slice) {
@@ -1575,16 +1659,34 @@ export const handlers = [
       else months.push({ label, items: [item] })
     }
 
-    const next = offset + LIBRARY_PAGE_SIZE
     return HttpResponse.json({
       months,
-      next_cursor: next < filtered.length ? String(next) : null,
+      next_cursor:
+        filtered.length > start + LIBRARY_PAGE_SIZE ? (slice.at(-1)?.result_id ?? null) : null,
     })
   }),
 
   http.delete(`${BASE}/library`, async ({ request }) => {
     await delay(200)
+    // 목록과 같은 문(門)입니다 — 게스트는 보관함에 결과를 두지 않으므로 지울 것도 없습니다.
+    if (state.me.kind !== 'member') {
+      return apiError(403, 'MEMBER_ONLY', '로그인이 필요합니다')
+    }
+
     const { ids } = (await request.json()) as { ids: string[] }
+
+    /*
+      한 요청 100개 상한. 화면이 그보다 많이 고를 수 있으면 «삭제하지 못했어요 · 다시
+      시도» 로 끝나는데 다시 눌러도 영영 같은 답입니다 — W-09 가 고르는 단계에서 막는
+      근거가 이것이고, 그 상한이 실제로 존재한다는 걸 목이 보여야 밟힙니다.
+    */
+    if (ids.length > LIBRARY_DELETE_LIMIT) {
+      return apiError(400, 'VALIDATION_ERROR', '요청 형식이 올바르지 않습니다', {
+        ids: `최대 ${LIBRARY_DELETE_LIMIT}개`,
+      })
+    }
+
+    // 남의 것·없는 id 는 서버가 조용히 무시합니다(멱등) — 목도 표시만 하고 끝냅니다.
     for (const id of ids) state.deletedResults.add(id)
     persistDeletedResults()
     return new HttpResponse(null, { status: 204 })
