@@ -655,6 +655,8 @@
 
 쿼리: `pet_id?`, `cursor?`
 
+회원 전용입니다. 게스트는 `403 MEMBER_ONLY`를 반환합니다. 페이지당 최대 20개를 반환하며, `next_cursor`는 현재 페이지의 마지막 `result_id`입니다. 잘못된 `cursor` 또는 `pet_id`는 `400 VALIDATION_ERROR`를 반환합니다.
+
 ```json
 // 200
 {
@@ -677,6 +679,8 @@
 ```
 
 `pet_id`는 `uuid | null`입니다(이슈 #33) — **펫이 삭제됐거나**(`DELETE /v1/pets` 시 `source_image.pet_profile_id` SET NULL, 이슈 #12 결정4) **애초에 펫 없이 만든 결과**(`POST /v1/jobs`의 `pet_id: null`) 둘 다 `null`로 내려오며 클라이언트는 구분하지 않습니다("전체"에서만 노출). 삭제된 펫을 가리키는 `?pet_id=` 조회는 빈 목록(`months: []`)을 반환합니다(404 아님 — 필터 결과가 없는 것과 동일 취급).
+
+페이지 경계에서 같은 달이 두 페이지로 나뉠 수 있으므로 클라이언트는 `label` 기준으로 병합합니다. 월 `label`과 `created_at`은 KST 기준입니다.
 
 #### `DELETE /v1/library`
 
