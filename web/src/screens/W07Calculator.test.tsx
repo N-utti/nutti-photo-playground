@@ -151,4 +151,28 @@ describe('W-07 · 계산기로 넘기기', () => {
     expect(await screen.findByText('계산기 링크를 불러오지 못했어요.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '다시 시도' })).toBeInTheDocument()
   })
+
+  it('없는 강아지는 «다시 시도» 가 아니라 나가는 길을 준다 (404)', async () => {
+    /*
+      마이페이지에서 강아지를 지운 뒤 `/calculator?pet_id=` 를 히스토리·북마크로 다시
+      여는 자리입니다. 서버는 폴백 없이 **404** 를 주는데(`app/routers/results.py`
+      `_not_found`), 그걸 일반 오류로 흘리면 «불러오지 못했어요 · 다시 시도» 가 뜹니다 —
+      다시 눌러도 영영 같은 답이고, 화면은 고장 난 것처럼 보입니다. 없어진 건 강아지고,
+      계산기는 1단계부터 그대로 쓸 수 있습니다.
+    */
+    server.use(
+      http.get('*/v1/calculator-link', () =>
+        HttpResponse.json(
+          { error: { code: 'NOT_FOUND', message: 'Pet or job not found', detail: {} } },
+          { status: 404 },
+        ),
+      ),
+    )
+    renderAt('?pet_id=b6f9e6b0-0000-4000-8000-000000000404')
+
+    expect(await screen.findByText('그 강아지를 찾을 수 없어요')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '계산기 1단계부터 하기' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '다시 시도' })).not.toBeInTheDocument()
+    expect(screen.queryByText('계산기 링크를 불러오지 못했어요.')).not.toBeInTheDocument()
+  })
 })
