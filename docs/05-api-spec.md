@@ -772,6 +772,8 @@ custom_prompt_credit_cost는 app_setting 정책값이며, 미설정 시 2로 폴
 ```
 응답: `204 No Content`.
 
+인증 필수(게스트 가능). `properties.job_id`가 본인 소유 job이면 style/job 집계에 연결하고, 그렇지 않으면 `meta`에만 보존합니다.
+
 ---
 
 ## §4 시나리오
