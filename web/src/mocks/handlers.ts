@@ -1551,7 +1551,9 @@ export const handlers = [
     목이 정상만 답하면 그 갈래는 브라우저에서 영영 안 밟힙니다.
 
     서버가 보는 건 `pet.breed_label or pet.breed_code` → 비전 라벨 순인데, 앞의 둘은
-    **채우는 API 가 없어 항상 NULL** 입니다(이슈 #161, #131-B 시점). 그래서 목은 비전
+    **채우는 API 가 없어 항상 NULL** 입니다 — 목이 눈치로 둔 전제가 아니라 스펙에
+    적힌 사실입니다(05-api-spec.md Q9 절: «쓰는 API 가 없어 현재 항상 NULL, 펫 기입값
+    우선 갈래는 #131-B(W-12) 전까지 휴면», 이슈 #161 → PR #169). 그래서 목은 비전
     라벨 갈래만 그립니다 — 펫에 견종을 받는 날 이 전제가 바뀝니다.
   */
   http.get(`${BASE}/calculator-link`, async ({ request }) => {
