@@ -10,7 +10,7 @@ import jwt
 from fastapi import Header, HTTPException
 
 from app.common import unauthorized
-from app.models import Member
+from app.models import AdminUser, Member
 from app.settings import settings
 
 
@@ -47,6 +47,18 @@ def create_token(member_id: uuid.UUID, kind: str, version: int) -> str:
             "kind": kind,
             "ver": version,
             "exp": datetime.now(timezone.utc) + timedelta(seconds=expires_in),
+        },
+        settings.jwt_signing_key,
+        algorithm="HS256",
+    )
+
+
+def create_admin_token(admin_id: int) -> str:
+    return jwt.encode(
+        {
+            "sub": str(admin_id),
+            "kind": "admin",
+            "exp": datetime.now(timezone.utc) + timedelta(seconds=settings.jwt_expires_in),
         },
         settings.jwt_signing_key,
         algorithm="HS256",
@@ -130,3 +142,20 @@ async def get_current_member(authorization: str | None = Header(None, alias="Aut
     ):
         raise unauthorized()
     return member
+
+
+async def get_current_admin(
+    authorization: str | None = Header(None, alias="Authorization"),
+) -> AdminUser:
+    payload = _decode_authorization(authorization)
+    if payload["kind"] != "admin":
+        raise unauthorized()
+    try:
+        admin_id = int(payload["sub"])
+    except (TypeError, ValueError) as exc:
+        raise unauthorized() from exc
+
+    admin = await AdminUser.get_or_none(id=admin_id)
+    if admin is None:
+        raise unauthorized()
+    return admin

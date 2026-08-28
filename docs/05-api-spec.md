@@ -819,6 +819,17 @@ custom_prompt_credit_cost는 app_setting 정책값이며, 미설정 시 2로 폴
 
 W-11 프롬프트 운영 콘솔 전용. 별도 인증 경계(`admin_user` 세션, 사용자 대면 게스트/회원 JWT와 다른 발급 경로 — 세부는 구현 시 결정)를 사용합니다.
 
+#### `POST /v1/admin/login`
+
+```json
+// 요청
+{"email": "admin@nutti.co.kr", "password": "..."}
+// 200
+{"token": "...", "admin_id": 1, "email": "admin@nutti.co.kr"}
+```
+
+JWT는 `kind: admin` 클레임을 가지며 만료는 회원 토큰과 동일한 `JWT_EXPIRES_IN` 설정값을 따릅니다. 관리자 계정은 회원가입 API 없이 `scripts/create_admin.py`로만 생성할 수 있습니다. 로그인은 IP당 10회/시간으로 제한하며 실패 시 `401 INVALID_CREDENTIALS`를 반환합니다. 모든 관리자 엔드포인트는 `Authorization: Bearer <admin token>`이 필수이며 일반 회원 토큰으로 호출하면 401을 반환합니다.
+
 | 엔드포인트 | 설명 |
 |---|---|
 | `GET /v1/admin/styles` | 스타일 테이블(선택률/공유율/쇼핑몰 클릭률 포함) |
@@ -871,7 +882,11 @@ W-11 프롬프트 운영 콘솔 전용. 별도 인증 경계(`admin_user` 세션
   ]
 }
 ```
-`selection_rate`/`share_rate`/`shop_click_rate`는 `metric_event`를 `style_id`로 집계한 파생값(저장 컬럼 아님). 나머지 필드는 [04-erd.md §2.3](04-erd.md) `style` 컬럼과 동일.
+`selection_rate`/`share_rate`/`shop_click_rate`는 집계한 파생값(저장 컬럼 아님). 나머지 필드는 [04-erd.md §2.3](04-erd.md) `style` 컬럼과 동일.
+
+- `selection_rate`: `GenerationJob` 테이블에서 `style_id IS NOT NULL`인 전체 job 대비 해당 스타일 job 비율
+- `share_rate`: 해당 스타일의 `result_view` 대비 `share_click` `MetricEvent` 비율
+- `shop_click_rate`: 해당 스타일의 `result_view` 대비 `shop_exit_click` `MetricEvent` 비율
 
 #### `POST /v1/admin/styles`
 
