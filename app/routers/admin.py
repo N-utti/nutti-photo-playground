@@ -1,9 +1,38 @@
-from fastapi import APIRouter
-from pydantic import BaseModel, ConfigDict, Field
+import asyncio
+import logging
+from collections import deque
 
+from fastapi import APIRouter, Depends, Request
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from tortoise.functions import Count
+
+from app.auth import DUMMY_PASSWORD_HASH, create_admin_token, get_current_admin, verify_password
 from app.common import not_implemented
+from app.models import AdminUser, GenerationJob, MetricEvent, Style
+from app.routers.auth import (
+    _check_bucket,
+    _client_ip,
+    _invalid_credentials,
+    _peek_bucket,
+    _record_failure,
+)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+logger = logging.getLogger(__name__)
+
+_admin_login_requests: dict[str, deque[float]] = {}
+_ADMIN_LOGIN_IP_RATE_LIMIT = 10
+_ADMIN_LOGIN_EMAIL_RATE_LIMIT = 5
+
+
+class AdminLoginRequest(BaseModel):
+    email: str = Field(max_length=255)
+    password: str = Field(max_length=128)
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: str) -> str:
+        return value.strip().lower()
 
 
 class CreateStyleRequest(BaseModel):
@@ -60,9 +89,82 @@ class UpdateSettingRequest(BaseModel):
     value: object
 
 
+@router.post("/login")
+async def admin_login(body: AdminLoginRequest, request: Request):
+    _check_bucket(
+        _admin_login_requests,
+        f"ip:{_client_ip(request)}",
+        _ADMIN_LOGIN_IP_RATE_LIMIT,
+    )
+    email_key = f"email:{body.email}"
+    _peek_bucket(_admin_login_requests, email_key, _ADMIN_LOGIN_EMAIL_RATE_LIMIT)
+    admin = await AdminUser.get_or_none(email=body.email)
+    if admin is None:
+        await asyncio.to_thread(verify_password, body.password, DUMMY_PASSWORD_HASH)
+    if admin is None or not await asyncio.to_thread(
+        verify_password, body.password, admin.password_hash
+    ):
+        _record_failure(_admin_login_requests, email_key)
+        logger.warning("admin_login_failed ip=%s", _client_ip(request))
+        raise _invalid_credentials()
+    _admin_login_requests.pop(email_key, None)
+    return {
+        "token": create_admin_token(admin.id),
+        "admin_id": admin.id,
+        "email": admin.email,
+    }
+
+
 @router.get("/styles")
-async def admin_list_styles():
-    not_implemented()
+async def admin_list_styles(admin: AdminUser = Depends(get_current_admin)):
+    styles = await Style.all().order_by("section", "sort_order", "id")
+    job_counts = (
+        await GenerationJob.filter(style_id__isnull=False)
+        .annotate(n=Count("id"))
+        .group_by("style_id")
+        .values("style_id", "n")
+    )
+    event_counts = (
+        await MetricEvent.filter(
+            style_id__isnull=False,
+            event_type__in=["result_view", "share_click", "shop_exit_click"],
+        )
+        .annotate(n=Count("id"))
+        .group_by("style_id", "event_type")
+        .values("style_id", "event_type", "n")
+    )
+    jobs_by_style = {row["style_id"]: row["n"] for row in job_counts}
+    total_jobs = sum(jobs_by_style.values())
+    events_by_style = {
+        (row["style_id"], row["event_type"]): row["n"] for row in event_counts
+    }
+
+    items = []
+    for style in styles:
+        selected = jobs_by_style.get(style.id, 0)
+        result_views = events_by_style.get((style.id, "result_view"), 0)
+        shares = events_by_style.get((style.id, "share_click"), 0)
+        shop_clicks = events_by_style.get((style.id, "shop_exit_click"), 0)
+        # ponytail: calculator_exit_click은 상점 전환 집계가 아니므로 포함하지 않는다.
+        items.append(
+            {
+                "id": style.id,
+                "code": style.code,
+                "name": style.name,
+                "section": style.section,
+                "status": style.status.value,
+                "sort_order": style.sort_order,
+                "credit_cost": style.credit_cost,
+                "output_count": style.output_count,
+                "avg_seconds": style.avg_seconds,
+                "selection_rate": round(selected / total_jobs, 3) if total_jobs else 0.0,
+                "share_rate": round(shares / result_views, 3) if result_views else 0.0,
+                "shop_click_rate": (
+                    round(shop_clicks / result_views, 3) if result_views else 0.0
+                ),
+            }
+        )
+    return {"items": items}
 
 
 @router.post("/styles", status_code=201)
