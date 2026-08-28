@@ -1031,6 +1031,7 @@ JWT는 `kind: admin` 클레임을 가지며 만료는 회원 토큰과 동일한
 }
 ```
 `400 VALIDATION_ERROR`: `(style_id, version)` UNIQUE 위반 등.
+`version`은 서버가 해당 스타일의 최대값+1로 부여하며 요청에 포함하지 않습니다. `traffic_weight`는 0 이상이며, 동일 스타일에 `active` 상태인 버전이 여러 개면 가중치 비례 랜덤으로 선택됩니다(§3 job 생성 참고).
 
 #### `PATCH /v1/admin/styles/{id}/prompt-versions/{version_id}`
 
@@ -1048,7 +1049,7 @@ JWT는 `kind: admin` 클레임을 가지며 만료는 회원 토큰과 동일한
   "status": "active"
 }
 ```
-`404 NOT_FOUND`: 존재하지 않는 `version_id`.
+`404 NOT_FOUND`: 존재하지 않는 `version_id`. `style_id`와 소속이 일치하지 않는 `version_id`도 404로 처리합니다.
 
 #### `GET /v1/admin/custom-prompts/top`
 
