@@ -1,14 +1,16 @@
 import asyncio
 import logging
 from collections import deque
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+from tortoise.exceptions import IntegrityError
 from tortoise.functions import Count
 
 from app.auth import DUMMY_PASSWORD_HASH, create_admin_token, get_current_admin, verify_password
-from app.common import not_implemented
-from app.models import AdminUser, GenerationJob, MetricEvent, Style
+from app.common import not_found, not_implemented, validation_error
+from app.models import AdminUser, GenerationJob, MetricEvent, Style, StyleStatus
 from app.routers.auth import (
     _check_bucket,
     _client_ip,
@@ -35,27 +37,75 @@ class AdminLoginRequest(BaseModel):
         return value.strip().lower()
 
 
+# ponytail: jobs.py의 _resolve_input_values가 field["label"]을 무방비로 읽으므로 여기서 400으로 막는다.
+class InputFieldSpec(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    label: str = Field(min_length=1)
+
+
 class CreateStyleRequest(BaseModel):
-    code: str
-    name: str
-    section: str
-    credit_cost: int = 1
-    output_count: int = 1
-    avg_seconds: int = 24
+    code: str = Field(min_length=1, max_length=100)
+    name: str = Field(min_length=1)
+    section: str = Field(min_length=1, max_length=50)
+    credit_cost: int = Field(1, ge=0)
+    output_count: int = Field(1, ge=1)
+    avg_seconds: int = Field(24, ge=1)
     progress_message: str | None = None
     fit_tags: list = []
     example_keys: list = []
+    input_fields: list[InputFieldSpec] = []
 
 
 class UpdateStyleRequest(BaseModel):
-    status: str | None = None
-    name: str | None = None
-    section: str | None = None
-    credit_cost: int | None = None
+    status: StyleStatus | None = None
+    name: str | None = Field(default=None, min_length=1)
+    section: str | None = Field(default=None, min_length=1, max_length=50)
+    credit_cost: int | None = Field(default=None, ge=0)
     sort_order: int | None = None
+    avg_seconds: int | None = Field(default=None, ge=1)
     progress_message: str | None = None
     fit_tags: list | None = None
     example_keys: list | None = None
+    input_fields: list[InputFieldSpec] | None = None
+
+
+class AdminStyleResponse(BaseModel):
+    id: int
+    code: str
+    name: str
+    section: str
+    status: str
+    sort_order: int
+    credit_cost: int
+    output_count: int
+    avg_seconds: int
+    progress_message: str | None
+    fit_tags: list
+    example_keys: list
+    input_fields: list
+    created_at: datetime
+    updated_at: datetime
+
+
+def _style_response(style: Style) -> AdminStyleResponse:
+    return AdminStyleResponse(
+        id=style.id,
+        code=style.code,
+        name=style.name,
+        section=style.section,
+        status=style.status.value,
+        sort_order=style.sort_order,
+        credit_cost=style.credit_cost,
+        output_count=style.output_count,
+        avg_seconds=style.avg_seconds,
+        progress_message=style.progress_message,
+        fit_tags=style.fit_tags,
+        example_keys=style.example_keys,
+        input_fields=style.input_fields,
+        created_at=style.created_at,
+        updated_at=style.updated_at,
+    )
 
 
 class CreatePromptVersionRequest(BaseModel):
@@ -168,18 +218,50 @@ async def admin_list_styles(admin: AdminUser = Depends(get_current_admin)):
 
 
 @router.post("/styles", status_code=201)
-async def admin_create_style(body: CreateStyleRequest):
-    not_implemented()
+async def admin_create_style(
+    body: CreateStyleRequest, _: AdminUser = Depends(get_current_admin)
+):
+    try:
+        style = await Style.create(
+            **body.model_dump(exclude={"input_fields"}),
+            status=StyleStatus.DRAFT,
+            input_fields=[field.model_dump() for field in body.input_fields],
+        )
+    except IntegrityError:
+        raise validation_error("code가 이미 존재합니다", {"field": "code"}) from None
+    return _style_response(style)
 
 
 @router.patch("/styles/{style_id}")
-async def admin_update_style(style_id: int, body: UpdateStyleRequest):
-    not_implemented()
+async def admin_update_style(
+    style_id: int,
+    body: UpdateStyleRequest,
+    _: AdminUser = Depends(get_current_admin),
+):
+    style = await Style.get_or_none(id=style_id)
+    if style is None:
+        raise not_found("스타일을 찾을 수 없습니다")
+
+    updates = body.model_dump(exclude_unset=True, exclude={"input_fields"})
+    if body.input_fields is not None:
+        updates["input_fields"] = [field.model_dump() for field in body.input_fields]
+    for field, value in updates.items():
+        setattr(style, field, value)
+    if updates:
+        await style.save(update_fields=list(updates))
+    return _style_response(style)
 
 
 @router.delete("/styles/{style_id}")
-async def admin_retire_style(style_id: int):
-    not_implemented()
+async def admin_retire_style(
+    style_id: int, _: AdminUser = Depends(get_current_admin)
+):
+    style = await Style.get_or_none(id=style_id)
+    if style is None:
+        raise not_found("스타일을 찾을 수 없습니다")
+    style.status = StyleStatus.RETIRED
+    await style.save(update_fields=["status"])
+    return _style_response(style)
 
 
 @router.get("/styles/{style_id}/prompt-versions")

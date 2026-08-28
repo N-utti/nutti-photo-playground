@@ -923,6 +923,8 @@ JWT는 `kind: admin` 클레임을 가지며 만료는 회원 토큰과 동일한
   "updated_at": "2026-08-03T10:00:00+09:00"
 }
 ```
+`input_fields`(W-04 입력폼 스키마, 각 항목 `label` 필수 — `GET /v1/styles/{id}`와 동일 형식)도 받습니다.
+
 `400 VALIDATION_ERROR`: `code` 중복(UNIQUE 위반) 또는 필수 필드 누락.
 
 #### `PATCH /v1/admin/styles/{id}`
@@ -950,6 +952,8 @@ JWT는 `kind: admin` 클레임을 가지며 만료는 회원 토큰과 동일한
   "updated_at": "2026-08-03T10:05:00+09:00"
 }
 ```
+`avg_seconds`·`input_fields`도 수정 가능하며, `status`는 `draft|public|ab|retired` 중 하나여야 합니다.
+
 `404 NOT_FOUND`: 존재하지 않는 `id`.
 
 #### `DELETE /v1/admin/styles/{id}`

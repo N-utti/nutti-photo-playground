@@ -197,3 +197,150 @@ def test_admin_login_locks_email_after_failures_and_normalizes_case(client: Test
 
     assert response.status_code == 429
     assert response.json()["error"]["code"] == "RATE_LIMITED"
+
+
+async def _create_writable_style(code: str = "admin-write") -> int:
+    style = await Style.create(
+        code=code,
+        name="Admin Write",
+        section="admin-test",
+    )
+    return style.id
+
+
+async def _style_write_state(style_id: int) -> tuple[StyleStatus, int, list]:
+    style = await Style.get(id=style_id)
+    return style.status, style.avg_seconds, style.input_fields
+
+
+def test_admin_create_style_persists_input_fields(client: TestClient):
+    input_fields = [{"label": "반려동물 이름", "default": "누띠"}]
+
+    response = client.post(
+        "/v1/admin/styles",
+        headers=_admin_headers(client),
+        json={
+            "code": "new-style",
+            "name": "New Style",
+            "section": "admin-test",
+            "input_fields": input_fields,
+        },
+    )
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["status"] == "draft"
+    assert data["sort_order"] == 0
+    assert data["input_fields"] == input_fields
+    assert client.portal.call(_style_write_state, data["id"]) == (
+        StyleStatus.DRAFT,
+        24,
+        input_fields,
+    )
+
+
+def test_admin_create_style_rejects_duplicate_code(client: TestClient):
+    headers = _admin_headers(client)
+    payload = {
+        "code": "duplicate-style",
+        "name": "Duplicate Style",
+        "section": "admin-test",
+    }
+    assert client.post("/v1/admin/styles", headers=headers, json=payload).status_code == 201
+
+    response = client.post("/v1/admin/styles", headers=headers, json=payload)
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"code": "missing-name", "section": "admin-test"},
+        {
+            "code": "missing-label",
+            "name": "Missing Label",
+            "section": "admin-test",
+            "input_fields": [{"default": "x"}],
+        },
+    ],
+)
+def test_admin_create_style_rejects_invalid_payload(
+    client: TestClient, payload: dict
+):
+    response = client.post(
+        "/v1/admin/styles", headers=_admin_headers(client), json=payload
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_admin_update_style_validates_and_persists_changes(client: TestClient):
+    style_id = client.portal.call(_create_writable_style)
+    headers = _admin_headers(client)
+
+    response = client.patch(
+        f"/v1/admin/styles/{style_id}",
+        headers=headers,
+        json={"status": "public", "avg_seconds": 48},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "public"
+    assert response.json()["avg_seconds"] == 48
+    assert client.portal.call(_style_write_state, style_id)[:2] == (
+        StyleStatus.PUBLIC,
+        48,
+    )
+
+    invalid = client.patch(
+        f"/v1/admin/styles/{style_id}",
+        headers=headers,
+        json={"status": "bogus"},
+    )
+    missing = client.patch(
+        "/v1/admin/styles/999999", headers=headers, json={"status": "public"}
+    )
+
+    assert invalid.status_code == 400
+    assert invalid.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert missing.status_code == 404
+    assert missing.json()["error"]["code"] == "NOT_FOUND"
+
+
+def test_admin_delete_style_retires_it(client: TestClient):
+    style_id = client.portal.call(_create_writable_style)
+    headers = _admin_headers(client)
+
+    response = client.delete(f"/v1/admin/styles/{style_id}", headers=headers)
+    missing = client.delete("/v1/admin/styles/999999", headers=headers)
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "retired"
+    assert client.portal.call(_style_write_state, style_id)[0] == StyleStatus.RETIRED
+    assert missing.status_code == 404
+    assert missing.json()["error"]["code"] == "NOT_FOUND"
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "payload"),
+    [
+        (
+            "POST",
+            "/v1/admin/styles",
+            {"code": "member-style", "name": "Member Style", "section": "test"},
+        ),
+        ("PATCH", "/v1/admin/styles/999999", {}),
+        ("DELETE", "/v1/admin/styles/999999", None),
+    ],
+)
+def test_admin_style_writes_reject_member_token(
+    client: TestClient, method: str, path: str, payload: dict | None
+):
+    _, member_headers = _session(client)
+
+    response = client.request(method, path, headers=member_headers, json=payload)
+
+    assert response.status_code == 401
