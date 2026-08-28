@@ -30,6 +30,8 @@ def main() -> None:
     parser.add_argument("--email", required=True)
     parser.add_argument("--password", required=True)
     args = parser.parse_args()
+    if len(args.password) < 12:
+        parser.error("--password must be at least 12 characters")
     asyncio.run(run(args.email, args.password))
 
 

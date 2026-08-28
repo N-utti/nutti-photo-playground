@@ -1,24 +1,38 @@
 import asyncio
+import logging
 from collections import deque
 
 from fastapi import APIRouter, Depends, Request
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from tortoise.functions import Count
 
 from app.auth import DUMMY_PASSWORD_HASH, create_admin_token, get_current_admin, verify_password
 from app.common import not_implemented
 from app.models import AdminUser, GenerationJob, MetricEvent, Style
-from app.routers.auth import _check_bucket, _client_ip, _invalid_credentials
+from app.routers.auth import (
+    _check_bucket,
+    _client_ip,
+    _invalid_credentials,
+    _peek_bucket,
+    _record_failure,
+)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+logger = logging.getLogger(__name__)
 
 _admin_login_requests: dict[str, deque[float]] = {}
 _ADMIN_LOGIN_IP_RATE_LIMIT = 10
+_ADMIN_LOGIN_EMAIL_RATE_LIMIT = 5
 
 
 class AdminLoginRequest(BaseModel):
     email: str = Field(max_length=255)
     password: str = Field(max_length=128)
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: str) -> str:
+        return value.strip().lower()
 
 
 class CreateStyleRequest(BaseModel):
@@ -82,13 +96,18 @@ async def admin_login(body: AdminLoginRequest, request: Request):
         f"ip:{_client_ip(request)}",
         _ADMIN_LOGIN_IP_RATE_LIMIT,
     )
-    # ponytail: 관리자 계정은 소수라 이메일별 버킷은 과하며 IP 레이트리밋이면 충분하다.
+    email_key = f"email:{body.email}"
+    _peek_bucket(_admin_login_requests, email_key, _ADMIN_LOGIN_EMAIL_RATE_LIMIT)
     admin = await AdminUser.get_or_none(email=body.email)
     if admin is None:
         await asyncio.to_thread(verify_password, body.password, DUMMY_PASSWORD_HASH)
+    if admin is None or not await asyncio.to_thread(
+        verify_password, body.password, admin.password_hash
+    ):
+        _record_failure(_admin_login_requests, email_key)
+        logger.warning("admin_login_failed ip=%s", _client_ip(request))
         raise _invalid_credentials()
-    if not await asyncio.to_thread(verify_password, body.password, admin.password_hash):
-        raise _invalid_credentials()
+    _admin_login_requests.pop(email_key, None)
     return {
         "token": create_admin_token(admin.id),
         "admin_id": admin.id,

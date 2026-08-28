@@ -828,7 +828,7 @@ W-11 프롬프트 운영 콘솔 전용. 별도 인증 경계(`admin_user` 세션
 {"token": "...", "admin_id": 1, "email": "admin@nutti.co.kr"}
 ```
 
-JWT는 `kind: admin` 클레임을 가지며 만료는 회원 토큰과 동일한 `JWT_EXPIRES_IN` 설정값을 따릅니다. 관리자 계정은 회원가입 API 없이 `scripts/create_admin.py`로만 생성할 수 있습니다. 로그인은 IP당 10회/시간으로 제한하며 실패 시 `401 INVALID_CREDENTIALS`를 반환합니다. 모든 관리자 엔드포인트는 `Authorization: Bearer <admin token>`이 필수이며 일반 회원 토큰으로 호출하면 401을 반환합니다.
+JWT는 `kind: admin` 클레임을 가지며 만료는 회원 토큰과 동일한 `JWT_EXPIRES_IN` 설정값을 따릅니다. 관리자 계정은 회원가입 API 없이 `scripts/create_admin.py`로만 생성할 수 있습니다. 로그인은 IP당 10회/시간, 이메일당 실패 5회(성공 시 초기화)로 제한하며 실패 시 `401 INVALID_CREDENTIALS`를 반환합니다. 모든 관리자 엔드포인트는 `Authorization: Bearer <admin token>`이 필수이며 일반 회원 토큰으로 호출하면 401을 반환합니다.
 
 | 엔드포인트 | 설명 |
 |---|---|

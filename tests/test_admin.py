@@ -181,3 +181,19 @@ def test_admin_styles_returns_ordered_aggregates(client: TestClient):
     assert items[1]["selection_rate"] == 0.333
     assert items[1]["share_rate"] == 0.0
     assert items[1]["shop_click_rate"] == 0.0
+
+
+def test_admin_login_locks_email_after_failures_and_normalizes_case(client: TestClient):
+    client.portal.call(_create_admin)
+    for _ in range(5):
+        response = client.post(
+            "/v1/admin/login", json={"email": " Admin@Nutti.Test ", "password": "wrong"}
+        )
+        assert response.status_code == 401
+
+    response = client.post(
+        "/v1/admin/login", json={"email": "admin@nutti.test", "password": "secret"}
+    )
+
+    assert response.status_code == 429
+    assert response.json()["error"]["code"] == "RATE_LIMITED"
