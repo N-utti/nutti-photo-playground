@@ -16,10 +16,11 @@ import { fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
 import { Route, Routes } from 'react-router'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { rememberDeletedJobs } from '../app/deletedResults'
 import { renderWithProviders } from '../test/render'
 import { server } from '../test/server'
+import { events } from '../api/endpoints'
 import type { Job } from '../api/types'
 import W06Result from './W06Result'
 
@@ -547,5 +548,37 @@ describe('W-06 · 회수된 스타일', () => {
       '이 스타일이나 사진을 더 이상 쓸 수 없어요. 카탈로그에서 다시 골라 주세요.',
     )
     expect(screen.queryByText(/Job, upload, or style not found/)).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * W-06 · **비콘이 job 을 물고 나가는가** (백엔드 PR #177 착지분).
+ *
+ * `POST /v1/events` 가 501 스텁이던 동안 이 화면의 `track` 은 사실상 빈 호출이었습니다.
+ * 이제는 부를 때마다 `metric_event` 한 행이 쌓이고, W-11 운영 콘솔의 «스타일별 성과» 는
+ * 그 행에 붙은 `style_id` 로 계산됩니다. 그런데 이벤트 본문에는 스타일이 없습니다 —
+ * 서버는 `properties.job_id` 를 읽어 **본인 소유 job 이면** 거기서 스타일을 끌어옵니다.
+ *
+ * 그래서 여기서 세는 건 화면이 아니라 **나가는 본문**입니다. 이 배선은 눈으로 못 봅니다:
+ * 키를 `jobId` 로 고쳐도, 이 속성을 통째로 빼도 요청은 그대로 204 이고 화면도 그대로고,
+ * 몇 주 뒤 콘솔에서 스타일 칸이 비어 있는 것으로만 드러납니다. 되살릴 수 없는 종류의
+ * 손실이라 코드 쪽에서 막습니다.
+ */
+describe('W-06 · 결과 조회 비콘', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('result_view 는 job_id 를 달고 나간다 — 그게 스타일을 붙이는 유일한 경로', async () => {
+    const beacon = vi.spyOn(events, 'track').mockResolvedValue(undefined)
+
+    renderResult(succeededJob())
+    await screen.findByAltText('변환 결과')
+
+    const views = beacon.mock.calls
+      .map(([body]) => body)
+      .filter((body) => body.event_type === 'result_view')
+
+    expect(views).toEqual([{ event_type: 'result_view', properties: { job_id: JOB_ID } }])
   })
 })
