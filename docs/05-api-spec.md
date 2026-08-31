@@ -1140,6 +1140,7 @@ CS 대응 등 수동 조정. `dedupe_key`는 관리자가 사유별로 직접 �
 { "key": "human_face_policy", "value": "block", "updated_at": "2026-08-03T10:00:00+09:00" }
 ```
 필드는 [04-erd.md §2.13](04-erd.md) `app_setting` 컬럼과 동일. `404 NOT_FOUND`: 존재하지 않는 `key`.
+`key`는 서버가 아는 설정 키(`human_face_policy`, `custom_prompt_credit_cost`, `daily_free_amount`, `follow_ig_amount`, `link_account_amount`, `order_reward_amount`, `catalog_search_threshold`)만 허용. GET은 저장된 적 없는 키도 기본값으로 돌려주며 그 경우 `updated_at`은 `null`. `400 VALIDATION_ERROR`: `human_face_policy`는 `block`/`warn`/`allow`, 나머지는 0 이상 정수만.
 
 ---
 
