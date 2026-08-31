@@ -1118,7 +1118,7 @@ CS 대응 등 수동 조정. `dedupe_key`는 관리자가 사유별로 직접 �
   "last_refresh_error": null
 }
 ```
-`last_refresh_error`가 `null`이 아니면 토큰 갱신 실패 상태(FR-EDGE-04의 관측 지점).
+`last_refresh_error`가 `null`이 아니면 토큰 갱신 실패 상태(FR-EDGE-04의 관측 지점). `404 NOT_FOUND`: 카페24 OAuth 토큰이 아직 발급된 적 없음(미연동).
 
 #### `GET /v1/admin/settings` / `PATCH /v1/admin/settings/{key}`
 

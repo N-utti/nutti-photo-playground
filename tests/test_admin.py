@@ -1,5 +1,6 @@
 import os
 import uuid
+from datetime import datetime, timezone
 from functools import partial
 
 os.environ.setdefault("DATABASE_URL", "sqlite://:memory:")
@@ -14,6 +15,7 @@ from app.main import app
 from app.models import (
     AdminUser,
     AppSetting,
+    Cafe24OauthToken,
     CreditLedger,
     CreditReason,
     CustomPromptLog,
@@ -953,3 +955,30 @@ def test_admin_settings_reject_member_token(client: TestClient, method: str, pat
     _, headers = _session(client)
     response = client.request(method.upper(), path, headers=headers, json={"value": 1})
     assert response.status_code == 401
+
+
+def test_admin_cafe24_status_returns_token_state_or_not_found(client: TestClient):
+    headers = _admin_headers(client)
+    assert client.get("/v1/admin/cafe24/status", headers=headers).status_code == 404
+
+    client.portal.call(
+        partial(
+            Cafe24OauthToken.create,
+            mall_id="nutti",
+            access_token="a",
+            refresh_token="r",
+            expires_at=datetime(2026, 8, 3, 12, tzinfo=timezone.utc),
+            last_refresh_error="invalid_grant",
+        )
+    )
+    response = client.get("/v1/admin/cafe24/status", headers=headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["mall_id"] == "nutti"
+    assert body["expires_at"].startswith("2026-08-03T12:00:00")
+    assert body["last_synced_at"] is None
+    assert body["last_refresh_error"] == "invalid_grant"
+    assert "access_token" not in body and "refresh_token" not in body
+
+    _, member_headers = _session(client)
+    assert client.get("/v1/admin/cafe24/status", headers=member_headers).status_code == 401

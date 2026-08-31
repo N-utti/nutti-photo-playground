@@ -12,11 +12,12 @@ from tortoise.functions import Count
 from tortoise.transactions import in_transaction
 
 from app.auth import DUMMY_PASSWORD_HASH, create_admin_token, get_current_admin, verify_password
-from app.common import api_error, not_found, not_implemented, validation_error
+from app.common import api_error, not_found, validation_error
 from app.credits import grant_credits
 from app.models import (
     AdminUser,
     AppSetting,
+    Cafe24OauthToken,
     CreditReason,
     CustomPromptLog,
     GenerationJob,
@@ -482,8 +483,17 @@ async def admin_adjust_credits(
 
 
 @router.get("/cafe24/status")
-async def admin_cafe24_status():
-    not_implemented()
+async def admin_cafe24_status(_: AdminUser = Depends(get_current_admin)):
+    # ponytail: 몰 1개 전제 — 다몰 지원 시 settings.cafe24_mall_id로 필터
+    token = await Cafe24OauthToken.first()
+    if token is None:
+        raise not_found("카페24 토큰이 없습니다")
+    return {
+        "mall_id": token.mall_id,
+        "expires_at": token.expires_at,
+        "last_synced_at": token.last_synced_at,
+        "last_refresh_error": token.last_refresh_error,
+    }
 
 
 @router.get("/settings")
