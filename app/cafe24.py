@@ -107,8 +107,8 @@ async def get_access_token(now: datetime | None = None) -> str:
                 using_db=connection,
             )
             return token.access_token
-    except httpx.HTTPError as exc:
-        # 트랜잭션 밖에서 기록 — 안에서 저장하면 예외 전파로 롤백된다.
+    except (httpx.HTTPError, KeyError, ValueError) as exc:
+        # 트랜잭션 밖에서 기록 — 안에서 저장하면 예외 전파로 롤백된다. KeyError/ValueError = 응답 형식 오류.
         error = f"{type(exc).__name__}: {exc}"[:500]
         await Cafe24OauthToken.filter(id=token.id).update(last_refresh_error=error)
         # ponytail: 배치가 30분 주기면 자연히 30분 재알림 — 별도 dedup 타이머 없음
@@ -142,8 +142,12 @@ async def _fetch_orders(access_token: str, start: datetime, end: datetime) -> li
 
 async def _apply_order(order: dict, amount: int, summary: dict[str, int]) -> None:
     order_id = str(order["order_id"])
+    cafe24_member_id = order.get("member_id")
+    if not cafe24_member_id:  # 비회원 주문 — NULL 매칭으로 미연동 회원과 충돌 방지
+        summary["skipped_unlinked"] += 1
+        return
     member = await Member.get_or_none(
-        cafe24_member_id=order.get("member_id"), withdrawn_at=None, merged_into_id__isnull=True
+        cafe24_member_id=cafe24_member_id, withdrawn_at=None, merged_into_id__isnull=True
     )
     if member is None or member.order_reward_cutoff is None:
         summary["skipped_unlinked"] += 1
@@ -174,6 +178,7 @@ async def sync_orders(now: datetime | None = None) -> dict[str, int]:
     summary = {
         "fetched": 0, "rewarded": 0, "clawed_back": 0,
         "skipped_unlinked": 0, "skipped_before_cutoff": 0, "skipped_unpaid": 0,
+        "skipped_malformed": 0,
     }
     token = await Cafe24OauthToken.first()
     if token is None:
@@ -196,7 +201,11 @@ async def sync_orders(now: datetime | None = None) -> dict[str, int]:
         chunk_end = min(cursor + CHUNK, now)
         for order in await _fetch_orders(access_token, cursor, chunk_end):
             summary["fetched"] += 1
-            await _apply_order(order, amount, summary)
+            try:
+                await _apply_order(order, amount, summary)
+            except (KeyError, ValueError):  # 형식 오류 주문 하나가 배치를 죽이지 않게 건별 스킵
+                logger.exception("cafe24 order skipped: malformed %r", order.get("order_id"))
+                summary["skipped_malformed"] += 1
         cursor = chunk_end
 
     token.last_synced_at = now

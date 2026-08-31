@@ -177,7 +177,7 @@ AWS 표준 아웃바운드 요율(프리티어 소진 후 일반적으로 알려
 - **`order_reward_cutoff`(회원별 자격 필터)**: 각 회원이 **쇼핑몰 계정을 연동한 시점**입니다. 배치가 조회한 주문 중, 해당 회원의 `order_reward_cutoff` 이전에 발생한 주문은 보상 대상에서 제외합니다 — 연동 이전 과거 주문으로 소급 보상을 받는 부정 사용을 막습니다.
 - 요약: 워터마크는 **배치의 진행 상태**, 컷오프는 **회원의 보상 자격 시작점**. 배치 로직은 워터마크 이후 전체 주문을 가져오되, 지급 여부는 각 주문의 `member_id`에 연결된 컷오프와 비교해 최종 결정합니다.
 
-**구현(2026-08-31, `app/cafe24.py` · `scripts/sync_cafe24_orders.py`)**: 조회 구간은 `max(워터마크 − 30일, 최초 컷오프)`부터 현재까지(취소 포착용 룩백, 90일 청크). `GET /api/v2/admin/orders`의 `paid=T`·미취소 주문은 `order:<order_id>`로 `order_reward_amount`(app_setting, 기본 20) 지급, `canceled=T`이고 지급 원장이 있으면 **지급 당시 금액**을 `clawback:<order_id>`로 전액 회수(음수 잔액 허용). 재실행 멱등성은 원장 UNIQUE가 담당. 토큰은 만료 5분 전 `FOR UPDATE` 아래 refresh, 실패 시 `last_refresh_error` + Slack 알림(배치 주기가 곧 재알림 간격). 최초 토큰은 운영자가 `scripts/cafe24_token.py`로 1회 발급(scope `mall.read_customer,mall.read_order`).
+**구현(2026-08-31, `app/cafe24.py` · `scripts/sync_cafe24_orders.py`)**: 조회 구간은 `max(워터마크 − 30일, 최초 컷오프)`부터 현재까지(취소 포착용 룩백, 90일 청크). `GET /api/v2/admin/orders`의 `paid=T`·미취소 주문은 `order:<order_id>`로 `order_reward_amount`(app_setting, 기본 20) 지급, `canceled=T`이고 지급 원장이 있으면 **지급 당시 금액**을 `clawback:<order_id>`로 전액 회수(음수 잔액 허용). 재실행 멱등성은 원장 UNIQUE가 담당. 토큰은 만료 5분 전 `FOR UPDATE` 아래 refresh, 실패 시 `last_refresh_error` + Slack 알림(배치 주기가 곧 재알림 간격). 최초 토큰은 운영자가 `scripts/cafe24_token.py`로 1회 발급(scope `mall.read_customer,mall.read_order`). 알려진 한계: 회수된 주문이 다시 결제 상태로 돌아와도 `order:<id>` dedupe 때문에 재지급하지 않음(카페24 주문 단위 취소는 종결 상태라 실무상 미발생), 부분 취소는 주문 단위 `canceled` 플래그만 보므로 미반영. 비회원 주문(`member_id` 없음)과 형식 오류 주문은 건별 스킵. 최초 실행은 워터마크가 없어 `now − 30일`부터 조회하므로 **연동 오픈 후 30일 안에 배치를 기동**해야 누락이 없음.
 
 ---
 

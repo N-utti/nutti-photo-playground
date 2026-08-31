@@ -88,6 +88,9 @@ async def test_sync_rewards_eligible_orders_and_skips_rest(orders: list[dict]):
             _order("o-unlinked", member="c2"),
             _order("o-unknown", member="nobody"),
             _order("o-unpaid", paid="F"),
+            _order("o-guest", member=None),  # 비회원 주문 — NULL 매칭 크래시 회귀 방지
+            {"order_id": "o-broken", "member_id": "c1", "order_date": "not-a-date"},
+            {"member_id": "c1"},
         ]
     )
 
@@ -97,8 +100,9 @@ async def test_sync_rewards_eligible_orders_and_skips_rest(orders: list[dict]):
     assert member.credit_balance == 20
     assert summary["rewarded"] == 1
     assert summary["skipped_before_cutoff"] == 1
-    assert summary["skipped_unlinked"] == 2
+    assert summary["skipped_unlinked"] == 3
     assert summary["skipped_unpaid"] == 1
+    assert summary["skipped_malformed"] == 2
     ledger = await CreditLedger.get(member_id=member.id)
     assert (ledger.dedupe_key, ledger.reason.value, ledger.ref_id) == ("order:o-ok", "order_reward", "o-ok")
     token = await Cafe24OauthToken.get(mall_id="nutti")
@@ -212,6 +216,9 @@ async def test_refresh_failure_records_error_and_alerts(monkeypatch: pytest.Monk
     async def fake_post(data: dict) -> dict:
         raise httpx.HTTPStatusError("401", request=httpx.Request("POST", "x"), response=httpx.Response(401))
 
+    async def fake_post_malformed(data: dict) -> dict:
+        return {"error": "invalid_grant"}
+
     async def fake_alert(text: str) -> None:
         alerts.append(text)
 
@@ -224,3 +231,10 @@ async def test_refresh_failure_records_error_and_alerts(monkeypatch: pytest.Monk
     token = await Cafe24OauthToken.get(mall_id="nutti")
     assert token.last_refresh_error.startswith("HTTPStatusError")
     assert len(alerts) == 1 and "토큰 갱신 실패" in alerts[0]
+
+    monkeypatch.setattr(cafe24, "_post_token", fake_post_malformed)
+    with pytest.raises(KeyError):
+        await cafe24.get_access_token(NOW)
+    token = await Cafe24OauthToken.get(mall_id="nutti")
+    assert token.last_refresh_error.startswith("KeyError")
+    assert len(alerts) == 2
