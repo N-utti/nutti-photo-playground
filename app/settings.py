@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     cafe24_client_secret: str = ""
     cafe24_mall_id: str = ""
     cafe24_redirect_uri: str = ""
-    cafe24_scope: str = "mall.read_customer"
+    cafe24_scope: str = "mall.read_customer,mall.read_order"
 
     kakao_rest_api_key: str = ""
     kakao_redirect_uri: str = ""
