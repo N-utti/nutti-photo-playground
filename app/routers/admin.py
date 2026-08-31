@@ -12,10 +12,13 @@ from tortoise.transactions import in_transaction
 
 from app.auth import DUMMY_PASSWORD_HASH, create_admin_token, get_current_admin, verify_password
 from app.common import api_error, not_found, not_implemented, validation_error
+from app.credits import grant_credits
 from app.models import (
     AdminUser,
+    CreditReason,
     CustomPromptLog,
     GenerationJob,
+    Member,
     MetricEvent,
     PromptVersionStatus,
     Style,
@@ -153,10 +156,10 @@ class PromoteCustomPromptRequest(BaseModel):
 
 
 class AdjustCreditsRequest(BaseModel):
-    member_id: str
-    amount: int
-    dedupe_key: str
-    reason: str
+    member_id: uuid.UUID
+    amount: int = Field(ge=-100_000, le=100_000)  # int32 안쪽 + 오타 방지
+    dedupe_key: str = Field(min_length=1, max_length=255)
+    reason: CreditReason = CreditReason.CS_ADJUSTMENT
 
 
 class UpdateSettingRequest(BaseModel):
@@ -426,8 +429,42 @@ async def admin_promote_custom_prompt(
 
 
 @router.post("/credits/adjust")
-async def admin_adjust_credits(body: AdjustCreditsRequest):
-    not_implemented()
+async def admin_adjust_credits(
+    body: AdjustCreditsRequest, admin: AdminUser = Depends(get_current_admin)
+):
+    if body.amount == 0:
+        raise validation_error("amount는 0이 될 수 없습니다", {"field": "amount"})
+    member = await Member.get_or_none(
+        id=body.member_id, withdrawn_at=None, merged_into_id__isnull=True
+    )
+    if member is None:
+        raise not_found("회원을 찾을 수 없습니다")
+    # ponytail: 잔액 사전검사는 락 밖 — 회원 charge_credits와의 동시 경합은 음수 잔액 기록으로만 남음, 관측되면 락 안으로
+    if member.credit_balance + body.amount < 0:
+        raise validation_error(
+            "잔액이 음수가 될 수 없습니다",
+            {"field": "amount", "balance": member.credit_balance},
+        )
+    granted = await grant_credits(
+        body.member_id,
+        body.amount,
+        body.reason.value,
+        body.dedupe_key,
+        ref_id=f"admin:{admin.id}",
+    )
+    if not granted:
+        raise api_error(
+            409,
+            "ALREADY_CLAIMED",
+            "이미 처리된 dedupe_key입니다",
+            {"dedupe_key": body.dedupe_key},
+        )
+    await member.refresh_from_db(fields=["credit_balance"])
+    return {
+        "member_id": str(member.id),
+        "balance": member.credit_balance,
+        "amount_granted": body.amount,
+    }
 
 
 @router.get("/cafe24/status")

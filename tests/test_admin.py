@@ -1,5 +1,6 @@
 import os
 import uuid
+from functools import partial
 
 os.environ.setdefault("DATABASE_URL", "sqlite://:memory:")
 os.environ.setdefault("APP_ENV", "development")
@@ -12,6 +13,8 @@ from app.auth import create_admin_token, create_token, hash_password
 from app.main import app
 from app.models import (
     AdminUser,
+    CreditLedger,
+    CreditReason,
     CustomPromptLog,
     GenerationJob,
     Member,
@@ -41,8 +44,14 @@ def client():
         yield test_client
 
 
-async def _create_member(kind: MemberKind) -> str:
-    return str((await Member.create(kind=kind)).id)
+async def _create_member(
+    kind: MemberKind, credit_balance: int = 0, withdrawn: bool = False
+) -> str:
+    member = await Member.create(kind=kind, credit_balance=credit_balance)
+    if withdrawn:
+        member.withdrawn_at = member.created_at
+        await member.save(update_fields=["withdrawn_at"])
+    return str(member.id)
 
 
 def _session(
@@ -77,6 +86,166 @@ async def _create_admin(email: str = "admin@nutti.test", password: str = "secret
 def _admin_headers(client: TestClient) -> dict[str, str]:
     admin_id = client.portal.call(_create_admin)
     return {"Authorization": f"Bearer {create_admin_token(admin_id)}"}
+
+
+def test_admin_adjust_credits_grants_and_records_ledger(client: TestClient):
+    member_id = client.portal.call(_create_member, MemberKind.MEMBER)
+
+    response = client.post(
+        "/v1/admin/credits/adjust",
+        headers=_admin_headers(client),
+        json={"member_id": member_id, "amount": 5, "dedupe_key": "admin-positive"},
+    )
+
+    member = client.portal.call(partial(Member.get, id=member_id))
+    ledger = client.portal.call(partial(CreditLedger.get, member_id=member_id))
+    assert response.status_code == 200
+    assert response.json() == {
+        "member_id": member_id,
+        "balance": 5,
+        "amount_granted": 5,
+    }
+    assert member.credit_balance == 5
+    assert ledger.amount == 5
+    assert ledger.reason == CreditReason.CS_ADJUSTMENT
+    assert ledger.dedupe_key == "admin-positive"
+    assert ledger.balance_after == 5
+    assert ledger.ref_id.startswith("admin:")
+
+
+def test_admin_adjust_credits_deducts_from_sufficient_balance(client: TestClient):
+    member_id = client.portal.call(_create_member, MemberKind.MEMBER, 10)
+
+    response = client.post(
+        "/v1/admin/credits/adjust",
+        headers=_admin_headers(client),
+        json={"member_id": member_id, "amount": -4, "dedupe_key": "admin-negative"},
+    )
+
+    member = client.portal.call(partial(Member.get, id=member_id))
+    assert response.status_code == 200
+    assert response.json()["balance"] == 6
+    assert response.json()["amount_granted"] == -4
+    assert member.credit_balance == 6
+
+
+def test_admin_adjust_credits_rejects_negative_balance(client: TestClient):
+    member_id = client.portal.call(_create_member, MemberKind.MEMBER, 3)
+
+    response = client.post(
+        "/v1/admin/credits/adjust",
+        headers=_admin_headers(client),
+        json={"member_id": member_id, "amount": -4, "dedupe_key": "admin-overdraw"},
+    )
+
+    member = client.portal.call(partial(Member.get, id=member_id))
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert member.credit_balance == 3
+
+
+def test_admin_adjust_credits_rejects_duplicate_dedupe_key(client: TestClient):
+    member_id = client.portal.call(_create_member, MemberKind.MEMBER)
+    payload = {
+        "member_id": member_id,
+        "amount": 5,
+        "dedupe_key": "admin-duplicate",
+    }
+    headers = _admin_headers(client)
+
+    first = client.post("/v1/admin/credits/adjust", headers=headers, json=payload)
+    duplicate = client.post("/v1/admin/credits/adjust", headers=headers, json=payload)
+
+    member = client.portal.call(partial(Member.get, id=member_id))
+    assert first.status_code == 200
+    assert duplicate.status_code == 409
+    assert duplicate.json()["error"]["code"] == "ALREADY_CLAIMED"
+    assert member.credit_balance == 5
+
+
+def test_admin_adjust_credits_returns_not_found_for_missing_member(client: TestClient):
+    response = client.post(
+        "/v1/admin/credits/adjust",
+        headers=_admin_headers(client),
+        json={
+            "member_id": str(uuid.uuid4()),
+            "amount": 1,
+            "dedupe_key": "admin-missing",
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "NOT_FOUND"
+
+
+def test_admin_adjust_credits_returns_not_found_for_withdrawn_member(
+    client: TestClient,
+):
+    member_id = client.portal.call(_create_member, MemberKind.MEMBER, 0, True)
+
+    response = client.post(
+        "/v1/admin/credits/adjust",
+        headers=_admin_headers(client),
+        json={"member_id": member_id, "amount": 1, "dedupe_key": "admin-withdrawn"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "NOT_FOUND"
+
+
+async def _merge_member(member_id: str, target_id: str) -> None:
+    await Member.filter(id=member_id).update(merged_into_id=target_id)
+
+
+def test_admin_adjust_credits_returns_not_found_for_merged_member(client: TestClient):
+    member_id = client.portal.call(_create_member, MemberKind.MEMBER)
+    target_id = client.portal.call(_create_member, MemberKind.MEMBER)
+    client.portal.call(_merge_member, member_id, target_id)
+
+    response = client.post(
+        "/v1/admin/credits/adjust",
+        headers=_admin_headers(client),
+        json={"member_id": member_id, "amount": 1, "dedupe_key": "admin-merged"},
+    )
+
+    assert response.status_code == 404
+
+
+@pytest.mark.parametrize(
+    "invalid_field",
+    [{"amount": 0}, {"amount": 100_001}, {"reason": "bogus"}, {"dedupe_key": ""}],
+)
+def test_admin_adjust_credits_validates_payload(
+    client: TestClient, invalid_field: dict
+):
+    member_id = client.portal.call(_create_member, MemberKind.MEMBER)
+    payload = {
+        "member_id": member_id,
+        "amount": 1,
+        "dedupe_key": "admin-invalid",
+    }
+    payload.update(invalid_field)
+
+    response = client.post(
+        "/v1/admin/credits/adjust",
+        headers=_admin_headers(client),
+        json=payload,
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_admin_adjust_credits_rejects_member_token(client: TestClient):
+    member_id, member_headers = _session(client)
+
+    response = client.post(
+        "/v1/admin/credits/adjust",
+        headers=member_headers,
+        json={"member_id": member_id, "amount": 1, "dedupe_key": "admin-member"},
+    )
+
+    assert response.status_code == 401
 
 
 async def _create_custom_prompt_logs(member_id: str) -> dict[str, str]:

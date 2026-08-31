@@ -1105,6 +1105,7 @@ CS 대응 등 수동 조정. `dedupe_key`는 관리자가 사유별로 직접 �
 { "member_id": "9a11e2b0-...", "balance": 16, "amount_granted": 5 }
 ```
 `409 ALREADY_CLAIMED`: 동일 `dedupe_key` 재요청(`credit_ledger` UNIQUE 충돌).
+`404 NOT_FOUND`: 존재하지 않거나 탈퇴한 `member_id`. `400 VALIDATION_ERROR`: `amount`가 0이거나 음수 조정으로 잔액이 0 미만이 되는 경우. `reason` 기본값은 `cs_adjustment`이며 `credit_ledger.reason` 값만 허용.
 
 #### `GET /v1/admin/cafe24/status`
 
