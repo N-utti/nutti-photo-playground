@@ -1057,9 +1057,9 @@ JWT는 `kind: admin` 클레임을 가지며 만료는 회원 토큰과 동일한
 // 200
 {
   "items": [
-    { "normalized_text": "눈 오는 날 산책", "frequency": 412, "promotable": true },
-    { "normalized_text": "한복 입은", "frequency": 287, "promotable": true },
-    { "normalized_text": "파일럿", "frequency": 190, "promotable": false }
+    { "id": "...", "normalized_text": "눈 오는 날 산책", "frequency": 412, "promotable": true },
+    { "id": "...", "normalized_text": "한복 입은", "frequency": 287, "promotable": true },
+    { "id": "...", "normalized_text": "파일럿", "frequency": 190, "promotable": false }
   ]
 }
 ```

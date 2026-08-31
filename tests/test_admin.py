@@ -12,6 +12,7 @@ from app.auth import create_admin_token, create_token, hash_password
 from app.main import app
 from app.models import (
     AdminUser,
+    CustomPromptLog,
     GenerationJob,
     Member,
     MemberKind,
@@ -76,6 +77,143 @@ async def _create_admin(email: str = "admin@nutti.test", password: str = "secret
 def _admin_headers(client: TestClient) -> dict[str, str]:
     admin_id = client.portal.call(_create_admin)
     return {"Authorization": f"Bearer {create_admin_token(admin_id)}"}
+
+
+async def _create_custom_prompt_logs(member_id: str) -> dict[str, str]:
+    ids = {}
+    for normalized_text, frequency in (("A", 3), ("B", 2), ("C", 1), ("", 1)):
+        for _ in range(frequency):
+            log = await CustomPromptLog.create(
+                member_id=member_id,
+                raw_text=normalized_text,
+                normalized_text=normalized_text,
+                moderation={},
+            )
+            ids.setdefault(normalized_text, str(log.id))
+    promoted_style = await Style.create(
+        code="already-promoted",
+        name="Already Promoted",
+        section="admin-test",
+    )
+    promoted_log = await CustomPromptLog.get(id=ids["B"])
+    promoted_log.promoted_style_id = promoted_style.id
+    await promoted_log.save(update_fields=["promoted_style_id"])
+    return ids
+
+
+async def _create_custom_prompt_group(member_id: str) -> list[str]:
+    logs = [
+        await CustomPromptLog.create(
+            member_id=member_id,
+            raw_text="승격 문구",
+            normalized_text="승격 문구",
+            moderation={},
+        )
+        for _ in range(2)
+    ]
+    return [str(log.id) for log in logs]
+
+
+async def _promoted_style_ids() -> list[int | None]:
+    return await CustomPromptLog.filter(normalized_text="승격 문구").values_list(
+        "promoted_style_id", flat=True
+    )
+
+
+def test_admin_top_custom_prompts_aggregates_and_sorts(client: TestClient):
+    member_id = client.portal.call(_create_member, MemberKind.MEMBER)
+    ids = client.portal.call(_create_custom_prompt_logs, member_id)
+    headers = _admin_headers(client)
+
+    response = client.get("/v1/admin/custom-prompts/top", headers=headers)
+    limited = client.get(
+        "/v1/admin/custom-prompts/top?limit=1", headers=headers
+    )
+
+    assert response.status_code == 200
+    assert response.json()["items"] == [
+        {
+            "id": ids["A"],
+            "normalized_text": "A",
+            "frequency": 3,
+            "promotable": True,
+        },
+        {
+            "id": ids["B"],
+            "normalized_text": "B",
+            "frequency": 2,
+            "promotable": False,
+        },
+        {
+            "id": ids["C"],
+            "normalized_text": "C",
+            "frequency": 1,
+            "promotable": True,
+        },
+    ]
+    assert limited.status_code == 200
+    assert limited.json()["items"] == [response.json()["items"][0]]
+
+
+def test_admin_promote_custom_prompt_updates_group_and_rejects_retry(
+    client: TestClient,
+):
+    member_id = client.portal.call(_create_member, MemberKind.MEMBER)
+    prompt_ids = client.portal.call(_create_custom_prompt_group, member_id)
+    headers = _admin_headers(client)
+    payload = {"section": "admin-test", "credit_cost": 3}
+
+    response = client.post(
+        f"/v1/admin/custom-prompts/{prompt_ids[0]}/promote",
+        headers=headers,
+        json=payload,
+    )
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["code"].startswith("custom-")
+    assert data["section"] == "admin-test"
+    assert data["credit_cost"] == 3
+    assert data["status"] == "draft"
+    promoted_style_ids = client.portal.call(_promoted_style_ids)
+    assert promoted_style_ids == [data["id"], data["id"]]
+
+    retry = client.post(
+        f"/v1/admin/custom-prompts/{prompt_ids[1]}/promote",
+        headers=headers,
+        json=payload,
+    )
+    assert retry.status_code == 409
+    assert retry.json()["error"]["code"] == "ALREADY_CLAIMED"
+    assert retry.json()["error"]["detail"] == {"style_id": data["id"]}
+
+
+@pytest.mark.parametrize("prompt_id", [str(uuid.uuid4()), "not-a-uuid"])
+def test_admin_promote_custom_prompt_returns_not_found(
+    client: TestClient, prompt_id: str
+):
+    response = client.post(
+        f"/v1/admin/custom-prompts/{prompt_id}/promote",
+        headers=_admin_headers(client),
+        json={"section": "admin-test"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "NOT_FOUND"
+
+
+def test_admin_promote_custom_prompt_rejects_empty_section(client: TestClient):
+    member_id = client.portal.call(_create_member, MemberKind.MEMBER)
+    prompt_id = client.portal.call(_create_custom_prompt_group, member_id)[0]
+
+    response = client.post(
+        f"/v1/admin/custom-prompts/{prompt_id}/promote",
+        headers=_admin_headers(client),
+        json={"section": ""},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
 
 
 def test_admin_login_success(client: TestClient):
@@ -544,6 +682,12 @@ def test_admin_update_prompt_version_rejects_other_style_version(
             {"prompt_text": "prompt"},
         ),
         ("PATCH", "/v1/admin/styles/999999/prompt-versions/999999", {}),
+        ("GET", "/v1/admin/custom-prompts/top", None),
+        (
+            "POST",
+            "/v1/admin/custom-prompts/00000000-0000-0000-0000-000000000000/promote",
+            {"section": "admin-test"},
+        ),
     ],
 )
 def test_admin_prompt_version_endpoints_reject_member_token(
