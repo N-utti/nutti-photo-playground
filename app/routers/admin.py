@@ -1,17 +1,20 @@
 import asyncio
 import logging
+import uuid
 from collections import deque
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from tortoise.exceptions import IntegrityError
 from tortoise.functions import Count
+from tortoise.transactions import in_transaction
 
 from app.auth import DUMMY_PASSWORD_HASH, create_admin_token, get_current_admin, verify_password
-from app.common import not_found, not_implemented, validation_error
+from app.common import api_error, not_found, not_implemented, validation_error
 from app.models import (
     AdminUser,
+    CustomPromptLog,
     GenerationJob,
     MetricEvent,
     PromptVersionStatus,
@@ -145,8 +148,8 @@ def _prompt_version_response(version: StylePromptVersion) -> dict:
 
 
 class PromoteCustomPromptRequest(BaseModel):
-    section: str
-    credit_cost: int = 1
+    section: str = Field(min_length=1, max_length=50)
+    credit_cost: int = Field(1, ge=0)
 
 
 class AdjustCreditsRequest(BaseModel):
@@ -339,13 +342,87 @@ async def admin_update_prompt_version(
 
 
 @router.get("/custom-prompts/top")
-async def admin_top_custom_prompts():
-    not_implemented()
+async def admin_top_custom_prompts(
+    limit: int = Query(20, ge=1, le=100),
+    _: AdminUser = Depends(get_current_admin),
+):
+    # ponytail: 로그 테이블 전체를 집계 스캔하며, 데이터량이 커지면 별도 집계 배치로 대체한다.
+    groups = (
+        await CustomPromptLog.exclude(normalized_text="")
+        .annotate(frequency=Count("id"))
+        .group_by("normalized_text")
+        .order_by("-frequency", "normalized_text")
+        .limit(limit)
+        .values("normalized_text", "frequency")
+    )
+    texts = [group["normalized_text"] for group in groups]
+    logs = (
+        await CustomPromptLog.filter(normalized_text__in=texts)
+        .order_by("created_at", "id")
+        .values("id", "normalized_text", "promoted_style_id")
+    )
+    details = {}
+    for log in logs:
+        detail = details.setdefault(
+            log["normalized_text"],
+            {"id": str(log["id"]), "promotable": True},
+        )
+        if log["promoted_style_id"] is not None:
+            detail["promotable"] = False
+    return {
+        "items": [
+            {
+                "id": details[group["normalized_text"]]["id"],
+                **group,
+                "promotable": details[group["normalized_text"]]["promotable"],
+            }
+            for group in groups
+        ]
+    }
 
 
 @router.post("/custom-prompts/{prompt_id}/promote", status_code=201)
-async def admin_promote_custom_prompt(prompt_id: str, body: PromoteCustomPromptRequest):
-    not_implemented()
+async def admin_promote_custom_prompt(
+    prompt_id: str,
+    body: PromoteCustomPromptRequest,
+    _: AdminUser = Depends(get_current_admin),
+):
+    try:
+        parsed_prompt_id = uuid.UUID(prompt_id)
+    except ValueError:
+        raise not_found("커스텀 프롬프트를 찾을 수 없습니다") from None
+    log = await CustomPromptLog.get_or_none(id=parsed_prompt_id)
+    if log is None:
+        raise not_found("커스텀 프롬프트를 찾을 수 없습니다")
+    if log.normalized_text == "":
+        raise validation_error("승격할 수 없는 문구입니다", {"field": "prompt_id"})
+    promoted = await CustomPromptLog.filter(
+        normalized_text=log.normalized_text,
+        promoted_style_id__isnull=False,
+    ).first()
+    if promoted is not None:
+        raise api_error(
+            409,
+            "ALREADY_CLAIMED",
+            "이미 승격된 문구입니다",
+            {"style_id": promoted.promoted_style_id},
+        )
+
+    # ponytail: 관리자 1인 운영을 가정해 동시 승격 요청의 중복 Style 생성 레이스는 막지 않는다.
+    async with in_transaction() as connection:
+        style = await Style.create(
+            # ponytail: 한글→슬러그 변환 불가하므로 uuid 접두 8자리 사용; 관리자가 PATCH /styles로 code 수정 가능
+            code=f"custom-{log.id.hex[:8]}",
+            name=log.normalized_text,
+            section=body.section,
+            credit_cost=body.credit_cost,
+            status=StyleStatus.DRAFT,
+            using_db=connection,
+        )
+        await CustomPromptLog.filter(normalized_text=log.normalized_text).using_db(
+            connection
+        ).update(promoted_style=style)
+    return _style_response(style)
 
 
 @router.post("/credits/adjust")
