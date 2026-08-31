@@ -16,8 +16,10 @@ from app.models import (
     Member,
     MemberKind,
     MetricEvent,
+    PromptVersionStatus,
     SourceImage,
     Style,
+    StylePromptVersion,
     StyleStatus,
 )
 from app.routers import admin as admin_router
@@ -337,6 +339,214 @@ def test_admin_delete_style_retires_it(client: TestClient):
     ],
 )
 def test_admin_style_writes_reject_member_token(
+    client: TestClient, method: str, path: str, payload: dict | None
+):
+    _, member_headers = _session(client)
+
+    response = client.request(method, path, headers=member_headers, json=payload)
+
+    assert response.status_code == 401
+
+
+def test_admin_create_prompt_versions_assigns_incrementing_versions(
+    client: TestClient,
+):
+    style_id = client.portal.call(_create_writable_style)
+    headers = _admin_headers(client)
+    payloads = [
+        {
+            "prompt_text": "first prompt",
+            "model_config": {"model": "first"},
+            "traffic_weight": 20,
+        },
+        {
+            "prompt_text": "second prompt",
+            "model_config": {"model": "second"},
+            "traffic_weight": 80,
+        },
+    ]
+
+    responses = [
+        client.post(
+            f"/v1/admin/styles/{style_id}/prompt-versions",
+            headers=headers,
+            json=payload,
+        )
+        for payload in payloads
+    ]
+
+    assert [response.status_code for response in responses] == [201, 201]
+    for expected_version, payload, response in zip(
+        (1, 2), payloads, responses, strict=True
+    ):
+        data = response.json()
+        assert data["style_id"] == style_id
+        assert data["version"] == expected_version
+        assert data["status"] == "draft"
+        assert data["prompt_text"] == payload["prompt_text"]
+        assert data["model_config"] == payload["model_config"]
+        assert data["traffic_weight"] == payload["traffic_weight"]
+
+
+def test_admin_create_prompt_version_rejects_missing_style(client: TestClient):
+    response = client.post(
+        "/v1/admin/styles/999999/prompt-versions",
+        headers=_admin_headers(client),
+        json={"prompt_text": "prompt"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "NOT_FOUND"
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"prompt_text": ""},
+        {"prompt_text": "prompt", "traffic_weight": -1},
+    ],
+)
+def test_admin_create_prompt_version_validates_payload(
+    client: TestClient, payload: dict
+):
+    style_id = client.portal.call(_create_writable_style)
+
+    response = client.post(
+        f"/v1/admin/styles/{style_id}/prompt-versions",
+        headers=_admin_headers(client),
+        json=payload,
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_admin_list_prompt_versions_orders_descending(client: TestClient):
+    style_id = client.portal.call(_create_writable_style)
+    headers = _admin_headers(client)
+    for prompt_text in ("first prompt", "second prompt"):
+        response = client.post(
+            f"/v1/admin/styles/{style_id}/prompt-versions",
+            headers=headers,
+            json={"prompt_text": prompt_text},
+        )
+        assert response.status_code == 201
+
+    response = client.get(
+        f"/v1/admin/styles/{style_id}/prompt-versions", headers=headers
+    )
+    missing = client.get(
+        "/v1/admin/styles/999999/prompt-versions", headers=headers
+    )
+
+    assert response.status_code == 200
+    assert [item["version"] for item in response.json()["items"]] == [2, 1]
+    assert [item["prompt_text"] for item in response.json()["items"]] == [
+        "second prompt",
+        "first prompt",
+    ]
+    assert missing.status_code == 404
+    assert missing.json()["error"]["code"] == "NOT_FOUND"
+
+
+async def _prompt_version_state(
+    version_id: int,
+) -> tuple[PromptVersionStatus, int]:
+    version = await StylePromptVersion.get(id=version_id)
+    return version.status, version.traffic_weight
+
+
+def test_admin_update_prompt_version_persists_changes(client: TestClient):
+    style_id = client.portal.call(_create_writable_style)
+    headers = _admin_headers(client)
+    created = client.post(
+        f"/v1/admin/styles/{style_id}/prompt-versions",
+        headers=headers,
+        json={"prompt_text": "prompt"},
+    ).json()
+
+    response = client.patch(
+        f"/v1/admin/styles/{style_id}/prompt-versions/{created['id']}",
+        headers=headers,
+        json={"status": "active", "traffic_weight": 100},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "active"
+    assert response.json()["traffic_weight"] == 100
+    assert client.portal.call(_prompt_version_state, created["id"]) == (
+        PromptVersionStatus.ACTIVE,
+        100,
+    )
+
+
+def test_admin_update_prompt_version_rejects_invalid_status(client: TestClient):
+    style_id = client.portal.call(_create_writable_style)
+    headers = _admin_headers(client)
+    created = client.post(
+        f"/v1/admin/styles/{style_id}/prompt-versions",
+        headers=headers,
+        json={"prompt_text": "prompt"},
+    ).json()
+
+    response = client.patch(
+        f"/v1/admin/styles/{style_id}/prompt-versions/{created['id']}",
+        headers=headers,
+        json={"status": "bogus"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_admin_update_prompt_version_returns_not_found(client: TestClient):
+    style_id = client.portal.call(_create_writable_style)
+
+    response = client.patch(
+        f"/v1/admin/styles/{style_id}/prompt-versions/999999",
+        headers=_admin_headers(client),
+        json={},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "NOT_FOUND"
+
+
+def test_admin_update_prompt_version_rejects_other_style_version(
+    client: TestClient,
+):
+    style_a_id = client.portal.call(_create_writable_style, "prompt-style-a")
+    style_b_id = client.portal.call(_create_writable_style, "prompt-style-b")
+    headers = _admin_headers(client)
+    created = client.post(
+        f"/v1/admin/styles/{style_a_id}/prompt-versions",
+        headers=headers,
+        json={"prompt_text": "prompt"},
+    ).json()
+
+    response = client.patch(
+        f"/v1/admin/styles/{style_b_id}/prompt-versions/{created['id']}",
+        headers=headers,
+        json={"status": "active"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "NOT_FOUND"
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "payload"),
+    [
+        ("GET", "/v1/admin/styles/999999/prompt-versions", None),
+        (
+            "POST",
+            "/v1/admin/styles/999999/prompt-versions",
+            {"prompt_text": "prompt"},
+        ),
+        ("PATCH", "/v1/admin/styles/999999/prompt-versions/999999", {}),
+    ],
+)
+def test_admin_prompt_version_endpoints_reject_member_token(
     client: TestClient, method: str, path: str, payload: dict | None
 ):
     _, member_headers = _session(client)

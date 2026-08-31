@@ -10,7 +10,15 @@ from tortoise.functions import Count
 
 from app.auth import DUMMY_PASSWORD_HASH, create_admin_token, get_current_admin, verify_password
 from app.common import not_found, not_implemented, validation_error
-from app.models import AdminUser, GenerationJob, MetricEvent, Style, StyleStatus
+from app.models import (
+    AdminUser,
+    GenerationJob,
+    MetricEvent,
+    PromptVersionStatus,
+    Style,
+    StylePromptVersion,
+    StyleStatus,
+)
 from app.routers.auth import (
     _check_bucket,
     _client_ip,
@@ -113,14 +121,27 @@ class CreatePromptVersionRequest(BaseModel):
     # is declared under a different name and aliased back to the API spec's JSON key.
     model_config = ConfigDict(populate_by_name=True)
 
-    prompt_text: str
+    prompt_text: str = Field(min_length=1)
     prompt_model_config: dict = Field(default_factory=dict, alias="model_config")
-    traffic_weight: int = 100
+    traffic_weight: int = Field(100, ge=0)
 
 
 class UpdatePromptVersionRequest(BaseModel):
-    status: str | None = None
-    traffic_weight: int | None = None
+    status: PromptVersionStatus | None = None
+    traffic_weight: int | None = Field(default=None, ge=0)
+
+
+def _prompt_version_response(version: StylePromptVersion) -> dict:
+    return {
+        "id": version.id,
+        "style_id": version.style_id,
+        "version": version.version,
+        "prompt_text": version.prompt_text,
+        "model_config": version.model_config,
+        "traffic_weight": version.traffic_weight,
+        "status": version.status.value,
+        "created_at": version.created_at,
+    }
 
 
 class PromoteCustomPromptRequest(BaseModel):
@@ -265,18 +286,56 @@ async def admin_retire_style(
 
 
 @router.get("/styles/{style_id}/prompt-versions")
-async def admin_list_prompt_versions(style_id: int):
-    not_implemented()
+async def admin_list_prompt_versions(
+    style_id: int, _: AdminUser = Depends(get_current_admin)
+):
+    if not await Style.exists(id=style_id):
+        raise not_found("스타일을 찾을 수 없습니다")
+    versions = await StylePromptVersion.filter(style_id=style_id).order_by("-version")
+    return {"items": [_prompt_version_response(version) for version in versions]}
 
 
 @router.post("/styles/{style_id}/prompt-versions", status_code=201)
-async def admin_create_prompt_version(style_id: int, body: CreatePromptVersionRequest):
-    not_implemented()
+async def admin_create_prompt_version(
+    style_id: int,
+    body: CreatePromptVersionRequest,
+    _: AdminUser = Depends(get_current_admin),
+):
+    style = await Style.get_or_none(id=style_id)
+    if style is None:
+        raise not_found("스타일을 찾을 수 없습니다")
+    latest = await StylePromptVersion.filter(style_id=style_id).order_by("-version").first()
+    # ponytail: 관리자 1인 운영을 가정해 동시 생성 충돌은 재시도하지 않는다.
+    try:
+        version = await StylePromptVersion.create(
+            style=style,
+            version=(latest.version if latest else 0) + 1,
+            prompt_text=body.prompt_text,
+            model_config=body.prompt_model_config,
+            traffic_weight=body.traffic_weight,
+            status=PromptVersionStatus.DRAFT,
+        )
+    except IntegrityError:
+        raise validation_error("프롬프트 버전이 이미 존재합니다") from None
+    return _prompt_version_response(version)
 
 
 @router.patch("/styles/{style_id}/prompt-versions/{version_id}")
-async def admin_update_prompt_version(style_id: int, version_id: int, body: UpdatePromptVersionRequest):
-    not_implemented()
+async def admin_update_prompt_version(
+    style_id: int,
+    version_id: int,
+    body: UpdatePromptVersionRequest,
+    _: AdminUser = Depends(get_current_admin),
+):
+    version = await StylePromptVersion.get_or_none(id=version_id, style_id=style_id)
+    if version is None:
+        raise not_found("프롬프트 버전을 찾을 수 없습니다")
+    updates = body.model_dump(exclude_unset=True)
+    for field, value in updates.items():
+        setattr(version, field, value)
+    if updates:
+        await version.save(update_fields=list(updates))
+    return _prompt_version_response(version)
 
 
 @router.get("/custom-prompts/top")
