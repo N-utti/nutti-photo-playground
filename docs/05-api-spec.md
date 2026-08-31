@@ -284,7 +284,7 @@
 
 ```json
 // 200
-{ "authorize_url": "https://nutti.cafe24api.com/api/v2/oauth/authorize?...&response_type=code&scope=mall.read_customer&state=..." }
+{ "authorize_url": "https://nutti.cafe24api.com/api/v2/oauth/authorize?...&response_type=code&scope=mall.read_customer,mall.read_order&state=..." }
 ```
 
 #### `GET /v1/auth/cafe24/callback?code=...&state=...`
