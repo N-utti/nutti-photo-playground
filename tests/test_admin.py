@@ -110,6 +110,7 @@ def test_admin_adjust_credits_grants_and_records_ledger(client: TestClient):
     assert ledger.reason == CreditReason.CS_ADJUSTMENT
     assert ledger.dedupe_key == "admin-positive"
     assert ledger.balance_after == 5
+    assert ledger.ref_id.startswith("admin:")
 
 
 def test_admin_adjust_credits_deducts_from_sufficient_balance(client: TestClient):
@@ -192,9 +193,27 @@ def test_admin_adjust_credits_returns_not_found_for_withdrawn_member(
     assert response.json()["error"]["code"] == "NOT_FOUND"
 
 
+async def _merge_member(member_id: str, target_id: str) -> None:
+    await Member.filter(id=member_id).update(merged_into_id=target_id)
+
+
+def test_admin_adjust_credits_returns_not_found_for_merged_member(client: TestClient):
+    member_id = client.portal.call(_create_member, MemberKind.MEMBER)
+    target_id = client.portal.call(_create_member, MemberKind.MEMBER)
+    client.portal.call(_merge_member, member_id, target_id)
+
+    response = client.post(
+        "/v1/admin/credits/adjust",
+        headers=_admin_headers(client),
+        json={"member_id": member_id, "amount": 1, "dedupe_key": "admin-merged"},
+    )
+
+    assert response.status_code == 404
+
+
 @pytest.mark.parametrize(
     "invalid_field",
-    [{"amount": 0}, {"reason": "bogus"}, {"dedupe_key": ""}],
+    [{"amount": 0}, {"amount": 100_001}, {"reason": "bogus"}, {"dedupe_key": ""}],
 )
 def test_admin_adjust_credits_validates_payload(
     client: TestClient, invalid_field: dict
