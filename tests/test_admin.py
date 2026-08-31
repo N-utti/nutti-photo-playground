@@ -13,6 +13,7 @@ from app.auth import create_admin_token, create_token, hash_password
 from app.main import app
 from app.models import (
     AdminUser,
+    AppSetting,
     CreditLedger,
     CreditReason,
     CustomPromptLog,
@@ -866,4 +867,89 @@ def test_admin_prompt_version_endpoints_reject_member_token(
 
     response = client.request(method, path, headers=member_headers, json=payload)
 
+    assert response.status_code == 401
+
+
+_SETTING_KEYS = [
+    "catalog_search_threshold",
+    "custom_prompt_credit_cost",
+    "daily_free_amount",
+    "follow_ig_amount",
+    "human_face_policy",
+    "link_account_amount",
+    "order_reward_amount",
+]
+
+
+def test_admin_get_settings_returns_defaults_and_overrides(client: TestClient):
+    headers = _admin_headers(client)
+
+    defaults = client.get("/v1/admin/settings", headers=headers).json()["items"]
+    assert [item["key"] for item in defaults] == _SETTING_KEYS
+    assert all(item["updated_at"] is None for item in defaults)
+    assert {item["key"]: item["value"] for item in defaults}["daily_free_amount"] == 1
+
+    client.portal.call(partial(AppSetting.create, key="daily_free_amount", value=3))
+    items = {
+        item["key"]: item
+        for item in client.get("/v1/admin/settings", headers=headers).json()["items"]
+    }
+    assert items["daily_free_amount"]["value"] == 3
+    assert items["daily_free_amount"]["updated_at"] is not None
+    assert items["follow_ig_amount"]["updated_at"] is None
+
+
+def test_admin_update_setting_persists_and_feeds_consumers(client: TestClient):
+    headers = _admin_headers(client)
+
+    first = client.patch(
+        "/v1/admin/settings/human_face_policy", headers=headers, json={"value": "block"}
+    )
+    assert first.status_code == 200
+    assert first.json()["key"] == "human_face_policy"
+    assert first.json()["value"] == "block"
+    assert first.json()["updated_at"] is not None
+    second = client.patch(
+        "/v1/admin/settings/human_face_policy", headers=headers, json={"value": "allow"}
+    )
+    assert second.status_code == 200
+    stored = client.portal.call(partial(AppSetting.get, key="human_face_policy"))
+    assert stored.value == "allow"
+
+    response = client.patch(
+        "/v1/admin/settings/daily_free_amount", headers=headers, json={"value": 3}
+    )
+    assert response.status_code == 200
+    from app.routers.credits import _amounts
+
+    assert client.portal.call(_amounts)["daily_free_amount"] == 3
+
+
+@pytest.mark.parametrize(
+    ("key", "value", "status"),
+    [
+        ("human_face_policy", "ban", 400),
+        ("human_face_policy", 1, 400),
+        ("order_reward_amount", -1, 400),
+        ("order_reward_amount", "20", 400),
+        ("order_reward_amount", True, 400),
+        ("unknown_key", 1, 404),
+    ],
+)
+def test_admin_update_setting_rejects_invalid(
+    client: TestClient, key: str, value: object, status: int
+):
+    response = client.patch(
+        f"/v1/admin/settings/{key}", headers=_admin_headers(client), json={"value": value}
+    )
+    assert response.status_code == status
+
+
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [("get", "/v1/admin/settings"), ("patch", "/v1/admin/settings/daily_free_amount")],
+)
+def test_admin_settings_reject_member_token(client: TestClient, method: str, path: str):
+    _, headers = _session(client)
+    response = client.request(method.upper(), path, headers=headers, json={"value": 1})
     assert response.status_code == 401

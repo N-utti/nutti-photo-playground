@@ -1,11 +1,12 @@
 import asyncio
+import json
 import logging
 import uuid
 from collections import deque
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query, Request
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator
 from tortoise.exceptions import IntegrityError
 from tortoise.functions import Count
 from tortoise.transactions import in_transaction
@@ -15,6 +16,7 @@ from app.common import api_error, not_found, not_implemented, validation_error
 from app.credits import grant_credits
 from app.models import (
     AdminUser,
+    AppSetting,
     CreditReason,
     CustomPromptLog,
     GenerationJob,
@@ -32,6 +34,8 @@ from app.routers.auth import (
     _peek_bucket,
     _record_failure,
 )
+from app.routers.credits import _AMOUNT_DEFAULTS
+from app.routers.uploads import _POLICY_DEFAULTS
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 logger = logging.getLogger(__name__)
@@ -163,7 +167,17 @@ class AdjustCreditsRequest(BaseModel):
 
 
 class UpdateSettingRequest(BaseModel):
-    value: object
+    value: StrictInt | str
+
+
+_HUMAN_FACE_POLICIES = ("block", "warn", "allow")
+# ponytail: 기본값 출처는 각 라우터 상수 — 단일 설정 모듈로 합치는 건 키가 더 늘 때
+_SETTING_DEFAULTS = {
+    **_AMOUNT_DEFAULTS,
+    **_POLICY_DEFAULTS,
+    "custom_prompt_credit_cost": 2,
+    "catalog_search_threshold": 100,
+}
 
 
 @router.post("/login")
@@ -473,10 +487,38 @@ async def admin_cafe24_status():
 
 
 @router.get("/settings")
-async def admin_get_settings():
-    not_implemented()
+async def admin_get_settings(_: AdminUser = Depends(get_current_admin)):
+    rows = {row.key: row for row in await AppSetting.filter(key__in=list(_SETTING_DEFAULTS))}
+    return {
+        "items": [
+            {
+                "key": key,
+                "value": rows[key].value if key in rows else _SETTING_DEFAULTS[key],
+                "updated_at": rows[key].updated_at if key in rows else None,
+            }
+            for key in sorted(_SETTING_DEFAULTS)
+        ]
+    }
 
 
 @router.patch("/settings/{key}")
-async def admin_update_setting(key: str, body: UpdateSettingRequest):
-    not_implemented()
+async def admin_update_setting(
+    key: str, body: UpdateSettingRequest, _: AdminUser = Depends(get_current_admin)
+):
+    if key not in _SETTING_DEFAULTS:
+        raise not_found("존재하지 않는 설정 키입니다")
+    value = body.value
+    if key == "human_face_policy":
+        if value not in _HUMAN_FACE_POLICIES:
+            raise validation_error(
+                "허용되지 않는 값입니다", {"field": "value", "allowed": list(_HUMAN_FACE_POLICIES)}
+            )
+    elif not isinstance(value, int) or value < 0:
+        raise validation_error("0 이상의 정수여야 합니다", {"field": "value"})
+    # ponytail: Tortoise JSONField는 str을 JSON 텍스트로 해석하고 Model.__init__이 그걸 도로 디코딩해
+    # create()로는 문자열 값을 저장할 수 없다 — 인스턴스 생성 후 setattr→save()가 유일하게 통하는 경로.
+    setting = await AppSetting.get_or_none(key=key) or AppSetting(key=key, value=0)
+    setting.value = json.dumps(value) if isinstance(value, str) else value
+    await setting.save()
+    await setting.refresh_from_db(fields=["value", "updated_at"])
+    return {"key": setting.key, "value": setting.value, "updated_at": setting.updated_at}
