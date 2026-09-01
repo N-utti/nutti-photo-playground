@@ -9,7 +9,7 @@ Vite + React + TypeScript SPA. 정적 빌드를 Cloudflare Pages에 올립니다
 
 ```bash
 npm install
-npm run dev      # http://localhost:5173 — MSW 목 위에서 동작
+npm run dev      # http://localhost:5190 — MSW 목 위에서 동작
 npm run build    # tsc -b && vite build
 npm run lint
 npm run test     # vitest — 컴포넌트 회귀 테스트
@@ -22,7 +22,7 @@ npm run test     # vitest — 컴포넌트 회귀 테스트
 `/media`도 반드시 함께 넘어가야 합니다. 로컬 백엔드는 R2 자격증명이 없으면 파일을
 `var/media/`에 쓰고 이미지 URL을 **`/media/...`로 내려주는데**(`app/storage.py`의
 `public_url`), 그 경로는 응답 본문에 그대로 실려 와서 `<img src>`가 되는 순간 프론트
-오리진(:5173)에 붙습니다. API는 200인데 화면에 이미지가 하나도 안 뜨는 상태가 되어
+오리진(:5190)에 붙습니다. API는 200인데 화면에 이미지가 하나도 안 뜨는 상태가 되어
 «백엔드가 아직 안 됐나»로 오진하기 쉽습니다.
 
 ### 실서버로 지금 밟을 수 있는 범위 (2026-08-26 실측)
