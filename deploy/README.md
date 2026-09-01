@@ -19,7 +19,7 @@
 | A | `api` | VPS IP | DNS only |
 | CNAME | `img` | (R2 커스텀 도메인이 자동 생성) | 프록시 |
 
-2. 카페24 → 도메인 관리 → 네임서버를 **`laila.ns.cloudflare.com` / `zac.ns.cloudflare.com`**(2026-09-01 배정)으로 변경, 기존 `ns-*.cafe24.com` 삭제. (zone은 이미 생성돼 9개 레코드 DNS-only로 검수 완료.) 전파 후 `nslookup -type=NS nutti.co.kr`로 확인, 쇼핑몰·계산기(`nutti.co.kr/calculator`)·메일 수신 스모크.
+2. 카페24 → 도메인 관리 → 네임서버를 **`laila.ns.cloudflare.com` / `zac.ns.cloudflare.com`**(2026-09-01 배정)으로 변경, 기존 `ns-*.cafe24.com` 삭제. (zone은 이미 생성돼 9개 레코드 DNS-only로 검수 완료. **네임서버 변경 신청 접수 2026-09-01 — 카페24 안내 24~48시간, 카페24 DNS엔 SPF/TXT 없음 확인.**) 전파 후 `nslookup -type=NS nutti.co.kr`로 확인, 쇼핑몰·계산기(`nutti.co.kr/calculator`)·메일 수신 스모크.
 
 ## 1. R2
 
