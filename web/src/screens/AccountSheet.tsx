@@ -136,18 +136,33 @@ export default function AccountSheet({
             </h2>
             <p className="mt-1 text-sm text-ink-2">{description}</p>
 
+            {/*
+              누른 쪽만 «진행 중»으로 보여야 합니다. 두 버튼이 `authorize` 라는 mutation
+              하나를 공유하므로 `isPending` 은 카카오를 눌러도 네이버 자리에서 true 입니다 —
+              예전엔 그걸 `disabled:opacity-50` 으로 받아서 **안 누른 쪽까지 같이 흐려졌고**,
+              폰에서는 두 개가 같이 눌린 것처럼 보였습니다. 어느 쪽을 눌렀는지는 mutation 의
+              `variables`(= 넘긴 provider)가 알고 있으니 그걸로 가릅니다.
+
+              `disabled` 는 둘 다 그대로 둡니다 — 프로바이더로 나가는 중에 다른 쪽을 눌러
+              OAuth 를 두 번 시작하는 것은 막아야 합니다. 못 누르는 티를 색으로 내지 않을
+              뿐이고, 어차피 1초 안에 페이지가 넘어갑니다.
+            */}
             <div className="mt-4 space-y-2">
-              {SOCIAL.map((social) => (
-                <button
-                  key={social.provider}
-                  type="button"
-                  disabled={authorize.isPending}
-                  onClick={() => startSocial(social.provider)}
-                  className={`w-full rounded-xl px-4 py-3 text-sm font-semibold disabled:opacity-50 ${social.className}`}
-                >
-                  {social.label}
-                </button>
-              ))}
+              {SOCIAL.map((social) => {
+                const busy = authorize.isPending && authorize.variables === social.provider
+                return (
+                  <button
+                    key={social.provider}
+                    type="button"
+                    disabled={authorize.isPending}
+                    aria-busy={busy}
+                    onClick={() => startSocial(social.provider)}
+                    className={`w-full rounded-xl px-4 py-3 text-sm font-semibold ${busy ? 'opacity-50' : ''} ${social.className}`}
+                  >
+                    {busy ? '이동 중…' : social.label}
+                  </button>
+                )
+              })}
             </div>
 
             {authorize.isError && (

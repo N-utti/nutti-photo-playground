@@ -61,16 +61,22 @@ export default function ShopLinkSheet({ onClose }: { onClose: () => void }) {
   // mutate 를 다시 부르면 `request.data` 가 비므로(v5 pending 리셋) «다시 받기» 중에 1단계로
   // 깜빡 되돌아갑니다 — 단계는 파생값이 아니라 상태로 들고 있습니다.
   const [sent, setSent] = useState(false)
+  // 후보 목록도 같은 이유로 상태입니다. `verify.data` 에서 파생시키면 후보를 하나 고르는
+  // 순간 `pick()` 의 `verify.mutate` 가 `data` 를 비우고, **목록 화면이 통째로 사라져**
+  // 인증번호 입력 화면으로 되돌아갔다가 응답이 와야 다시 넘어갑니다. 고르는 중에 고르던
+  // 화면이 없어지는 셈이고, 실패하면 무엇을 고르던 중이었는지도 함께 사라집니다.
+  const [candidates, setCandidates] = useState<string[] | null>(null)
   const dialogRef = useModalDialog<HTMLDivElement>(onClose)
 
   const done = verify.data?.cafe24_linked ? verify.data : null
-  const candidates = verify.data && !verify.data.cafe24_linked ? verify.data.candidates : null
   const target: Cafe24LinkTarget = mode === 'cellphone' ? { cellphone: value } : { shop_member_id: value }
 
+  /** 후보는 «이 번호로 조회한 결과»라, 조회 대상이 바뀌면 같이 버립니다. */
   function switchMode(next: Mode) {
     setMode(next)
     setValue('')
     setFormError(null)
+    setCandidates(null)
     request.reset()
   }
 
@@ -88,6 +94,7 @@ export default function ShopLinkSheet({ onClose }: { onClose: () => void }) {
     }
     setValue(trimmed)
     verify.reset()
+    setCandidates(null)
     setCode('')
     const body: Cafe24LinkTarget = mode === 'cellphone' ? { cellphone: trimmed } : { shop_member_id: trimmed }
     request.mutate(body, { onSuccess: () => setSent(true) })
@@ -100,10 +107,19 @@ export default function ShopLinkSheet({ onClose }: { onClose: () => void }) {
       setFormError('문자로 받은 6자리 숫자를 입력해 주세요.')
       return
     }
-    verify.mutate({ ...target, code })
+    // 한 번호에 계정이 여럿이면 `cafe24_linked: false` + 후보가 옵니다(types.ts §Cafe24LinkResult).
+    verify.mutate(
+      { ...target, code },
+      { onSuccess: (data) => setCandidates(data.cafe24_linked ? null : data.candidates) },
+    )
   }
 
-  /** 후보 선택 — 같은 코드로 한 번 더(서버가 아직 소비하지 않음). */
+  /**
+   * 후보 선택 — 같은 코드로 한 번 더(서버가 아직 소비하지 않음).
+   *
+   * 여기서는 `setCandidates` 를 하지 않습니다. 성공하면 `done` 이 목록 화면을 덮고,
+   * 실패하면 **목록이 그대로 남아 있어야** 사용자가 다른 계정을 고를 수 있습니다.
+   */
   function pick(shopMemberId: string) {
     setFormError(null)
     verify.mutate({ cellphone: value, shop_member_id: shopMemberId, code })
@@ -113,6 +129,7 @@ export default function ShopLinkSheet({ onClose }: { onClose: () => void }) {
   function resend() {
     setFormError(null)
     verify.reset()
+    setCandidates(null)
     setCode('')
     request.mutate(target)
   }
@@ -158,19 +175,32 @@ export default function ShopLinkSheet({ onClose }: { onClose: () => void }) {
               이 번호로 가입된 쇼핑몰 계정이 {candidates.length}개예요. 주문할 때 쓰는 계정을 고르면 그 계정의
               주문에 보상이 쌓여요.
             </p>
+            {/*
+              AccountSheet 의 소셜 버튼과 같은 함정입니다 — 후보 전부가 `verify` 하나를
+              공유하므로 `disabled:opacity-50` 을 걸면 한 개를 고르는 순간 **나머지 후보도
+              같이 흐려집니다**. 계정을 고르는 화면에서 그건 «어느 걸 골랐는지»를 지워
+              버리는 거라 더 나쁩니다. 고른 것만 흐리고, 나머지는 눌리지만 않게 둡니다.
+
+              라벨은 «확인 중…» 으로 바꾸지 않습니다. 여기 적힌 글자가 곧 고른 계정
+              아이디라, 그걸 가리면 확인할 것이 사라집니다.
+            */}
             <ul className="mt-4 space-y-2">
-              {candidates.map((shopMemberId) => (
-                <li key={shopMemberId}>
-                  <button
-                    type="button"
-                    disabled={verify.isPending}
-                    onClick={() => pick(shopMemberId)}
-                    className="w-full rounded-xl border border-rule-strong px-4 py-3 text-left font-mono text-sm hover:border-brand-2 hover:bg-surface-2 hover:text-brand disabled:opacity-50"
-                  >
-                    {shopMemberId}
-                  </button>
-                </li>
-              ))}
+              {candidates.map((shopMemberId) => {
+                const busy = verify.isPending && verify.variables?.shop_member_id === shopMemberId
+                return (
+                  <li key={shopMemberId}>
+                    <button
+                      type="button"
+                      disabled={verify.isPending}
+                      aria-busy={busy}
+                      onClick={() => pick(shopMemberId)}
+                      className={`w-full rounded-xl border border-rule-strong px-4 py-3 text-left font-mono text-sm hover:border-brand-2 hover:bg-surface-2 hover:text-brand ${busy ? 'opacity-50' : ''}`}
+                    >
+                      {shopMemberId}
+                    </button>
+                  </li>
+                )
+              })}
             </ul>
             {error && (
               <p role="alert" className="mt-2 text-center text-sm text-danger">
