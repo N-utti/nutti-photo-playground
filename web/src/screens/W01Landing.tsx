@@ -32,8 +32,11 @@ import AccountSheet from './AccountSheet'
  * 같은 강아지의 실제 원본/변환 한 쌍입니다 — 자리표시자 도형이던 `*.svg` 를 대체했고,
  * 출처와 가공 내역은 `public/hero/NOTICE.md` 에 있습니다.
  *
- * 둘 다 **3:2 · 1200×800** 으로 맞춰 뒀습니다. 아래 프레임이 4:3 이고 `object-cover`
- * 라 좌우가 깎이는데, 비가 서로 다르면 한 장만 더 깎여 두 사진의 눈높이가 어긋납니다.
+ * 둘 다 **4:3 · 1072×804** — 아래 프레임과 **같은 비**입니다. 원본은 둘 다 정사각이라
+ * 프레임에 그냥 넣으면 `object-cover` 가 위아래를 잘라내는데, 그 자리를 브라우저에
+ * 맡기면 하필 뛰는 강아지의 귀 끝과 앞발이 잘립니다. 그래서 크롭을 파일에 구워
+ * 넣었습니다(어디를 어떻게 잘랐는지는 NOTICE.md). 비가 같으니 여기서는 더 깎이지
+ * 않고, 두 사진의 눈높이도 크롭 단계에서 맞춰 뒀습니다.
  */
 const HERO_BEFORE = '/hero/before.webp'
 const HERO_AFTER = '/hero/after.webp'
@@ -119,7 +122,7 @@ export default function W01Landing() {
           <h1 className="font-display text-3xl leading-tight desktop:col-start-1 desktop:row-start-1 desktop:self-end desktop:text-5xl">
             우리 강아지를 레고로,
             <br />
-            초상화로, 우주비행사로
+            초상화로, 프라모델로
           </h1>
 
           <div className="desktop:col-start-2 desktop:row-span-2 desktop:row-start-1">
@@ -232,11 +235,14 @@ const clamp = (value: number) => Math.min(100, Math.max(0, value))
  *   비교가 가능해야 하고, 그게 이 화면의 유일한 인터랙션이라 대체 수단이 없습니다.
  */
 function BeforeAfterSlider() {
-  // 50 이 아니라 65 입니다 — **지금 두 사진에 맞춘 값**입니다. 원본에서 강아지 얼굴이
-  // 가운데보다 살짝 오른쪽에 있어서, 반으로 가르면 분할선이 하필 얼굴을 관통해
-  // «원본» 쪽에 몸통만 남습니다. 첫 화면에서 증명해야 하는 게 «내 애가 유지된다»인데
-  // (노트1) 정작 그 애 얼굴이 안 보이는 상태로 시작하는 셈입니다. 65 면 원본은 얼굴까지
-  // 온전히, 변환은 피규어와 «NUTTi» 소품이 보입니다.
+  // 50 이 아니라 65 입니다 — **지금 두 사진에 맞춘 값**입니다. 원본에서 강아지 머리가
+  // 가로 35~66% 에 걸쳐 있어서, 반으로 가르면 분할선이 하필 얼굴을 관통해 «원본» 쪽에
+  // 몸통만 남습니다. 첫 화면에서 증명해야 하는 게 «내 애가 유지된다»인데(노트1) 정작
+  // 그 애 얼굴이 안 보이는 상태로 시작하는 셈입니다. 65 면 원본은 귀까지 온전합니다.
+  //
+  // 대신 오른쪽 35% 에는 하늘과 앞발만 들어옵니다. 두 사진 모두 주인공이 가운데라
+  // 어느 위치에서도 한쪽 얼굴은 잘립니다 — 여기서는 «누구인지»를 먼저 보여주는 쪽을
+  // 골랐고, 나는 모습은 끌어야 나옵니다.
   //
   // 사진을 갈아 끼우면 이 값도 다시 봐야 합니다(public/hero/NOTICE.md).
   const [position, setPosition] = useState(65)
@@ -309,7 +315,7 @@ function BeforeAfterSlider() {
     >
       <img
         src={HERO_AFTER}
-        alt="변환 결과 예시 — 같은 강아지가 피규어가 되어 «KONG-I» 패키지와 함께 책상에 놓인 사진"
+        alt="변환 결과 예시 — 같은 흰 포메라니안이 파란 하늘을 나는 모습으로 바뀐 사진"
         draggable={false}
         className="absolute inset-0 size-full object-cover"
       />
@@ -317,7 +323,7 @@ function BeforeAfterSlider() {
       <div className="absolute inset-0" style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}>
         <img
           src={HERO_BEFORE}
-          alt="원본 사진 예시 — 나무 데크 위에 엎드린 흰 강아지 사진"
+          alt="원본 사진 예시 — 침대 위에 엎드린 흰 포메라니안 사진"
           draggable={false}
           className="size-full object-cover"
         />
