@@ -98,6 +98,10 @@ crontab -e
 - GA4 관리자 → 데이터 스트림 → 도메인 구성에 `play.nutti.co.kr` 추가 → 계산기→놀이터 이동 URL에 `_gl=` 붙는지
 - 관리자 로그인 → `/v1/admin/cafe24/status`가 토큰 상태 반환
 
+## 운영 주의
+- `.env`를 바꾸고 `up -d`하면 **postgres도 env_file을 공유해 재생성**된다(데이터는 `pgdata` 볼륨이라 보존, 수 초 다운). DB 무중단이 필요해지면 postgres 비밀번호를 별도 env로 분리.
+- 배포 후 로컬 PC에서 `play`가 TLS 오류를 내면 로컬 DNS 캐시(옛 카페24 와일드카드 IP) — `ipconfig /flushdns`.
+
 ## 재배포
 
 ```bash
