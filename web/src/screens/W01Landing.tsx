@@ -28,9 +28,15 @@ import Thumbnail from '../app/Thumbnail'
 import type { StyleCard } from '../api/types'
 import AccountSheet from './AccountSheet'
 
-/** 브랜드 촬영본이 없어 자리표시자입니다 — public/hero/*.svg 주석 참고. */
-const HERO_BEFORE = '/hero/before.svg'
-const HERO_AFTER = '/hero/after.svg'
+/**
+ * 같은 강아지의 실제 원본/변환 한 쌍입니다 — 자리표시자 도형이던 `*.svg` 를 대체했고,
+ * 출처와 가공 내역은 `public/hero/NOTICE.md` 에 있습니다.
+ *
+ * 둘 다 **3:2 · 1200×800** 으로 맞춰 뒀습니다. 아래 프레임이 4:3 이고 `object-cover`
+ * 라 좌우가 깎이는데, 비가 서로 다르면 한 장만 더 깎여 두 사진의 눈높이가 어긋납니다.
+ */
+const HERO_BEFORE = '/hero/before.webp'
+const HERO_AFTER = '/hero/after.webp'
 
 /** 모바일 3 / 데스크톱 5(FR-W01-04). 요청은 5개로 하고 모바일에서 뒤 2개를 숨깁니다. */
 const PREVIEW_COUNT = 5
@@ -226,7 +232,14 @@ const clamp = (value: number) => Math.min(100, Math.max(0, value))
  *   비교가 가능해야 하고, 그게 이 화면의 유일한 인터랙션이라 대체 수단이 없습니다.
  */
 function BeforeAfterSlider() {
-  const [position, setPosition] = useState(50)
+  // 50 이 아니라 65 입니다 — **지금 두 사진에 맞춘 값**입니다. 원본에서 강아지 얼굴이
+  // 가운데보다 살짝 오른쪽에 있어서, 반으로 가르면 분할선이 하필 얼굴을 관통해
+  // «원본» 쪽에 몸통만 남습니다. 첫 화면에서 증명해야 하는 게 «내 애가 유지된다»인데
+  // (노트1) 정작 그 애 얼굴이 안 보이는 상태로 시작하는 셈입니다. 65 면 원본은 얼굴까지
+  // 온전히, 변환은 피규어와 «NUTTi» 소품이 보입니다.
+  //
+  // 사진을 갈아 끼우면 이 값도 다시 봐야 합니다(public/hero/NOTICE.md).
+  const [position, setPosition] = useState(65)
   const frameRef = useRef<HTMLDivElement>(null)
 
   function moveToClientX(clientX: number) {
@@ -296,7 +309,7 @@ function BeforeAfterSlider() {
     >
       <img
         src={HERO_AFTER}
-        alt="변환 결과 예시"
+        alt="변환 결과 예시 — 같은 강아지가 피규어가 되어 «KONG-I» 패키지와 함께 책상에 놓인 사진"
         draggable={false}
         className="absolute inset-0 size-full object-cover"
       />
@@ -304,7 +317,7 @@ function BeforeAfterSlider() {
       <div className="absolute inset-0" style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}>
         <img
           src={HERO_BEFORE}
-          alt="원본 사진 예시"
+          alt="원본 사진 예시 — 나무 데크 위에 엎드린 흰 강아지 사진"
           draggable={false}
           className="size-full object-cover"
         />
