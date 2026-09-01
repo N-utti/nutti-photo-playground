@@ -21,7 +21,8 @@
  * 아니라서 예고할 것이 없습니다 — 이름(`uses_pet_name`)과 같은 이유로 W-04 가 말합니다.
  */
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type { PointerEvent as ReactPointerEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { isApiError } from '../api/client'
 import { useStyleDetail } from '../api/queries'
@@ -36,6 +37,136 @@ import type { FitTag, StyleDetail } from '../api/types'
  * 모르는 등급은 기호 없이 라벨만 보여 줍니다 — 임의 기호를 붙이면 뜻을 지어내는 셈입니다.
  */
 const FIT_MARK: Record<string, string> = { good: '◎', caution: '△' }
+
+/**
+ * 손잡이를 잡아 내려서 닫기.
+ *
+ * 시트 위에 손잡이 막대를 그려 두고 잡히지 않게 두면 그 자체가 거짓 예고입니다 —
+ * «잡아 내릴 수 있다» 고 생긴 것이 안 움직이면 사용자는 앱이 멈춘 줄 압니다.
+ * 닫는 길을 하나 더 만드는 게 아니라 이미 그려 둔 약속을 지키는 쪽이고, 스크림 탭과
+ * Escape 는 그대로 남습니다(키보드·스크린리더는 계속 그쪽 길로 닫습니다 — 드래그는
+ * 포인터에만 있는 동작이라 그 둘을 대신할 수 없습니다).
+ *
+ * **손잡이에서만** 시작합니다. 본문은 세로 스크롤 영역(`overflow-y-auto`)이라 거기서
+ * 드래그를 받으면 스크롤하려던 손가락이 시트를 닫습니다.
+ */
+
+/** 이만큼 내렸으면 «내려놓는 중» 으로 봅니다. 시트 최대 높이(85vh)의 1/6 남짓. */
+const DISMISS_DISTANCE = 96
+/** 짧게 튕겨 내리는 손짓도 닫힘입니다. px/ms — 96px 을 160ms 안에 긋는 속도. */
+const DISMISS_VELOCITY = 0.6
+/** 다만 제자리 탭의 미세한 떨림까지 «튕김» 으로 세지 않도록 최소 거리를 둡니다. */
+const DISMISS_FLICK_DISTANCE = 24
+
+/** 화면 코드의 `motion-safe:` 와 같은 질문 — 여기서는 JS 로 물어야 합니다. */
+const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+type DragState = {
+  pointerId: number
+  /** 잡은 지점. 이동량은 여기서부터 잽니다. */
+  startY: number
+  /** 직전 이동 지점·시각 — 놓는 순간의 속도는 마지막 두 점에서 나옵니다. */
+  y: number
+  at: number
+  dy: number
+  v: number
+}
+
+function useDragToDismiss(sheet: { current: HTMLElement | null }, close: () => void) {
+  const drag = useRef<DragState | null>(null)
+  /** 잡고 있는 동안 걸어 둔 리스너를 걷는 함수. 안 잡고 있으면 null. */
+  const release = useRef<(() => void) | null>(null)
+
+  // close 는 렌더마다 새 함수일 수 있습니다(useModalDialog 와 같은 이유).
+  const closeRef = useRef(close)
+  closeRef.current = close
+
+  // 잡은 채로 시트가 사라지는 경우(드래그 도중 라우트 변경)를 위한 뒷정리.
+  useEffect(() => () => release.current?.(), [])
+
+  return useCallback(
+    (event: ReactPointerEvent) => {
+      const element = sheet.current
+      if (!element || release.current) return
+      /*
+        데스크톱(≥1024px)에서는 이게 바닥에 붙은 시트가 아니라 화면 한가운데 뜨는
+        대화상자입니다 — 아래로 «내려놓을» 가장자리가 없어서, 끌면 그냥 중앙에서
+        어긋납니다. 손잡이는 그대로 두되(모양은 시트 정체성) 드래그만 받지 않습니다.
+      */
+      if (window.matchMedia('(min-width: 1024px)').matches) return
+      // 마우스는 왼쪽 버튼만. 오른쪽 클릭으로 시트가 끌려 내려가면 메뉴와 겹칩니다.
+      if (event.pointerType === 'mouse' && event.button !== 0) return
+
+      const state: DragState = {
+        pointerId: event.pointerId,
+        startY: event.clientY,
+        y: event.clientY,
+        at: event.timeStamp,
+        dy: 0,
+        v: 0,
+      }
+      drag.current = state
+      // 끄는 동안은 손가락을 그대로 따라와야 합니다 — 되돌아갈 때만 애니메이션.
+      element.style.transition = 'none'
+
+      const move = (moved: PointerEvent) => {
+        if (moved.pointerId !== state.pointerId) return
+
+        const dt = moved.timeStamp - state.at
+        if (dt > 0) state.v = (moved.clientY - state.y) / dt
+        state.y = moved.clientY
+        state.at = moved.timeStamp
+        // 위로는 따라가지 않습니다 — 시트는 이미 화면 아래 끝에 붙어 있어 올릴 자리가 없습니다.
+        state.dy = Math.max(0, moved.clientY - state.startY)
+        element.style.transform = `translateY(${state.dy}px)`
+      }
+
+      const end = (ended: PointerEvent) => {
+        if (ended.pointerId !== state.pointerId) return
+        drag.current = null
+        release.current?.()
+
+        // pointercancel(시스템이 제스처를 가져간 경우)은 «놓았다» 가 아닙니다 — 되돌립니다.
+        const dismiss =
+          ended.type === 'pointerup' &&
+          (state.dy >= DISMISS_DISTANCE ||
+            (state.v >= DISMISS_VELOCITY && state.dy >= DISMISS_FLICK_DISTANCE))
+
+        if (dismiss) {
+          // 내린 자리에 둔 채로 닫습니다. 라우트가 바뀌며 시트가 통째로 사라집니다.
+          closeRef.current()
+          return
+        }
+
+        element.style.transition = prefersReducedMotion()
+          ? ''
+          : 'transform 200ms cubic-bezier(0.2, 0, 0, 1)'
+        element.style.transform = ''
+      }
+
+      /*
+        move·up 을 손잡이가 아니라 window 에서 받습니다. 손가락이 손잡이 밖으로 나가도
+        (거의 항상 나갑니다 — 아래로 끄니까) 계속 따라와야 하고, 화면 밖에서 손을 떼도
+        끝을 알아야 하기 때문입니다.
+
+        effect 가 아니라 **여기서 바로** 겁니다. state 로 올렸다가 effect 에서 걸면
+        리스너가 붙는 시점이 다음 커밋 이후로 밀려서, 잡자마자 튕겨 내리는 손짓의 첫
+        몇 프레임을 놓칩니다(실제 브라우저에서 확인 — 테스트는 act 가 effect 를 즉시
+        비워 주는 바람에 이 구멍을 못 봤습니다).
+      */
+      window.addEventListener('pointermove', move)
+      window.addEventListener('pointerup', end)
+      window.addEventListener('pointercancel', end)
+      release.current = () => {
+        window.removeEventListener('pointermove', move)
+        window.removeEventListener('pointerup', end)
+        window.removeEventListener('pointercancel', end)
+        release.current = null
+      }
+    },
+    [sheet],
+  )
+}
 
 export default function W03StyleDetail() {
   const { styleId } = useParams()
@@ -65,6 +196,7 @@ export default function W03StyleDetail() {
     둡니다 — 그쪽은 탭바까지 모달 밖으로 빼는 일도 겸하고 있습니다(W02 주석).
   */
   const sheetRef = useModalDialog<HTMLDivElement>(close)
+  const startDrag = useDragToDismiss(sheetRef, close)
 
   return (
     <div className="fixed inset-0 z-30 flex flex-col justify-end desktop:items-center desktop:justify-center">
@@ -84,7 +216,19 @@ export default function W03StyleDetail() {
         tabIndex={-1}
         className="relative max-h-[85vh] w-full overflow-y-auto rounded-t-2xl bg-surface px-4 pt-2 pb-6 outline-none desktop:max-w-lg desktop:rounded-2xl desktop:pt-3"
       >
-        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-rule" aria-hidden />
+        {/*
+          손잡이. 막대 자체는 4px 이라 손가락으로 못 잡으므로 잡는 판을 따로 둡니다 —
+          시트의 안쪽 여백을 도로 먹어(`-mx-4 -mt-2`) 위 가장자리까지 넓히고, `py-2` 로
+          다시 밀어 **막대의 위치와 아래 12px 여백은 예전 그대로** 둡니다.
+          `touch-none` 이 없으면 아래로 긋는 순간 브라우저가 스크롤로 가져갑니다.
+        */}
+        <div
+          aria-hidden
+          onPointerDown={startDrag}
+          className="-mx-4 -mt-2 mb-1 flex cursor-grab touch-none justify-center px-4 py-2 active:cursor-grabbing desktop:cursor-default"
+        >
+          <div className="h-1 w-10 rounded-full bg-rule" />
+        </div>
 
         {isPending ? (
           <SheetSkeleton />
