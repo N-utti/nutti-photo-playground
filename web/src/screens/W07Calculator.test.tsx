@@ -2,7 +2,7 @@
  * W-07 · 계산기로 넘기기 (screens/W07Calculator.tsx · §2 W-07 · FR-EDGE-10/11).
  *
  * 이 화면의 값어치는 **1단계(견종 40종 그리드)를 건너뛰는 것**입니다. 거기가 이탈이
- * 가장 큰 구간이라, 사진에서 견종을 알아냈으면 2단계부터 시작시킵니다.
+ * 가장 큰 구간이라, 만들 때 견종을 입력했으면 2단계부터 시작시킵니다.
  *
  * 그래서 틀리는 방향이 둘입니다. 견종을 모르는데 안다고 하면 사용자는 남의 강아지
  * 기준으로 계산된 간식량을 받고, 아는데 모른다고 하면 이 출구가 존재할 이유가
@@ -52,10 +52,10 @@ describe('W-07 · 계산기로 넘기기', () => {
     renderAt('?job_id=job_01HQZX')
 
     expect(await screen.findByRole('heading', { name: '콩이는 하루 몇 g까지 괜찮을까?' })).toBeInTheDocument()
-    expect(screen.getByText('사진에서 토이푸들 · 소형으로 봤어요 · 2단계부터 시작')).toBeInTheDocument()
+    expect(screen.getByText('입력한 견종 토이푸들 · 소형 · 2단계부터 시작')).toBeInTheDocument()
   })
 
-  it('사진에서 가져온 값이라고 밝히고 고칠 수 있다고 말한다', async () => {
+  it('입력한 값이라고 밝히고 고칠 수 있다고 말한다', async () => {
     /*
       노트4 — 견종 판별은 부정확할 수 있습니다. 단정하면 신뢰를 잃으므로 출처를 밝히고,
       **넘어가기 전에** 되돌릴 길이 있다는 걸 말합니다. 계산기로 넘어간 뒤에 알려 주면
@@ -64,38 +64,38 @@ describe('W-07 · 계산기로 넘기기', () => {
     mockLink()
     renderAt('?job_id=job_01HQZX')
 
-    expect(await screen.findByText(/사진에서 가져온 값이에요/)).toBeInTheDocument()
+    expect(await screen.findByText(/입력한 값이에요/)).toBeInTheDocument()
   })
 
   it('견종을 모르면 단정하지 않고 1단계부터 시작한다 (FR-EDGE-10)', async () => {
     /*
-      비전이 견종을 확신하지 못하면 필드가 빈 채로 옵니다. 이때 «푸들» 같은 기본값을
+      견종을 입력하지 않으면 필드가 빈 채로 옵니다. 이때 «푸들» 같은 기본값을
       끼워 넣으면 남의 강아지 기준으로 계산된 간식량이 나갑니다 — 이 앱에서 사람이
       실제로 먹이는 양을 정하는 유일한 숫자라 오차의 비용이 다릅니다.
     */
     mockLink({ breed_code: null, breed_label: null, size_label: null, calculator_url: 'https://nutti.co.kr/calculator.html' })
     renderAt('?job_id=job_01HQZX')
 
-    expect(await screen.findByText('견종을 확인하지 못했어요 · 1단계부터 시작')).toBeInTheDocument()
-    // 2단계부터라는 약속을 못 지키므로 «사진에서 가져온 값» 안내도 없어야 합니다.
-    expect(screen.queryByText(/사진에서 가져온 값이에요/)).not.toBeInTheDocument()
+    expect(await screen.findByText('견종을 입력하지 않았어요 · 1단계부터 시작')).toBeInTheDocument()
+    // 2단계부터라는 약속을 못 지키므로 «입력한 값» 안내도 없어야 합니다.
+    expect(screen.queryByText(/입력한 값이에요/)).not.toBeInTheDocument()
   })
 
-  it('믹스견으로 넘길 때는 «사진에서 가져온 값» 이라고 하지 않는다 (FR-EDGE-11)', async () => {
+  it('믹스견으로 넘길 때는 «입력한 값» 이라고 하지 않는다 (FR-EDGE-11)', async () => {
     /*
-      Q9 확정(PR #122) 뒤 이 응답은 두 사연을 한 값으로 보냅니다 — 비전이 진짜
-      믹스견을 봤거나, 본 견종이 계산기 40종에 없어 서버가 대신 넣었거나. 뒤쪽이면
-      «사진에서 가져온 값» 은 사진 탓이 아닌 것을 사진 탓으로 돌리는 말이고, 그러면
+      Q9 확정(PR #122) 뒤 이 응답은 두 사연을 한 값으로 보냅니다 — 사용자가 진짜
+      믹스견을 골랐거나, 쓴 견종이 계산기 40종에 없어 서버가 대신 넣었거나. 뒤쪽이면
+      «입력한 값» 은 사진 탓이 아닌 것을 사진 탓으로 돌리는 말이고, 그러면
       사용자는 고쳐야 할 자리(계산기 1단계)가 아니라 사진을 다시 찍습니다.
     */
     mockLink({ breed_code: '믹스견', breed_label: '믹스견', size_label: '중형' })
     renderAt('?job_id=job_01HQZX')
 
     expect(
-      await screen.findByText('견종을 하나로 좁히지 못해 믹스견 · 중형으로 넘겨요 · 2단계부터 시작'),
+      await screen.findByText('믹스견 · 중형으로 넘겨요 · 2단계부터 시작'),
     ).toBeInTheDocument()
     expect(screen.getByText('계산기 1단계에서 견종을 직접 고를 수 있어요.')).toBeInTheDocument()
-    expect(screen.queryByText(/사진에서 가져온 값이에요/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/입력한 값이에요/)).not.toBeInTheDocument()
   })
 
   it('이름을 모르면 «우리 아이»로 묻는다', async () => {

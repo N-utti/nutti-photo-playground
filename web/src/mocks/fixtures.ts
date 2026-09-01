@@ -311,7 +311,6 @@ export const uploadOk: UploadResult = {
   image_url: placeholderImage('업로드 원본', undefined, SOURCE_SIZE),
   blocking_issue: null,
   warnings: [],
-  breed_estimate: { code: 'toy_poodle', label: '토이푸들', confidence: 0.82 },
 }
 
 export const uploadWarned: UploadResult = {
@@ -321,29 +320,9 @@ export const uploadWarned: UploadResult = {
   warnings: [
     { code: 'QUALITY_WARNING', message: '얼굴이 조금 어두워요', detail: { issues: ['dark'] } },
   ],
-  /*
-    FR-EDGE-11 · **계산기 40종에 없는 견종**이 여기서 시작됩니다(Q9 확정, PR #122).
-
-    예전엔 이 자리에 `{code:'mixed', label:'믹스견'}` 이 들어 있었는데, 그건 폴백을
-    흉내 낸 게 아니라 폴백의 *결과*를 미리 적어 둔 것이었습니다. 믹스견은 계산기
-    목록에 실재하는 항목이라 그대로 매칭될 뿐, «목록 밖 견종이 믹스견으로 바뀌는»
-    순간은 아무 데서도 안 일어납니다. 목록에 없는 이름을 넣어야 그 갈래가 밟힙니다.
-
-    `code` 를 null 로 두는 것도 일부러입니다 — 서버가 매칭에 쓰는 건 `label` 이고
-    (`app/routers/results.py`), 비전이 주는 `code` 는 계산기와 값 도메인을 공유하지
-    않습니다. 코드가 없어도 견종은 넘어가야 맞습니다.
-  */
-  breed_estimate: { code: null, label: '골든두들', confidence: 0.41 },
 }
 
-/**
- * FR-EDGE-08 · 강아지가 없는 사진 — 경고만, 진행 허용.
- *
- * `breed_estimate` 가 `null` 인 게 이 케이스의 핵심입니다. 강아지를 못 찾았으니
- * 견종도 없고, 그러면 W-06 계산기 배너가 «추정 실패» 문구로 떨어져야 합니다
- * (FR-EDGE-10 · api/calculatorLink.ts). 업로드 경고 하나가 결과 화면 출구까지
- * 이어지는 유일한 케이스라, 여기서 견종을 채워 두면 그 연결이 안 밟힙니다.
- */
+/** FR-EDGE-08 · 강아지가 없는 사진 — 경고만, 진행 허용. */
 export const uploadNoDog: UploadResult = {
   upload_id: 'c1d2e3f4-0000-4000-8000-00000000ed08',
   image_url: placeholderImage('업로드 원본', undefined, SOURCE_SIZE),
@@ -351,7 +330,6 @@ export const uploadNoDog: UploadResult = {
   warnings: [
     { code: 'NOT_A_DOG', message: '강아지를 찾지 못했어요', detail: { issues: ['no_subject'] } },
   ],
-  breed_estimate: null,
 }
 
 /** FR-EDGE-09 · 여러 마리 — "함께 변환" 안내 후 진행 허용. */
@@ -362,7 +340,6 @@ export const uploadMultiSubject: UploadResult = {
   warnings: [
     { code: 'MULTI_SUBJECT', message: '강아지가 두 마리 보여요', detail: { count: 2 } },
   ],
-  breed_estimate: { code: 'toy_poodle', label: '토이푸들', confidence: 0.63 },
 }
 
 /**
@@ -379,7 +356,6 @@ export const uploadHumanFaceWarned: UploadResult = {
   warnings: [
     { code: 'HUMAN_FACE_DETECTED', message: '사람 얼굴이 함께 담겼어요', detail: { faces: 1 } },
   ],
-  breed_estimate: { code: 'toy_poodle', label: '토이푸들', confidence: 0.77 },
 }
 
 export const uploadHumanFaceBlocked: UploadResult = {
@@ -390,7 +366,6 @@ export const uploadHumanFaceBlocked: UploadResult = {
     message: '사람 얼굴이 담긴 사진은 지금 만들 수 없어요. 강아지만 나온 사진을 골라주세요.',
   },
   warnings: [],
-  breed_estimate: null,
 }
 
 export const uploadBlocked: UploadResult = {
@@ -401,7 +376,6 @@ export const uploadBlocked: UploadResult = {
     message: '누띠는 강아지 전용이에요. 다른 사진을 골라주세요.',
   },
   warnings: [],
-  breed_estimate: null,
 }
 
 // ---------------------------------------------------------------- 펫 · 크레딧 · 보관함

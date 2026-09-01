@@ -1,15 +1,14 @@
 /**
  * 계산기 링크에서 화면 문구를 뽑는 규칙 (05-api-spec §2 W-07 · FR-EDGE-10/11).
  *
- * W-06 배너와 W-07 화면이 **같은 문장**을 말해야 합니다. 한쪽만 "푸들로 봤어요"라고
- * 하고 다른 쪽이 "확인하지 못했어요"라고 하면 같은 추정을 두고 서로 다른 말을 하는
- * 셈이라, 3케이스 분기를 여기 한 곳에 둡니다.
+ * W-06 배너와 W-07 화면이 **같은 문장**을 말해야 합니다. 3케이스 분기를 여기 한 곳에
+ * 둡니다. 견종은 W-04 에서 사용자가 고르거나 직접 쓴 값입니다(비전 추정 아님).
  *
  * **Q9 확정으로 갈래를 알아볼 수 있게 됐습니다**(PR #122). 계산기에는 코드 체계가
  * 없고 한글 견종명이 곧 키라, `breed_code` = `breed_label` = 한글명이고 목록은
  * 40종입니다(`app/breeds.py` 스냅샷). 폴백 표식도 `mixed` 가 아니라 **`믹스견`** 입니다.
  *
- *   정상   : 목록 40종에 매칭       → "사진에서 토이푸들 · 소형으로 봤어요"
+ *   정상   : 목록 40종에 매칭       → "입력한 견종 토이푸들 · 소형"
  *   폴백   : breed_code === '믹스견' → 목록 밖이라 믹스견으로 넘김(FR-EDGE-11)
  *   완전실패: breed_code === null    → URL 에 breed 파라미터가 없고 1단계부터(FR-EDGE-10)
  *
@@ -21,8 +20,8 @@ import type { CalculatorLink } from './types'
 
 /**
  * 목록 밖 견종의 폴백 표식(FR-EDGE-11). 계산기 목록에 **실재하는 항목**이기도 해서,
- * 이 값이 왔다는 것만으로 "폴백이었다"고 단정할 수 없습니다 — 비전이 진짜로 믹스견을
- * 봤을 때도 같은 값이 옵니다. 그래서 아래 문구는 둘 다에 대해 참이어야 합니다.
+ * 이 값이 왔다는 것만으로 "폴백이었다"고 단정할 수 없습니다 — 사용자가 직접 믹스견을
+ * 골랐을 때도 같은 값이 옵니다. 그래서 아래 문구는 둘 다에 대해 참이어야 합니다.
  */
 export const MIX_BREED = '믹스견'
 
@@ -54,23 +53,20 @@ export function calculatorHeadline(link: Pick<CalculatorLink, 'calculator_url'>)
 export type EstimateKind = 'matched' | 'mixed' | 'unknown'
 
 /**
- * 추정 요약 한 줄. 노트3 — 1단계(40종 그리드)가 이탈이 가장 큰 구간이라 건너뛴다는
- * 게 이 출구의 값어치이고, 노트4 — 믹스견은 판별이 부정확하므로 **단정하지 않고
- * 출처를 밝힙니다**.
+ * 견종 요약 한 줄. 노트3 — 1단계(40종 그리드)가 이탈이 가장 큰 구간이라 건너뛴다는
+ * 게 이 출구의 값어치입니다.
  *
- * 믹스견을 따로 가르는 이유가 그 노트4 입니다. 한 갈래로 묶으면 "사진에서 믹스견 ·
- * 중형으로 봤어요"가 나가는데, 폴백으로 온 값이면 사진에 믹스견이 있었다는 말이
- * **거짓**입니다(비전은 «골든두들» 이라고 했고 그게 목록에 없었을 뿐입니다). 반대로
- * 비전이 진짜 믹스견을 봤을 수도 있어 "목록에 없어서"라고 단정하는 것도 틀립니다 —
- * 응답만으로는 둘을 구분할 수 없습니다. 그래서 둘 다에 대해 참인 말만 합니다:
- * 견종을 하나로 좁히지 못했고, 계산기에는 믹스견으로 넘긴다.
+ * 믹스견을 따로 가르는 이유: 폴백으로 온 값이면 «입력한 견종 믹스견» 은 거짓입니다
+ * (사용자는 «골든두들» 이라고 썼고 그게 목록에 없었을 뿐입니다). 반대로 진짜 믹스견을
+ * 골랐을 수도 있어 "목록에 없어서"라고 단정하는 것도 틀립니다 — 응답만으로는 둘을
+ * 구분할 수 없습니다. 그래서 둘 다에 대해 참인 말만 합니다: 계산기에는 믹스견으로 넘긴다.
  */
 export function estimateSummary(
   link: Pick<CalculatorLink, 'breed_label' | 'size_label'>,
 ): { text: string; prefilled: boolean; kind: EstimateKind } {
   const breed = link.breed_label?.trim()
   if (!breed) {
-    return { text: '견종을 확인하지 못했어요 · 1단계부터 시작', prefilled: false, kind: 'unknown' }
+    return { text: '견종을 입력하지 않았어요 · 1단계부터 시작', prefilled: false, kind: 'unknown' }
   }
 
   /*
@@ -86,16 +82,16 @@ export function estimateSummary(
 
   if (!size) {
     const text = mixed
-      ? `견종을 하나로 좁히지 못해 ${MIX_BREED}으로 넘겨요 · 2단계부터 시작`
-      : `사진에서 본 견종 · ${breed} · 2단계부터 시작`
+      ? `${MIX_BREED}으로 넘겨요 · 2단계부터 시작`
+      : `입력한 견종 · ${breed} · 2단계부터 시작`
     return { text, prefilled: true, kind: mixed ? 'mixed' : 'matched' }
   }
   if (mixed) {
     return {
-      text: `견종을 하나로 좁히지 못해 ${breed} · ${size}으로 넘겨요 · 2단계부터 시작`,
+      text: `${breed} · ${size}으로 넘겨요 · 2단계부터 시작`,
       prefilled: true,
       kind: 'mixed',
     }
   }
-  return { text: `사진에서 ${breed} · ${size}으로 봤어요 · 2단계부터 시작`, prefilled: true, kind: 'matched' }
+  return { text: `입력한 견종 ${breed} · ${size} · 2단계부터 시작`, prefilled: true, kind: 'matched' }
 }

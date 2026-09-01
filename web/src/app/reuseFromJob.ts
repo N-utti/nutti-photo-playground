@@ -51,6 +51,8 @@ export interface JobContext {
    * 아이가» 라는 흐린 문구를 따로 들고 있었습니다.
    */
   petId: string | null
+  /** 그 사진에 이미 적어 둔 견종. W-04 가 견종 칸을 미리 채우는 데 씁니다. */
+  breed: string | null
 }
 
 /**
@@ -70,6 +72,7 @@ export function contextFromJob(job: Job | undefined | null): JobContext | null {
     // 옛 응답에는 없던 필드라 `?? null` 을 둡니다 — undefined 가 새면 «모른다» 와
     // «붙은 강아지가 없다» 가 같은 값이 되고, W-04 가 그 둘을 갈라 씁니다.
     petId: job.pet_id ?? null,
+    breed: job.breed ?? null,
   }
 }
 

@@ -33,6 +33,7 @@ function processingJob(startedSecondsAgo: number, overrides: Partial<Job> = {}):
     style_id: 8,
     upload_id: 'up_01HQZX',
     pet_id: null,
+    breed: null,
     custom_prompt: null,
     inputs: null,
     credit_cost: 1,

@@ -27,6 +27,8 @@ export interface UploadDraft {
    * 다시 올리게 하는 것과 같은 종류의 손실입니다. 스키마 없는 스타일에서는 생략.
    */
   inputs?: Record<string, string>
+  /** 고르거나 직접 쓴 견종. 입력값과 같은 이유로 함께 붙잡습니다. */
+  breed?: string
 }
 
 export function writeUploadDraft(draft: UploadDraft): void {
