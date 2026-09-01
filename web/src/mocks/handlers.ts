@@ -1916,6 +1916,28 @@ export const handlers = [
   ),
 
   // ------------------------------------------------------------ 이벤트 비콘
+  /*
+    인스타 DM 코드 소진 — 목에서는 `NUTTI2026` 만 유효합니다(그 외 404). 팔로우 행이 이미 done 이면
+    실서버처럼 409 ALREADY_CLAIMED.
+  */
+  http.post(`${BASE}/credits/redeem-instagram`, async ({ request }) => {
+    await delay(250)
+    if (state.me.kind !== 'member') return apiError(403, 'MEMBER_ONLY', '로그인이 필요합니다')
+    const { code } = (await request.json()) as { code: string }
+    if (code.toUpperCase() !== 'NUTTI2026') {
+      return apiError(404, 'INSTAGRAM_CODE_INVALID', '코드가 올바르지 않거나 만료됐어요')
+    }
+    const row = state.credits.earn_actions.find((a) => a.action === 'follow_ig')
+    if (!row || row.status !== 'available') {
+      return apiError(409, 'ALREADY_CLAIMED', '이미 받은 크레딧이에요', { action: 'follow_ig' })
+    }
+    state.credits.balance += row.amount
+    row.status = 'done'
+    row.cta = null
+    persist()
+    return HttpResponse.json({ balance: state.credits.balance, amount_granted: row.amount })
+  }),
+
   http.post(`${BASE}/events`, async ({ request }) => {
     const { event_type } = (await request.json()) as { event_type: string }
     if (event_type === 'follow_ig_open') followIgOpened = true
