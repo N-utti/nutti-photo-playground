@@ -34,6 +34,7 @@ import {
 } from '../api/queries'
 import BackButton from '../app/BackButton'
 import ConfirmDialog from '../app/ConfirmDialog'
+import FloatingField from '../app/FloatingField'
 import { amountTone, reasonLabel, shortDate, signedAmount } from '../app/ledgerFormat'
 import { memberInitial, memberLabel, PROVIDER_LABEL } from '../app/memberIdentity'
 import { initialOf } from '../app/initials'
@@ -357,15 +358,14 @@ function RenamePetDialog({ pet, onClose }: { pet: Pet; onClose: () => void }) {
 
   return (
     <ConfirmDialog title="이름 바꾸기" titleId="rename-pet-title" onClose={onClose}>
-      <label htmlFor="pet-name" className="mt-3 block text-sm text-ink-2">
-        강아지 이름
-      </label>
-      <input
+      <FloatingField
         id="pet-name"
+        label="강아지 이름"
+        className="mt-4"
         value={name}
         onChange={(event) => setName(event.target.value)}
+        placeholder="예: 콩이"
         maxLength={20}
-        className="mt-1 w-full rounded-lg border border-rule-strong bg-surface px-3 py-2 text-sm"
       />
       <button
         type="button"

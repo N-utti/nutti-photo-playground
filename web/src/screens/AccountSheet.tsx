@@ -15,6 +15,7 @@ import { useLocation } from 'react-router'
 import { ApiError, isApiError } from '../api/client'
 import { useAuthorizeRedirect, useLocalAuth } from '../api/queries'
 import { rememberAuthReturn } from '../app/authReturn'
+import FloatingField from '../app/FloatingField'
 import { formatRetryAfter } from '../app/retryAfter'
 import { useModalDialog } from '../app/useModalDialog'
 import type { SocialProvider } from '../api/types'
@@ -204,32 +205,29 @@ export default function AccountSheet({
             </div>
 
             <form onSubmit={submit} className="mt-3 space-y-2">
-              <label className="block">
-                <span className="text-xs text-ink-3">이메일</span>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.currentTarget.value)}
-                  autoComplete="email"
-                  maxLength={EMAIL_MAX}
-                  required
-                  className="mt-1 w-full rounded-lg border border-rule bg-paper px-3 py-2 text-sm"
-                />
-              </label>
-              <label className="block">
-                <span className="text-xs text-ink-3">
-                  비밀번호 {mode === 'register' && `(${PASSWORD_MIN}자 이상)`}
-                </span>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(event) => setPassword(event.currentTarget.value)}
-                  autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
-                  maxLength={PASSWORD_MAX}
-                  required
-                  className="mt-1 w-full rounded-lg border border-rule bg-paper px-3 py-2 text-sm"
-                />
-              </label>
+              <FloatingField
+                label="이메일"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.currentTarget.value)}
+                placeholder="example@email.com"
+                autoComplete="email"
+                maxLength={EMAIL_MAX}
+                required
+              />
+              <FloatingField
+                /*
+                  가입일 때만 길이를 라벨에 답니다. 로그인 칸에 «8자 이상» 이 붙으면
+                  이미 만든 비밀번호에 대한 조건처럼 읽혀서 거짓말이 됩니다.
+                */
+                label={mode === 'register' ? `비밀번호 (${PASSWORD_MIN}자 이상)` : '비밀번호'}
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.currentTarget.value)}
+                autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+                maxLength={PASSWORD_MAX}
+                required
+              />
 
               {/*
                 이슈 #17 — MVP 에는 비밀번호 재설정도 이메일 인증도 없습니다. 가입 이메일의
