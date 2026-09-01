@@ -61,11 +61,24 @@ localhost:8000/openapi.json` 의 `paths['/v1/auth/me']` 키로 확인됩니다).
 켜집니다. 키가 없으면 업로드는 경고 없이 통과하고, 워커는 포스터라이즈 폴백 이미지를
 만듭니다 — 배선 검증에는 충분하지만 «결과물 품질»은 그 그림으로 판단할 수 없습니다.
 
+### 목 job 은 **즉시 완성**입니다
+
+목에서 만들기를 누르면 대기 화면(W-05)을 스쳐 바로 결과(W-06)로 갑니다 —
+`handlers.ts` 의 `INSTANT_JOBS`. 목은 모델을 부르지 않으므로(그림은 자리표시자)
+예전의 12초는 실서버를 흉내 내는 시간일 뿐이었고, 화면을 고치고 확인하는 반복에서
+매번 그대로 나가는 비용이었습니다.
+
+**그래서 W-05 는 기본 경로에서 밟히지 않습니다.** 대기·진행 막대·지연 안내는 시간이
+있어야 존재하는 화면이라, 손볼 때는 아래 시나리오 중 하나를 먼저 켜세요 —
+예전 기본값(12초)은 `job:normal` 에 남겨 뒀습니다. 안 켜면 화면이 지나가 버려
+«고쳤는데 확인이 안 되는» 상태가 됩니다.
+
 ### 목 시나리오 강제
 
 브라우저 콘솔에서:
 
 ```js
+localStorage.setItem('nutti.mock.scenario', 'job:normal')   // 예전 기본값(1.5초 큐 + 12초 생성) — W-05 를 밟는 유일한 «정상» 경로
 localStorage.setItem('nutti.mock.scenario', 'upload:warn')  // 품질 경고(비차단) · 견종은 계산기 목록 밖(→ 믹스견 폴백)
 localStorage.setItem('nutti.mock.scenario', 'upload:nodog') // 강아지 미검출 경고(FR-EDGE-08) · 견종 추정 실패
 localStorage.setItem('nutti.mock.scenario', 'upload:multi') // 여러 마리(FR-EDGE-09)

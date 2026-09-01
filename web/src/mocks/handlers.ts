@@ -8,7 +8,7 @@
  *
  * 시나리오 강제: localStorage 에 `nutti.mock.scenario` 를 넣으면 해당 케이스로 고정됩니다.
  *   upload:warn | upload:nodog | upload:multi | upload:face | upload:face-block | upload:block
- *   job:fail | job:safety | job:retries | job:unknown-error | job:flaky | job:slow | job:queued
+ *   job:normal | job:fail | job:safety | job:retries | job:unknown-error | job:flaky | job:slow | job:queued
  *   credit:empty | credit:clawback | credit:custom-cost-3
  *   styles:no-images | styles:rich
  *   session:expired | guest:ratelimited | session:lost | auth:statefail | cafe24:linked
@@ -488,6 +488,40 @@ const SERVER_PROMPT_BLOCKLIST = [
 const JOB_DURATION_MS = 12_000
 
 /**
+ * **개발 기본값은 «즉시 완성»입니다** — 만들기를 누르면 대기 화면을 스쳐 바로 W-06.
+ *
+ * 목 위에서는 모델을 부르는 일이 애초에 없고(그림은 `placeholderImage`), 남아 있던
+ * 12초는 순전히 «실서버는 이만큼 걸린다» 를 흉내 내는 시간이었습니다. 화면을 고치고
+ * 결과를 확인하는 반복에서 그 12초는 매번 그대로 나가는 비용인데, 그 대가로 보는 것은
+ * 이미 여러 번 본 진행 막대입니다. 개발에서 AI 를 실제로 돌리지 않기로 한 이상
+ * (`.env.development` 의 `VITE_ENABLE_MOCKS=true`) 기다릴 이유도 함께 없어집니다.
+ *
+ * **그 대신 W-05 가 기본 경로에서 사라집니다.** 대기·진행·지연 안내는 시간이 있어야만
+ * 존재하는 화면이라, 밟으려면 아래 시나리오 중 하나를 켜야 합니다 — 그래서 예전
+ * 기본값(12초)을 `job:normal` 로 남겨 둡니다. W-05 를 손볼 때 그걸 안 켜면 화면이
+ * 지나가 버려 «고쳤는데 확인이 안 되는» 상태가 됩니다.
+ *
+ * 테스트는 제외합니다. vitest 는 목을 통해 **대기 상태 자체**를 그리는 테스트를 갖고
+ * 있어서(W-05 · 진행 막대), 여기서 시간을 0 으로 만들면 그 화면들은 존재할 수 없는
+ * 상태를 검증하게 됩니다 — 개발 편의 때문에 회귀 그물을 뜯는 셈입니다.
+ */
+const INSTANT_JOBS = import.meta.env.MODE !== 'test'
+
+/**
+ * 시간이 **본질인** 시나리오들. 즉시 완성이 이들을 덮으면 시나리오가 의미를 잃습니다
+ * — `job:slow` 는 90초를 넘겨야 지연 안내가 뜨고, `job:retries` 는 재시도를 오가는
+ * 그 시간이 곧 검증 대상입니다. `job:normal` 은 예전 기본값(12초)을 되살리는 키입니다.
+ *
+ * 반대로 `job:fail`·`job:safety` 는 여기 없습니다 — 그 시나리오가 보려는 것은 실패
+ * **화면**이지 실패까지의 시간이 아니라, 즉시 도착하는 편이 낫습니다.
+ */
+const TIMED_SCENARIOS = new Set(['job:normal', 'job:slow', 'job:flaky', 'job:retries', 'job:queued'])
+
+function instantJob(): boolean {
+  return INSTANT_JOBS && !TIMED_SCENARIOS.has(scenario())
+}
+
+/**
  * `job:flaky` — 생성 중 서버가 잠깐 5xx 를 뱉는 구간.
  *
  * W-05 는 404(job 이 없음)와 5xx(서버가 지금 답을 못 줌)를 다르게 다룹니다. 전자는
@@ -560,7 +594,8 @@ function jobDuration(): number {
   if (forced === 'job:flaky') return FLAKY_JOB_DURATION_MS
   if (forced === 'job:slow') return SLOW_JOB_DURATION_MS
   if (forced === 'job:retries') return RETRY_TOTAL_MS
-  return JOB_DURATION_MS
+  // 0 이면 `elapsed >= duration` 이 첫 폴링에서 참이라 곧바로 succeeded 입니다.
+  return instantJob() ? 0 : JOB_DURATION_MS
 }
 
 /**
@@ -696,7 +731,17 @@ function projectJob(job: MockJob): Job {
     대기도 90초를 넘으면 «약 48초»가 거짓말이 됨)를 브라우저에서 밟아 보려면 목이
     이 상태를 만들 수 있어야 합니다.
   */
-  const QUEUE_MS = scenario() === 'job:queued' ? Number.POSITIVE_INFINITY : INITIAL_QUEUE_MS
+  /*
+    즉시 완성일 때는 큐 구간도 0 입니다. 1.5초를 남겨 두면 만들기 직후 «대기 중…» 을
+    그만큼 보게 되는데, 그게 바로 없애려던 그 시간입니다. `started_at` 은 그 즉시
+    값이 생겨 §3 계약(큐에 있는 동안만 null)과 어긋나지 않습니다.
+  */
+  const QUEUE_MS =
+    scenario() === 'job:queued'
+      ? Number.POSITIVE_INFINITY
+      : instantJob()
+        ? 0
+        : INITIAL_QUEUE_MS
   const materials = {
     style_id: job.styleId,
     upload_id: job.uploadId,
