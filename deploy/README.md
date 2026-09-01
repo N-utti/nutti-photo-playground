@@ -32,6 +32,8 @@
 
 Cloud Compute · Seoul · Ubuntu 24.04 · 2 vCPU / 2 GB(초기) · 자동 백업(스냅샷) ON · SSH 키 등록.
 
+**생성 완료(2026-09-01)**: `nutti-vps` · vc2-2c-2gb · Seoul · Ubuntu 24.04 · IP **64.176.226.135** · 자동백업 ON($3) · SSH 키 `nutti-deploy`(로컬 `~/.ssh/nutti_deploy_ed25519`). 접속: `ssh -i ~/.ssh/nutti_deploy_ed25519 root@64.176.226.135`
+
 ```bash
 ssh root@<VPS_IP>
 apt update && apt install -y ca-certificates curl git ufw
@@ -55,7 +57,7 @@ cp .env.example .env && nano .env      # 아래 §3 값 채우기
 | `CAFE24_SMS_SENDER_NO` | 카페24 관리자 → SMS 발신번호로 **인증 등록된** 번호의 **등록 ID**(`GET /admin/sms/senders`의 `sender_no`, 예: `2` — 전화번호를 넣으면 422 "There is no sender"). 쇼핑몰 계정 연동 OTP 발송에 사용 — 미설정/SMS 서비스 미사용/잔액 0이면 `link/request`가 502 |
 | `KAKAO_REDIRECT_URI` / `NAVER_REDIRECT_URI` | `https://play.nutti.co.kr/auth/callback/kakao` · `/naver` — 각 콘솔에도 등록 |
 | `ACME_EMAIL` | 운영자 메일 |
-| `R2_*`, `CDN_BASE_URL` | §1 |
+| `R2_*`, `CDN_BASE_URL` | §1. **R2 토큰 전까지는** `R2_ENDPOINT_URL` 비우고 `CDN_BASE_URL=https://api.nutti.co.kr/media` (로컬 디스크 폴백 — `public_url`이 `{CDN}/{key}`라 `/media` 접두를 CDN 값에 포함해야 함) |
 | `ADMIN_ALERT_SLACK_WEBHOOK_URL` | Slack Incoming Webhook |
 | `FAL_KEY` 등 이미지 생성 키 | 로컬 `.env`와 동일 |
 
@@ -117,6 +119,10 @@ crontab -e
 - 카카오/네이버 콜백이 `play.nutti.co.kr/auth/callback/*`로 돌아옴; 쇼핑몰 계정 연동은 아이디 입력 → 실제 SMS 수신 → 코드 입력까지(카페24 앱 권한에 **알림 쓰기**·SMS 잔액 필요)
 - GA4 관리자 → 데이터 스트림 → 도메인 구성에 `play.nutti.co.kr` 추가 → 계산기→놀이터 이동 URL에 `_gl=` 붙는지
 - 관리자 로그인 → `/v1/admin/cafe24/status`가 토큰 상태 반환
+
+## 운영 주의
+- `.env`를 바꾸고 `up -d`하면 **postgres도 env_file을 공유해 재생성**된다(데이터는 `pgdata` 볼륨이라 보존, 수 초 다운). DB 무중단이 필요해지면 postgres 비밀번호를 별도 env로 분리.
+- 배포 후 로컬 PC에서 `play`가 TLS 오류를 내면 로컬 DNS 캐시(옛 카페24 와일드카드 IP) — `ipconfig /flushdns`.
 
 ## 재배포
 
