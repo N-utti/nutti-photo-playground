@@ -63,6 +63,30 @@ function scenario(): string {
 }
 
 /**
+ * 운영이 **회수한** 스타일 (시나리오 `styles:retired`).
+ *
+ * 백엔드 PR #182 의 `DELETE /v1/admin/styles/{id}` 는 물리 삭제가 아니라
+ * `status: retired` 전환입니다. 서버는 회수분을 **세 곳 모두**에서 지웁니다 —
+ * 목록·상세(`app/routers/styles.py` 는 public·ab 만)와 job 생성(`app/routers/jobs.py`
+ * 의 `status__in=["public","ab"]`). 한 곳만 지우면 목이 서버가 낼 수 없는 조합을
+ * 만듭니다: 카탈로그에는 있는데 상세가 404 인 스타일.
+ *
+ * **이미 만든 job 은 그대로 남습니다.** 그게 이 시나리오의 요점입니다 — W-06 은
+ * `job.style_id` 로 상세를 부르는데 그게 404 로 돌아오는 상태를, 목록에서는 이미
+ * 사라진 스타일로 재현합니다. 그래서 순서가 있습니다: **먼저 이 스타일로 결과를 하나
+ * 만든 뒤** 시나리오를 켭니다(README 「목 시나리오 강제」).
+ *
+ * 칸이 있는 스타일을 고릅니다 — 옵션 줄이 사라지는 게 이 갈래의 첫 증상이라, 칸이
+ * 없는 스타일을 고르면 회수 전후가 화면상 똑같아 보입니다.
+ */
+const RETIRED_STYLE_ID =
+  styleCatalog.sections.flatMap((s) => s.styles).find((s) => s.input_fields.length > 0)?.id ?? 1
+
+function retiredStyleId(): number | null {
+  return scenario() === 'styles:retired' ? RETIRED_STYLE_ID : null
+}
+
+/**
  * `upload_id` → 그 업로드가 추정한 견종.
  *
  * 업로드 픽스처마다 `upload_id` 가 고정이라 되짚을 수 있습니다. 별도 저장소를 두지
@@ -1145,7 +1169,20 @@ export const handlers = [
 
     // 기본은 **지금 실서버 그대로** — 시드가 썸네일을 채웁니다(PR #141, mocks/fixtures.ts).
     // 예시 이미지가 없는 스타일은 계약상 여전히 가능해서 시나리오로 남겨 뒀습니다.
-    const catalog = scenario() === 'styles:no-images' ? styleCatalogNoImages : styleCatalog
+    const base = scenario() === 'styles:no-images' ? styleCatalogNoImages : styleCatalog
+    // 회수분은 목록에서도 빠집니다(위 `RETIRED_STYLE_ID` 주석). `total_count` 는 «전체
+    // public 수»라 같이 줄어야 W-02 하단의 "전체 N개"가 실제 카드 수와 맞습니다.
+    const retired = retiredStyleId()
+    const catalog =
+      retired === null
+        ? base
+        : {
+            sections: base.sections.map((s) => {
+              const styles = s.styles.filter((style) => style.id !== retired)
+              return { ...s, count: styles.length, styles }
+            }),
+            total_count: base.total_count - 1,
+          }
 
     let sections = catalog.sections
     if (section === 'popular') {
@@ -1178,6 +1215,11 @@ export const handlers = [
     // 상세의 예시는 카탈로그 썸네일과 **같은 `example_keys`** 에서 나오므로 같은
     // 시나리오를 봅니다 — 한쪽만 채우면 서버가 낼 수 없는 조합이 됩니다(fixtures.ts).
     const forced = scenario()
+    // 회수분은 목록에서 빠지는 것과 **같은 404** 로 답합니다 — W-06 이 job 의
+    // `style_id` 로 부르는 그 조회입니다(위 `RETIRED_STYLE_ID` 주석).
+    if (Number(params.styleId) === retiredStyleId()) {
+      return apiError(404, 'NOT_FOUND', '스타일을 찾을 수 없습니다')
+    }
     const detail = styleDetailFor(
       Number(params.styleId),
       forced === 'styles:no-images' ? 'none' : forced === 'styles:rich' ? 'rich' : 'seeded',
@@ -1274,6 +1316,16 @@ export const handlers = [
       upload_id: string
       pet_id: string | null
       inputs?: Record<string, string>
+    }
+
+    /*
+      회수된 스타일로는 새로 못 만듭니다 — 서버도 상세와 **같은 404** 입니다
+      (`app/routers/jobs.py` 의 `status__in=["public","ab"]` → `_not_found()`).
+      크레딧은 나가지 않습니다: 저 조회가 차감보다 앞입니다. 목도 아래 차감 전에
+      끊어야 «실패했는데 잔액이 줄어 있는» 서버가 낼 수 없는 상태를 안 만듭니다.
+    */
+    if (body.style_id !== null && body.style_id === retiredStyleId()) {
+      return apiError(404, 'NOT_FOUND', '스타일을 찾을 수 없습니다')
     }
     /*
       비용은 **스타일마다 다릅니다**(§3 `credit_cost`) — 여기서 1 로 고정하면 목이

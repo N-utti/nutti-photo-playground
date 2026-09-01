@@ -83,6 +83,7 @@ localStorage.setItem('nutti.mock.scenario', 'credit:clawback') // 주문 취소 
 localStorage.setItem('nutti.mock.scenario', 'credit:custom-cost-3') // 커스텀 비용이 2가 아닌 서버(app_setting, 이슈 #149) — W-02·W-04 링크와 W-08 버튼이 요청 전에 «3 크레딧»을 말하고, 잔액 1이라 402까지 이어짐
 localStorage.setItem('nutti.mock.scenario', 'styles:no-images') // 예시 이미지가 없는 스타일 — 자리표시자·캐러셀 생략(기본 목은 시드가 채운 실서버 그대로 1장)
 localStorage.setItem('nutti.mock.scenario', 'styles:rich')      // 운영이 예시를 더 올리고 궁합 태그를 채운 뒤 — 캐러셀 페이저·궁합 칩
+localStorage.setItem('nutti.mock.scenario', 'styles:retired')   // 운영이 스타일을 회수한 뒤(PR #182 DELETE = status:retired) — 목록·상세·job 생성 셋 다 빠짐. **먼저 그 스타일로 결과를 하나 만든 뒤** 켜세요(아래)
 localStorage.setItem('nutti.mock.scenario', 'session:expired') // 액세스 만료 — 게스트는 재발급 → 404, 회원은 리프레시 회전으로 조용히 복구(PR #57)
 localStorage.setItem('nutti.mock.scenario', 'refresh:fail')    // 만료 + 회전 401 — 회원 재로그인 안내(다른 기기 로그인·30일 초과와 같은 코드)
 localStorage.setItem('nutti.mock.scenario', 'refresh:429')     // 만료 + 회전 429 — 공유 IP 에서 남이 태운 버킷에 걸린 회원(이슈 #11 R3). 세션은 살아 있고 기다리면 풀림
@@ -92,6 +93,14 @@ localStorage.setItem('nutti.mock.scenario', 'auth:statefail')  // 소셜 콜백 
 localStorage.setItem('nutti.mock.scenario', 'cafe24:linked')   // 카페24 연동 409 CAFE24_ALREADY_LINKED
 localStorage.removeItem('nutti.mock.scenario')              // 정상
 ```
+
+**`styles:retired` 는 순서가 있는 시나리오입니다.** 회수는 «그 스타일로 이미 만든 결과»가
+있어야 의미가 있습니다 — 회수분은 **칸이 있는 스타일 하나**(`handlers.ts`
+`RETIRED_STYLE_ID`)고, 시나리오를 켜기 **전에** 그 스타일로 결과를 하나 만든 뒤 켜야
+W-06 의 회수 갈래를 밟습니다. 켜면 그 스타일이 카탈로그에서 사라지고, 상세와 job 생성은
+404 가 됩니다(서버가 지우는 세 곳 그대로 — `styles.py` 의 public·ab 필터와 `jobs.py` 의
+`status__in`). 이미 만든 job 은 그대로 남아 있고, 그 결과 화면이 «다시 만들기» 대신 사진을
+살린 카탈로그 링크를 답니다.
 
 **보관함은 목에서도 회원 전용입니다**(백엔드 PR #156). 게스트로 W-09 를 열면 목록이
 아니라 403 `MEMBER_ONLY` 가 오고 화면은 «로그인하면 여기에 모여요» 를 답니다 — 시드
@@ -439,6 +448,31 @@ PR #181 이 `GET /v1/admin/styles` 를 구현하면서 05-api-spec 의 「전부
 `app/ledgerFormat.ts` 의 `REASON_LABEL` 에 이미 있어 W-10 원장·W-12 미리보기는 무변경입니다
 (`reason` 은 타입도 `string` 이라 값이 늘어도 깨지지 않습니다). 관리자가 조정하면 사용자
 화면에 「고객센터 조정」으로 보인다는 것만 알고 있으면 됩니다.
+
+### 4. 「스타일 삭제」는 회수이고, 그게 사용자 화면을 건드립니다 (#182 · 수정 완료)
+
+`DELETE /v1/admin/styles/{id}`(#182)는 물리 삭제가 아니라 `status: retired` 전환입니다.
+job 이 참조하는 행이 살아 있어서 안전해 보이지만, **`GET /v1/styles/{id}` 는 public·ab
+만 답합니다**(`app/routers/styles.py` `get_style`) — 즉 **이미 만든 결과의 스타일 상세가
+404** 가 되는 상태가 처음 생겼습니다. 그전에는 운영이 DB 를 직접 만져야 나오던 상태입니다.
+
+W-06 이 그 404 에 걸려 있었습니다. `input_fields` 를 못 받으면 옵션 섹션이 통째로 사라지고
+(`fields.length > 0 &&`), `isPending` 만 보던 `schemaPending` 은 false 라 버튼은 그대로
+활성이고, 눌러도 `POST /v1/jobs` 가 같은 이유로 404 라(`jobs.py` 의 `status__in`)
+**아무 일도 안 일어났습니다.** 크레딧은 안 나갑니다 — 그 조회가 차감보다 앞입니다.
+
+지금은 갈라서 다룹니다. **404 = 회수**는 기다려도 안 풀리므로 버튼을 잠그는 대신 사진을
+살린 카탈로그 링크(`from_job`)로 바꾸고 이유를 한 줄 답니다. **그 외 에러**는 스타일이
+살아 있는데 조회만 실패한 것이라 `schemaPending` 과 똑같이 잠급니다. 화면을 열어 둔 사이에
+회수된 경우(캐시 10분)는 클릭이 404 를 만나는데, W-06 에는 `createJob.error` 를 그리는
+자리가 아예 없어서 그것도 조용했습니다 — W-04 는 같은 실패를 이미 적고 있었습니다.
+
+브라우저로 밟으려면 시나리오 `styles:retired`(위 「목 시나리오 강제」 — **순서가 있습니다**).
+
+나머지 쓰기 3종은 프론트 무변경입니다: `POST` 는 `status: draft` 로 만들어 공개 전까지
+안 보이고, `PATCH` 의 `input_fields` 변경은 `restoredInputValues` 가 지금 스키마로 이미
+거릅니다(이슈 #127). `input_fields` 항목의 `label` 필수(400)는 `_resolve_input_values` 의
+500 을 입구에서 막은 것이라 프론트가 얻는 쪽입니다.
 
 목(`mocks/handlers.ts`)에는 `/admin/*` 핸들러가 **하나도 없습니다** — 화면을 시작하는 첫
 작업은 화면이 아니라 목입니다.
