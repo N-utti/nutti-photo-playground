@@ -87,7 +87,7 @@ function retiredStyleId(): number | null {
 
 /** 생성·수정 응답 모양. 목록(`Pet`)과 달리 `latest_upload_id` 가 없습니다(§3). */
 function petSummary(pet: Pet): PetSummary {
-  return { id: pet.id, name: pet.name, thumbnail_url: pet.thumbnail_url }
+  return { id: pet.id, name: pet.name, thumbnail_url: pet.thumbnail_url, breed: pet.breed }
 }
 
 /** 시드 job·펫(목이 지어낸 지난 결과)이 만들 때 입력했다고 치는 견종. */
@@ -1287,6 +1287,7 @@ export const handlers = [
       thumbnail_url: placeholderImage(name),
       // 방금 올린 사진이 곧 이 펫의 최근 업로드입니다 — 다음 방문에서 스킵이 성립합니다.
       latest_upload_id: upload_id ?? null,
+      breed: null,
     }
     petList.push(pet)
     // 응답은 `latest_upload_id` 없이 나갑니다 — 그 필드를 주는 건 목록뿐입니다
@@ -1468,6 +1469,10 @@ export const handlers = [
         balance: Math.max(0, state.credits.balance),
       })
     }
+
+    // 서버는 붙은 강아지의 `breed_label` 도 같이 갱신합니다(app/routers/jobs.py).
+    const attachedPet = body.pet_id ? petList.find((entry) => entry.id === body.pet_id) : undefined
+    if (attachedPet && body.breed?.trim()) attachedPet.breed = body.breed.trim()
 
     const forced = scenario()
     const job: MockJob = {

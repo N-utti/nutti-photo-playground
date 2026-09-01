@@ -30,6 +30,8 @@ class PetResponse(BaseModel):
     id: str
     name: str
     thumbnail_url: str | None
+    # W-04 에서 이 강아지로 만들 때 마지막으로 입력한 견종(POST /v1/jobs breed) — 다음 선택 시 미리 채운다.
+    breed: str | None
 
 
 class PetListItem(PetResponse):
@@ -49,7 +51,12 @@ def _thumbnail_url(pet: PetProfile) -> str | None:
 
 
 def _pet_response(pet: PetProfile) -> dict:
-    return {"id": str(pet.id), "name": pet.name, "thumbnail_url": _thumbnail_url(pet)}
+    return {
+        "id": str(pet.id),
+        "name": pet.name,
+        "thumbnail_url": _thumbnail_url(pet),
+        "breed": pet.breed_label,
+    }
 
 
 @router.get("", response_model=PetListResponse)

@@ -204,3 +204,30 @@ describe('W-08 · 직접 만들기', () => {
     expect(await screen.findByRole('button', { name: '만들기 · 3 크레딧' })).toBeInTheDocument()
   })
 })
+
+describe('W-08 · 견종', () => {
+  beforeEach(() => {
+    sessionStorage.clear()
+  })
+
+  it('고른 견종을 breed 로 보낸다 — 계산기 링크가 같은 값을 쓴다', async () => {
+    withPhoto()
+    const captured: { body: Record<string, unknown> | null } = { body: null }
+    server.use(
+      http.post('*/v1/jobs', async ({ request }) => {
+        captured.body = (await request.json()) as Record<string, unknown>
+        return HttpResponse.json({ job_id: 'job_test', status: 'queued' }, { status: 202 })
+      }),
+    )
+
+    const user = userEvent.setup()
+    renderWithProviders(<W08Creative />)
+
+    await user.selectOptions(await screen.findByLabelText('견종'), '진돗개')
+    await user.type(screen.getByLabelText('우리 애를 무엇으로 만들까요?'), '눈 오는 날 산책')
+    await user.click(screen.getByRole('button', { name: /만들기/ }))
+
+    await waitFor(() => expect(captured.body).not.toBeNull())
+    expect(captured.body?.breed).toBe('진돗개')
+  })
+})

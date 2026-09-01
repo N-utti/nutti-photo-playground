@@ -18,7 +18,7 @@
  * 그래도 새로고침·뒤로가기로 맥락이 살아남아야 하기 때문입니다.
  */
 
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { isApiError } from '../api/client'
 import BackButton from '../app/BackButton'
@@ -52,7 +52,7 @@ import {
 import { StyleInputForm } from '../app/StyleInputForm'
 import Thumbnail from '../app/Thumbnail'
 import { clearUploadDraft, readUploadDraft, writeUploadDraft } from '../api/uploadDraft'
-import { BREED_SIZES } from '../api/breeds'
+import BreedField from '../app/BreedField'
 import type {
   Pet,
   StyleInputField,
@@ -293,6 +293,8 @@ export default function W04Upload() {
     // 거절당한 파일의 문구는 그 선택에만 붙습니다. 강아지를 고른 순간 다른 사진을
     // 고른 것이므로, 남겨 두면 "10MB 초과" 빨간 줄이 성공한 선택 위에 계속 뜹니다.
     setFileError(null)
+    // 이 강아지로 지난번에 입력한 견종이 있으면 미리 채웁니다(`PetSummary.breed`).
+    if (next !== null && pet.breed) setBreed(pet.breed)
     if (next === null || !pet.latest_upload_id) return
 
     const reused: UploadResult = {
@@ -1042,73 +1044,6 @@ function PetNameNotice({
           variant="inline"
           title="아이 이름을 넣어 주세요"
           hint="이 스타일은 그림에 이름이 인쇄돼요. 저장하면 다음에 올 때 이 사진으로 바로 시작할 수 있어요."
-        />
-      )}
-    </section>
-  )
-}
-
-const BREED_NAMES = Object.keys(BREED_SIZES)
-const CUSTOM_BREED = '__custom__'
-
-/**
- * 견종을 **받는 자리** (비전 추정 대체). 계산기 40종 목록(`api/breeds.ts`)에서 고르고,
- * 없으면 «직접 입력» 으로 씁니다. 목록 밖 이름은 그림에는 그대로 들어가고 계산기에는
- * 믹스견으로 넘어갑니다(FR-EDGE-11). 선택 사항입니다 — 비우면 `[breed]` 는 «강아지».
- */
-function BreedField({
-  value,
-  onChange,
-  printsBreed,
-}: {
-  value: string
-  onChange: (value: string) => void
-  printsBreed: boolean
-}) {
-  const id = useId()
-  // 초안 복원·재사용 경로로 목록 밖 값이 들어오면 «직접 입력» 이 열린 채로 시작해야 합니다.
-  const [custom, setCustom] = useState(value !== '' && !BREED_NAMES.includes(value))
-  const selectValue = custom ? CUSTOM_BREED : value
-
-  return (
-    <section className="mt-3 rounded-lg border border-rule bg-surface-2 px-3 py-3">
-      <label htmlFor={id} className="text-sm font-semibold">
-        견종
-      </label>
-      <p className="mt-0.5 text-xs text-ink-3">
-        {printsBreed ? '그림에 견종이 인쇄돼요. ' : ''}목록에 없으면 직접 입력을 골라 주세요.
-      </p>
-      <select
-        id={id}
-        value={selectValue}
-        onChange={(event) => {
-          const next = event.currentTarget.value
-          if (next === CUSTOM_BREED) {
-            setCustom(true)
-            onChange('')
-          } else {
-            setCustom(false)
-            onChange(next)
-          }
-        }}
-        className="mt-2 w-full rounded-lg border border-rule bg-paper px-3 py-2 text-sm"
-      >
-        <option value="">선택 안 함</option>
-        {BREED_NAMES.map((name) => (
-          <option key={name} value={name}>
-            {name}
-          </option>
-        ))}
-        <option value={CUSTOM_BREED}>직접 입력</option>
-      </select>
-      {custom && (
-        <input
-          aria-label="견종 직접 입력"
-          value={value}
-          onChange={(event) => onChange(event.currentTarget.value)}
-          maxLength={50}
-          placeholder="예: 골든두들"
-          className="mt-2 w-full rounded-lg border border-rule bg-paper px-3 py-2 text-sm"
         />
       )}
     </section>

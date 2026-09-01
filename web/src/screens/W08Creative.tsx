@@ -16,7 +16,7 @@
  * 두 화면의 규칙이 갈라집니다.
  */
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { isApiError } from '../api/client'
 import {
@@ -27,6 +27,7 @@ import {
 } from '../api/idempotency'
 import { useCreateJob } from '../api/queries'
 import { clearUploadDraft, readUploadDraft } from '../api/uploadDraft'
+import BreedField from '../app/BreedField'
 import BackButton from '../app/BackButton'
 import { CreditBadge } from '../app/CreditBadge'
 import { useCustomPromptCost } from '../app/customPromptCost'
@@ -71,6 +72,8 @@ export default function W08Creative() {
   // 초안은 sessionStorage 라 마운트 시 한 번 읽으면 됩니다(탭 수명과 같이 감).
   const [draft] = useState(() => readUploadDraft())
   const [prompt, setPrompt] = useState('')
+  /** 고르거나 직접 쓴 견종 — 계산기 링크가 씁니다(커스텀 프롬프트엔 `[breed]` 없음). 비우면 지난 값 유지. */
+  const [breed, setBreed] = useState(draft?.breed ?? '')
   const [insufficient, setInsufficient] = useState<{ required: number; balance: number } | null>(
     null,
   )
@@ -109,6 +112,11 @@ export default function W08Creative() {
   const uploadId = reuse.context?.uploadId ?? draft?.upload.upload_id ?? null
   const sourceImageUrl = reuse.context?.sourceImageUrl ?? draft?.upload.image_url ?? null
   const petId = reuse.context ? null : (draft?.petId ?? null)
+  // 재사용 경로는 그 사진에 이미 적어 둔 견종을 이어받습니다(`GET /v1/jobs/{id}.breed`).
+  const reusedBreed = reuse.context?.breed ?? null
+  useEffect(() => {
+    if (reusedBreed) setBreed(reusedBreed)
+  }, [reusedBreed])
 
   function start() {
     if (!uploadId || !prompt.trim() || rejection) return
@@ -118,6 +126,7 @@ export default function W08Creative() {
       upload_id: uploadId,
       pet_id: petId,
       custom_prompt: prompt.trim(),
+      ...(breed.trim() ? { breed: breed.trim() } : {}),
     }
     // 402 후 재시도는 같은 키, 새 문구는 새 의도라 새 키입니다(api/idempotency.ts).
     const attempt = resumeJobAttempt(intent) ?? beginJobAttempt(intent)
@@ -185,6 +194,8 @@ export default function W08Creative() {
                 className="aspect-square w-full rounded-xl bg-surface-2 object-cover"
               />
             )}
+
+            <BreedField value={breed} onChange={setBreed} />
 
             {/* 노트2 — 문장 틀. 빈칸만 사용자가 채웁니다. */}
             <label

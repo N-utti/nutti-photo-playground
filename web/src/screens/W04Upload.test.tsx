@@ -391,6 +391,19 @@ describe('W-04 · 견종 선택', () => {
     expect(captured.body).not.toHaveProperty('breed')
   })
 
+  it('저장된 강아지를 고르면 그 강아지로 지난번에 입력한 견종을 미리 채운다', async () => {
+    // 목의 «콩이» 는 `breed: '토이푸들'` 입니다(mocks/fixtures.ts) — 서버 `PetSummary.breed`.
+    mockStyle({ code: '찜질방', name: '찜질방' })
+    renderUpload()
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: '콩이 — 최근 사진으로 바로 만들기' }),
+    )
+
+    await screen.findByRole('button', { name: /이대로 만들기/ }, { timeout: 5000 })
+    expect(screen.getByLabelText('견종')).toHaveValue('토이푸들')
+  })
+
   it('재사용 경로에서는 그 사진에 적어 둔 견종을 미리 채운다', async () => {
     mockReuseJob(null, '시고르자브종')
     mockStyle({ code: '3D_피규어', name: '3D 피규어', uses_breed: true })
