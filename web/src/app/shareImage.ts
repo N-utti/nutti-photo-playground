@@ -26,7 +26,9 @@ export async function shareImage(url: string, filename: string, text: string): P
   if (!canShareImage()) return 'unsupported'
   let file: File
   try {
-    const response = await fetch(url)
+    // 결과 <img> 가 Origin 없이 받아 둔 응답(ACAO 헤더 없음)을 브라우저 캐시가 재사용해
+    // CORS 로 죽는다 — 라이브에서 «인스타에 올리기» 가 항상 failed 였던 원인. 캐시를 건너뛴다.
+    const response = await fetch(url, { cache: 'no-store' })
     if (!response.ok) return 'failed'
     const blob = await response.blob()
     file = new File([blob], filename, { type: blob.type || 'image/jpeg' })

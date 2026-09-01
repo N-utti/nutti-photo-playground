@@ -36,7 +36,8 @@ export type SaveImageOutcome = 'saved' | 'opened' | 'failed'
 export async function saveImage(url: string, filename: string): Promise<SaveImageOutcome> {
   let response: Response
   try {
-    response = await fetch(url)
+    // shareImage 와 같은 이유 — <img> 가 캐시한 무-CORS 응답을 피해 네트워크로 간다.
+    response = await fetch(url, { cache: 'no-store' })
   } catch {
     /*
       응답이 아예 없는 경우 — CORS 차단이거나 네트워크가 끊긴 경우입니다. 둘을
