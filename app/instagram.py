@@ -15,6 +15,7 @@ import hashlib
 import hmac
 import logging
 import secrets
+import time
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -45,7 +46,7 @@ def verify_signature(raw_body: bytes, header: str | None) -> bool:
     if not settings.instagram_app_secret or not header or not header.startswith("sha256="):
         return False
     expected = hmac.new(settings.instagram_app_secret.encode(), raw_body, hashlib.sha256).hexdigest()
-    return hmac.compare_digest(expected, header[len("sha256=") :])
+    return hmac.compare_digest(expected.encode(), header[len("sha256=") :].encode())  # str 비교는 non-ASCII에서 TypeError
 
 
 def keyword_matches(text: str) -> bool:
@@ -114,7 +115,8 @@ async def get_token(now: datetime | None = None) -> InstagramToken:
         async with httpx.AsyncClient(timeout=15) as client:
             response = await client.get(
                 f"{GRAPH}/refresh_access_token",
-                params={"grant_type": "ig_refresh_token", "access_token": token.access_token},
+                params={"grant_type": "ig_refresh_token"},
+                headers=_auth(token),
             )
             response.raise_for_status()
             data = response.json()
@@ -122,7 +124,7 @@ async def get_token(now: datetime | None = None) -> InstagramToken:
         token.expires_at = now + timedelta(seconds=int(data.get("expires_in", 60 * 86400)))
         token.last_refresh_error = None
     except (httpx.HTTPError, KeyError, ValueError) as exc:
-        token.last_refresh_error = f"{type(exc).__name__}: {exc}"[:500]
+        token.last_refresh_error = _describe(exc)
         logger.warning("instagram token refresh failed: %s", token.last_refresh_error)
     await token.save(update_fields=["access_token", "expires_at", "last_refresh_error"])
     return token
@@ -131,14 +133,28 @@ async def get_token(now: datetime | None = None) -> InstagramToken:
 # ---------------------------------------------------------------- Graph 호출
 
 
+def _auth(token: InstagramToken) -> dict[str, str]:
+    """토큰은 **헤더로만** — 쿼리스트링에 실으면 httpx 오류 메시지(URL 포함)를 타고 로그·DB로 샌다(보안 리뷰 블로커)."""
+    return {"Authorization": f"Bearer {token.access_token}"}
+
+
+def _describe(exc: BaseException) -> str:
+    """로그용 오류 요약 — URL을 담지 않는다(str(HTTPStatusError)에는 요청 URL이 들어간다)."""
+    response = getattr(exc, "response", None)
+    if response is not None:
+        return f"{type(exc).__name__}: HTTP {response.status_code} {response.text[:200]}"
+    return f"{type(exc).__name__}: {exc}"[:300]
+
+
+def _is_graph_id(value: object) -> bool:
+    """IGSID·댓글 id는 숫자 문자열 — URL 경로에 그대로 들어가므로 그 외는 버린다(경로 주입·SSRF 차단)."""
+    return isinstance(value, str) and value.isdigit() and len(value) <= 64
+
+
 async def _send(payload: dict) -> None:
     token = await get_token()
     async with httpx.AsyncClient(timeout=15) as client:
-        response = await client.post(
-            f"{GRAPH}/{token.ig_user_id}/messages",
-            params={"access_token": token.access_token},
-            json=payload,
-        )
+        response = await client.post(f"{GRAPH}/{token.ig_user_id}/messages", headers=_auth(token), json=payload)
         response.raise_for_status()
 
 
@@ -157,8 +173,7 @@ async def get_user_profile(igsid: str) -> dict:
     token = await get_token()
     async with httpx.AsyncClient(timeout=15) as client:
         response = await client.get(
-            f"{GRAPH}/{igsid}",
-            params={"fields": "username,is_user_follow_business", "access_token": token.access_token},
+            f"{GRAPH}/{igsid}", params={"fields": "username,is_user_follow_business"}, headers=_auth(token)
         )
         response.raise_for_status()
         return response.json()
@@ -187,15 +202,15 @@ async def handle_comment(value: dict) -> None:
     """`comments` 웹훅 — 키워드 댓글에 비공개 답장으로 안내. 실패는 로그(웹훅은 이미 200 응답)."""
     comment_id = value.get("id")
     author = (value.get("from") or {}).get("id")
-    if not comment_id or not author or not keyword_matches(value.get("text", "")):
+    if not _is_graph_id(comment_id) or not _is_graph_id(author) or not keyword_matches(value.get("text", "")):
         return
     try:
         token = await get_token()
-        if str(author) == token.ig_user_id:  # 우리 계정이 단 댓글(답글)
+        if author == token.ig_user_id:  # 우리 계정이 단 댓글(답글)
             return
-        await send_private_reply(str(comment_id), REPLY_TO_COMMENT)
+        await send_private_reply(comment_id, REPLY_TO_COMMENT)
     except (httpx.HTTPError, RuntimeError, KeyError, ValueError) as exc:
-        logger.warning("instagram comment reply failed comment=%s: %s: %s", comment_id, type(exc).__name__, exc)
+        logger.warning("instagram comment reply failed comment=%s: %s", comment_id, _describe(exc))
 
 
 async def handle_message(event: dict) -> None:
@@ -204,14 +219,32 @@ async def handle_message(event: dict) -> None:
     if message.get("is_echo"):  # 우리가 보낸 메시지의 메아리
         return
     igsid = (event.get("sender") or {}).get("id")
-    if not igsid:
+    if not _is_graph_id(igsid) or _throttled(igsid):
         return
     try:
-        profile = await get_user_profile(str(igsid))
+        profile = await get_user_profile(igsid)
         if not profile.get("is_user_follow_business"):
-            await send_message(str(igsid), NOT_FOLLOWING)
+            await send_message(igsid, NOT_FOLLOWING)
             return
-        code = await issue_code(str(igsid), profile.get("username"))
-        await send_message(str(igsid), FOLLOW_OK.format(link=landing_link(code.code), code=code.code))
+        code = await issue_code(igsid, profile.get("username"))
+        await send_message(igsid, FOLLOW_OK.format(link=landing_link(code.code), code=code.code))
     except (httpx.HTTPError, RuntimeError, KeyError, ValueError) as exc:
-        logger.warning("instagram dm handling failed igsid=%s: %s: %s", igsid, type(exc).__name__, exc)
+        logger.warning("instagram dm handling failed igsid=%s: %s", igsid, _describe(exc))
+
+
+DM_THROTTLE = timedelta(seconds=20)
+_last_dm_at: dict[str, float] = {}  # ponytail: 프로세스 로컬 — 워커를 늘리면 Redis
+
+
+def _throttled(igsid: str) -> bool:
+    """같은 사용자에게 20초에 1번만 응답 — 웹훅 재전송·연타·DM 폭탄이 프로필 조회+DM(Graph 쿼터)로 번지지 않게.
+    팔로우하고 바로 다시 답장하는 정상 흐름은 20초면 충분히 지나 있다."""
+    now = time.monotonic()
+    last = _last_dm_at.get(igsid)
+    if last is not None and now - last < DM_THROTTLE.total_seconds():
+        return True
+    _last_dm_at[igsid] = now
+    if len(_last_dm_at) > 10_000:  # 메모리 상한 — 오래된 항목부터 버린다
+        for key in sorted(_last_dm_at, key=_last_dm_at.get)[:5_000]:
+            _last_dm_at.pop(key, None)
+    return False

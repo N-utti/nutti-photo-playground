@@ -78,7 +78,7 @@ async def instagram_verify(
 ) -> PlainTextResponse:
     """Meta 웹훅 구독 확인 — 콘솔의 «확인 토큰»이 일치하면 challenge를 그대로 돌려준다."""
     expected = settings.instagram_webhook_verify_token
-    if hub_mode != "subscribe" or not expected or not secrets.compare_digest(hub_verify_token or "", expected):
+    if hub_mode != "subscribe" or not expected or not secrets.compare_digest((hub_verify_token or "").encode(), expected.encode()):
         raise api_error(403, "UNAUTHORIZED", "invalid verify token")
     return PlainTextResponse(hub_challenge or "")
 

@@ -52,6 +52,7 @@ def graph(monkeypatch: pytest.MonkeyPatch) -> dict:
     monkeypatch.setattr(instagram, "send_private_reply", send_private_reply)
     monkeypatch.setattr(instagram, "send_message", send_message)
     monkeypatch.setattr(instagram, "get_user_profile", get_user_profile)
+    instagram._last_dm_at.clear()
     return calls
 
 
@@ -70,7 +71,7 @@ def _signed(payload: dict) -> tuple[bytes, dict]:
     return raw, {"X-Hub-Signature-256": f"sha256={signature}", "Content-Type": "application/json"}
 
 
-def _comment_event(text: str, author: str = "555", comment_id: str = "c1") -> dict:
+def _comment_event(text: str, author: str = "555", comment_id: str = "9001") -> dict:
     return {
         "object": "instagram",
         "entry": [
@@ -141,14 +142,14 @@ def test_webhook_rejects_bad_signature(client: TestClient, graph: dict):
 
 def test_keyword_comment_gets_private_reply_but_others_do_not(client: TestClient, graph: dict):
     for event in (
-        _comment_event("놀이터 링크 주세요", comment_id="c-keyword"),
-        _comment_event("귀엽다", comment_id="c-plain"),
-        _comment_event("놀이터", author=OUR_IG_ID, comment_id="c-ours"),  # 우리 계정의 답글
+        _comment_event("놀이터 링크 주세요", comment_id="1001"),
+        _comment_event("귀엽다", comment_id="1002"),
+        _comment_event("놀이터", author=OUR_IG_ID, comment_id="1003"),  # 우리 계정의 답글
     ):
         raw, headers = _signed(event)
         assert client.post("/v1/webhooks/instagram", content=raw, headers=headers).status_code == 200
 
-    assert [c for c, _ in graph["private"]] == ["c-keyword"]
+    assert [c for c, _ in graph["private"]] == ["1001"]
     assert "팔로우" in graph["private"][0][1]
 
 
@@ -173,8 +174,8 @@ def test_dm_from_follower_gets_one_code_even_when_webhook_repeats(client: TestCl
 
     codes = client.portal.call(_codes, "555")
     assert len(codes) == 1 and codes[0].follow_verified_at is not None and codes[0].ig_username == "user_555"
-    assert len(graph["dm"]) == 2
-    assert all(f"?ig={codes[0].code}" in text and codes[0].code in text for _, text in graph["dm"])
+    assert len(graph["dm"]) == 1  # 20초 스로틀 — 재전송·연타는 프로필 조회도 DM도 없이 무시
+    assert f"?ig={codes[0].code}" in graph["dm"][0][1]
 
 
 def test_echo_messages_are_ignored(client: TestClient, graph: dict):
@@ -214,6 +215,7 @@ def test_redeem_blocks_second_code_from_same_instagram_account(client: TestClien
     _, first = _member_headers(client)
     assert client.post("/v1/credits/redeem-instagram", headers=first, json={"code": first_code}).status_code == 200
 
+    instagram._last_dm_at.clear()  # 스로틀 창(20초)을 지난 것으로
     client.post("/v1/webhooks/instagram", content=raw, headers=headers)  # 소진됐으니 새 코드 발급
     second_code = client.portal.call(_codes, "555")[1].code
     _, second = _member_headers(client)
@@ -234,3 +236,13 @@ def test_redeem_rejects_unknown_code_and_guest(client: TestClient):
     assert unknown.status_code == 404 and unknown.json()["error"]["code"] == "INSTAGRAM_CODE_INVALID"
     assert shape.status_code == 400
     assert as_guest.status_code == 403
+
+
+def test_non_numeric_ids_are_dropped_before_any_graph_call(client: TestClient, graph: dict):
+    """IGSID·댓글 id는 URL 경로에 들어간다 — `../`·`?` 같은 값은 Graph 호출 전에 버린다."""
+    raw, headers = _signed(_comment_event("놀이터", author="555", comment_id="c1?fields=x"))
+    client.post("/v1/webhooks/instagram", content=raw, headers=headers)
+    raw2, headers2 = _signed(_message_event(sender="../me"))
+    client.post("/v1/webhooks/instagram", content=raw2, headers=headers2)
+
+    assert graph["private"] == [] and graph["dm"] == []
