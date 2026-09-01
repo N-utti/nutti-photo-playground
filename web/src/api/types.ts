@@ -42,6 +42,8 @@ export type ErrorCode =
   | 'CAFE24_MEMBER_NOT_FOUND' // 404 — link/request, 그 아이디의 쇼핑몰 회원 없음
   | 'CAFE24_CODE_INVALID' // 400 — link/verify, 인증번호 불일치·만료(오답 1회로 소비)
   | 'BAD_GATEWAY' // 502 — 카페24 Admin API 실패(토큰·SMS 잔액·발신번호)
+  | 'FOLLOW_IG_NOT_OPENED' // 400 — 팔로우 받기 전에 「팔로우하러 가기」를 안 눌렀거나 10초 안/30분 밖
+  | 'INSTAGRAM_ALREADY_USED' // 409 — 같은 인스타 아이디로 이미 다른 회원이 받음
   | 'HTTP_ERROR' // 백엔드 공통 핸들러의 폴백 (app/main.py:34)
 
 /**
@@ -553,6 +555,16 @@ export interface Credits {
    * 여기 실립니다. 잔액을 보는 화면은 이미 전부 이 쿼리를 구독하므로 왕복이 늘지 않습니다.
    */
   custom_prompt_credit_cost: number
+}
+
+/**
+ * `POST /v1/credits/claim` 본문. follow_ig 는 인스타 아이디가 **필수**입니다 — 인스타는 팔로우
+ * 여부를 조회할 API를 제3자에게 열지 않아, 대신 아이디 실명 + 전 회원 1회 + 「팔로우하러 가기」
+ * 이벤트(follow_ig_open) 10초~30분 뒤에만 받게 합니다.
+ */
+export interface ClaimBody {
+  action: ClaimableAction
+  instagram_username?: string
 }
 
 export interface ClaimResult {

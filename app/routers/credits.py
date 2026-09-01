@@ -1,14 +1,14 @@
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from tortoise.expressions import Q
 
 from app.auth import get_current_member
 from app.common import KST, api_error, member_only, validation_error
 from app.credits import custom_prompt_credit_cost, grant_credits
-from app.models import AppSetting, CreditLedger, CreditReason, GenerationJob, Member, MemberKind
+from app.models import AppSetting, CreditLedger, CreditReason, GenerationJob, Member, MemberKind, MetricEvent
 
 router = APIRouter(prefix="/credits", tags=["credits"])
 
@@ -40,6 +40,15 @@ class CreditsResponse(BaseModel):
 
 class ClaimCreditRequest(BaseModel):
     action: str
+    # follow_ig 전용 — 인스타 아이디(선행 @ 허용). 인스타는 팔로우 여부 조회 API를 제3자에게 열지 않으므로
+    # (Basic Display 폐지, Graph API는 본인 계정 한정) 검증 대신 "아이디 실명 + 전역 1회 + 열어본 직후"로 어뷰징을 막는다.
+    instagram_username: str | None = Field(default=None, max_length=31, pattern=r"^@?[A-Za-z0-9._]{1,30}$")
+
+
+# 팔로우 받기는 "누띠 계정을 열어본 뒤" FOLLOW_IG_MIN_DELAY~FOLLOW_IG_MAX_AGE 사이에만 — 열지도 않고 누르는 봇/연타 차단
+FOLLOW_IG_OPEN_EVENT = "follow_ig_open"
+FOLLOW_IG_MIN_DELAY = timedelta(seconds=10)
+FOLLOW_IG_MAX_AGE = timedelta(minutes=30)
 
 
 class ClaimCreditResponse(BaseModel):
@@ -61,6 +70,32 @@ class LedgerResponse(BaseModel):
 
 def _kst_today() -> date:
     return datetime.now(KST).date()
+
+
+async def _verify_follow_ig(member: Member, instagram_username: str | None) -> str:
+    """팔로우 +2 조건 검사 → 원장 ref_id("ig:<아이디>") 반환. 검증 불가한 팔로우 대신 세 겹의 마찰:
+    ① 아이디 실명(관리자가 실제 팔로워와 대조·회수 가능) ② 같은 아이디는 전 회원 통틀어 1회 ③ 누띠 계정을 연 뒤에만."""
+    if not instagram_username:
+        raise validation_error("instagram_username이 필요합니다", {"action": "follow_ig"})
+    username = instagram_username.lstrip("@").lower()
+    ref_id = f"ig:{username}"
+    now = datetime.now(timezone.utc)
+    opened = await MetricEvent.filter(
+        member_id=member.id,
+        event_type=FOLLOW_IG_OPEN_EVENT,
+        created_at__gte=now - FOLLOW_IG_MAX_AGE,
+        created_at__lte=now - FOLLOW_IG_MIN_DELAY,
+    ).exists()
+    if not opened:
+        raise api_error(
+            400, "FOLLOW_IG_NOT_OPENED", "먼저 「팔로우하러 가기」로 누띠 인스타그램을 열어 주세요", {"action": "follow_ig"}
+        )
+    # 아이디 중복 검사는 열기 검사 **뒤** — 열지도 않은 채 남의 아이디를 넣어 "이미 썼는지" 캐묻는 열거를 막는다(보안 리뷰).
+    # ponytail: 존재 검사 후 지급 — 동시 요청 경합은 원장 UNIQUE(member, dedupe_key)가 회원당 1회는 막고,
+    # 아이디 전역 1회의 경합 창은 관리자 목록 대조로 흡수. ref_id UNIQUE 인덱스는 어뷰징 실측 후.
+    if await CreditLedger.filter(reason=CreditReason.FOLLOW_IG.value, ref_id=ref_id).exists():
+        raise api_error(409, "INSTAGRAM_ALREADY_USED", "이미 다른 계정에서 사용한 인스타그램 아이디예요", {"instagram_username": username})
+    return ref_id
 
 
 async def _amounts() -> dict[str, int]:
@@ -128,15 +163,17 @@ async def claim_credit(body: ClaimCreditRequest, member: Member = Depends(get_cu
         raise validation_error()
 
     amounts = await _amounts()
+    ref_id = None
     if body.action == "follow_ig":
         amount = amounts["follow_ig_amount"]
         dedupe_key = reason = "follow_ig"
+        ref_id = await _verify_follow_ig(member, body.instagram_username)
     else:
         amount = amounts["daily_free_amount"]
         dedupe_key = f"daily:{_kst_today().isoformat()}"
         reason = "daily_free"
 
-    if not await grant_credits(member.id, amount, reason, dedupe_key):
+    if not await grant_credits(member.id, amount, reason, dedupe_key, ref_id=ref_id):
         raise api_error(
             409,
             "ALREADY_CLAIMED",

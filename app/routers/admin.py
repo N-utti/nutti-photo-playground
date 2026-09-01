@@ -18,6 +18,7 @@ from app.models import (
     AdminUser,
     AppSetting,
     Cafe24OauthToken,
+    CreditLedger,
     CreditReason,
     CustomPromptLog,
     GenerationJob,
@@ -441,6 +442,34 @@ async def admin_promote_custom_prompt(
             connection
         ).update(promoted_style=style)
     return _style_response(style)
+
+
+@router.get("/follow-ig/claims")
+async def admin_follow_ig_claims(
+    limit: int = Query(50, ge=1, le=200),
+    cursor: int | None = Query(None, ge=1),
+    _: AdminUser = Depends(get_current_admin),
+):
+    """인스타 팔로우 +2 수령 목록 — 인스타는 팔로우 조회 API가 없어 운영자가 실제 팔로워 목록과 대조하는 자리.
+    허위면 `POST /credits/adjust`(음수)로 회수. cursor = 마지막 항목의 ledger id(내림차순)."""
+    query = CreditLedger.filter(reason=CreditReason.FOLLOW_IG.value, ref_id__startswith="ig:")
+    if cursor is not None:
+        query = query.filter(id__lt=cursor)
+    rows = await query.order_by("-id").limit(limit + 1).values("id", "member_id", "ref_id", "amount", "created_at")
+    page = rows[:limit]
+    return {
+        "items": [
+            {
+                "ledger_id": row["id"],
+                "member_id": str(row["member_id"]),
+                "instagram_username": row["ref_id"].removeprefix("ig:"),
+                "amount": row["amount"],
+                "claimed_at": row["created_at"],
+            }
+            for row in page
+        ],
+        "next_cursor": page[-1]["id"] if len(rows) > limit else None,
+    }
 
 
 @router.post("/credits/adjust")

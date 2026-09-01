@@ -14,7 +14,7 @@ import { auth, calculator, credits, jobs, library, pets, styles, uploads } from 
 import { clearLocalTraces } from './localTraces'
 import { clearSessionStatus } from '../app/sessionStatus'
 import type {
-  ClaimableAction,
+  ClaimBody,
   CreateJobBody,
   Job,
   MemberSession,
@@ -356,7 +356,7 @@ export function useCredits() {
 export function useClaimCredit() {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (action: ClaimableAction) => credits.claim(action),
+    mutationFn: (body: ClaimBody) => credits.claim(body),
     onSuccess: () => {
       // 잔액과 earn_actions[].status 가 동시에 바뀌므로 둘 다 같은 쿼리입니다.
       client.invalidateQueries({ queryKey: queryKeys.credits })

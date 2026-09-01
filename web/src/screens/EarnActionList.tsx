@@ -19,7 +19,7 @@ import {
   NUTTI_INSTAGRAM_URL,
   NUTTI_SHOP_URL,
 } from '../app/externalLinks'
-import type { ClaimableAction, EarnAction, EarnActionRow } from '../api/types'
+import type { ClaimBody, ClaimableAction, EarnAction, EarnActionRow } from '../api/types'
 import AccountSheet from './AccountSheet'
 import ShopLinkSheet from './ShopLinkSheet'
 
@@ -104,11 +104,11 @@ export default function EarnActionList() {
     (a, b) => ACTION_ORDER.indexOf(a.action) - ACTION_ORDER.indexOf(b.action),
   )
 
-  function handleClaim(action: ClaimableAction) {
+  function handleClaim(body: ClaimBody) {
     setGranted(null)
-    claim.mutate(action, {
+    claim.mutate(body, {
       onSuccess: ({ amount_granted, balance }) =>
-        setGranted({ action, amount: amount_granted, balance }),
+        setGranted({ action: body.action, amount: amount_granted, balance }),
     })
   }
 
@@ -119,7 +119,7 @@ export default function EarnActionList() {
           <li key={row.action}>
             <EarnRow
               row={row}
-              claiming={claim.isPending && claim.variables === row.action}
+              claiming={claim.isPending && claim.variables?.action === row.action}
               onClaim={handleClaim}
               onLinkAccount={startLinkAccount}
               onLogin={() => setLoginSheet('earn')}
@@ -161,6 +161,10 @@ export default function EarnActionList() {
         <p role="alert" className="mt-2 text-center text-sm text-danger">
           {isApiError(claim.error, 'ALREADY_CLAIMED')
             ? '이미 받은 크레딧이에요.'
+            : isApiError(claim.error, 'FOLLOW_IG_NOT_OPENED')
+              ? '「팔로우하러 가기」로 누띠 인스타그램을 팔로우한 뒤, 잠시 후 받기를 눌러 주세요.'
+              : isApiError(claim.error, 'INSTAGRAM_ALREADY_USED')
+                ? '이미 다른 계정에서 사용한 인스타그램 아이디예요.'
             : isApiError(claim.error, 'MEMBER_ONLY')
               ? /*
                   게스트의 claim 은 403 MEMBER_ONLY 입니다(PR #58, 이슈 #52). 게스트에게는
@@ -193,7 +197,7 @@ export default function EarnActionList() {
 interface EarnRowProps {
   row: EarnActionRow
   claiming: boolean
-  onClaim: (action: ClaimableAction) => void
+  onClaim: (body: ClaimBody) => void
   onLinkAccount: () => void
   /** `login_required` 줄이 눌렸을 때. 게스트에게는 네 줄 전부가 이 길입니다(PR #58). */
   onLogin: () => void
@@ -294,29 +298,83 @@ function EarnCta({ row, claiming, onClaim, onLinkAccount, onLogin, memberKnown }
   if (!isClaimable(row.action)) return null
 
   const action = row.action
+  if (action === 'follow_ig') return <FollowIgCta row={row} claiming={claiming} onClaim={onClaim} />
 
   return (
     <div className="flex shrink-0 items-center gap-2">
-      {/* 노트3 — 팔로우 여부는 검증하지 않습니다(자율 신고). 그래도 팔로우 유도가
-          목적이므로 계정으로 나가는 길은 열어 둡니다. */}
-      {action === 'follow_ig' && (
-        <a
-          href={NUTTI_INSTAGRAM_URL}
-          target="_blank"
-          rel="noreferrer"
-          className="text-xs text-ink-3 underline hover:text-brand"
-        >
-          열기
-        </a>
-      )}
       <button
         type="button"
-        onClick={() => onClaim(action)}
+        onClick={() => onClaim({ action })}
         disabled={claiming}
         className="rounded-lg border border-rule-strong px-3 py-2 text-xs font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
       >
         {claiming ? '받는 중…' : (row.cta ?? '받기')}
       </button>
+    </div>
+  )
+}
+
+/**
+ * 인스타 팔로우 +2 (PR: follow-ig-hardening).
+ *
+ * 인스타그램은 «A가 B를 팔로우하는지» 를 제3자에게 알려 주는 API 가 없습니다(Basic Display
+ * 폐지, Graph API 는 본인 비즈니스 계정 한정). 그래서 검증 대신 마찰 세 겹입니다 —
+ * ① 인스타 아이디를 적게 하고(운영자가 실제 팔로워와 대조·회수, 05 §5 admin follow-ig)
+ * ② 같은 아이디는 전 회원 통틀어 1회 ③ 「팔로우하러 가기」 를 눌러 누띠 계정을 연 뒤
+ * 10초~30분 안에만 받기. 열기 이벤트(follow_ig_open)는 서버가 시각으로 검사합니다 —
+ * 여기서 버튼을 잠그는 건 UX 이지 방어가 아닙니다.
+ */
+function FollowIgCta({
+  row,
+  claiming,
+  onClaim,
+}: {
+  row: EarnActionRow
+  claiming: boolean
+  onClaim: (body: ClaimBody) => void
+}) {
+  const [username, setUsername] = useState('')
+  const [opened, setOpened] = useState(false)
+  const handle = username.trim().replace(/^@/, '')
+  const valid = /^[A-Za-z0-9._]{1,30}$/.test(handle)
+
+  return (
+    <div className="flex shrink-0 flex-col items-end gap-1.5">
+      <input
+        type="text"
+        aria-label="인스타그램 아이디"
+        placeholder="내 인스타 아이디"
+        autoCapitalize="none"
+        autoCorrect="off"
+        value={username}
+        onChange={(event) => setUsername(event.currentTarget.value)}
+        maxLength={31}
+        className="w-36 rounded-lg border border-rule bg-paper px-2 py-1.5 text-xs"
+      />
+      <div className="flex items-center gap-2">
+        <a
+          href={NUTTI_INSTAGRAM_URL}
+          target="_blank"
+          rel="noreferrer"
+          onClick={() => {
+            // 서버는 이 이벤트의 시각으로 «열고 나서 받았는지» 를 판정합니다(10초~30분).
+            track({ event_type: 'follow_ig_open', properties: { from: 'W-10' } })
+            setOpened(true)
+          }}
+          className="text-xs text-ink-3 underline hover:text-brand"
+        >
+          팔로우하러 가기
+        </a>
+        <button
+          type="button"
+          onClick={() => onClaim({ action: 'follow_ig', instagram_username: handle })}
+          disabled={claiming || !opened || !valid}
+          title={!opened ? '먼저 「팔로우하러 가기」를 눌러 주세요' : !valid ? '인스타 아이디를 입력해 주세요' : undefined}
+          className="rounded-lg border border-rule-strong px-3 py-2 text-xs font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
+        >
+          {claiming ? '받는 중…' : (row.cta ?? '받기')}
+        </button>
+      </div>
     </div>
   )
 }

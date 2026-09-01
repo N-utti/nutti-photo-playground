@@ -51,10 +51,16 @@ describe('목 상태 격리', () => {
 
       클레임은 회원만 됩니다(403 MEMBER_ONLY). 위 로그인이 실제로 먹었는지도 겸해 봅니다.
     */
+    // follow_ig 는 「팔로우하러 가기」 이벤트 + 인스타 아이디가 있어야 합니다(handlers.ts, 서버 규칙과 동일).
+    await fetch(`${BASE}/events`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event_type: 'follow_ig_open', properties: {} }),
+    })
     const claim = await fetch(`${BASE}/credits/claim`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'follow_ig' }),
+      body: JSON.stringify({ action: 'follow_ig', instagram_username: 'kong.mom' }),
     })
     expect(claim.status).toBe(200)
 

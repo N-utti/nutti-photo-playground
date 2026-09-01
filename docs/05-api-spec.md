@@ -48,6 +48,8 @@
 | `EMAIL_TAKEN` | HTTP 에러 | 409 | `POST /v1/auth/register` — 이미 가입된 이메일 |
 | `CAFE24_ALREADY_LINKED` | HTTP 에러 | 409 | 카페24 연동(request/verify) — 이미 다른 회원/다른 카페24 계정에 연동됨 |
 | `CAFE24_MEMBER_NOT_FOUND` | HTTP 에러 | 404 | `POST /v1/auth/cafe24/link/request` — 입력한 아이디/휴대폰 번호의 쇼핑몰 회원이 없음 |
+| `FOLLOW_IG_NOT_OPENED` | HTTP 에러 | 400 | `POST /v1/credits/claim` follow_ig — 「팔로우하러 가기」(`follow_ig_open` 이벤트) 없이/10초 안에/30분 지나서 받기 |
+| `INSTAGRAM_ALREADY_USED` | HTTP 에러 | 409 | `POST /v1/credits/claim` follow_ig — 같은 인스타 아이디로 이미 다른 회원이 받음 |
 | `CAFE24_CODE_INVALID` | HTTP 에러 | 400 | `POST /v1/auth/cafe24/link/verify` — 인증번호 불일치·만료·미발급(오답 1회로 코드 소비, 재발송 필요) |
 | `ALREADY_MEMBER` | HTTP 에러 | 409 | 회원 토큰으로 register/login/소셜 authorize 호출 — 로그인 수단 추가는 MVP 미지원(이슈 #17) |
 | `MEMBER_ONLY` | HTTP 에러 | 403 | **유효한 게스트 토큰**으로 회원 전용 기능 접근(`POST /v1/credits/claim`·카페24 연동) — 401과 달리 토큰은 살아있으므로 클라이언트는 세션을 지우지 말고 로그인 시트를 띄움(이슈 #52) |
@@ -161,7 +163,7 @@
 | A · 4개 획득 행(주문+20/연동+3/팔로우+2/오늘의무료+1)과 각 행의 상태(가능/완료/내일 다시) | `GET /v1/credits` → `earn_actions[]`(action, amount, status, cta) |
 | "쇼핑몰 →" (주문하기) | 정적 링크(쇼핑몰 이동), 지급 자체는 카페24 주문 동기화 배치가 처리 |
 | 연동 +3 행 CTA("연동하기", 미연동 회원) | 쇼핑몰 가입 휴대폰 번호(또는 아이디) 입력 → `POST /v1/auth/cafe24/link/request`(회원 토큰, 카페24가 회원 휴대폰으로 SMS 인증번호 발송) → 6자리 입력 → `POST /v1/auth/cafe24/link/verify`가 +3 지급(§3 인증). 게스트에게는 로그인 유도(§3 로그인 3종) |
-| 각 획득 CTA(팔로우/오늘의무료 받기) | `POST /v1/credits/claim` → `{action: "follow_ig" \| "daily"}`("order"는 배치 자동 지급, "link_account"는 카페24 연동 콜백이 지급하므로 이 엔드포인트로 클레임하지 않음) |
+| 각 획득 CTA(팔로우/오늘의무료 받기) | `POST /v1/credits/claim` → `{action: "follow_ig", instagram_username}` \| `{action: "daily"}` — 팔로우는 인스타 아이디 입력 + 「팔로우하러 가기」(`POST /v1/events {event_type:"follow_ig_open"}`) 10초~30분 뒤에만("order"는 배치 자동 지급, "link_account"는 카페24 연동 콜백이 지급하므로 이 엔드포인트로 클레임하지 않음) |
 | B · 받은 내역 테이블 | `GET /v1/credits/ledger?cursor=`(커서 페이지네이션) → `{reason, ref_label, occurred_on, amount}` |
 
 ### W-11 · 프롬프트 운영 콘솔(내부/관리자) ([#p11](wireframe-spec-v0.5.html#p11))
@@ -762,9 +764,13 @@ custom_prompt_credit_cost는 app_setting 정책값이며, 미설정 시 2로 폴
 #### `POST /v1/credits/claim`
 
 ```json
-// 요청
-{ "action": "follow_ig" }
+// 요청 — daily
+{ "action": "daily" }
+// 요청 — follow_ig: 인스타 아이디 필수(선행 @ 허용, 소문자 정규화)
+{ "action": "follow_ig", "instagram_username": "@kong.mom" }
 ```
+
+> **팔로우 검증 불가 → 마찰 3겹(2026-09-01)**: 인스타그램은 "A가 B를 팔로우하는지"를 제3자에게 알려 주는 API가 없다(Basic Display 폐지, Graph API는 본인 비즈니스 계정 한정). 그래서 `follow_ig`는 ① `instagram_username` 필수 — 원장 `ref_id = "ig:<아이디>"`로 기록해 운영자가 실제 팔로워 목록과 대조·회수(`GET /v1/admin/follow-ig/claims`, 회수는 `POST /v1/admin/credits/adjust` 음수) ② 같은 아이디는 **전 회원 통틀어 1회**(`409 INSTAGRAM_ALREADY_USED`) ③ 프론트가 「팔로우하러 가기」를 누를 때 보낸 `POST /v1/events {event_type: "follow_ig_open"}`가 **10초 이상 30분 이내**에 있어야 함(`400 FOLLOW_IG_NOT_OPENED`). 아이디 형식은 `^@?[A-Za-z0-9._]{1,30}$`, 그 외 `400 VALIDATION_ERROR`.
 ```json
 // 200
 { "balance": 13, "amount_granted": 2 }
@@ -884,6 +890,7 @@ JWT는 `kind: admin` 클레임을 가지며 만료는 회원 토큰과 동일한
 | `POST /v1/admin/custom-prompts/{id}/promote` | 프리셋 스타일로 승격(신규 `style` 행 생성) |
 | `POST /v1/admin/credits/adjust` | 수동 크레딧 조정(CS 대응, `dedupe_key`는 관리자가 사유별로 직접 지정) |
 | `GET /v1/admin/cafe24/status` | `cafe24_oauth_token`의 `last_synced_at`(워터마크)·`expires_at`·`last_refresh_error` 노출 |
+| `GET /v1/admin/follow-ig/claims` | 인스타 팔로우 +2 수령 목록(아이디·회원·시각, 최신순 커서) — 실제 팔로워와 수동 대조용 |
 | `GET /v1/admin/settings` / `PATCH /v1/admin/settings` | `app_setting` key-value 조회·수정(`human_face_policy` 등) |
 
 #### `GET /v1/admin/styles`
@@ -1147,6 +1154,21 @@ CS 대응 등 수동 조정. `dedupe_key`는 관리자가 사유별로 직접 �
 ```
 `409 ALREADY_CLAIMED`: 동일 `dedupe_key` 재요청(`credit_ledger` UNIQUE 충돌).
 `404 NOT_FOUND`: 존재하지 않거나 탈퇴한 `member_id`. `400 VALIDATION_ERROR`: `amount`가 0이거나 음수 조정으로 잔액이 0 미만이 되는 경우. `reason` 기본값은 `cs_adjustment`이며 `credit_ledger.reason` 값만 허용.
+
+#### `GET /v1/admin/follow-ig/claims`
+
+쿼리: `limit?`(기본 50, 최대 200) · `cursor?`(이전 응답 `next_cursor` = 마지막 `ledger_id`).
+
+```json
+// 200
+{
+  "items": [
+    { "ledger_id": 812, "member_id": "8f14e457-…", "instagram_username": "kong.mom", "amount": 2, "claimed_at": "2026-09-01T14:20:11+00:00" }
+  ],
+  "next_cursor": 812
+}
+```
+운영자가 `@nutti_official` 팔로워 목록과 대조해 허위 수령은 `POST /v1/admin/credits/adjust`(음수, `reason: cs_adjustment`)로 회수한다. 별도 회수 엔드포인트는 두지 않는다.
 
 #### `GET /v1/admin/cafe24/status`
 

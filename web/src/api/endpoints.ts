@@ -28,7 +28,7 @@ import type {
   StyleCatalog,
   StyleDetail,
   UploadResult,
-  ClaimableAction,
+  ClaimBody,
 } from './types'
 
 // ---------------------------------------------------------------- 인증
@@ -209,9 +209,8 @@ export const library = {
 export const credits = {
   get: () => request<Credits>('/credits'),
 
-  /** 'order' 는 배치 자동 지급이라 이 경로로 들어오지 않습니다(§2 W-10). */
-  claim: (action: ClaimableAction) =>
-    request<ClaimResult>('/credits/claim', { method: 'POST', json: { action } }),
+  /** 'order' 는 배치 자동 지급이라 이 경로로 들어오지 않습니다(§2 W-10). follow_ig 는 instagram_username 필수. */
+  claim: (body: ClaimBody) => request<ClaimResult>('/credits/claim', { method: 'POST', json: body }),
 
   ledger: (cursor?: string) => request<Paginated<LedgerEntry>>('/credits/ledger', { query: { cursor } }),
 }
