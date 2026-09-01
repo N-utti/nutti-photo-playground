@@ -700,6 +700,26 @@ function Regenerate({ job, label, hint }: { job: Job; label: string; hint?: stri
   // 스키마가 오기 전을 «칸이 없다»로 단정하지 않습니다 — 그 창에서 버튼을 누르면
   // 값이 통째로 빠진 요청이 나가고, 크레딧은 이미 나간 뒤입니다.
   const schemaPending = job.style_id !== null && styleQuery.isPending
+  /*
+    **영영 안 오는 경우**도 같은 단정입니다 (백엔드 PR #182).
+
+    `DELETE /v1/admin/styles/{id}` 는 물리 삭제가 아니라 `status: retired` 전환인데,
+    `GET /v1/styles/{id}` 는 public·ab 만 답하므로(app/routers/styles.py `get_style`)
+    회수된 스타일은 **404** 로 돌아옵니다. 그러면 위 `fields` 가 `[]` 가 되고 옵션
+    섹션이 통째로 사라지는데, `isPending` 만 보던 `schemaPending` 은 false 라 버튼이
+    멀쩡히 활성입니다. 눌러도 `POST /v1/jobs` 가 같은 이유로 404 라(`jobs.py` 의
+    `status__in=["public","ab"]`) **아무 일도 안 일어납니다.**
+
+    둘을 갈라야 하는 이유는 남은 선택지가 다르기 때문입니다.
+
+    - **404 = 회수됨.** 기다려도 안 옵니다. 이 스타일로는 다시 못 만드는 게 확정이라
+      버튼을 잠그는 건 막다른 길만 남기는 셈입니다 — 사진을 살려 카탈로그로 보냅니다
+      (아래 `context` 가 없을 때 쓰는 그 링크와 같은 동선).
+    - **그 외(5xx·네트워크) = 지금만 모름.** 스타일은 살아 있으므로 새로고침이 답입니다.
+      이때 보내면 값이 통째로 빠진 요청이 나가므로 `schemaPending` 과 똑같이 잠급니다.
+  */
+  const styleRetired = isApiError(styleQuery.error, 'NOT_FOUND')
+  const schemaUnavailable = styleQuery.isError && !styleRetired
 
   // 프리필 칸(31개 중 4개)이 있을 때만 강아지 이름을 부릅니다 — 그 칸의 초기값이
   // 곧 그림에 인쇄될 이름이라, 모르면 폼이 «우리 아이» 라고 잘못 말합니다.
@@ -754,6 +774,31 @@ function Regenerate({ job, label, hint }: { job: Job; label: string; hint?: stri
       >
         {keepsPhoto ? '이 사진으로 다른 스타일 고르기' : '다른 사진으로 만들기'}
       </Link>
+    )
+  }
+
+  /*
+    회수된 스타일도 «재료를 모르는» 경우입니다 — 다만 모르는 게 아니라 **없어진**
+    것이라 기다릴 것이 없습니다(위 `styleRetired` 주석). 사진은 살아 있으므로 바로
+    위와 같은 링크로 카탈로그에 보냅니다.
+
+    이유를 한 줄 답니다. «다시 만들기» 가 있던 자리가 말없이 링크로 바뀌면 사용자는
+    무엇이 없어졌는지 모른 채 자기가 뭘 잘못 눌렀다고 생각합니다 — 이 화면에서 다른
+    결과로 가는 경로는 이 버튼 하나뿐이라(이슈 #26) 사라진 것이 눈에 띕니다.
+  */
+  if (styleRetired) {
+    return (
+      <>
+        <Link
+          to={withReuse('/styles', job.job_id)}
+          className="mt-2 block rounded-xl border border-rule px-4 py-3 text-center text-sm text-ink-2 hover:border-rule-strong hover:bg-surface-2 hover:text-ink"
+        >
+          이 사진으로 다른 스타일 고르기
+        </Link>
+        <p className="mt-1 text-center text-xs text-ink-3">
+          이 스타일은 더 이상 제공되지 않아 같은 설정으로는 다시 만들 수 없어요
+        </p>
+      </>
     )
   }
 
@@ -901,19 +946,51 @@ function Regenerate({ job, label, hint }: { job: Job; label: string; hint?: stri
         onClick={regenerate}
         // 스키마를 아직 모르는 동안은 못 누릅니다(위 `schemaPending` 주석). 대개
         // 캐시에 있어 안 보이고, 링크로 처음 연 결과에서만 한 왕복 동안 보입니다.
-        disabled={createJob.isPending || schemaPending}
+        // 스키마 조회가 **실패한** 경우도 같습니다 — 회수(404)는 위에서 이미 빠졌으니
+        // 여기 남는 건 5xx·네트워크뿐이고, 그건 기다리면 풀립니다.
+        disabled={createJob.isPending || schemaPending || schemaUnavailable}
         className="mt-2 w-full rounded-xl border border-rule-strong bg-surface px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
       >
         {schemaPending
           ? '옵션 불러오는 중…'
-          : createJob.isPending
-            ? '보내는 중…'
-            : `${label} · ${cost} 크레딧`}
+          : schemaUnavailable
+            ? '옵션을 불러오지 못했어요'
+            : createJob.isPending
+              ? '보내는 중…'
+              : `${label} · ${cost} 크레딧`}
       </button>
+
+      {schemaUnavailable && (
+        <p className="mt-1 text-center text-xs text-ink-3">
+          잠시 뒤 새로고침하면 다시 만들 수 있어요
+        </p>
+      )}
 
       {submitted && Object.keys(problems).length > 0 && (
         <p role="alert" className="mt-2 text-center text-sm text-danger">
           위 옵션에서 고칠 곳이 있어요.
+        </p>
+      )}
+
+      {/*
+        요청이 실패한 것을 **말은 합니다.** 여기가 비어 있는 동안 W-04 는 같은 실패를
+        이미 적고 있었고(`W04Upload.tsx` 의 `createJob.error.message`), 그래서 같은
+        오류가 어느 화면에서 눌렀느냐에 따라 «안내» 와 «아무 일도 안 일어남» 으로
+        갈렸습니다.
+
+        402 는 뺍니다 — 아래 오버레이가 잔액·필요액까지 들고 따로 뜹니다.
+
+        404 도 뺍니다. 서버 문구가 `"Job, upload, or style not found"` 라 셋 중
+        무엇인지 말해 주지 않고, 그대로 옮기면 영문 원문이 사용자에게 나갑니다. 이
+        화면에서 job 은 방금 그렸으니 남는 건 스타일·업로드고, 둘 다 «카탈로그에서
+        다시» 가 답입니다. 스타일 회수라면 새로고침 뒤에는 위 `styleRetired` 갈래가
+        받습니다 — 이 줄은 화면을 열어 둔 사이에 회수된 경우의 첫 클릭용입니다.
+      */}
+      {createJob.error && !isApiError(createJob.error, 'INSUFFICIENT_CREDIT') && (
+        <p role="alert" className="mt-2 text-center text-sm text-danger">
+          {isApiError(createJob.error, 'NOT_FOUND')
+            ? '이 스타일이나 사진을 더 이상 쓸 수 없어요. 카탈로그에서 다시 골라 주세요.'
+            : createJob.error.message}
         </p>
       )}
 

@@ -376,3 +376,133 @@ describe('W-06 · 지워진 결과', () => {
     expect(screen.queryByText(/간식량 계산하기/)).not.toBeInTheDocument()
   })
 })
+
+/**
+ * W-06 · 운영이 스타일을 회수한 뒤 (백엔드 PR #182).
+ *
+ * `DELETE /v1/admin/styles/{id}` 는 물리 삭제가 아니라 `status: retired` 전환이고,
+ * `GET /v1/styles/{id}` 는 public·ab 만 답합니다 — 그래서 **이미 만든 job 의 스타일
+ * 상세가 404** 가 되는 상태가 생겼습니다. 그전에는 운영이 DB 를 직접 만져야 나오던
+ * 상태라 아무도 안 밟았습니다.
+ *
+ * 이 갈래가 위험한 건 조용해서입니다. `input_fields` 를 못 받으면 옵션 섹션이 통째로
+ * 사라지는데(`fields.length > 0 &&`) 버튼은 그대로 남고, 눌러도 `POST /v1/jobs` 가
+ * 같은 이유로 404 라 **아무 일도 안 일어납니다.** 화면만 보는 QA 로는 «옵션이 없는
+ * 스타일» 과 구별되지 않습니다.
+ */
+describe('W-06 · 회수된 스타일', () => {
+  /** 아직 살아 있는 스타일. 상세가 와야 버튼이 «옵션 불러오는 중…» 에서 풀립니다. */
+  function mockStyleAlive() {
+    server.use(
+      http.get('*/v1/styles/:styleId', () =>
+        HttpResponse.json({
+          id: 8,
+          code: '레고',
+          name: '레고',
+          credit_cost: 1,
+          examples: [],
+          fit_tags: [],
+          avg_duration_seconds: 48,
+          output_count: 1,
+          uses_pet_name: false,
+          uses_breed: false,
+          input_fields: [],
+        }),
+      ),
+    )
+  }
+
+  /** 회수분의 상세. 서버는 목록에서 빼는 것과 같은 404 로 답합니다. */
+  function mockStyleRetired() {
+    server.use(
+      http.get('*/v1/styles/:styleId', () =>
+        HttpResponse.json(
+          { error: { code: 'NOT_FOUND', message: '스타일을 찾을 수 없습니다', detail: {} } },
+          { status: 404 },
+        ),
+      ),
+    )
+  }
+
+  it('재시도가 영영 안 되는 버튼 대신 사진을 살린 출구를 준다', async () => {
+    /*
+      버튼을 «잠그는» 것으로는 부족합니다 — 회수는 기다린다고 풀리지 않아서, 잠그면
+      막다른 길만 남습니다. 업로드는 그대로 살아 있으므로 `from_job` 을 달아 카탈로그로
+      보냅니다(그게 없으면 방금 쓴 사진을 다시 올리게 되고 새 upload_id 가 발급돼
+      PR #37 이 막아 둔 함정에 그대로 빠집니다).
+    */
+    mockStyleRetired()
+    renderResult(succeededJob())
+
+    const link = await screen.findByRole('link', { name: '이 사진으로 다른 스타일 고르기' })
+    expect(link).toHaveAttribute('href', `/styles?from_job=${JOB_ID}`)
+    expect(screen.queryByRole('button', { name: /다시 만들기/ })).not.toBeInTheDocument()
+  })
+
+  it('버튼이 사라진 이유를 말한다', async () => {
+    // 이 화면에서 다른 결과로 가는 경로는 그 버튼 하나뿐이라(이슈 #26) 사라진 것이
+    // 눈에 띕니다. 아무 말도 안 하면 사용자는 자기가 뭘 잘못 눌렀다고 생각합니다.
+    mockStyleRetired()
+    renderResult(succeededJob())
+
+    expect(
+      await screen.findByText('이 스타일은 더 이상 제공되지 않아 같은 설정으로는 다시 만들 수 없어요'),
+    ).toBeInTheDocument()
+  })
+
+  it('스키마를 «지금만» 못 받은 것은 회수와 다르게 다룬다', async () => {
+    /*
+      5xx·네트워크는 스타일이 살아 있는데 조회만 실패한 것이라 새로고침이 답입니다.
+      여기서 카탈로그로 보내면 멀쩡한 재생성 경로를 화면이 스스로 버리는 셈입니다.
+      대신 보내지는 못하게 잠급니다 — 칸을 모르는 채 누르면 값이 통째로 빠진 요청이
+      나가고 크레딧은 이미 나간 뒤라, `schemaPending` 과 같은 이유입니다.
+    */
+    server.use(
+      http.get('*/v1/styles/:styleId', () =>
+        HttpResponse.json(
+          { error: { code: 'INTERNAL', message: '', detail: {} } },
+          { status: 500 },
+        ),
+      ),
+    )
+    renderResult(succeededJob())
+
+    const button = await screen.findByRole('button', { name: '옵션을 불러오지 못했어요' })
+    expect(button).toBeDisabled()
+    expect(
+      screen.queryByRole('link', { name: '이 사진으로 다른 스타일 고르기' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('열어 둔 사이에 회수됐으면 클릭이 조용히 실패하지 않는다', async () => {
+    /*
+      상세는 캐시에 있고(10분) 회수는 그 뒤에 일어난 경우입니다. 버튼은 멀쩡히
+      활성이고 눌러야 404 를 만납니다 — 그런데 `onError` 가 402 만 보고 있어서
+      **아무 일도 안 일어나던** 자리입니다. 서버 문구(`"Job, upload, or style not
+      found"`)는 영문인 데다 셋 중 무엇인지도 말해 주지 않아 그대로 옮기지 않습니다.
+    */
+    mockStyleAlive()
+    server.use(
+      http.post('*/v1/jobs', () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'NOT_FOUND',
+              message: 'Job, upload, or style not found',
+              detail: {},
+            },
+          },
+          { status: 404 },
+        ),
+      ),
+    )
+    renderResult(succeededJob())
+
+    await userEvent.click(await screen.findByRole('button', { name: /다시 만들기/ }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      '이 스타일이나 사진을 더 이상 쓸 수 없어요. 카탈로그에서 다시 골라 주세요.',
+    )
+    expect(screen.queryByText(/Job, upload, or style not found/)).not.toBeInTheDocument()
+  })
+})
