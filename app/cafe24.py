@@ -119,6 +119,8 @@ async def get_access_token(now: datetime | None = None) -> str:
 async def find_customers(*, member_id: str | None = None, cellphone: str | None = None) -> list[str]:
     """Admin API로 쇼핑몰 회원 아이디 조회(scope mall.read_customer) — 아이디 또는 휴대폰 번호로.
     개인정보 필드는 마스킹돼 돌아오므로 member_id만 쓴다. 한 번호에 계정이 여러 개일 수 있다(실측 3개)."""
+    if not (member_id or cellphone):
+        raise ValueError("member_id 또는 cellphone이 필요하다")  # 빈 조회는 전체 회원 목록 → 엉뚱한 사람에게 SMS
     params = {"member_id": member_id} if member_id else {"cellphone": cellphone}
     token = await get_access_token()
     async with httpx.AsyncClient(timeout=15) as client:

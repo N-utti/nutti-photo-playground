@@ -1035,6 +1035,24 @@ def test_cafe24_link_by_cellphone_hides_accounts_taken_by_others(
     assert client.portal.call(_member, other["member_id"]).cafe24_member_id == "wjdtjdnds98"
 
 
+def test_cafe24_link_sms_budget_follows_actual_recipient(client: TestClient, monkeypatch: pytest.MonkeyPatch):
+    """번호로 3통 보낸 뒤 그 번호의 첫 계정 아이디로 바꿔 요청해도 429 — 한 폰에 12통 퍼붓기 차단."""
+    member_session = _register_member(client, "tel-budget@example.com")
+    _patch_cafe24_otp(monkeypatch, phone_accounts={"01012345678": ["tester123", "wjdtjdnds98"]})
+    headers = {"Authorization": f"Bearer {member_session['token']}"}
+    for _ in range(3):
+        assert client.post("/v1/auth/cafe24/link/request", headers=headers, json={"cellphone": "01012345678"}).status_code == 200
+
+    other = _register_member(client, "tel-budget-2@example.com")
+    by_id = client.post(
+        "/v1/auth/cafe24/link/request",
+        headers={"Authorization": f"Bearer {other['token']}"},
+        json={"shop_member_id": "tester123"},
+    )
+
+    assert by_id.status_code == 429
+
+
 def test_cafe24_link_request_validates_target_shape(client: TestClient, monkeypatch: pytest.MonkeyPatch):
     member_session = _register_member(client, "tel-shape@example.com")
     _patch_cafe24_otp(monkeypatch, phone_accounts={})

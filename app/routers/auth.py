@@ -426,7 +426,7 @@ class Cafe24LinkRequest(BaseModel):
     # 쇼핑몰 아이디(영문/숫자/_ . @ -) 또는 가입 휴대폰 번호(숫자만) 중 하나 — 카카오/네이버로 쇼핑몰에 가입한
     # 고객은 아이디(예: 4993695098@k)를 모르므로 번호가 기본 경로
     shop_member_id: str | None = Field(default=None, min_length=2, max_length=64, pattern=r"^[A-Za-z0-9_.@\-]+$")
-    cellphone: str | None = Field(default=None, pattern=r"^01\d{8,9}$")
+    cellphone: str | None = Field(default=None, pattern=r"^01[0-9]{8,9}$")  # \d는 유니코드 숫자도 통과
 
 
 class Cafe24LinkVerifyRequest(Cafe24LinkRequest):
@@ -484,9 +484,9 @@ async def _find_shop_accounts(kind: str, value: str) -> list[str]:
 async def cafe24_link_request(
     body: Cafe24LinkRequest, member: Member = Depends(get_current_member)
 ) -> Cafe24LinkRequestResponse:
-    kind, value = _link_target(body)
     if member.kind != MemberKind.MEMBER:
         raise member_only()
+    kind, value = _link_target(body)
     # 한도 검사를 404/409보다 먼저 — "가입된 번호인지/이미 연동된 아이디인지"를 무제한으로 캐물을 수 없게
     _check_bucket(_cafe24_link_requests, str(member.id), _CAFE24_LINK_RATE_LIMIT)
     _check_bucket(_cafe24_link_targets, value, _CAFE24_LINK_RATE_LIMIT)
@@ -496,6 +496,9 @@ async def cafe24_link_request(
             raise api_error(404, "CAFE24_MEMBER_NOT_FOUND", "쇼핑몰 회원을 찾을 수 없습니다")
         if not await _linkable_candidates(member, found):
             raise api_error(409, "CAFE24_ALREADY_LINKED", "Cafe24 account is already linked")
+        if found[0] != value:
+            # 실제 수신 계정 기준으로도 — 번호/아이디를 바꿔 가며 한 폰에 퍼붓지 못하게
+            _check_bucket(_cafe24_link_targets, found[0], _CAFE24_LINK_RATE_LIMIT)
         code = f"{secrets.randbelow(10**6):06d}"
         # 번호로 찾은 계정이 여러 개여도 같은 폰이라 첫 계정으로 보내면 된다
         await cafe24.send_sms(found[0], f"[누띠 놀이터] 쇼핑몰 계정 연동 인증번호 {code} (5분 유효)")
@@ -512,9 +515,9 @@ async def cafe24_link_request(
 async def cafe24_link_verify(
     body: Cafe24LinkVerifyRequest, member: Member = Depends(get_current_member)
 ) -> Cafe24LinkResponse:
-    kind, value = _link_target(body, allow_pick=True)
     if member.kind != MemberKind.MEMBER:
         raise member_only()
+    kind, value = _link_target(body, allow_pick=True)
     expected = _otp_digest(kind, value, body.code)
     # 1) 오답은 즉시 소비(단일 시도). 정답은 아직 두고 아래 2)에서 잠금 안에서 소비 — 번호 흐름은 후보가
     #    여러 개면 고르기 전까지 코드를 살려 둬야 하므로
