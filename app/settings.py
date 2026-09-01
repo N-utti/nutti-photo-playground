@@ -41,7 +41,8 @@ class Settings(BaseSettings):
     cafe24_mall_id: str = ""
     cafe24_redirect_uri: str = ""
     cafe24_scope: str = "mall.read_customer,mall.read_order,mall.write_notification"
-    cafe24_sms_sender_no: str = ""  # 카페24에 등록된 SMS 발신번호(하이픈 없이)
+    cafe24_sms_sender_no: str = ""  # 카페24 SMS 발신번호 등록 ID(GET /admin/sms/senders의 sender_no)
+    cafe24_webhook_api_key: str = ""  # 개발자센터 "WebHook 인증정보" — 비어 있으면 웹훅 엔드포인트가 전부 401
 
     kakao_rest_api_key: str = ""
     kakao_redirect_uri: str = ""

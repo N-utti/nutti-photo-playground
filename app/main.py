@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from tortoise import Tortoise
 
-from app.routers import admin, auth, credits, events, jobs, library, pets, results, styles, uploads
+from app.routers import admin, auth, credits, events, jobs, library, pets, results, styles, uploads, webhooks
 from app.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -94,5 +94,6 @@ for router in (
     credits.router,
     events.router,
     admin.router,
+    webhooks.router,
 ):
     app.include_router(router, prefix="/v1")
