@@ -162,7 +162,7 @@
 |---|---|
 | A · 잔액 "보유 크레딧 11" | `GET /v1/credits` → `balance` |
 | A · 4개 획득 행(주문+20/연동+3/팔로우+2/오늘의무료+1)과 각 행의 상태(가능/완료/내일 다시) | `GET /v1/credits` → `earn_actions[]`(action, amount, status, cta) |
-| "쇼핑몰 →" (주문하기) | 정적 링크(쇼핑몰 이동), 지급 자체는 카페24 주문 동기화 배치가 처리 |
+| "쇼핑몰 →" (주문하기) | **레퍼럴 링크** `https://nutti.co.kr/?utm_source=nutti_playground&utm_medium=referral&utm_campaign=playground_exit&utm_content=w10_credits`(W-06 배너 `w06_result`, 탭바 `tabbar` — `web/src/app/externalLinks.ts shopLink`, 계산기 링크와 같은 UTM 규약). GA4 크로스도메인 `_gl`은 gtag가 앵커 클릭에 자동 부착. 지급 자체는 카페24 주문 동기화·웹훅이 처리 |
 | 연동 +3 행 CTA("연동하기", 미연동 회원) | 쇼핑몰 가입 휴대폰 번호(또는 아이디) 입력 → `POST /v1/auth/cafe24/link/request`(회원 토큰, 카페24가 회원 휴대폰으로 SMS 인증번호 발송) → 6자리 입력 → `POST /v1/auth/cafe24/link/verify`가 +3 지급(§3 인증). 게스트에게는 로그인 유도(§3 로그인 3종) |
 | 각 획득 CTA(팔로우/오늘의무료 받기) | `POST /v1/credits/claim` → `{action: "follow_ig", instagram_username}` \| `{action: "daily"}` — 팔로우는 인스타 아이디 입력 + 「팔로우하러 가기」(`POST /v1/events {event_type:"follow_ig_open"}`) 10초~30분 뒤에만("order"는 배치 자동 지급, "link_account"는 카페24 연동 콜백이 지급하므로 이 엔드포인트로 클레임하지 않음) |
 | B · 받은 내역 테이블 | `GET /v1/credits/ledger?cursor=`(커서 페이지네이션) → `{reason, ref_label, occurred_on, amount}` |

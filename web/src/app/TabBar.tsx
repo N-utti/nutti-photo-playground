@@ -40,7 +40,7 @@
 
 import { Link, useLocation } from 'react-router'
 import { track } from './analytics'
-import { NUTTI_SHOP_URL } from './externalLinks'
+import { shopLink } from './externalLinks'
 
 /**
  * 순서와 이름은 와이어프레임 표기(#p02·#p09 탭바)를 따르되, 맨 앞에 «홈» 을
@@ -95,7 +95,7 @@ export function TabBar() {
             나가는 링크는 어디서 눌렸는지까지 남깁니다(W-06·W-10 과 같은 이벤트). */}
         <li className="flex-1">
           <a
-            href={NUTTI_SHOP_URL}
+            href={shopLink('tabbar')}
             target="_blank"
             rel="noreferrer"
             onClick={() =>

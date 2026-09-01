@@ -18,7 +18,7 @@ import { clearInstagramCode, peekInstagramCode } from '../app/instagramCode'
 import {
   NUTTI_INSTAGRAM_HANDLE,
   NUTTI_INSTAGRAM_URL,
-  NUTTI_SHOP_URL,
+  shopLink,
 } from '../app/externalLinks'
 import type { ClaimBody, ClaimableAction, EarnAction, EarnActionRow } from '../api/types'
 import AccountSheet from './AccountSheet'
@@ -302,7 +302,7 @@ function EarnCta({ row, claiming, onClaim, onRedeem, onLinkAccount, onLogin, mem
   if (row.action === 'order') {
     return (
       <a
-        href={NUTTI_SHOP_URL}
+        href={shopLink('w10_credits')}
         target="_blank"
         rel="noreferrer"
         onClick={() => track({ event_type: 'shop_exit_click', properties: { from: 'W-10' } })}

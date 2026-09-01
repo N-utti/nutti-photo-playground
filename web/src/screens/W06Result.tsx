@@ -25,7 +25,7 @@ import { forgetActiveJob } from '../app/activeJob'
 import BackButton from '../app/BackButton'
 import { CreditBadge } from '../app/CreditBadge'
 import { wasDeletedHere } from '../app/deletedResults'
-import { NUTTI_SHOP_URL } from '../app/externalLinks'
+import { shopLink } from '../app/externalLinks'
 import {
   invalidateAfterJobSettled,
   isFatalJobError,
@@ -62,7 +62,7 @@ import JobUnavailable from './JobUnavailable'
  * 문구에 효능(관절·면역 등) 단정 표현을 넣지 마세요 — FR-W06-11 · NFR-LEGAL-01.
  */
 const SHOP_BANNER = {
-  url: NUTTI_SHOP_URL,
+  url: shopLink('w06_result'),
   title: '누띠 수제간식 보러가기',
   note: '5만원 이상 무료배송',
 }
