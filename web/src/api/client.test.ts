@@ -89,6 +89,44 @@ describe('401 UNAUTHORIZED', () => {
   })
 })
 
+/**
+ * 위 첫 테스트가 이미 증명한 것: 401 `UNAUTHORIZED` 는 세션을 접습니다. `/admin/*` 의
+ * 401 이 정확히 그 코드라(백엔드 PR #181 — admin 토큰과 사용자 토큰은 상호 배타)
+ * 콘솔을 이 클라이언트에 얹으면 **호출 한 번이 사용자를 로그아웃시킵니다.** 그래서
+ * 여기서 막는 것은 401 처리가 아니라 **요청이 나가는 것 자체**입니다.
+ */
+describe('/admin/* 차단', () => {
+  it('세션을 죽일 401 핸들러가 있어도 요청이 거기 닿지 않는다', async () => {
+    let hits = 0
+    server.use(
+      http.get(`${BASE}/admin/styles`, () => {
+        hits += 1
+        return apiError(401, 'UNAUTHORIZED')
+      }),
+    )
+    const lost = collectSessionLost()
+    session.set('member-token', 'member', 'member-refresh')
+
+    await expect(request('/admin/styles')).rejects.toThrow(/별도 클라이언트/)
+
+    // 닿았다면 위 «지금 세션의 401» 테스트와 같은 결말이었습니다.
+    expect(hits).toBe(0)
+    expect(session.token).toBe('member-token')
+    expect(lost).toEqual([])
+  })
+
+  it('로그인·쓰기 경로도 같이 막는다', async () => {
+    session.set('member-token', 'member', 'member-refresh')
+
+    await expect(
+      request('/admin/login', { method: 'POST', json: { email: 'a@b.c', password: 'x' } }),
+    ).rejects.toThrow(/별도 클라이언트/)
+    await expect(request('/admin/styles/1', { method: 'PATCH', json: {} })).rejects.toThrow()
+
+    expect(session.token).toBe('member-token')
+  })
+})
+
 describe('리프레시 회전', () => {
   it('회전 중에 로그아웃이 끝났으면 회전 실패로 새 게스트를 지우지 않는다', async () => {
     server.use(
