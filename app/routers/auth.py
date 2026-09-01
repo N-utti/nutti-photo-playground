@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import logging
 import math
 import secrets
 import time
@@ -43,6 +44,8 @@ from app.models import (
     SourceImage,
 )
 from app.settings import settings
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -123,7 +126,12 @@ class MeResponse(BaseModel):
     cafe24_linked: bool
 
 
-def _bad_gateway() -> HTTPException:
+def _bad_gateway(exc: BaseException | None = None) -> HTTPException:
+    # 카페24 실패 사유(SMS 429/422, 토큰 만료 등)를 남겨야 운영에서 502를 추적할 수 있다 — 응답 본문엔 노출 안 함
+    if exc is not None:
+        response = getattr(exc, "response", None)
+        body = response.text[:300] if response is not None else ""
+        logger.warning("cafe24 upstream failure: %s %s %s", type(exc).__name__, exc, body)
     return api_error(502, "BAD_GATEWAY", "Cafe24 authentication failed")
 
 
@@ -503,7 +511,7 @@ async def cafe24_link_request(
         # 번호로 찾은 계정이 여러 개여도 같은 폰이라 첫 계정으로 보내면 된다
         await cafe24.send_sms(found[0], f"[누띠 놀이터] 쇼핑몰 계정 연동 인증번호 {code} (5분 유효)")
     except (httpx.HTTPError, KeyError, ValueError) as exc:
-        raise _bad_gateway() from exc
+        raise _bad_gateway(exc) from exc
     # ponytail: OTP 해시를 소셜 로그인 state와 같은 nonce 컬럼에 둔다 — 한 회원이 동시에 두 흐름을 타면 서로 덮어씀
     member.oauth_state_nonce = _otp_digest(kind, value, code)
     member.oauth_state_expires_at = datetime.now(timezone.utc) + timedelta(minutes=5)
@@ -546,7 +554,7 @@ async def cafe24_link_verify(
         try:
             found = await _find_shop_accounts(kind, value)
         except (httpx.HTTPError, KeyError, ValueError) as exc:
-            raise _bad_gateway() from exc
+            raise _bad_gateway(exc) from exc
         candidates = await _linkable_candidates(member, found)
         if not candidates:
             raise api_error(409, "CAFE24_ALREADY_LINKED", "Cafe24 account is already linked")
@@ -645,7 +653,7 @@ async def social_callback(
             if not isinstance(nickname, str):
                 nickname = None
     except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
-        raise _bad_gateway() from exc
+        raise _bad_gateway(exc) from exc
 
     for attempt in range(2):
         try:
