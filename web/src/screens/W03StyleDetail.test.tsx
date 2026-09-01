@@ -11,11 +11,11 @@
  * 지금 실서버의 스타일은 **전부** 0 장입니다.
  */
 
-import { screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
 import { Route, Routes } from 'react-router'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { renderWithProviders } from '../test/render'
 import { server } from '../test/server'
 import type { StyleDetail } from '../api/types'
@@ -189,5 +189,134 @@ describe('W-03 시트의 모달 동작', () => {
     await renderWithBackdrop()
 
     expect(document.body.style.overflow).toBe('hidden')
+  })
+})
+
+/**
+ * 손잡이를 잡아 내려서 닫기 (screens/W03StyleDetail.tsx `useDragToDismiss`).
+ *
+ * 시트 위의 손잡이 막대는 «잡아 내릴 수 있다» 는 예고입니다. 안 잡히면 그 예고가
+ * 거짓이 되고, 사용자는 앱이 멈춘 줄 압니다. 눈으로 하는 QA 로는 «내렸는데 안 닫힘»
+ * 만 보이지 어디가 끊겼는지(시작·추적·판정) 안 보이므로 세 지점을 나눠 잡아 둡니다.
+ *
+ * 좌표를 직접 주려고 fireEvent 를 씁니다 — userEvent 의 포인터 API 는 레이아웃을
+ * 아는 브라우저에서나 좌표를 만들 수 있고, jsdom 에는 레이아웃이 없습니다.
+ */
+describe('W-03 시트 · 손잡이 드래그', () => {
+  /** 손잡이는 `aria-hidden` 인 장식이라 역할로 못 찾습니다 — 시트의 첫 자식입니다. */
+  const handleOf = (dialog: HTMLElement) => dialog.firstElementChild as HTMLElement
+
+  /**
+   * 화면 폭을 정합니다. 드래그는 «바닥에 붙은 시트» 일 때만 있는 동작이라
+   * 폭을 안 정하면 jsdom 기본값(1024)이 곧 데스크톱이라 전부 조용히 통과합니다
+   * (test/setup.ts 의 matchMedia 대역).
+   */
+  const setViewport = (width: number) =>
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: width })
+
+  beforeEach(() => setViewport(390))
+  afterEach(() => setViewport(1024))
+
+  async function renderLoaded() {
+    mockDetail([])
+    renderSheet()
+    // 본문이 도착한 뒤에 잡습니다 — 스켈레톤 단계에도 손잡이는 있지만, 그때 닫히는지
+    // 물으면 «불러오는 중에 사라졌다» 라는 다른 이야기를 검증하게 됩니다.
+    await screen.findByRole('heading', { name: '레고 미니피겨' })
+    return { dialog: screen.getByRole('dialog') }
+  }
+
+  /** 잡고 → 끌고 → 놓기. `up` 을 생략하면 잡은 채로 둡니다. */
+  function drag(handle: HTMLElement, moves: number[], { release = true } = {}) {
+    fireEvent.pointerDown(handle, { pointerId: 1, button: 0, clientY: 0 })
+    for (const clientY of moves) fireEvent.pointerMove(window, { pointerId: 1, clientY })
+    if (release) fireEvent.pointerUp(window, { pointerId: 1, clientY: moves.at(-1) ?? 0 })
+  }
+
+  it('끄는 동안 시트가 손가락을 따라 내려온다', async () => {
+    const { dialog } = await renderLoaded()
+
+    drag(handleOf(dialog), [40], { release: false })
+
+    expect(dialog.style.transform).toBe('translateY(40px)')
+  })
+
+  it('위로는 따라 올라가지 않는다', async () => {
+    const { dialog } = await renderLoaded()
+
+    // 시트는 이미 화면 아래 끝에 붙어 있습니다 — 올릴 자리가 없습니다.
+    drag(handleOf(dialog), [-60], { release: false })
+
+    expect(dialog.style.transform).toBe('translateY(0px)')
+  })
+
+  it('충분히 내리고 놓으면 카탈로그로 돌아간다', async () => {
+    const { dialog } = await renderLoaded()
+
+    drag(handleOf(dialog), [40, 90, 140])
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  })
+
+  it('조금만 내리고 놓으면 제자리로 돌아간다', async () => {
+    const { dialog } = await renderLoaded()
+
+    /*
+      20px — 손잡이를 잡았다가 마음이 바뀐 정도입니다. 여기서 닫히면 «스타일을
+      한 번 더 보려던» 사람이 카탈로그로 튕겨 나갑니다.
+
+      거리 문턱(96px)이 아니라 튕김 문턱(24px)보다 작게 잡았습니다. jsdom 에서는
+      이벤트들이 같은 밀리초에 만들어져 «천천히» 를 흉내 낼 수 없어서, 속도로
+      닫히는 길을 거리로 막아 두고 묻습니다.
+    */
+    drag(handleOf(dialog), [12, 20])
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    // 되돌아가는 길은 CSS transition 이 그립니다 — 값은 지워지고 transition 만 남습니다.
+    expect(dialog.style.transform).toBe('')
+    expect(dialog.style.transition).toContain('transform')
+  })
+
+  it('시스템이 제스처를 가져가면(pointercancel) 닫지 않는다', async () => {
+    const { dialog } = await renderLoaded()
+
+    fireEvent.pointerDown(handleOf(dialog), { pointerId: 1, button: 0, clientY: 0 })
+    fireEvent.pointerMove(window, { pointerId: 1, clientY: 200 })
+    fireEvent.pointerCancel(window, { pointerId: 1, clientY: 200 })
+
+    // 손을 «놓은» 적이 없습니다. 200px 을 내려왔어도 닫힘이 아닙니다.
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(dialog.style.transform).toBe('')
+  })
+
+  it('데스크톱에서는 손잡이를 끌어도 움직이지 않는다', async () => {
+    setViewport(1280)
+    const { dialog } = await renderLoaded()
+
+    /*
+      ≥1024px 에서 이건 바닥에 붙은 시트가 아니라 화면 한가운데 뜨는 대화상자입니다
+      (`desktop:items-center`). 아래로 «내려놓을» 가장자리가 없으므로, 끌면 닫히는 게
+      아니라 그냥 중앙에서 어긋나기만 합니다.
+    */
+    drag(handleOf(dialog), [40, 90, 140])
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(dialog.style.transform).toBe('')
+  })
+
+  it('본문을 끌어도 시트가 움직이지 않는다', async () => {
+    const { dialog } = await renderLoaded()
+
+    // 본문은 세로 스크롤 영역입니다 — 여기서 드래그를 받으면 스크롤이 닫기가 됩니다.
+    fireEvent.pointerDown(screen.getByRole('heading', { name: '레고 미니피겨' }), {
+      pointerId: 1,
+      button: 0,
+      clientY: 0,
+    })
+    fireEvent.pointerMove(window, { pointerId: 1, clientY: 200 })
+    fireEvent.pointerUp(window, { pointerId: 1, clientY: 200 })
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(dialog.style.transform).toBe('')
   })
 })

@@ -2,7 +2,7 @@
  * 모든 테스트 파일 앞에 한 번씩 도는 준비 코드 (vite.config.ts `test.setupFiles`).
  *
  * 여기서 하는 일은 넷입니다 — jest-dom 단언 등록 · MSW 서버 수명 · 렌더 정리 ·
- * jsdom 이 브라우저와 다르게 답하는 지점 하나를 메우는 것.
+ * jsdom 이 브라우저와 다르게 답하는 지점들을 메우는 것.
  */
 
 import '@testing-library/jest-dom/vitest'
@@ -29,6 +29,36 @@ Object.defineProperty(HTMLElement.prototype, 'offsetParent', {
     if (this.hidden) return null
     if (this.style.display === 'none') return null
     return this.parentElement
+  },
+})
+
+/*
+  `window.matchMedia` 는 jsdom 30 에 **아예 없습니다**(호출하면 TypeError). 화면 코드는
+  대부분 CSS 변형(`desktop:` · `motion-safe:`)으로 화면 폭과 감속 설정을 묻지만, JS 로
+  물어야 하는 자리가 있습니다 — W-03 시트의 손잡이 드래그는 «데스크톱에서는 가운데
+  뜨는 대화상자라 내려놓을 아래가 없다» 를 JS 에서 판단합니다(W03StyleDetail.tsx).
+
+  없는 걸 그냥 채우는 대신 폭을 **실제로 보고** 답하게 둡니다. `(min-width: Npx)` 는
+  `window.innerWidth` 와 비교하므로, 테스트가 폰 화면을 원하면 폭을 그렇게 정해야
+  합니다(jsdom 기본값은 1024 — 즉 여기서는 기본이 데스크톱입니다). 그 밖의 질의는
+  «해당 없음» 인 false 로 답합니다: `prefers-reduced-motion` 은 사용자 설정이라
+  jsdom 에 흉내 낼 원본이 없고, 기본값(감속 요청 없음)이 곧 false 입니다.
+*/
+Object.defineProperty(window, 'matchMedia', {
+  configurable: true,
+  writable: true,
+  value: (query: string): MediaQueryList => {
+    const minWidth = /^\(min-width:\s*(\d+)px\)$/.exec(query)
+    return {
+      media: query,
+      matches: minWidth ? window.innerWidth >= Number(minWidth[1]) : false,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    }
   },
 })
 
