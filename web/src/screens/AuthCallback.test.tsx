@@ -39,16 +39,6 @@ describe('AuthCallback', () => {
     expect(await screen.findByText('로그인됐어요')).toBeInTheDocument()
   })
 
-  it('쇼핑몰 연동은 «로그인» 이 아니라 «연동» 이라고 말한다', async () => {
-    /*
-      같은 콜백 라우트를 셋이 공유하지만 사용자가 방금 한 일은 다릅니다. 이미 로그인한
-      회원이 연동하고 왔는데 «로그인됐어요» 가 뜨면, 방금 한 일이 안 된 것처럼 읽힙니다.
-    */
-    renderCallback('cafe24', '?code=mock-code&state=nonce-cafe24-ok')
-
-    expect(await screen.findByText('쇼핑몰 계정을 연동했어요')).toBeInTheDocument()
-  })
-
   it('같은 콜백을 두 번 그려도 요청은 한 번만 나간다', async () => {
     /*
       **이 파일의 핵심입니다.** `state` 는 1회용이라 두 번째 요청은 무조건 401 이고,

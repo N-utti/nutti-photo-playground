@@ -39,6 +39,9 @@ export type ErrorCode =
   | 'EMAIL_TAKEN' // 409 — register, 이미 가입된 이메일
   | 'ALREADY_MEMBER' // 409 — 회원 토큰으로 register/login/소셜 authorize (이슈 #17)
   | 'CAFE24_ALREADY_LINKED' // 409 — 타 회원 연동 or 타 카페24 계정으로 재바인딩
+  | 'CAFE24_MEMBER_NOT_FOUND' // 404 — link/request, 그 아이디의 쇼핑몰 회원 없음
+  | 'CAFE24_CODE_INVALID' // 400 — link/verify, 인증번호 불일치·만료(오답 1회로 소비)
+  | 'BAD_GATEWAY' // 502 — 카페24 Admin API 실패(토큰·SMS 잔액·발신번호)
   | 'HTTP_ERROR' // 백엔드 공통 핸들러의 폴백 (app/main.py:34)
 
 /**
@@ -124,7 +127,13 @@ export interface AuthorizeResponse {
   authorize_url: string
 }
 
-/** `GET /v1/auth/cafe24/callback` — 토큰 없음. 세션은 그대로 두고 연동 상태만 바뀝니다. */
+/** `POST /v1/auth/cafe24/link/request` — 카페24가 그 회원 휴대폰으로 6자리 SMS 를 보냈습니다. */
+export interface Cafe24LinkRequestResult {
+  sent: true
+  expires_in: number
+}
+
+/** `POST /v1/auth/cafe24/link/verify` — 토큰 없음. 세션은 그대로 두고 연동 상태만 바뀝니다. */
 export interface Cafe24LinkResult {
   cafe24_linked: true
   credit_balance: number

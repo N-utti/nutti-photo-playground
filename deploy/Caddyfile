@@ -7,7 +7,7 @@
 play.nutti.co.kr {
 	root * /srv/web
 	encode gzip
-	# SPA — /auth/callback/cafe24 같은 클라이언트 라우트는 전부 index.html
+	# SPA — /auth/callback/kakao 같은 클라이언트 라우트는 전부 index.html
 	try_files {path} /index.html
 	file_server
 	header {

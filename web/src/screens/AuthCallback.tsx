@@ -1,15 +1,13 @@
 /**
- * `/auth/callback/{kakao|naver|cafe24}` — OAuth 복귀 지점 (PR #21).
+ * `/auth/callback/{kakao|naver}` — OAuth 복귀 지점 (PR #21).
  *
  * 프로바이더 콘솔에 등록하는 redirect_uri 가 **이 프론트 라우트**입니다(§3 인증).
  * 여기서 쿼리의 `code`·`state` 를 백엔드 콜백에 fetch 로 넘겨야 세션이 나옵니다 —
  * 백엔드가 직접 받지 않는 이유는 응답이 JSON 세션이라 브라우저 이동으로는 받을 수
  * 없기 때문입니다.
  *
- * 로그인(kakao/naver)과 연동(cafe24)은 **결과가 다릅니다**. 로그인은 토큰을 주고 게스트
- * 자산을 병합·승격하지만(UC-07), 연동은 토큰이 없고 +3 크레딧과 주문 보상 자격만
- * 붙습니다(ADR-11). 같은 화면이 두 결과를 구분해 말해야 사용자가 "로그인이 된 건가"를
- * 헷갈리지 않습니다.
+ * 쇼핑몰(cafe24) 연동은 더 이상 여기로 오지 않습니다 — OAuth 가 아니라 SMS 인증번호
+ * 2단계(ShopLinkSheet)라 페이지 이동이 없습니다.
  */
 
 import { useEffect, useState, type ReactNode } from 'react'
@@ -21,19 +19,17 @@ import { adoptMemberSession } from '../api/queries'
 import { takeAuthReturn } from '../app/authReturn'
 import type { SocialProvider } from '../api/types'
 
-type Provider = SocialProvider | 'cafe24'
+type Provider = SocialProvider
 
-const PROVIDERS: Provider[] = ['kakao', 'naver', 'cafe24']
+const PROVIDERS: Provider[] = ['kakao', 'naver']
 
 const PROVIDER_LABEL: Record<Provider, string> = {
   kakao: '카카오',
   naver: '네이버',
-  cafe24: '누띠 쇼핑몰',
 }
 
 interface CallbackOutcome {
-  /** 연동은 로그인이 아니므로 병합 개념이 없습니다 — cafe24 는 null. */
-  merged: boolean | null
+  merged: boolean
   creditBalance: number
   returnTo: string
 }
@@ -59,13 +55,6 @@ function runCallback(
   if (existing) return existing
 
   const promise = (async (): Promise<CallbackOutcome> => {
-    if (provider === 'cafe24') {
-      const linked = await auth.cafe24Callback(code, state)
-      // 토큰은 그대로지만 잔액(+3)·cafe24_linked·원장이 동시에 움직입니다. 획득 목록의
-      // 연동 행 상태까지 걸려 있어 관련 키를 일일이 세는 것보다 전부 다시 읽는 게 안전합니다.
-      await client.invalidateQueries()
-      return { merged: null, creditBalance: linked.credit_balance, returnTo: takeAuthReturn('/credits') }
-    }
     const memberSession = await auth.socialCallback(provider, code, state)
     await adoptMemberSession(client, memberSession)
     return {
@@ -130,7 +119,7 @@ export default function AuthCallback() {
   }
 
   if (error) {
-    return <CallbackFrame title={failureTitle(error, provider)} body={failureBody(error, provider)} />
+    return <CallbackFrame title={failureTitle(error)} body={failureBody(error)} />
   }
 
   if (!outcome) {
@@ -139,13 +128,11 @@ export default function AuthCallback() {
 
   return (
     <CallbackFrame
-      title={provider === 'cafe24' ? '쇼핑몰 계정을 연동했어요' : '로그인됐어요'}
+      title="로그인됐어요"
       body={
-        provider === 'cafe24'
-          ? `연동 보상 +3 크레딧을 받았어요. 지금부터 주문하시면 주문 보상도 쌓여요. (보유 ${Math.max(0, outcome.creditBalance)}개)`
-          : outcome.merged
-            ? `이전에 만든 결과와 반려견 프로필을 이 계정으로 옮겼어요. (보유 ${Math.max(0, outcome.creditBalance)}개)`
-            : `지금까지 만든 결과가 이 계정에 그대로 남아 있어요. (보유 ${Math.max(0, outcome.creditBalance)}개)`
+        outcome.merged
+          ? `이전에 만든 결과와 반려견 프로필을 이 계정으로 옮겼어요. (보유 ${Math.max(0, outcome.creditBalance)}개)`
+          : `지금까지 만든 결과가 이 계정에 그대로 남아 있어요. (보유 ${Math.max(0, outcome.creditBalance)}개)`
       }
       action={
         <button
@@ -160,24 +147,18 @@ export default function AuthCallback() {
   )
 }
 
-function failureTitle(error: unknown, provider: Provider): string {
-  if (isApiError(error, 'CAFE24_ALREADY_LINKED')) return '연동할 수 없는 계정이에요'
+function failureTitle(error: unknown): string {
   if (isApiError(error, 'UNAUTHORIZED')) return '로그인 정보가 만료됐어요'
-  return provider === 'cafe24' ? '연동하지 못했어요' : '로그인하지 못했어요'
+  return '로그인하지 못했어요'
 }
 
-function failureBody(error: unknown, provider: Provider): string {
-  // 두 방향 모두 409 입니다 — 이 쇼핑몰 계정이 남에게 붙어 있거나, 내 계정이 이미 다른
-  // 쇼핑몰 계정에 붙어 있거나. 연동 해제가 MVP 에 없어 어느 쪽이든 스스로 풀 수 없습니다.
-  if (isApiError(error, 'CAFE24_ALREADY_LINKED')) {
-    return '이미 다른 계정과 연동된 쇼핑몰 계정이거나, 이 계정에 다른 쇼핑몰 계정이 연동돼 있어요. 연동 변경은 고객센터로 문의해 주세요.'
-  }
+function failureBody(error: unknown): string {
   // state 는 5분 만료 · 1회용입니다 — 뒤로가기나 새로고침으로 이 주소를 다시 열면 여기 옵니다.
   if (isApiError(error, 'UNAUTHORIZED')) {
     return '로그인 확인용 정보가 만료됐거나 이미 사용됐어요. 처음부터 다시 시도해 주세요.'
   }
   if (error instanceof Error) return error.message
-  return provider === 'cafe24' ? '잠시 뒤 다시 시도해 주세요.' : '잠시 뒤 다시 로그인해 주세요.'
+  return '잠시 뒤 다시 로그인해 주세요.'
 }
 
 function CallbackFrame({

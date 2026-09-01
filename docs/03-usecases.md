@@ -162,7 +162,7 @@ sequenceDiagram
 - **사전조건**: 게스트 세션 존재, 사용자가 로그인 액션 트리거(주로 W-06 B 계정 연동 바텀시트)
 - **사후조건**: 게스트 자산이 회원 계정에 귀속, 게스트 토큰은 더 이상 유효하지 않음
 - **주 흐름**
-  1. "누띠 쇼핑몰 계정으로 로그인" 탭 → `GET /v1/auth/cafe24/authorize` → 카페24 로그인 → `GET /v1/auth/cafe24/callback`.
+  1. 카카오/네이버 `GET /v1/auth/{provider}/authorize` → 프로바이더 로그인 → `GET /v1/auth/{provider}/callback`(또는 이메일 `register`/`login`). 쇼핑몰 계정은 로그인 수단이 아니라 **회원이 된 뒤** SMS OTP로 연동한다(05 §3 `cafe24/link`).
   2. 서버가 콜백된 카페24 회원 ID로 기존 `member` 행 존재 여부를 조회.
   3. **분기 A(기존 회원 행 있음 = 재방문)**: 게스트 세션의 자산(`pet`, `source_image`, `job`, `custom_prompt_log`, `metric_event`)을 기존 회원 행으로 이관하고, 게스트 행에 `merged_into_id`를 기록. 게스트 시절 받은 `guest_trial` 크레딧은 기존 회원이 이미 수령했다면 `dedupe_key` 충돌로 **INSERT 스킵**(무료 1장 반복 수령 방지).
   4. **분기 B(기존 회원 행 없음 = 신규 가입)**: 게스트 행의 `kind`를 `guest → member`로 전환(자산 이관 불필요, 같은 행을 그대로 승격).

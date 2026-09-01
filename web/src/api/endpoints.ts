@@ -6,6 +6,7 @@
 import { request, session } from './client'
 import type {
   AuthorizeResponse,
+  Cafe24LinkRequestResult,
   Cafe24LinkResult,
   CalculatorLink,
   ClaimResult,
@@ -42,10 +43,10 @@ export const auth = {
    * 없기 때문입니다(§3 인증). 그래서 fetch 로 URL 을 받아 `window.location` 으로
    * 이동하는 2단계가 됩니다 — `<a href>` 로 바꾸면 다시 401 이 됩니다.
    *
-   * 토큰 요구가 provider 마다 다릅니다: 소셜은 **게스트 토큰**(회원이면 409
-   * ALREADY_MEMBER), cafe24 는 **회원 토큰**(게스트면 401 — 먼저 로그인).
+   * **게스트 토큰**으로 부릅니다(회원이면 409 ALREADY_MEMBER). 쇼핑몰 연동은 OAuth 가
+   * 아니라 아래 cafe24Link* (SMS 인증번호) 입니다.
    */
-  authorize: (provider: SocialProvider | 'cafe24') =>
+  authorize: (provider: SocialProvider) =>
     request<AuthorizeResponse>(`/auth/${provider}/authorize`),
 
   /** 소셜 로그인 완료. 여기서 게스트 자산 병합·승격(UC-07)이 일어납니다. */
@@ -53,11 +54,18 @@ export const auth = {
     request<MemberSession>(`/auth/${provider}/callback`, { query: { code, state } }),
 
   /**
-   * 카페24 **연동** 완료. 로그인이 아니므로 토큰이 바뀌지 않고 자산 병합도 없습니다
-   * (UC-07 미적용) — 응답에 token 이 없는 게 그 신호입니다.
+   * 카페24 **연동** 1/2 — 쇼핑몰 아이디를 보내면 카페24가 그 회원의 휴대폰으로 6자리
+   * 인증번호를 SMS 로 보냅니다(5분, 회원당 시간당 3회). 회원 토큰 필수(게스트 403).
    */
-  cafe24Callback: (code: string, state: string) =>
-    request<Cafe24LinkResult>('/auth/cafe24/callback', { query: { code, state } }),
+  cafe24LinkRequest: (shop_member_id: string) =>
+    request<Cafe24LinkRequestResult>('/auth/cafe24/link/request', { method: 'POST', json: { shop_member_id } }),
+
+  /**
+   * 카페24 **연동** 2/2 — 인증번호는 단일 시도(오답도 소비). 로그인이 아니므로 토큰이
+   * 바뀌지 않고 자산 병합도 없습니다(UC-07 미적용) — 응답에 token 이 없는 게 그 신호입니다.
+   */
+  cafe24LinkVerify: (body: { shop_member_id: string; code: string }) =>
+    request<Cafe24LinkResult>('/auth/cafe24/link/verify', { method: 'POST', json: body }),
 
   /**
    * 로컬 가입. 게스트 토큰 필수이며 성공 시 그 게스트 행이 회원으로 승격됩니다.
