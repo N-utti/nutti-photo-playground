@@ -194,6 +194,7 @@ function buildUrl(path: string, query?: RequestOptions['query']): string {
 }
 
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  assertNotAdminPath(path)
   const { method = 'GET', json, formData, query, idempotencyKey, signal, skipAuth } = options
 
   const headers: Record<string, string> = {}
@@ -289,6 +290,37 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
  */
 function keepsSessionOn401(path: string): boolean {
   return path.startsWith('/auth/') && path.endsWith('/callback')
+}
+
+/**
+ * 이 클라이언트로는 `/admin/*` 를 부르지 않습니다 — **부르면 보고 있던 사용자가
+ * 로그아웃됩니다.**
+ *
+ * `POST /v1/admin/login` 이 주는 토큰은 `kind: "admin"` 이고 사용자 토큰과 **상호
+ * 배타**입니다(백엔드 PR #181, `tests/test_admin.py` 가 양방향을 고정). 회원·게스트
+ * 토큰으로 `/admin/*` 를 부르면 401 인데 그 코드가 `TOKEN_EXPIRED` 가 아니라
+ * `UNAUTHORIZED` 라서, 위 `keepsSessionOn401()` 예외에 걸리지 않는 한 곧장
+ * `dropSessionIfCurrent` 로 갑니다. 재발급·회전 재시도조차 없는 갈래입니다 —
+ * 콘솔 호출 한 번이 세션을 지우고 `SESSION_LOST_EVENT` 까지 쏩니다.
+ *
+ * **`keepsSessionOn401()` 에 `/admin/` 을 추가하는 것은 답이 아닙니다.** 그러면 401 이
+ * 조용해질 뿐 호출은 여전히 실패하고, 무엇보다 이 파일은 계속 **사용자 토큰을 실어
+ * 보냅니다** — 관리자 토큰이 붙을 자리가 여기엔 없습니다. 세션을 안 지우는 대신 «되는
+ * 것처럼 보이는» 배선이 남고, 그게 W-11 을 이 클라이언트 위에 올리는 가장 빠른 길입니다.
+ *
+ * 그래서 요청을 **보내기 전에** 막습니다. W-11 콘솔은 자기 토큰 저장소와 자기 401 정책을
+ * 가진 별도 클라이언트로 서야 하고(web/README.md 「W-11 운영 콘솔」 절), 그 클라이언트가
+ * 생기기 전까지 이 경로는 조용히 성공하는 것보다 **시끄럽게 막히는 편이 안전**합니다.
+ * 개발 빌드 한정으로 두지 않는 이유는, 그런 가드는 CI 를 통과하고 프로덕션에서만
+ * 사용자를 로그아웃시키기 때문입니다.
+ */
+function assertNotAdminPath(path: string): void {
+  if (path !== '/admin' && !path.startsWith('/admin/')) return
+  throw new Error(
+    `사용자 세션 클라이언트로 ${path} 를 부를 수 없습니다 — admin 토큰은 사용자 토큰과 ` +
+      '상호 배타라 401 이 사용자를 로그아웃시킵니다. W-11 콘솔은 별도 클라이언트를 씁니다 ' +
+      '(web/README.md 「W-11 운영 콘솔」).',
+  )
 }
 
 function parseRetryAfter(response: Response): number | null {
