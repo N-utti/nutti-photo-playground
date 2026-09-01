@@ -10,10 +10,11 @@
  * 좌우되면 안 됩니다. 이 화면에서 유일하게 매출로 직결되는 줄입니다.
  */
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { isApiError } from '../api/client'
 import { track } from '../app/analytics'
-import { useClaimCredit, useCredits, useMe } from '../api/queries'
+import { useClaimCredit, useCredits, useMe, useRedeemInstagramCode } from '../api/queries'
+import { clearInstagramCode, peekInstagramCode } from '../app/instagramCode'
 import {
   NUTTI_INSTAGRAM_HANDLE,
   NUTTI_INSTAGRAM_URL,
@@ -41,6 +42,7 @@ export default function EarnActionList() {
   const { data: credits, isPending, isError, error, refetch } = useCredits()
   const { data: me } = useMe()
   const claim = useClaimCredit()
+  const redeem = useRedeemInstagramCode()
   const [linkSheet, setLinkSheet] = useState(false)
   /*
     `balance` 까지 들고 있는 이유는 아래 안내 문구입니다 — 받은 뒤 잔액이 여전히 음수면
@@ -73,6 +75,33 @@ export default function EarnActionList() {
     }
     setLinkSheet(true)
   }
+
+  /** 인스타 DM 코드 소진 — 성공·실패 어느 쪽이든 저장된 코드는 지웁니다(재시도해도 결과가 같음). */
+  function handleRedeem(code: string) {
+    setGranted(null)
+    redeem.mutate(code, {
+      onSuccess: ({ amount_granted, balance }) =>
+        setGranted({ action: 'follow_ig', amount: amount_granted, balance }),
+      onSettled: () => clearInstagramCode(),
+    })
+  }
+
+  /*
+    DM 링크(`?ig=`)로 들어와 로그인까지 마친 사람 — 팔로우 행이 아직 available 이면 자동으로 넣어 줍니다.
+    게스트는 회원 전용이라 기다리고(로그인 시트에서 로그인하면 캐시 무효화 → 이 effect 가 다시 돕니다),
+    이미 done 이면 코드만 지웁니다(같은 인스타 계정이라 어차피 409).
+  */
+  const followRow = credits?.earn_actions.find((row) => row.action === 'follow_ig')
+  const storedCode = peekInstagramCode()
+  useEffect(() => {
+    if (!storedCode || me?.kind !== 'member' || !followRow || redeem.isPending || redeem.isSuccess || redeem.isError) return
+    if (followRow.status !== 'available') {
+      clearInstagramCode()
+      return
+    }
+    handleRedeem(storedCode)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 코드·회원·행 상태가 갖춰진 순간 한 번
+  }, [storedCode, me?.kind, followRow?.status])
 
   if (isPending) {
     return (
@@ -112,6 +141,7 @@ export default function EarnActionList() {
     })
   }
 
+
   return (
     <>
       <ul className="space-y-2">
@@ -119,8 +149,12 @@ export default function EarnActionList() {
           <li key={row.action}>
             <EarnRow
               row={row}
-              claiming={claim.isPending && claim.variables?.action === row.action}
+              claiming={
+                (claim.isPending && claim.variables?.action === row.action) ||
+                (redeem.isPending && row.action === 'follow_ig')
+              }
               onClaim={handleClaim}
+              onRedeem={handleRedeem}
               onLinkAccount={startLinkAccount}
               onLogin={() => setLoginSheet('earn')}
               memberKnown={me !== undefined}
@@ -155,6 +189,18 @@ export default function EarnActionList() {
             </p>
           )}
         </>
+      )}
+
+      {redeem.isError && (
+        <p role="alert" className="mt-2 text-center text-sm text-danger">
+          {isApiError(redeem.error, 'INSTAGRAM_CODE_INVALID')
+            ? '코드가 올바르지 않거나 만료됐어요. 인스타 DM의 코드를 다시 확인해 주세요.'
+            : isApiError(redeem.error, 'INSTAGRAM_ALREADY_USED')
+              ? '이 인스타그램 계정으로는 이미 크레딧을 받았어요.'
+              : isApiError(redeem.error, 'ALREADY_CLAIMED')
+                ? '이미 받은 크레딧이에요.'
+                : redeem.error.message}
+        </p>
       )}
 
       {claim.isError && (
@@ -198,6 +244,8 @@ interface EarnRowProps {
   row: EarnActionRow
   claiming: boolean
   onClaim: (body: ClaimBody) => void
+  /** 인스타 DM 코드 소진(`POST /credits/redeem-instagram`). */
+  onRedeem: (code: string) => void
   onLinkAccount: () => void
   /** `login_required` 줄이 눌렸을 때. 게스트에게는 네 줄 전부가 이 길입니다(PR #58). */
   onLogin: () => void
@@ -227,7 +275,7 @@ function EarnRow({ row, ...rest }: EarnRowProps) {
   )
 }
 
-function EarnCta({ row, claiming, onClaim, onLinkAccount, onLogin, memberKnown }: EarnRowProps) {
+function EarnCta({ row, claiming, onClaim, onRedeem, onLinkAccount, onLogin, memberKnown }: EarnRowProps) {
   /*
     게스트 — 서버가 네 줄 전부 `login_required` + `cta: "로그인"` 으로 내려줍니다
     (PR #58, 이슈 #52). 주문 줄까지 포함해 **먼저** 갈라내는 게 맞습니다:
@@ -298,7 +346,9 @@ function EarnCta({ row, claiming, onClaim, onLinkAccount, onLogin, memberKnown }
   if (!isClaimable(row.action)) return null
 
   const action = row.action
-  if (action === 'follow_ig') return <FollowIgCta row={row} claiming={claiming} onClaim={onClaim} />
+  if (action === 'follow_ig') {
+    return <FollowIgCta row={row} claiming={claiming} onClaim={onClaim} onRedeem={onRedeem} />
+  }
 
   return (
     <div className="flex shrink-0 items-center gap-2">
@@ -328,18 +378,48 @@ function FollowIgCta({
   row,
   claiming,
   onClaim,
+  onRedeem,
 }: {
   row: EarnActionRow
   claiming: boolean
   onClaim: (body: ClaimBody) => void
+  onRedeem: (code: string) => void
 }) {
   const [username, setUsername] = useState('')
   const [opened, setOpened] = useState(false)
+  const [code, setCode] = useState('')
   const handle = username.trim().replace(/^@/, '')
   const valid = /^[A-Za-z0-9._]{1,30}$/.test(handle)
+  const codeValid = /^[A-Za-z0-9]{6,16}$/.test(code.trim())
 
   return (
     <div className="flex shrink-0 flex-col items-end gap-1.5">
+      {/*
+        인스타 게시물에 댓글 → DM 으로 받은 코드(05 §3 redeem-instagram). 팔로우가 API 로 확인된
+        사람에게만 오는 코드라 아이디·열기 없이 바로 받습니다. 링크로 들어왔으면 자동 소진되고,
+        여기는 코드를 손으로 옮겨 적는 사람용입니다.
+      */}
+      <div className="flex items-center gap-2">
+        <input
+          type="text"
+          aria-label="인스타 DM 코드"
+          placeholder="DM으로 받은 코드"
+          autoCapitalize="characters"
+          autoCorrect="off"
+          value={code}
+          onChange={(event) => setCode(event.currentTarget.value.toUpperCase())}
+          maxLength={16}
+          className="w-36 rounded-lg border border-rule bg-paper px-2 py-1.5 font-mono text-xs"
+        />
+        <button
+          type="button"
+          onClick={() => onRedeem(code.trim())}
+          disabled={claiming || !codeValid}
+          className="rounded-lg border border-rule-strong px-3 py-2 text-xs font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
+        >
+          코드로 받기
+        </button>
+      </div>
       <input
         type="text"
         aria-label="인스타그램 아이디"

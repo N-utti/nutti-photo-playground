@@ -43,7 +43,8 @@ export type ErrorCode =
   | 'CAFE24_CODE_INVALID' // 400 — link/verify, 인증번호 불일치·만료(오답 1회로 소비)
   | 'BAD_GATEWAY' // 502 — 카페24 Admin API 실패(토큰·SMS 잔액·발신번호)
   | 'FOLLOW_IG_NOT_OPENED' // 400 — 팔로우 받기 전에 「팔로우하러 가기」를 안 눌렀거나 10초 안/30분 밖
-  | 'INSTAGRAM_ALREADY_USED' // 409 — 같은 인스타 아이디로 이미 다른 회원이 받음
+  | 'INSTAGRAM_ALREADY_USED' // 409 — 같은 인스타 아이디/계정으로 이미 다른 회원이 받음
+  | 'INSTAGRAM_CODE_INVALID' // 404 — redeem-instagram: 없는/만료(30일)/팔로우 미확인 코드
   | 'HTTP_ERROR' // 백엔드 공통 핸들러의 폴백 (app/main.py:34)
 
 /**

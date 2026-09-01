@@ -353,6 +353,18 @@ export function useCredits() {
   return useQuery({ queryKey: queryKeys.credits, queryFn: credits.get })
 }
 
+/** 인스타 DM 코드 소진 — 성공 시 잔액·획득 목록(팔로우 행 done)·원장이 함께 바뀝니다. */
+export function useRedeemInstagramCode() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (code: string) => credits.redeemInstagram(code),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: queryKeys.credits })
+      client.invalidateQueries({ queryKey: queryKeys.ledger })
+    },
+  })
+}
+
 export function useClaimCredit() {
   const client = useQueryClient()
   return useMutation({

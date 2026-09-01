@@ -212,6 +212,13 @@ export const credits = {
   /** 'order' 는 배치 자동 지급이라 이 경로로 들어오지 않습니다(§2 W-10). follow_ig 는 instagram_username 필수. */
   claim: (body: ClaimBody) => request<ClaimResult>('/credits/claim', { method: 'POST', json: body }),
 
+  /**
+   * 인스타 DM으로 받은 1회용 코드 소진 → follow_ig 크레딧. 코드는 팔로우가 **API로 확인된**
+   * 사람에게만 발급되므로(app/instagram.py) 아이디 입력·열기 이벤트가 필요 없습니다.
+   */
+  redeemInstagram: (code: string) =>
+    request<ClaimResult>('/credits/redeem-instagram', { method: 'POST', json: { code } }),
+
   ledger: (cursor?: string) => request<Paginated<LedgerEntry>>('/credits/ledger', { query: { cursor } }),
 }
 
