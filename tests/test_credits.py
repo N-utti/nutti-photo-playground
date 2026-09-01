@@ -414,6 +414,9 @@ def test_follow_ig_requires_username_open_event_and_unique_handle(client: TestCl
     ok = client.post(
         "/v1/credits/claim", headers=first, json={"action": "follow_ig", "instagram_username": "kongmom"}
     )
+    probe_without_open = client.post(  # 열지 않고 남의 아이디를 찔러 봐도 «이미 썼다» 는 답을 주지 않는다
+        "/v1/credits/claim", headers=second, json={"action": "follow_ig", "instagram_username": "kongmom"}
+    )
     client.portal.call(_opened_instagram, second_id, 20)
     reused = client.post(
         "/v1/credits/claim", headers=second, json={"action": "follow_ig", "instagram_username": "@KONGMOM"}
@@ -424,6 +427,7 @@ def test_follow_ig_requires_username_open_event_and_unique_handle(client: TestCl
     assert not_opened.status_code == 400 and not_opened.json()["error"]["code"] == "FOLLOW_IG_NOT_OPENED"
     assert too_fast.status_code == 400 and too_fast.json()["error"]["code"] == "FOLLOW_IG_NOT_OPENED"
     assert ok.status_code == 200 and ok.json()["amount_granted"] == 2
+    assert probe_without_open.status_code == 400 and probe_without_open.json()["error"]["code"] == "FOLLOW_IG_NOT_OPENED"
     assert reused.status_code == 409 and reused.json()["error"]["code"] == "INSTAGRAM_ALREADY_USED"
 
 

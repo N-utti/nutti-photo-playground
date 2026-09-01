@@ -79,10 +79,6 @@ async def _verify_follow_ig(member: Member, instagram_username: str | None) -> s
         raise validation_error("instagram_username이 필요합니다", {"action": "follow_ig"})
     username = instagram_username.lstrip("@").lower()
     ref_id = f"ig:{username}"
-    # ponytail: 존재 검사 후 지급 — 동시 요청 경합은 원장 UNIQUE(member, dedupe_key)가 회원당 1회는 막고,
-    # 아이디 전역 1회의 경합 창은 관리자 목록 대조로 흡수. ref_id UNIQUE 인덱스는 어뷰징 실측 후.
-    if await CreditLedger.filter(reason=CreditReason.FOLLOW_IG.value, ref_id=ref_id).exists():
-        raise api_error(409, "INSTAGRAM_ALREADY_USED", "이미 다른 계정에서 사용한 인스타그램 아이디예요", {"instagram_username": username})
     now = datetime.now(timezone.utc)
     opened = await MetricEvent.filter(
         member_id=member.id,
@@ -94,6 +90,11 @@ async def _verify_follow_ig(member: Member, instagram_username: str | None) -> s
         raise api_error(
             400, "FOLLOW_IG_NOT_OPENED", "먼저 「팔로우하러 가기」로 누띠 인스타그램을 열어 주세요", {"action": "follow_ig"}
         )
+    # 아이디 중복 검사는 열기 검사 **뒤** — 열지도 않은 채 남의 아이디를 넣어 "이미 썼는지" 캐묻는 열거를 막는다(보안 리뷰).
+    # ponytail: 존재 검사 후 지급 — 동시 요청 경합은 원장 UNIQUE(member, dedupe_key)가 회원당 1회는 막고,
+    # 아이디 전역 1회의 경합 창은 관리자 목록 대조로 흡수. ref_id UNIQUE 인덱스는 어뷰징 실측 후.
+    if await CreditLedger.filter(reason=CreditReason.FOLLOW_IG.value, ref_id=ref_id).exists():
+        raise api_error(409, "INSTAGRAM_ALREADY_USED", "이미 다른 계정에서 사용한 인스타그램 아이디예요", {"instagram_username": username})
     return ref_id
 
 
