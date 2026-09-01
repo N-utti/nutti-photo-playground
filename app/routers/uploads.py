@@ -72,7 +72,9 @@ def _process_image(data: bytes) -> tuple[Image.Image, bytes]:
             processed = image.convert("RGB")
 
     output = io.BytesIO()
-    processed.save(output, format="JPEG")
+    # 기본값(quality 75 · 크로마 4:2:0)은 폰 화면에서 털·경계가 뭉개져 보였고(라이브 신고),
+    # 이 파일이 미리보기·원본 슬라이더·생성 입력에 전부 쓰인다. 육안 무손실급으로 저장.
+    processed.save(output, format="JPEG", quality=92, subsampling=0, optimize=True)
     return processed, output.getvalue()
 
 
