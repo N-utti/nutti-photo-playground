@@ -117,7 +117,7 @@ export default function W01Landing() {
           {/* 히어로만 display 서체를 씁니다. Ohsquare 는 굵고 둥글어서 큰 글씨에서만
               브랜드로 읽히고, 앱바 h1(text-base)에 쓰면 밀도만 나빠집니다. */}
           <h1 className="font-display text-3xl leading-tight desktop:col-start-1 desktop:row-start-1 desktop:self-end desktop:text-5xl">
-            우리 애를 레고로,
+            우리 강아지를 레고로,
             <br />
             초상화로, 우주비행사로
           </h1>
@@ -130,7 +130,7 @@ export default function W01Landing() {
               각 행이 기본값(center)이면 헤드라인과 CTA 가 자기 행 한가운데로 흩어져
               사이가 화면 높이만큼 벌어집니다 — 헤드라인은 아래로, CTA 는 위로 붙여
               가운데에서 만나게 합니다. 모바일(1열)에는 영향이 없습니다. */}
-          <div className="desktop:col-start-1 desktop:row-start-2 desktop:self-start">
+          <div className="desktop:col-start-1 desktop:row-start-2 desktop:self-start desktop:w-fit">
             {/* 노트2 — 조사한 모든 서비스가 가입을 먼저 요구했습니다. 여기서 웹의 우위를 씁니다. */}
             <Link
               to="/upload"
@@ -140,7 +140,7 @@ export default function W01Landing() {
               사진 올리고 무료로 1장 만들기
             </Link>
             {/* 노트4 — 고양이 보호자가 업로드했다가 실망하기 전에 여기서 말합니다. */}
-            <p className="mt-2 text-center text-sm text-ink-3 desktop:text-left">
+            <p className="mt-2 text-center text-sm text-ink-3 desktop:text-center">
               가입 없이 · 전부 무료 · 강아지 전용
             </p>
           </div>
