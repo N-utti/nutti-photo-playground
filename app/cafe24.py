@@ -130,8 +130,10 @@ async def customer_exists(shop_member_id: str) -> bool:
 
 
 async def send_sms(shop_member_id: str, content: str) -> None:
-    """카페24 SMS로 쇼핑몰 회원에게 발송 — 수신자를 member_id로 지정하므로 전화번호를 몰라도 된다.
-    scope mall.write_notification + 몰 SMS 잔액 필요. 실패는 httpx.HTTPError로 전파."""
+    """카페24 SMS로 쇼핑몰 회원에게 발송 — 수신자를 `member_id`로 지정하므로 전화번호를 몰라도 된다
+    (`recipients`는 전화번호 전용이라 아이디를 넣으면 422). scope mall.write_notification + 몰 SMS 잔액 +
+    쇼핑몰 관리자에 인증 등록된 발신번호(숫자만, 미등록이면 422 "There is no sender") 필요. API 한도 1req/s.
+    실패는 httpx.HTTPError로 전파."""
     token = await get_access_token()
     async with httpx.AsyncClient(timeout=15) as client:
         response = await client.post(
@@ -142,7 +144,7 @@ async def send_sms(shop_member_id: str, content: str) -> None:
                 "request": {
                     "sender_no": settings.cafe24_sms_sender_no,
                     "content": content,
-                    "recipients": [shop_member_id],
+                    "member_id": [shop_member_id],
                     "type": "SMS",
                 },
             },
