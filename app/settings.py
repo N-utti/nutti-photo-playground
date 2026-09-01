@@ -40,7 +40,8 @@ class Settings(BaseSettings):
     cafe24_client_secret: str = ""
     cafe24_mall_id: str = ""
     cafe24_redirect_uri: str = ""
-    cafe24_scope: str = "mall.read_customer,mall.read_order"
+    cafe24_scope: str = "mall.read_customer,mall.read_order,mall.write_notification"
+    cafe24_sms_sender_no: str = ""  # 카페24에 등록된 SMS 발신번호(하이픈 없이)
 
     kakao_rest_api_key: str = ""
     kakao_redirect_uri: str = ""

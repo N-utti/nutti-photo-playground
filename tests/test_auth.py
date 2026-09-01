@@ -1,4 +1,5 @@
 import os
+import re
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -7,7 +8,6 @@ from urllib.parse import parse_qs, urlparse
 os.environ.setdefault("DATABASE_URL", "sqlite://:memory:")
 os.environ.setdefault("APP_ENV", "development")
 
-import httpx
 import jwt
 import pytest
 from fastapi.testclient import TestClient
@@ -163,18 +163,6 @@ def _patch_naver(
     monkeypatch.setattr(auth_router, "_fetch_naver_member", fetch)
 
 
-def _patch_cafe24(monkeypatch: pytest.MonkeyPatch, member_id: str) -> None:
-    async def exchange(code: str) -> dict:
-        assert code == "test-code"
-        return {"access_token": "test-access-token"}
-
-    async def fetch(access_token: str) -> dict:
-        assert access_token == "test-access-token"
-        return {"cafe24_member_id": member_id}
-
-    monkeypatch.setattr(auth_router, "_exchange_cafe24_code", exchange)
-    monkeypatch.setattr(auth_router, "_fetch_cafe24_member", fetch)
-
 
 def _authorize_state(client: TestClient, token: str, provider: str) -> str:
     response = client.get(
@@ -186,8 +174,6 @@ def _authorize_state(client: TestClient, token: str, provider: str) -> str:
     query = parse_qs(urlparse(response.json()["authorize_url"]).query, keep_blank_values=True)
     assert query["response_type"] == ["code"]
     assert query["state"]
-    if provider == "cafe24":
-        assert query["scope"] == [settings.cafe24_scope]
     return query["state"][0]
 
 
@@ -805,57 +791,121 @@ def test_register_reports_expired_member_token(client: TestClient):
     assert response.json()["error"]["code"] == "TOKEN_EXPIRED"
 
 
-def test_cafe24_authorize_rejects_guest_token(client: TestClient):
+def _patch_cafe24_otp(monkeypatch: pytest.MonkeyPatch, *, exists: bool = True) -> dict:
+    """Admin API 조회·SMS 발송을 대역으로 바꾸고, 발송된 코드를 잡아 둔다."""
+    sent: dict = {}
+
+    async def customer_exists(shop_member_id: str) -> bool:
+        sent.setdefault("lookups", []).append(shop_member_id)
+        return exists
+
+    async def send_sms(shop_member_id: str, content: str) -> None:
+        sent["to"] = shop_member_id
+        sent["code"] = re.search(r"\d{6}", content).group(0)
+
+    monkeypatch.setattr(auth_router.cafe24, "customer_exists", customer_exists)
+    monkeypatch.setattr(auth_router.cafe24, "send_sms", send_sms)
+    auth_router._cafe24_link_requests.clear()
+    return sent
+
+
+def _link_cafe24(client: TestClient, token: str, monkeypatch: pytest.MonkeyPatch, shop_member_id: str):
+    sent = _patch_cafe24_otp(monkeypatch)
+    headers = {"Authorization": f"Bearer {token}"}
+    requested = client.post(
+        "/v1/auth/cafe24/link/request", headers=headers, json={"shop_member_id": shop_member_id}
+    )
+    assert requested.status_code == 200, requested.text
+    assert requested.json() == {"sent": True, "expires_in": 300}
+    assert sent["to"] == shop_member_id
+    return client.post(
+        "/v1/auth/cafe24/link/verify",
+        headers=headers,
+        json={"shop_member_id": shop_member_id, "code": sent["code"]},
+    )
+
+
+def test_cafe24_link_rejects_guest_token(client: TestClient, monkeypatch: pytest.MonkeyPatch):
+    _patch_cafe24_otp(monkeypatch)
     guest = client.post("/v1/auth/guest").json()
 
-    response = client.get(
-        "/v1/auth/cafe24/authorize",
+    response = client.post(
+        "/v1/auth/cafe24/link/request",
         headers={"Authorization": f"Bearer {guest['token']}"},
+        json={"shop_member_id": "shopper1"},
     )
 
     assert response.status_code == 403
-    assert response.json()["error"] == {
-        "code": "MEMBER_ONLY",
-        "message": "로그인이 필요합니다",
-        "detail": {},
-    }
+    assert response.json()["error"]["code"] == "MEMBER_ONLY"
 
 
-def test_cafe24_callback_links_member_and_grants_three_credits(
+def test_cafe24_link_otp_links_member_and_grants_three_credits(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ):
     member_session = _register_member(client, "cafe@example.com")
-    state = _authorize_state(client, member_session["token"], "cafe24")
-    _patch_cafe24(monkeypatch, "cafe-user-1")
 
-    response = client.get(
-        "/v1/auth/cafe24/callback",
-        params={"code": "test-code", "state": state},
-    )
+    response = _link_cafe24(client, member_session["token"], monkeypatch, "cafe-user-1")
 
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     assert response.json() == {"cafe24_linked": True, "credit_balance": 4}
     member, ledger = client.portal.call(_member_and_ledger, member_session["member_id"])
     assert member.cafe24_member_id == "cafe-user-1"
     assert member.order_reward_cutoff is not None
+    assert member.oauth_state_nonce is None
     assert len([entry for entry in ledger if entry.dedupe_key == "link_account"]) == 1
+
+
+def test_cafe24_link_wrong_code_is_single_attempt(client: TestClient, monkeypatch: pytest.MonkeyPatch):
+    member_session = _register_member(client, "otp-wrong@example.com")
+    sent = _patch_cafe24_otp(monkeypatch)
+    headers = {"Authorization": f"Bearer {member_session['token']}"}
+    client.post("/v1/auth/cafe24/link/request", headers=headers, json={"shop_member_id": "shopper2"})
+    wrong = "000000" if sent["code"] != "000000" else "000001"
+
+    first = client.post(
+        "/v1/auth/cafe24/link/verify", headers=headers, json={"shop_member_id": "shopper2", "code": wrong}
+    )
+    retry_correct = client.post(
+        "/v1/auth/cafe24/link/verify",
+        headers=headers,
+        json={"shop_member_id": "shopper2", "code": sent["code"]},
+    )
+
+    assert first.status_code == 400 and first.json()["error"]["code"] == "CAFE24_CODE_INVALID"
+    assert retry_correct.status_code == 400  # 오답 1회로 코드 소비 — 재발송 필요
+    assert client.portal.call(_member, member_session["member_id"]).cafe24_member_id is None
+
+
+def test_cafe24_link_request_rejects_unknown_shop_member_and_rate_limits(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    member_session = _register_member(client, "otp-unknown@example.com")
+    _patch_cafe24_otp(monkeypatch, exists=False)
+    headers = {"Authorization": f"Bearer {member_session['token']}"}
+
+    missing = client.post("/v1/auth/cafe24/link/request", headers=headers, json={"shop_member_id": "nobody"})
+    assert missing.status_code == 404
+    assert missing.json()["error"]["code"] == "CAFE24_MEMBER_NOT_FOUND"
+
+    _patch_cafe24_otp(monkeypatch)
+    codes = [
+        client.post(
+            "/v1/auth/cafe24/link/request", headers=headers, json={"shop_member_id": "shopper3"}
+        ).status_code
+        for _ in range(4)
+    ]
+    assert codes == [200, 200, 200, 429]
+
+    bad_shape = client.post("/v1/auth/cafe24/link/request", headers=headers, json={"shop_member_id": "a b"})
+    assert bad_shape.status_code == 400
 
 
 def test_cafe24_relink_does_not_grant_credits_twice(client: TestClient, monkeypatch: pytest.MonkeyPatch):
     member_session = _register_member(client, "relink@example.com")
-    _patch_cafe24(monkeypatch, "cafe-user-2")
 
-    first_state = _authorize_state(client, member_session["token"], "cafe24")
-    first = client.get(
-        "/v1/auth/cafe24/callback",
-        params={"code": "test-code", "state": first_state},
-    )
+    first = _link_cafe24(client, member_session["token"], monkeypatch, "cafe-user-2")
     first_cutoff = client.portal.call(_member, member_session["member_id"]).order_reward_cutoff
-    second_state = _authorize_state(client, member_session["token"], "cafe24")
-    second = client.get(
-        "/v1/auth/cafe24/callback",
-        params={"code": "test-code", "state": second_state},
-    )
+    second = _link_cafe24(client, member_session["token"], monkeypatch, "cafe-user-2")
 
     assert first.status_code == second.status_code == 200
     assert first.json()["credit_balance"] == second.json()["credit_balance"] == 4
@@ -868,84 +918,37 @@ def test_cafe24_rejects_rebinding_member_to_another_account(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ):
     member_session = _register_member(client, "cafe-rebind@example.com")
-    _patch_cafe24(monkeypatch, "cafe-user-a")
-    first_state = _authorize_state(client, member_session["token"], "cafe24")
-    assert client.get(
-        "/v1/auth/cafe24/callback",
-        params={"code": "test-code", "state": first_state},
-    ).status_code == 200
+    assert _link_cafe24(client, member_session["token"], monkeypatch, "cafe-user-a").status_code == 200
 
-    _patch_cafe24(monkeypatch, "cafe-user-b")
-    second_state = _authorize_state(client, member_session["token"], "cafe24")
-    response = client.get(
-        "/v1/auth/cafe24/callback",
-        params={"code": "test-code", "state": second_state},
+    _patch_cafe24_otp(monkeypatch)
+    second = client.post(
+        "/v1/auth/cafe24/link/request",
+        headers={"Authorization": f"Bearer {member_session['token']}"},
+        json={"shop_member_id": "cafe-user-b"},
     )
 
-    assert response.status_code == 409
-    assert response.json()["error"]["code"] == "CAFE24_ALREADY_LINKED"
-    member = client.portal.call(_member, member_session["member_id"])
-    assert member.cafe24_member_id == "cafe-user-a"
+    assert second.status_code == 409
+    assert second.json()["error"]["code"] == "CAFE24_ALREADY_LINKED"
+    assert client.portal.call(_member, member_session["member_id"]).cafe24_member_id == "cafe-user-a"
 
 
 def test_cafe24_rejects_account_already_linked_to_another_member(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ):
-    first = _register_member(client, "first@example.com")
-    second = _register_member(client, "second@example.com")
-    _patch_cafe24(monkeypatch, "shared-cafe-user")
-    first_state = _authorize_state(client, first["token"], "cafe24")
-    assert client.get(
-        "/v1/auth/cafe24/callback",
-        params={"code": "test-code", "state": first_state},
-    ).status_code == 200
+    first = _register_member(client, "first-cafe@example.com")
+    second = _register_member(client, "second-cafe@example.com")
+    assert _link_cafe24(client, first["token"], monkeypatch, "shared-cafe-user").status_code == 200
 
-    second_state = _authorize_state(client, second["token"], "cafe24")
-    response = client.get(
-        "/v1/auth/cafe24/callback",
-        params={"code": "test-code", "state": second_state},
+    _patch_cafe24_otp(monkeypatch)
+    response = client.post(
+        "/v1/auth/cafe24/link/request",
+        headers={"Authorization": f"Bearer {second['token']}"},
+        json={"shop_member_id": "shared-cafe-user"},
     )
 
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "CAFE24_ALREADY_LINKED"
-    second_member = client.portal.call(_member, second["member_id"])
-    assert second_member.cafe24_member_id is None
-    assert second_member.order_reward_cutoff is None
-    assert second_member.credit_balance == 1
-
-
-def test_cafe24_callback_requires_state(client: TestClient):
-    response = client.get("/v1/auth/cafe24/callback", params={"code": "test-code"})
-
-    assert 400 <= response.status_code < 500
-
-
-def test_cafe24_state_stays_consumed_after_upstream_failure(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-):
-    member_session = _register_member(client, "failure@example.com")
-    state = _authorize_state(client, member_session["token"], "cafe24")
-    calls = 0
-
-    async def exchange(code: str) -> dict:
-        nonlocal calls
-        calls += 1
-        if calls == 1:
-            raise httpx.HTTPError("upstream failed")
-        return {"access_token": "test-access-token"}
-
-    async def fetch(access_token: str) -> dict:
-        return {"cafe24_member_id": "retry-123"}
-
-    monkeypatch.setattr(auth_router, "_exchange_cafe24_code", exchange)
-    monkeypatch.setattr(auth_router, "_fetch_cafe24_member", fetch)
-
-    first = client.get("/v1/auth/cafe24/callback", params={"code": "test-code", "state": state})
-    second = client.get("/v1/auth/cafe24/callback", params={"code": "test-code", "state": state})
-
-    assert first.status_code == 502
-    assert second.status_code == 401
-    assert calls == 1
+    assert client.portal.call(_member, second["member_id"]).cafe24_member_id is None
 
 
 def test_me_lists_kakao_and_local_providers(client: TestClient, monkeypatch: pytest.MonkeyPatch):

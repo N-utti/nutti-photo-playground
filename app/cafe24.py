@@ -116,6 +116,40 @@ async def get_access_token(now: datetime | None = None) -> str:
         raise
 
 
+async def customer_exists(shop_member_id: str) -> bool:
+    """Admin API로 쇼핑몰 회원 존재 확인(scope mall.read_customer). 개인정보 필드는 마스킹돼 돌아온다."""
+    token = await get_access_token()
+    async with httpx.AsyncClient(timeout=15) as client:
+        response = await client.get(
+            f"{_base_url()}/admin/customers",
+            headers={"Authorization": f"Bearer {token}"},
+            params={"member_id": shop_member_id},
+        )
+        response.raise_for_status()
+        return bool(response.json().get("customers"))
+
+
+async def send_sms(shop_member_id: str, content: str) -> None:
+    """카페24 SMS로 쇼핑몰 회원에게 발송 — 수신자를 member_id로 지정하므로 전화번호를 몰라도 된다.
+    scope mall.write_notification + 몰 SMS 잔액 필요. 실패는 httpx.HTTPError로 전파."""
+    token = await get_access_token()
+    async with httpx.AsyncClient(timeout=15) as client:
+        response = await client.post(
+            f"{_base_url()}/admin/sms",
+            headers={"Authorization": f"Bearer {token}"},
+            json={
+                "shop_no": 1,
+                "request": {
+                    "sender_no": settings.cafe24_sms_sender_no,
+                    "content": content,
+                    "recipients": [shop_member_id],
+                    "type": "SMS",
+                },
+            },
+        )
+        response.raise_for_status()
+
+
 async def _fetch_orders(access_token: str, start: datetime, end: datetime) -> list[dict]:
     """[start, end] 구간 주문 전부(페이지네이션 포함). 날짜는 KST 일 단위."""
     orders: list[dict] = []

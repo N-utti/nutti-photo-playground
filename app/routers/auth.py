@@ -27,6 +27,7 @@ from app.auth import (
     verify_password,
 )
 from app.common import api_error, member_only, unauthorized
+from app import cafe24
 from app.credits import grant_credits
 from app.models import (
     CreditLedger,
@@ -289,40 +290,6 @@ async def _auth_callback_response(
     )
 
 
-async def _exchange_cafe24_code(code: str) -> dict:
-    url = f"https://{settings.cafe24_mall_id}.cafe24api.com/api/v2/oauth/token"
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            url,
-            auth=(settings.cafe24_client_id, settings.cafe24_client_secret),
-            data={
-                "grant_type": "authorization_code",
-                "code": code,
-                "redirect_uri": settings.cafe24_redirect_uri,
-            },
-        )
-        response.raise_for_status()
-        return response.json()
-
-
-async def _fetch_cafe24_member(access_token: str) -> dict:
-    url = f"https://{settings.cafe24_mall_id}.cafe24api.com/api/v2/customers/me"
-    async with httpx.AsyncClient() as client:
-        response = await client.get(url, headers={"Authorization": f"Bearer {access_token}"})
-        response.raise_for_status()
-        data = response.json()
-    member = data.get("customer") or data.get("user") or data
-    member_id = (
-        member.get("cafe24_member_id")
-        or member.get("member_id")
-        or member.get("user_id")
-        or member.get("id")
-    )
-    if member_id is None:
-        raise ValueError("Cafe24 member ID missing")
-    return {"cafe24_member_id": str(member_id)}
-
-
 async def _exchange_kakao_code(code: str) -> dict:
     data = {
         "grant_type": "authorization_code",
@@ -447,85 +414,95 @@ async def issue_guest_token(request: Request) -> GuestTokenResponse:
 
 
 # Fixed Cafe24 paths must be registered before the provider parameter routes below.
-@router.get("/cafe24/authorize", response_model=AuthorizeResponse)
-async def cafe24_authorize(member: Member = Depends(get_current_member)) -> AuthorizeResponse:
+# 쇼핑몰 계정 연동 = 쇼핑몰 아이디 입력 → 카페24 SMS로 6자리 OTP(수신자를 member_id로 지정하므로
+# 우리는 전화번호를 모른다) → 검증 후 연동. 카페24 OAuth는 운영자 로그인이라 고객 인증에 쓸 수 없음.
+_CAFE24_LINK_RATE_LIMIT = 3  # 회원당 시간당 OTP 발송 횟수
+_cafe24_link_requests: dict[str, deque[float]] = {}
+class Cafe24LinkRequest(BaseModel):
+    # 카페24 회원 아이디(영문/숫자/_ . @ -) — 소셜 가입 아이디(예: 4993695098@k) 포함
+    shop_member_id: str = Field(min_length=2, max_length=64, pattern=r"^[A-Za-z0-9_.@\-]+$")
+
+
+class Cafe24LinkVerifyRequest(Cafe24LinkRequest):
+    code: str = Field(pattern=r"^\d{6}$")
+
+
+class Cafe24LinkRequestResponse(BaseModel):
+    sent: Literal[True]
+    expires_in: int
+
+
+def _otp_digest(shop_member_id: str, code: str) -> str:
+    return hashlib.sha256(f"{shop_member_id}:{code}:{settings.jwt_signing_key}".encode()).hexdigest()
+
+
+async def _assert_cafe24_linkable(member: Member, shop_member_id: str) -> None:
+    if member.cafe24_member_id is not None and member.cafe24_member_id != shop_member_id:
+        raise api_error(409, "CAFE24_ALREADY_LINKED", "Member is already linked to another Cafe24 account")
+    taken = await Member.filter(kind=MemberKind.MEMBER, cafe24_member_id=shop_member_id).exclude(id=member.id).exists()
+    if taken:
+        raise api_error(409, "CAFE24_ALREADY_LINKED", "Cafe24 account is already linked")
+
+
+@router.post("/cafe24/link/request", response_model=Cafe24LinkRequestResponse)
+async def cafe24_link_request(
+    body: Cafe24LinkRequest, member: Member = Depends(get_current_member)
+) -> Cafe24LinkRequestResponse:
     if member.kind != MemberKind.MEMBER:
         raise member_only()
-    state = await _issue_oauth_state(member)
-    query = urlencode(
-        {
-            "client_id": settings.cafe24_client_id,
-            "mall_id": settings.cafe24_mall_id,
-            "redirect_uri": settings.cafe24_redirect_uri,
-            "response_type": "code",
-            "scope": settings.cafe24_scope,
-            "state": state,
-        }
-    )
-    return AuthorizeResponse(
-        authorize_url=f"https://{settings.cafe24_mall_id}.cafe24api.com/api/v2/oauth/authorize?{query}"
-    )
-
-
-@router.get("/cafe24/callback", response_model=Cafe24LinkResponse)
-async def cafe24_callback(code: str, state: str) -> Cafe24LinkResponse:
-    member_id, nonce = state_identity(state)
-    await _consume_oauth_state(member_id, nonce, MemberKind.MEMBER)
-
+    await _assert_cafe24_linkable(member, body.shop_member_id)
+    _check_bucket(_cafe24_link_requests, str(member.id), _CAFE24_LINK_RATE_LIMIT)
     try:
-        token_data = await _exchange_cafe24_code(code)
-        member_data = await _fetch_cafe24_member(token_data["access_token"])
-        cafe24_member_id = str(member_data["cafe24_member_id"])
-    except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
+        if not await cafe24.customer_exists(body.shop_member_id):
+            raise api_error(404, "CAFE24_MEMBER_NOT_FOUND", "쇼핑몰 회원을 찾을 수 없습니다")
+        code = f"{secrets.randbelow(10**6):06d}"
+        await cafe24.send_sms(body.shop_member_id, f"[누띠 놀이터] 쇼핑몰 계정 연동 인증번호 {code} (5분 유효)")
+    except (httpx.HTTPError, KeyError, ValueError) as exc:
         raise _bad_gateway() from exc
+    # ponytail: OTP 해시를 소셜 로그인 state와 같은 nonce 컬럼에 둔다 — 한 회원이 동시에 두 흐름을 타면 서로 덮어씀
+    member.oauth_state_nonce = _otp_digest(body.shop_member_id, code)
+    member.oauth_state_expires_at = datetime.now(timezone.utc) + timedelta(minutes=5)
+    await member.save(update_fields=["oauth_state_nonce", "oauth_state_expires_at"])
+    return Cafe24LinkRequestResponse(sent=True, expires_in=300)
 
+
+@router.post("/cafe24/link/verify", response_model=Cafe24LinkResponse)
+async def cafe24_link_verify(
+    body: Cafe24LinkVerifyRequest, member: Member = Depends(get_current_member)
+) -> Cafe24LinkResponse:
+    if member.kind != MemberKind.MEMBER:
+        raise member_only()
+    expected = _otp_digest(body.shop_member_id, body.code)
+    # 1) 코드 소비는 별도 트랜잭션 — 오답으로 예외를 던져도 소비가 롤백되지 않게(단일 시도 보장)
     async with in_transaction() as connection:
-        member = await Member.filter(
-            id=member_id,
-            kind=MemberKind.MEMBER,
-            merged_into_id__isnull=True,
+        locked = await Member.filter(
+            id=member.id, kind=MemberKind.MEMBER, merged_into_id__isnull=True
         ).select_for_update().using_db(connection).first()
-        if member is None:
+        if locked is None:
             raise unauthorized()
-        existing = await Member.filter(
-            kind=MemberKind.MEMBER,
-            cafe24_member_id=cafe24_member_id,
-        ).using_db(connection).first()
-        if existing is not None and existing.id != member.id:
-            raise api_error(
-                409,
-                "CAFE24_ALREADY_LINKED",
-                "Cafe24 account is already linked",
-            )
-        if (
-            member.cafe24_member_id is not None
-            and member.cafe24_member_id != cafe24_member_id
-        ):
-            raise api_error(
-                409,
-                "CAFE24_ALREADY_LINKED",
-                "Member is already linked to another Cafe24 account",
-            )
-        member.cafe24_member_id = cafe24_member_id
-        if member.order_reward_cutoff is None:
-            member.order_reward_cutoff = datetime.now(timezone.utc)
-        await member.save(
-            update_fields=["cafe24_member_id", "order_reward_cutoff"],
-            using_db=connection,
-        )
-        link_credit_exists = await CreditLedger.filter(
-            member_id=member_id, dedupe_key="link_account"
-        ).using_db(connection).exists()
-        if not link_credit_exists:
-            await grant_credits(
-                member_id,
-                3,
-                CreditReason.LINK_ACCOUNT,
-                "link_account",
-                connection=connection,
-            )
+        pending, expires_at = locked.oauth_state_nonce, locked.oauth_state_expires_at
+        locked.oauth_state_nonce = None
+        locked.oauth_state_expires_at = None
+        await locked.save(update_fields=["oauth_state_nonce", "oauth_state_expires_at"], using_db=connection)
+    if (
+        pending is None
+        or not secrets.compare_digest(pending, expected)
+        or expires_at is None
+        or expires_at <= datetime.now(timezone.utc)
+    ):
+        raise api_error(400, "CAFE24_CODE_INVALID", "인증번호가 올바르지 않거나 만료됐습니다")
+    # 2) 연동 + 최초 1회 +3
+    async with in_transaction() as connection:
+        locked = await Member.filter(id=member.id).select_for_update().using_db(connection).first()
+        await _assert_cafe24_linkable(locked, body.shop_member_id)
+        locked.cafe24_member_id = body.shop_member_id
+        if locked.order_reward_cutoff is None:
+            locked.order_reward_cutoff = datetime.now(timezone.utc)
+        await locked.save(update_fields=["cafe24_member_id", "order_reward_cutoff"], using_db=connection)
+        if not await CreditLedger.filter(member_id=locked.id, dedupe_key="link_account").using_db(connection).exists():
+            await grant_credits(locked.id, 3, CreditReason.LINK_ACCOUNT, "link_account", connection=connection)
 
-    member = await Member.get(id=member_id)
+    member = await Member.get(id=member.id)
     return Cafe24LinkResponse(cafe24_linked=True, credit_balance=member.credit_balance)
 
 
