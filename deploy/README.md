@@ -51,7 +51,8 @@ cp .env.example .env && nano .env      # 아래 §3 값 채우기
 | `APP_ENV` | `production` |
 | `TRUST_PROXY` | `true` (Caddy 뒤) |
 | `CORS_ALLOWED_ORIGINS` | `https://play.nutti.co.kr` |
-| `CAFE24_REDIRECT_URI` | `https://play.nutti.co.kr/auth/callback/cafe24` (앱 설정에 등록됨) |
+| `CAFE24_REDIRECT_URI` | `https://play.nutti.co.kr/auth/callback/cafe24` (앱 설정에 등록됨 — 운영자 토큰 발급 `scripts/cafe24_token.py` 전용, 고객 콜백 아님) |
+| `CAFE24_SMS_SENDER_NO` | 카페24 관리자 → SMS 발신번호로 **인증 등록된** 번호(하이픈 없이). 쇼핑몰 계정 연동 OTP 발송에 사용 — 미설정/SMS 잔액 0이면 `link/request`가 502 |
 | `KAKAO_REDIRECT_URI` / `NAVER_REDIRECT_URI` | `https://play.nutti.co.kr/auth/callback/kakao` · `/naver` — 각 콘솔에도 등록 |
 | `ACME_EMAIL` | 운영자 메일 |
 | `R2_*`, `CDN_BASE_URL` | §1 |
@@ -77,6 +78,7 @@ docker compose -f deploy/docker-compose.prod.yml run --rm api python scripts/see
 
 ```bash
 # 최초 1회: URL 출력 → 대표운영자 승인 → 주소창 code 붙여넣기 (1분 내)
+# 스코프 변경(예: mall.write_notification 추가) 후에도 같은 절차로 재발급
 docker compose -f deploy/docker-compose.prod.yml run --rm api python scripts/cafe24_token.py
 docker compose -f deploy/docker-compose.prod.yml run --rm api python scripts/cafe24_token.py <code>
 
@@ -92,7 +94,7 @@ crontab -e
 
 - `curl -I https://api.nutti.co.kr/v1/styles` → 200, `https://play.nutti.co.kr` 로딩
 - 게스트 → 업로드 → 생성 → 결과 이미지가 `img.nutti.co.kr`에서 로드되고 "이미지 저장" 동작(CORS)
-- 카카오/네이버/카페24 콜백이 `play.nutti.co.kr/auth/callback/*`로 돌아옴
+- 카카오/네이버 콜백이 `play.nutti.co.kr/auth/callback/*`로 돌아옴; 쇼핑몰 계정 연동은 아이디 입력 → 실제 SMS 수신 → 코드 입력까지(카페24 앱 권한에 **알림 쓰기**·SMS 잔액 필요)
 - GA4 관리자 → 데이터 스트림 → 도메인 구성에 `play.nutti.co.kr` 추가 → 계산기→놀이터 이동 URL에 `_gl=` 붙는지
 - 관리자 로그인 → `/v1/admin/cafe24/status`가 토큰 상태 반환
 

@@ -195,7 +195,7 @@ erDiagram
 | `credit_balance` | INT | NOT NULL DEFAULT 0 | **캐시**. 원장(`credit_ledger`)이 진실. **음수 허용**(CHECK 제약 없음) — 표시는 `max(0, credit_balance)`, 차감 판정은 `credit_balance >= cost` |
 | `merged_into_id` | UUID | FK → `member.id`(자기참조), NULL | 게스트가 기존 회원에 병합된 경우 대상 회원을 가리킴(UC-07 분기 A) |
 | `guest_expires_at` | TIMESTAMPTZ | NULL | 게스트만 값 존재(가입 시 NULL로 전환). 미병합 게스트 세션·자산의 만료 시점(**30일** — 게스트 JWT 만료와 정렬, FR-EDGE-12·`07-decisions.md#Q7`) |
-| `oauth_state_nonce` | VARCHAR(64) | NULL | 카페24 OAuth `state`의 일회성 nonce — `/auth/cafe24/authorize`에서 발급, 콜백에서 검증 직후 NULL로 소비(재사용 차단, PR #8 C1) |
+| `oauth_state_nonce` | VARCHAR(64) | NULL | 일회성 nonce — 소셜 OAuth `state`(`/auth/{kakao\|naver}/authorize` 발급, 콜백 검증 직후 NULL 소비, PR #8 C1) 및 카페24 SMS OTP 코드 다이제스트(`/auth/cafe24/link/request` 발급, `verify` 1회 시도로 소비)가 같은 칸을 쓴다 — 회원당 동시 진행 1건 |
 | `oauth_state_expires_at` | TIMESTAMPTZ | NULL | 위 nonce의 만료 시점(발급 +5분) — 경과 시 콜백 거부 |
 | `refresh_token_hash` | VARCHAR(64) | UNIQUE, NULL | 회원 리프레시 토큰 sha256(이슈 #47) — 원문 비보관, 회원당 활성 1개(새 로그인 시 덮어씀 = 이전 세션 무효화) |
 | `refresh_expires_at` | TIMESTAMPTZ | NULL | 리프레시 만료(발급 +30일, `JWT_REFRESH_EXPIRES_IN`) — 회전 시마다 갱신 |
