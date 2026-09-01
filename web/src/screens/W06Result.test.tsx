@@ -208,40 +208,86 @@ describe('W-06 · 결과 프레임', () => {
 })
 
 /**
- * 세 번째 갈래 — **저장이 거짓말하지 않는가**.
+ * 세 번째 갈래 — **버튼이 한 번에 끝까지 가는가**.
  *
- * 공유 패널의 미리보기는 저장할 그 파일과 같은 URL 입니다(PR #73 — 서버는 공유용
- * 사본을 만들지 않습니다). 그러니 미리보기가 안 떴다는 건 «저장을 눌러도 실패한다»
- * 는 뜻이고, 그건 누르기 전에 알 수 있는 사실입니다. 그냥 두면 `saveImage` 의
- * 폴백이 새 탭을 열고 화면은 «길게 눌러 저장해 주세요» 라고 안내합니다 — 사용자는
- * 시키는 대로 하다가 저장할 게 없다는 걸 알게 됩니다(app/saveImage.test.ts 가
- * 그 갈래를 따로 봅니다).
+ * 예전에는 「인스타 공유」가 아래에 패널을 펼치고 진짜 동작(저장·공유 시트)이 그 안에
+ * 한 번 더 있었습니다. 즉 두 번 눌러야 했고 첫 클릭의 성과는 «화면이 길어졌다» 뿐이라,
+ * 결과 화면에서 가장 짧아야 할 두 동선에 계단이 하나씩 끼어 있었습니다. 여기서 세는
+ * 것은 문구가 아니라 **한 번의 클릭이 파일까지 닿는가** 입니다 — 중간 패널이 되살아나면
+ * 이 테스트들이 먼저 깨집니다.
+ *
+ * `POST /jobs/{id}/share` 는 계속 지납니다. 지금 응답은 결과 URL 과 같지만(PR #73)
+ * 인스타 전용 합성이 생기면 값이 갈라질 자리가 거기라(api/types.ts ShareResult),
+ * `results[0].image_url` 을 질러 쓰면 그날 조용히 다른 파일이 저장됩니다.
  */
-describe('W-06 · 공유 패널', () => {
-  it('공유 이미지가 안 뜨면 저장을 권하지 않는다', async () => {
-    const user = userEvent.setup()
+describe('W-06 · 저장·공유 버튼', () => {
+  const SHARE_URL = 'https://cdn.example.test/result_01HQZX.jpg'
+
+  function mockShare() {
     server.use(
       http.post(`*/v1/jobs/${JOB_ID}/share`, () =>
-        HttpResponse.json({ share_image_url: 'https://cdn.example.test/result_01HQZX.jpg' }),
+        HttpResponse.json({ share_image_url: SHARE_URL }),
       ),
+    )
+  }
+
+  it('「이미지 저장」 한 번이 share 를 지나 파일까지 간다', async () => {
+    /*
+      클릭 하나로 두 가지가 일어나야 합니다: share 왕복(주소 확보)과 그 주소의 fetch.
+      둘 중 하나라도 빠지면 «저장했다» 는 말만 남습니다 — 실제 저장은 `saveImage` 가
+      blob 앵커로 하고(app/saveImage.test.ts 가 그쪽을 봅니다) 여기서는 이 화면이
+      그 함수까지 도달하는지만 셉니다.
+    */
+    const user = userEvent.setup()
+    let sharePosts = 0
+    let imageFetches = 0
+    server.use(
+      http.post(`*/v1/jobs/${JOB_ID}/share`, () => {
+        sharePosts += 1
+        return HttpResponse.json({ share_image_url: SHARE_URL })
+      }),
+      http.get(SHARE_URL, () => {
+        imageFetches += 1
+        return HttpResponse.arrayBuffer(new Uint8Array([255, 216, 255]).buffer, {
+          headers: { 'Content-Type': 'image/jpeg' },
+        })
+      }),
     )
     renderResult(succeededJob())
 
-    await user.click(await screen.findByRole('button', { name: '인스타 공유' }))
-    fireEvent.error(await screen.findByAltText('저장할 결과 이미지'))
+    await user.click(await screen.findByRole('button', { name: '이미지 저장' }))
 
-    expect(screen.getByText('이미지를 불러오지 못했어요')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '이미지 저장' })).toBeDisabled()
-    // 볼 그림이 없는데 «저장해서 올려 주세요» 는 안내가 아니라 딴소리입니다.
-    expect(screen.queryByText(/저장해서 인스타그램에 올려 주세요/)).not.toBeInTheDocument()
+    await waitFor(() => expect(imageFetches).toBe(1))
+    expect(sharePosts).toBe(1)
+    // 중간에 «공유 패널» 을 펼치고 거기서 다시 누르게 하지 않습니다.
+    expect(screen.queryByAltText('저장할 결과 이미지')).not.toBeInTheDocument()
+  })
+
+  it('서버가 이미지를 못 주면 저장했다고 말하지 않는다', async () => {
+    /*
+      만료된 서명 URL·파기된 파일이 여기로 옵니다. `saveImage` 는 응답이 온 실패와
+      응답 자체가 없는 실패를 갈라 돌려주는데(전자는 새 탭을 열어도 오류 페이지),
+      화면이 그 구분을 무시하고 «길게 눌러 저장하세요» 라고 하면 사용자는 오류
+      페이지를 누르고 있게 됩니다.
+    */
+    const user = userEvent.setup()
+    mockShare()
+    server.use(http.get(SHARE_URL, () => new HttpResponse(null, { status: 404 })))
+    renderResult(succeededJob())
+
+    await user.click(await screen.findByRole('button', { name: '이미지 저장' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      '저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.',
+    )
+    expect(screen.queryByText(/길게 눌러 저장/)).not.toBeInTheDocument()
   })
 
   it('파일 공유가 되는 브라우저에서는 「인스타에 올리기」가 OS 공유 시트로 이미지를 넘긴다', async () => {
     /*
       인스타그램은 웹에서 대신 게시할 수 없어서, 모바일에서 게시물/스토리로 가는 가장 짧은
-      길은 Web Share API 로 **파일**을 넘기는 것입니다(app/shareImage.ts). 데스크톱(jsdom
-      기본)처럼 파일 공유가 안 되면 버튼이 없어야 하고, 되면 blob 을 File 로 감싸 share 에
-      넘겨야 합니다 — URL 만 넘기면 인스타는 공유 대상에 뜨지 않습니다.
+      길은 Web Share API 로 **파일**을 넘기는 것입니다(app/shareImage.ts). blob 을 File 로
+      감싸 share 에 넘겨야 하고, URL 만 넘기면 인스타는 공유 대상에 뜨지 않습니다.
     */
     const user = userEvent.setup()
     const shared: ShareData[] = []
@@ -252,11 +298,9 @@ describe('W-06 · 공유 패널', () => {
         shared.push(data)
       },
     })
+    mockShare()
     server.use(
-      http.post(`*/v1/jobs/${JOB_ID}/share`, () =>
-        HttpResponse.json({ share_image_url: 'https://cdn.example.test/result_01HQZX.jpg' }),
-      ),
-      http.get('https://cdn.example.test/result_01HQZX.jpg', () =>
+      http.get(SHARE_URL, () =>
         HttpResponse.arrayBuffer(new Uint8Array([255, 216, 255]).buffer, {
           headers: { 'Content-Type': 'image/jpeg' },
         }),
@@ -265,7 +309,6 @@ describe('W-06 · 공유 패널', () => {
     try {
       renderResult(succeededJob())
 
-      await user.click(await screen.findByRole('button', { name: '인스타 공유' }))
       await user.click(await screen.findByRole('button', { name: '인스타에 올리기' }))
 
       await waitFor(() => expect(shared).toHaveLength(1))
@@ -277,6 +320,39 @@ describe('W-06 · 공유 패널', () => {
       delete (navigator as { canShare?: unknown }).canShare
       delete (navigator as { share?: unknown }).share
     }
+  })
+
+  it('파일 공유가 안 되는 브라우저에는 「인스타에 올리기」를 두지 않는다', async () => {
+    /*
+      jsdom 기본값이 곧 데스크톱입니다(`navigator.canShare` 없음). 거기서 그 버튼을
+      그리면 눌러도 `unsupported` 로 끝나 아무 일도 안 일어납니다 — «올리기» 라고 써
+      두고 아무 일도 안 하는 버튼 대신, 실제로 갈 수 있는 인스타그램 링크를 둡니다.
+    */
+    renderResult(succeededJob())
+
+    expect(await screen.findByRole('link', { name: '인스타그램 열기' })).toHaveAttribute(
+      'href',
+      'https://www.instagram.com/',
+    )
+    expect(screen.queryByRole('button', { name: '인스타에 올리기' })).not.toBeInTheDocument()
+  })
+
+  it('게스트에게 보관함으로 가는 길을 남긴다', async () => {
+    /*
+      계정 연동을 권하던 자리가 예전에는 「저장」 버튼이었습니다(FR-W06-09 · W-06 B).
+      그 버튼이 파일 저장으로 바뀌었으므로 거기서 로그인 시트를 띄우면 «이미지 저장»
+      을 눌렀는데 로그인을 요구하는 화면이 됩니다. 대신 안내 줄로 옮겼는데, 옮기다
+      **잃어버리면** 게스트는 결과가 사라진다는 사실조차 모른 채 화면을 떠납니다.
+      목 기본 세션이 게스트입니다(mocks/handlers.ts).
+    */
+    const user = userEvent.setup()
+    renderResult(succeededJob())
+
+    await user.click(await screen.findByRole('button', { name: '로그인' }))
+
+    expect(
+      await screen.findByText(/로그인하면 지금 결과가 보관함에 남고/),
+    ).toBeInTheDocument()
   })
 })
 
@@ -390,8 +466,8 @@ describe('W-06 · 지워진 결과', () => {
     renderResult(removedJob())
     await screen.findByText('보관함에서 지운 사진이에요')
 
-    expect(screen.queryByRole('button', { name: '저장' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '인스타 공유' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '이미지 저장' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: '인스타그램 열기' })).not.toBeInTheDocument()
   })
 
   it('원본 사진과 «다시 만들기» 는 남긴다', async () => {
