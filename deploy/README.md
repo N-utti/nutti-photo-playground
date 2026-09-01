@@ -32,6 +32,8 @@
 
 Cloud Compute · Seoul · Ubuntu 24.04 · 2 vCPU / 2 GB(초기) · 자동 백업(스냅샷) ON · SSH 키 등록.
 
+**생성 완료(2026-09-01)**: `nutti-vps` · vc2-2c-2gb · Seoul · Ubuntu 24.04 · IP **64.176.226.135** · 자동백업 ON($3) · SSH 키 `nutti-deploy`(로컬 `~/.ssh/nutti_deploy_ed25519`). 접속: `ssh -i ~/.ssh/nutti_deploy_ed25519 root@64.176.226.135`
+
 ```bash
 ssh root@<VPS_IP>
 apt update && apt install -y ca-certificates curl git ufw

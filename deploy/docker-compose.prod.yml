@@ -46,6 +46,7 @@ services:
   caddy:
     image: caddy:2
     restart: unless-stopped
+    env_file: ../.env  # Caddyfile의 {$ACME_EMAIL}
     ports:
       - "80:80"
       - "443:443"
