@@ -2,7 +2,7 @@
 
 > 기준: wireframe-spec v0.5 / cebb865
 
-13개 테이블(MVP 기준). 근거: [03-usecases.md](03-usecases.md), [07-decisions.md](07-decisions.md) ADR-01·02·03·09.
+15개 테이블(MVP 13 + 인스타 퍼널 2: `instagram_token`·`instagram_dm_code`, 2026-09-01 §2.14~2.15). 근거: [03-usecases.md](03-usecases.md), [07-decisions.md](07-decisions.md) ADR-01·02·03·09.
 
 ---
 
@@ -390,6 +390,31 @@ erDiagram
 예시 키: `human_face_policy`(`block`/`warn`/`allow`, `07-decisions.md#Q6`), `custom_prompt_credit_cost`(기본 2), `daily_free_amount`(기본 1), `follow_ig_amount`(기본 2), `link_account_amount`(기본 3), `order_reward_amount`(기본 20), `catalog_search_threshold`(기본 100, W-02 검색 부활 모니터링 임계). **주의**: `order_reward_cutoff`는 여기 없음 — 회원별 값이라 `member.order_reward_cutoff` 컬럼에 있음(§2.1). 이름이 비슷해 혼동하기 쉬우므로 명시.
 
 ---
+
+### 2.14 `instagram_token` — @nutti_official 장기 토큰 (단일 행, 2026-09-01)
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| `id` | BIGSERIAL | PK | |
+| `ig_user_id` | VARCHAR(64) | UNIQUE | 프로페셔널 계정의 Instagram user id — 웹훅 `entry.id`·메아리 판정에 사용 |
+| `username` | VARCHAR(64) | NULL | `nutti_official` |
+| `access_token` | TEXT | | Instagram Login 장기 토큰(60일). `app.instagram.get_token`이 만료 7일 전부터 refresh |
+| `expires_at` | TIMESTAMPTZ | | |
+| `last_refresh_error` | TEXT | NULL | 갱신 실패 사유(성공 시 NULL) |
+| `updated_at` | TIMESTAMPTZ | | |
+
+### 2.15 `instagram_dm_code` — 댓글→DM 퍼널 1회용 코드 (2026-09-01)
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| `id` | BIGSERIAL | PK | |
+| `code` | VARCHAR(16) | UNIQUE | 8자(혼동 문자 제외 32진), DM으로 전달, 30일 유효 |
+| `igsid` | VARCHAR(64) | INDEX | Instagram-scoped user id — **인스타 계정당 1회** 판정 키(소진된 코드가 있으면 같은 igsid의 새 코드는 다른 회원이 못 씀) |
+| `ig_username` | VARCHAR(64) | NULL | 프로필 조회 시점 username — 원장 `ref_id = ig:<username>` |
+| `follow_verified_at` | TIMESTAMPTZ | NULL | `is_user_follow_business = true` 확인 시각. NULL이면 소진 불가 |
+| `redeemed_member_id` | UUID | FK → `member.id` SET NULL, NULL | 소진한 놀이터 회원 |
+| `redeemed_at` | TIMESTAMPTZ | NULL | |
+| `created_at` | TIMESTAMPTZ | | |
 
 ## 3. 크레딧 원장 세부 규약
 

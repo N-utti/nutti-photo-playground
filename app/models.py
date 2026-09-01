@@ -285,6 +285,40 @@ class AdminUser(Model):
         table = "admin_user"
 
 
+class InstagramToken(Model):
+    """@nutti_official 프로페셔널 계정의 장기 토큰(60일, 갱신은 app.instagram.get_access_token) — 단일 행."""
+
+    id = fields.BigIntField(primary_key=True)
+    ig_user_id = fields.CharField(max_length=64, unique=True)
+    username = fields.CharField(max_length=64, null=True)
+    access_token = fields.TextField()
+    expires_at = fields.DatetimeField()
+    last_refresh_error = fields.TextField(null=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+
+    class Meta:
+        table = "instagram_token"
+
+
+class InstagramDmCode(Model):
+    """댓글→DM 퍼널에서 팔로우가 확인된 인스타 사용자에게 보낸 1회용 코드 — 놀이터에서 소진하면 follow_ig +N.
+    igsid(Instagram-scoped user id)로 «인스타 계정당 1회»를 보장한다."""
+
+    id = fields.BigIntField(primary_key=True)
+    code = fields.CharField(max_length=16, unique=True)
+    igsid = fields.CharField(max_length=64, db_index=True)
+    ig_username = fields.CharField(max_length=64, null=True)
+    follow_verified_at = fields.DatetimeField(null=True)
+    redeemed_member = fields.ForeignKeyField(
+        "models.Member", related_name="instagram_dm_codes", null=True, on_delete=fields.SET_NULL
+    )
+    redeemed_at = fields.DatetimeField(null=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    class Meta:
+        table = "instagram_dm_code"
+
+
 class AppSetting(Model):
     key = fields.CharField(max_length=100, primary_key=True)
     value = fields.JSONField()

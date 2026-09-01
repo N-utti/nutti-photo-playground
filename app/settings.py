@@ -44,6 +44,14 @@ class Settings(BaseSettings):
     cafe24_sms_sender_no: str = ""  # 카페24 SMS 발신번호 등록 ID(GET /admin/sms/senders의 sender_no)
     cafe24_webhook_api_key: str = ""  # 개발자센터 "WebHook 인증정보" — 비어 있으면 웹훅 엔드포인트가 전부 401
 
+    # 인스타 댓글→DM 퍼널(Instagram API with Instagram Login). 앱 검수 전엔 테스터 역할 계정만 동작.
+    instagram_app_id: str = ""
+    instagram_app_secret: str = ""  # 웹훅 X-Hub-Signature-256 검증 키이기도 함 — 비어 있으면 웹훅 전부 401
+    instagram_redirect_uri: str = ""  # scripts/instagram_token.py 운영자 토큰 발급용
+    instagram_webhook_verify_token: str = ""  # Meta 콘솔 Webhooks "확인 토큰"과 동일 값
+    instagram_comment_keywords: str = "놀이터"  # 쉼표 구분, 비우면 모든 댓글에 반응
+    instagram_landing_url: str = "https://play.nutti.co.kr"
+
     kakao_rest_api_key: str = ""
     kakao_redirect_uri: str = ""
     kakao_client_secret: str = ""

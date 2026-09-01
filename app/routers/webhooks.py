@@ -7,12 +7,14 @@
 인증: 카페24는 개발자센터 "WebHook 인증정보"를 `X-API-Key` 헤더로 그대로 보낸다 → 상수 시간 비교.
 """
 
+import json
 import logging
 import secrets
 
-from fastapi import APIRouter, BackgroundTasks, Header, Request
+from fastapi import APIRouter, BackgroundTasks, Header, Query, Request
+from fastapi.responses import PlainTextResponse
 
-from app import cafe24
+from app import cafe24, instagram
 from app.common import api_error
 from app.models import Member, MemberKind
 from app.settings import settings
@@ -63,3 +65,48 @@ async def cafe24_webhook(
     # 응답은 즉시, 동기화는 뒤에서 — 카페24 웹훅 타임아웃·실패율 집계에 걸리지 않게
     background.add_task(_resync, member)
     return {"accepted": True}
+
+
+# ---------------------------------------------------------------- 인스타 (댓글→DM 퍼널, app/instagram.py)
+
+
+@router.get("/instagram")
+async def instagram_verify(
+    hub_mode: str | None = Query(default=None, alias="hub.mode"),
+    hub_challenge: str | None = Query(default=None, alias="hub.challenge"),
+    hub_verify_token: str | None = Query(default=None, alias="hub.verify_token"),
+) -> PlainTextResponse:
+    """Meta 웹훅 구독 확인 — 콘솔의 «확인 토큰»이 일치하면 challenge를 그대로 돌려준다."""
+    expected = settings.instagram_webhook_verify_token
+    if hub_mode != "subscribe" or not expected or not secrets.compare_digest(hub_verify_token or "", expected):
+        raise api_error(403, "UNAUTHORIZED", "invalid verify token")
+    return PlainTextResponse(hub_challenge or "")
+
+
+@router.post("/instagram")
+async def instagram_webhook(
+    request: Request,
+    background: BackgroundTasks,
+    x_hub_signature_256: str | None = Header(default=None),
+) -> dict:
+    """댓글·메시지 이벤트 — 서명(앱 시크릿 HMAC) 검증 후 백그라운드 처리, 응답은 즉시 200(Meta 재시도·구독 해제 회피)."""
+    raw = await request.body()
+    if not instagram.verify_signature(raw, x_hub_signature_256):
+        raise api_error(401, "UNAUTHORIZED", "invalid signature")
+    try:
+        payload = json.loads(raw)
+    except ValueError:
+        raise api_error(400, "VALIDATION_ERROR", "malformed webhook payload")
+    if not isinstance(payload, dict) or payload.get("object") != "instagram":
+        return {"accepted": False}
+    queued = 0
+    for entry in payload.get("entry") or []:
+        for change in entry.get("changes") or []:
+            if change.get("field") == "comments" and isinstance(change.get("value"), dict):
+                background.add_task(instagram.handle_comment, change["value"])
+                queued += 1
+        for event in entry.get("messaging") or []:
+            if isinstance(event, dict) and "message" in event:
+                background.add_task(instagram.handle_message, event)
+                queued += 1
+    return {"accepted": queued > 0}

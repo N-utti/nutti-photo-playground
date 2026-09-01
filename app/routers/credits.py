@@ -8,7 +8,17 @@ from tortoise.expressions import Q
 from app.auth import get_current_member
 from app.common import KST, api_error, member_only, validation_error
 from app.credits import custom_prompt_credit_cost, grant_credits
-from app.models import AppSetting, CreditLedger, CreditReason, GenerationJob, Member, MemberKind, MetricEvent
+from app.instagram import CODE_TTL as INSTAGRAM_CODE_TTL
+from app.models import (
+    AppSetting,
+    CreditLedger,
+    CreditReason,
+    GenerationJob,
+    InstagramDmCode,
+    Member,
+    MemberKind,
+    MetricEvent,
+)
 
 router = APIRouter(prefix="/credits", tags=["credits"])
 
@@ -180,6 +190,40 @@ async def claim_credit(body: ClaimCreditRequest, member: Member = Depends(get_cu
             "이미 받은 크레딧이에요",
             {"action": body.action},
         )
+    await member.refresh_from_db(fields=["credit_balance"])
+    return {"balance": member.credit_balance, "amount_granted": amount}
+
+
+class RedeemInstagramRequest(BaseModel):
+    code: str = Field(min_length=6, max_length=16, pattern=r"^[A-Za-z0-9]+$")
+
+
+@router.post("/redeem-instagram", response_model=ClaimCreditResponse)
+async def redeem_instagram_code(body: RedeemInstagramRequest, member: Member = Depends(get_current_member)):
+    """인스타 DM으로 받은 1회용 코드 → follow_ig 크레딧. 코드는 팔로우가 **API로 확인된** 사용자에게만 발급되므로
+    (app/instagram.handle_message) 아이디 입력·열기 이벤트 없이 바로 지급한다. 인스타 계정(igsid)당 1회."""
+    if member.kind == MemberKind.GUEST:
+        raise member_only()
+    now = datetime.now(timezone.utc)
+    dm_code = await InstagramDmCode.get_or_none(code=body.code.upper())
+    if dm_code is None or dm_code.follow_verified_at is None or dm_code.created_at < now - INSTAGRAM_CODE_TTL:
+        raise api_error(404, "INSTAGRAM_CODE_INVALID", "코드가 올바르지 않거나 만료됐어요")
+    if dm_code.redeemed_member_id is not None and dm_code.redeemed_member_id != member.id:
+        raise api_error(409, "INSTAGRAM_ALREADY_USED", "이미 다른 계정에서 사용한 코드예요")
+    if await InstagramDmCode.filter(igsid=dm_code.igsid, redeemed_member_id__isnull=False).exclude(
+        redeemed_member_id=member.id
+    ).exists():
+        raise api_error(409, "INSTAGRAM_ALREADY_USED", "이 인스타그램 계정으로는 이미 크레딧을 받았어요")
+    amounts = await _amounts()
+    amount = amounts["follow_ig_amount"]
+    granted = await grant_credits(
+        member.id, amount, "follow_ig", "follow_ig", ref_id=f"ig:{dm_code.ig_username or dm_code.igsid}"
+    )
+    if not granted:
+        raise api_error(409, "ALREADY_CLAIMED", "이미 받은 크레딧이에요", {"action": "follow_ig"})
+    dm_code.redeemed_member_id = member.id
+    dm_code.redeemed_at = now
+    await dm_code.save(update_fields=["redeemed_member_id", "redeemed_at"])
     await member.refresh_from_db(fields=["credit_balance"])
     return {"balance": member.credit_balance, "amount_granted": amount}
 

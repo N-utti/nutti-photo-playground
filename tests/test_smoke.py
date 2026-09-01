@@ -16,7 +16,7 @@ from app.settings import settings
 
 app = main_module.app
 
-EXPECTED_MODEL_COUNT = 13
+EXPECTED_MODEL_COUNT = 15  # +instagram_token, instagram_dm_code (2026-09-01)
 EXPECTED_ROUTER_TAGS = {
     "auth",
     "styles",
@@ -31,7 +31,7 @@ EXPECTED_ROUTER_TAGS = {
 }
 
 
-async def test_all_13_models_create_schema_on_sqlite():
+async def test_all_models_create_schema_on_sqlite():
     await Tortoise.init(db_url="sqlite://:memory:", modules={"models": ["app.models"]})
     try:
         await Tortoise.generate_schemas()
