@@ -56,7 +56,7 @@ cp .env.example .env && nano .env      # 아래 §3 값 채우기
 | `CAFE24_REDIRECT_URI` | `https://play.nutti.co.kr/auth/callback/cafe24` (앱 설정에 등록됨) |
 | `KAKAO_REDIRECT_URI` / `NAVER_REDIRECT_URI` | `https://play.nutti.co.kr/auth/callback/kakao` · `/naver` — 각 콘솔에도 등록 |
 | `ACME_EMAIL` | 운영자 메일 |
-| `R2_*`, `CDN_BASE_URL` | §1 |
+| `R2_*`, `CDN_BASE_URL` | §1. **R2 토큰 전까지는** `R2_ENDPOINT_URL` 비우고 `CDN_BASE_URL=https://api.nutti.co.kr/media` (로컬 디스크 폴백 — `public_url`이 `{CDN}/{key}`라 `/media` 접두를 CDN 값에 포함해야 함) |
 | `ADMIN_ALERT_SLACK_WEBHOOK_URL` | Slack Incoming Webhook |
 | `FAL_KEY` 등 이미지 생성 키 | 로컬 `.env`와 동일 |
 
