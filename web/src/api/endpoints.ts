@@ -8,6 +8,7 @@ import type {
   AuthorizeResponse,
   Cafe24LinkRequestResult,
   Cafe24LinkResult,
+  Cafe24LinkTarget,
   CalculatorLink,
   ClaimResult,
   CreateJobBody,
@@ -57,14 +58,14 @@ export const auth = {
    * 카페24 **연동** 1/2 — 쇼핑몰 아이디를 보내면 카페24가 그 회원의 휴대폰으로 6자리
    * 인증번호를 SMS 로 보냅니다(5분, 회원당 시간당 3회). 회원 토큰 필수(게스트 403).
    */
-  cafe24LinkRequest: (shop_member_id: string) =>
-    request<Cafe24LinkRequestResult>('/auth/cafe24/link/request', { method: 'POST', json: { shop_member_id } }),
+  cafe24LinkRequest: (target: Cafe24LinkTarget) =>
+    request<Cafe24LinkRequestResult>('/auth/cafe24/link/request', { method: 'POST', json: target }),
 
   /**
    * 카페24 **연동** 2/2 — 인증번호는 단일 시도(오답도 소비). 로그인이 아니므로 토큰이
    * 바뀌지 않고 자산 병합도 없습니다(UC-07 미적용) — 응답에 token 이 없는 게 그 신호입니다.
    */
-  cafe24LinkVerify: (body: { shop_member_id: string; code: string }) =>
+  cafe24LinkVerify: (body: Cafe24LinkTarget & { code: string }) =>
     request<Cafe24LinkResult>('/auth/cafe24/link/verify', { method: 'POST', json: body }),
 
   /**

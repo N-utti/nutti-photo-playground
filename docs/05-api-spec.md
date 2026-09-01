@@ -47,7 +47,7 @@
 | `INVALID_CREDENTIALS` | HTTP 에러 | 401 | `POST /v1/auth/login` 실패 — 이메일 존재 여부를 구분하지 않는 단일 메시지 |
 | `EMAIL_TAKEN` | HTTP 에러 | 409 | `POST /v1/auth/register` — 이미 가입된 이메일 |
 | `CAFE24_ALREADY_LINKED` | HTTP 에러 | 409 | 카페24 연동(request/verify) — 이미 다른 회원/다른 카페24 계정에 연동됨 |
-| `CAFE24_MEMBER_NOT_FOUND` | HTTP 에러 | 404 | `POST /v1/auth/cafe24/link/request` — 입력한 아이디의 쇼핑몰 회원이 없음 |
+| `CAFE24_MEMBER_NOT_FOUND` | HTTP 에러 | 404 | `POST /v1/auth/cafe24/link/request` — 입력한 아이디/휴대폰 번호의 쇼핑몰 회원이 없음 |
 | `CAFE24_CODE_INVALID` | HTTP 에러 | 400 | `POST /v1/auth/cafe24/link/verify` — 인증번호 불일치·만료·미발급(오답 1회로 코드 소비, 재발송 필요) |
 | `ALREADY_MEMBER` | HTTP 에러 | 409 | 회원 토큰으로 register/login/소셜 authorize 호출 — 로그인 수단 추가는 MVP 미지원(이슈 #17) |
 | `MEMBER_ONLY` | HTTP 에러 | 403 | **유효한 게스트 토큰**으로 회원 전용 기능 접근(`POST /v1/credits/claim`·카페24 연동) — 401과 달리 토큰은 살아있으므로 클라이언트는 세션을 지우지 말고 로그인 시트를 띄움(이슈 #52) |
@@ -160,7 +160,7 @@
 | A · 잔액 "보유 크레딧 11" | `GET /v1/credits` → `balance` |
 | A · 4개 획득 행(주문+20/연동+3/팔로우+2/오늘의무료+1)과 각 행의 상태(가능/완료/내일 다시) | `GET /v1/credits` → `earn_actions[]`(action, amount, status, cta) |
 | "쇼핑몰 →" (주문하기) | 정적 링크(쇼핑몰 이동), 지급 자체는 카페24 주문 동기화 배치가 처리 |
-| 연동 +3 행 CTA("연동하기", 미연동 회원) | 쇼핑몰 아이디 입력 → `POST /v1/auth/cafe24/link/request`(회원 토큰, 카페24가 회원 휴대폰으로 SMS 인증번호 발송) → 6자리 입력 → `POST /v1/auth/cafe24/link/verify`가 +3 지급(§3 인증). 게스트에게는 로그인 유도(§3 로그인 3종) |
+| 연동 +3 행 CTA("연동하기", 미연동 회원) | 쇼핑몰 가입 휴대폰 번호(또는 아이디) 입력 → `POST /v1/auth/cafe24/link/request`(회원 토큰, 카페24가 회원 휴대폰으로 SMS 인증번호 발송) → 6자리 입력 → `POST /v1/auth/cafe24/link/verify`가 +3 지급(§3 인증). 게스트에게는 로그인 유도(§3 로그인 3종) |
 | 각 획득 CTA(팔로우/오늘의무료 받기) | `POST /v1/credits/claim` → `{action: "follow_ig" \| "daily"}`("order"는 배치 자동 지급, "link_account"는 카페24 연동 콜백이 지급하므로 이 엔드포인트로 클레임하지 않음) |
 | B · 받은 내역 테이블 | `GET /v1/credits/ledger?cursor=`(커서 페이지네이션) → `{reason, ref_label, occurred_on, amount}` |
 
@@ -287,34 +287,41 @@
 헤더: `Authorization: Bearer <memberToken>` **필수**(게스트는 `403 MEMBER_ONLY` — 먼저 로그인).
 
 ```json
-// 요청
-{ "shop_member_id": "kongmom" }
+// 요청 — 둘 중 하나만
+{ "cellphone": "01012345678" }      // 기본: 쇼핑몰 가입 휴대폰 번호(숫자만, 01로 시작 10~11자리)
+{ "shop_member_id": "kongmom" }     // 폴백: 아이디 2~64자, A-Za-z0-9 _ . @ -
 ```
-`shop_member_id`: 2~64자, `A-Za-z0-9 _ . @ -`(카페24 소셜가입 아이디 `4993695098@k` 포함). 그 외 → `400 VALIDATION_ERROR`.
+카카오/네이버로 쇼핑몰에 가입한 고객은 아이디가 `4993695098@k` 꼴이라 본인이 모른다 → **번호가 기본 경로**(Admin API `GET /admin/customers?cellphone=`, 하이픈은 클라이언트가 제거). 둘 다/둘 다 없음/형식 위반 → `400 VALIDATION_ERROR`. 한 번호에 계정이 여러 개일 수 있으며(실측 3개) 그래도 같은 폰이라 SMS는 첫 계정으로 1통만 보낸다.
 
 ```json
 // 200 — 5분 유효 6자리 코드를 카페24가 SMS 발송
 { "sent": true, "expires_in": 300 }
 ```
-- `404 CAFE24_MEMBER_NOT_FOUND`: 해당 아이디의 쇼핑몰 회원 없음(Admin API `GET /admin/customers?member_id=`).
-- `409 CAFE24_ALREADY_LINKED`: ① 그 계정이 이미 **다른 회원**에 연동됨, 또는 ② 이 회원이 이미 **다른 카페24 계정**에 연동됨(재바인딩 금지 — 해제는 MVP 미지원). 발송 전에 검사하므로 SMS 비용이 나가지 않는다.
+- `404 CAFE24_MEMBER_NOT_FOUND`: 해당 아이디/번호의 쇼핑몰 회원 없음.
+- `409 CAFE24_ALREADY_LINKED`: 연동 가능한 계정이 하나도 없음 — ① 찾은 계정이 전부 **다른 회원**에 연동됨, 또는 ② 이 회원이 이미 **다른 카페24 계정**에 연동됨(재바인딩 금지 — 해제는 MVP 미지원). 발송 전에 검사하므로 SMS 비용이 나가지 않는다.
 - `429 RATE_LIMITED`: **시간당 3회** — 요청 회원 기준과 수신 쇼핑몰 아이디 기준 둘 다(새 회원을 찍어내며 한 사람 폰에 퍼붓는 SMS 펌핑 차단). 한도 검사가 409 검사보다 먼저라 "이미 연동된 아이디인지"도 무제한으로 캐물을 수 없다.
 - `502 BAD_GATEWAY`: 카페24 토큰 미발급/만료·SMS 잔액 부족·발신번호 미등록 등 Admin API 실패.
-- 재요청은 이전 코드를 **덮어쓴다**(마지막 코드만 유효). 코드는 원문 저장 없이 `sha256(shop_member_id:code:서버키)` 다이제스트만 `member.oauth_state_nonce`(+`oauth_state_expires_at`)에 둔다.
+- 재요청은 이전 코드를 **덮어쓴다**(마지막 코드만 유효). 코드는 원문 저장 없이 `sha256(tel|id:입력값:code:서버키)` 다이제스트만 `member.oauth_state_nonce`(+`oauth_state_expires_at`)에 둔다.
 
 #### `POST /v1/auth/cafe24/link/verify` — 쇼핑몰 계정 연동 2/2: 인증번호 확인
 
 헤더: `Authorization: Bearer <memberToken>` **필수**.
 
 ```json
-// 요청 — request와 같은 shop_member_id
-{ "shop_member_id": "kongmom", "code": "482913" }
+// 요청 — request와 같은 식별자(번호 또는 아이디) + 코드
+{ "cellphone": "01012345678", "code": "482913" }
 ```
 ```json
-// 200
-{ "cafe24_linked": true, "credit_balance": 15 }
+// 200 — 연동 완료
+{ "cafe24_linked": true, "credit_balance": 15, "candidates": null }
 ```
-- 코드는 **단일 시도**: 맞든 틀리든 호출 즉시 소비된다(무차별 대입 차단). 오답이면 `400 CAFE24_CODE_INVALID` → 프론트는 "인증번호 다시 받기"로 유도. 만료(5분)·미발급도 같은 400.
+```json
+// 200 — 번호에 연동 가능한 쇼핑몰 계정이 여러 개: 아직 미연동, 코드는 **소비되지 않음**
+{ "cafe24_linked": false, "credit_balance": 12, "candidates": ["tester123", "4950033661@k"] }
+// → 같은 코드로 한 번 더: { "cellphone": "01012345678", "code": "482913", "shop_member_id": "4950033661@k" }
+```
+- 코드는 **단일 시도**: 오답은 즉시 소비, 정답은 연동(또는 계정 선택 완료)과 같은 잠금 안에서 소비된다(무차별 대입 차단). 오답이면 `400 CAFE24_CODE_INVALID` → 프론트는 "인증번호 다시 받기"로 유도. 만료(5분)·미발급도 같은 400.
+- `candidates`는 OTP를 **통과한 뒤에만** 내려간다 — 번호만 알고 코드가 없는 사람은 그 번호의 쇼핑몰 아이디를 알아낼 수 없다. 다른 회원이 선점한 계정은 목록에서 빠지고, 이미 연동된 회원은 자기 계정만 남는다(재바인딩 금지).
 - 연동 +3 크레딧은 `credit_ledger` dedupe(`link_account`)로 1회만 지급 — 재연동해도 반복 수령 불가.
 - `member.order_reward_cutoff` 기록(최초 1회) → 이후 주문부터 +20 보상 자격(ADR-09). 동일 계정 재연동(멱등 재시도)은 200이며 cutoff를 앞으로 밀지 않는다.
 - `409 CAFE24_ALREADY_LINKED`: request와 같은 두 경우(request 이후 다른 탭에서 먼저 연동된 경합). **자산 병합은 일어나지 않습니다** — 연동은 로그인이 아니므로 UC-07 미적용.
@@ -817,7 +824,7 @@ custom_prompt_credit_cost는 app_setting 정책값이며, 미설정 시 2로 폴
 ### 시나리오 1-B · 회원의 카페24 연동 (+3 크레딧, 마이페이지·W-10)
 
 1. 전제: `kind: "member"` 토큰 보유(시나리오 1 완료). 게스트가 연동을 시도하면 `403 MEMBER_ONLY` — 로그인 유도.
-2. W-10 "연동 +3" CTA 또는 마이페이지에서 쇼핑몰 아이디 입력 → `POST /v1/auth/cafe24/link/request` → 카페24가 그 회원의 휴대폰으로 6자리 SMS 발송(5분) → 사용자가 코드 입력 → `POST /v1/auth/cafe24/link/verify`.
+2. W-10 "연동 +3" CTA 또는 마이페이지에서 쇼핑몰 가입 휴대폰 번호(또는 아이디) 입력 → `POST /v1/auth/cafe24/link/request` → 카페24가 그 회원의 휴대폰으로 6자리 SMS 발송(5분) → 사용자가 코드 입력 → `POST /v1/auth/cafe24/link/verify`(번호에 계정이 여럿이면 목록에서 골라 같은 코드로 한 번 더).
 3. 서버 처리: 코드 다이제스트 대조(단일 시도) 후 회원 행에 `cafe24_member_id` 기록 + `order_reward_cutoff` 세팅 + `link_account` 크레딧 +3(dedupe — 재연동 반복 수령 불가). 해당 카페24 계정이 이미 다른 회원에 연동돼 있으면 `409 CAFE24_ALREADY_LINKED`(자산 병합 없음), 없는 아이디는 `404 CAFE24_MEMBER_NOT_FOUND`, 오답은 `400 CAFE24_CODE_INVALID`.
 4. 응답 `{cafe24_linked: true, credit_balance}` → W-10 연동 행이 "완료"로 전환, 이후 쇼핑몰 주문은 동기화 배치가 +20 자동 지급.
 

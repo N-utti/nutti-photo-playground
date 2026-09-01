@@ -133,10 +133,21 @@ export interface Cafe24LinkRequestResult {
   expires_in: number
 }
 
-/** `POST /v1/auth/cafe24/link/verify` — 토큰 없음. 세션은 그대로 두고 연동 상태만 바뀝니다. */
+/**
+ * 쇼핑몰 계정을 가리키는 방법 — 가입 휴대폰 번호(기본, 숫자만) 또는 아이디. 카카오/네이버로
+ * 쇼핑몰에 가입한 고객은 아이디(`4993695098@k`)를 모르므로 번호가 기본 경로입니다.
+ */
+export type Cafe24LinkTarget = { cellphone: string; shop_member_id?: string } | { shop_member_id: string }
+
+/**
+ * `POST /v1/auth/cafe24/link/verify` — 토큰 없음. 세션은 그대로 두고 연동 상태만 바뀝니다.
+ * 한 번호에 쇼핑몰 계정이 여러 개면 `cafe24_linked: false` + `candidates` 가 오고, 같은 코드로
+ * `shop_member_id` 를 골라 한 번 더 부릅니다(그때까지 코드는 소비되지 않음).
+ */
 export interface Cafe24LinkResult {
-  cafe24_linked: true
+  cafe24_linked: boolean
   credit_balance: number
+  candidates: string[] | null
 }
 
 export interface Me {
