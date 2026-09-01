@@ -353,6 +353,7 @@ const state = {
  * 실패 응답으로 끌고 가지 않도록.
  */
 export function resetMockState(): void {
+  followIgOpened = false
   state.credits = structuredClone(initialCredits) as Credits
   state.jobs.clear()
   state.idempotency.clear()
@@ -398,6 +399,9 @@ export function mockAsMember(): void {
   if (!state.me.providers.includes('kakao')) state.me.providers.push('kakao')
   persist()
 }
+
+/** W-10 팔로우 +2 — «팔로우하러 가기» 를 눌러 follow_ig_open 이 서버에 남았는지(세션 메모리). */
+let followIgOpened = false
 
 /** 목 authorize_url — 프로바이더 대신 우리 콜백 라우트로 되돌립니다. */
 function mockAuthorizeUrl(provider: string): string {
@@ -1864,7 +1868,10 @@ export const handlers = [
 
   http.post(`${BASE}/credits/claim`, async ({ request }) => {
     await delay(250)
-    const { action } = (await request.json()) as { action: string }
+    const { action, instagram_username } = (await request.json()) as {
+      action: string
+      instagram_username?: string
+    }
     const row = state.credits.earn_actions.find((a) => a.action === action)
 
     /*
@@ -1883,6 +1890,19 @@ export const handlers = [
     if (row.status !== 'available') {
       return apiError(409, 'ALREADY_CLAIMED', '이미 받은 크레딧이에요', { action })
     }
+    if (action === 'follow_ig') {
+      // 실서버 규칙(app/routers/credits.py _verify_follow_ig): 아이디 필수 · 열기 이벤트 뒤에만 · 아이디 전역 1회.
+      // 목은 10초 대기는 생략하고, 아이디 `taken` 을 «이미 쓴 아이디» 로 둔다.
+      if (!instagram_username) {
+        return apiError(400, 'VALIDATION_ERROR', 'instagram_username이 필요합니다', { action })
+      }
+      if (instagram_username.replace(/^@/, '').toLowerCase() === 'taken') {
+        return apiError(409, 'INSTAGRAM_ALREADY_USED', '이미 다른 계정에서 사용한 인스타그램 아이디예요')
+      }
+      if (!followIgOpened) {
+        return apiError(400, 'FOLLOW_IG_NOT_OPENED', '먼저 「팔로우하러 가기」로 누띠 인스타그램을 열어 주세요', { action })
+      }
+    }
 
     state.credits.balance += row.amount
     row.status = action === 'daily' ? 'tomorrow' : 'done'
@@ -1896,5 +1916,9 @@ export const handlers = [
   ),
 
   // ------------------------------------------------------------ 이벤트 비콘
-  http.post(`${BASE}/events`, () => new HttpResponse(null, { status: 204 })),
+  http.post(`${BASE}/events`, async ({ request }) => {
+    const { event_type } = (await request.json()) as { event_type: string }
+    if (event_type === 'follow_ig_open') followIgOpened = true
+    return new HttpResponse(null, { status: 204 })
+  }),
 ]

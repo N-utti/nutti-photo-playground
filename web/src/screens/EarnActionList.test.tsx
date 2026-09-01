@@ -183,7 +183,9 @@ describe('EarnActionList', () => {
     const user = userEvent.setup()
     renderWithProviders(<EarnActionList />)
 
-    await user.click(await screen.findByRole('button', { name: '받기' }))
+    await user.type(await screen.findByLabelText('인스타그램 아이디'), '@kong.mom')
+    await user.click(screen.getByRole('link', { name: '팔로우하러 가기' }))
+    await user.click(screen.getByRole('button', { name: '받기' }))
 
     expect(await screen.findByText(/\+2 크레딧을 받았어요/)).toBeInTheDocument()
     expect(screen.getByText(/보유 크레딧에는 아직 반영되지 않았어요/)).toBeInTheDocument()
@@ -198,7 +200,9 @@ describe('EarnActionList', () => {
     const user = userEvent.setup()
     renderWithProviders(<EarnActionList />)
 
-    await user.click(await screen.findByRole('button', { name: '받기' }))
+    await user.type(await screen.findByLabelText('인스타그램 아이디'), '@kong.mom')
+    await user.click(screen.getByRole('link', { name: '팔로우하러 가기' }))
+    await user.click(screen.getByRole('button', { name: '받기' }))
 
     expect(await screen.findByText(/\+2 크레딧을 받았어요/)).toBeInTheDocument()
     expect(screen.queryByText(/아직 반영되지 않았어요/)).not.toBeInTheDocument()
@@ -279,3 +283,32 @@ function guestMe() {
     credit_balance: 11,
   }
 }
+
+  it('팔로우 받기는 아이디를 적고 누띠 계정을 연 뒤에만 눌린다', async () => {
+    /*
+      인스타는 팔로우 여부를 알려 주는 API 가 없습니다. 그래서 «받기» 앞에 마찰 두 개 —
+      아이디(운영자가 실제 팔로워와 대조)와 「팔로우하러 가기」(서버가 열기 이벤트 시각을
+      검사). 둘 중 하나라도 빠지면 버튼이 잠겨 있어야 409/400 왕복이 생기지 않습니다.
+    */
+    asMember()
+    const sent: unknown[] = []
+    server.use(
+      http.post('*/v1/credits/claim', async ({ request }) => {
+        sent.push(await request.json())
+        return HttpResponse.json({ balance: 13, amount_granted: 2 })
+      }),
+    )
+    const user = userEvent.setup()
+    renderWithProviders(<EarnActionList />)
+
+    const claimButton = await screen.findByRole('button', { name: '받기' })
+    expect(claimButton).toBeDisabled()
+    await user.type(screen.getByLabelText('인스타그램 아이디'), '@Kong.Mom')
+    expect(claimButton).toBeDisabled() // 아직 안 열었음
+    await user.click(screen.getByRole('link', { name: '팔로우하러 가기' }))
+    expect(claimButton).toBeEnabled()
+    await user.click(claimButton)
+
+    expect(await screen.findByText(/\+2 크레딧을 받았어요/)).toBeInTheDocument()
+    expect(sent).toEqual([{ action: 'follow_ig', instagram_username: 'Kong.Mom' }]) // @ 제거, 소문자화는 서버
+  })

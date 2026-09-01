@@ -982,3 +982,31 @@ def test_admin_cafe24_status_returns_token_state_or_not_found(client: TestClient
 
     _, member_headers = _session(client)
     assert client.get("/v1/admin/cafe24/status", headers=member_headers).status_code == 401
+
+
+def test_admin_follow_ig_claims_lists_handles_for_manual_cross_check(client: TestClient):
+    """인스타 팔로우 +2는 검증 불가 — 운영자가 실제 팔로워와 대조할 아이디 목록(최신순·커서)."""
+    from app.credits import grant_credits
+    from app.models import CreditReason
+
+    first = client.portal.call(_create_member, MemberKind.MEMBER)
+    second = client.portal.call(_create_member, MemberKind.MEMBER)
+
+    async def _claims():
+        await grant_credits(uuid.UUID(first), 2, CreditReason.FOLLOW_IG.value, "follow_ig", ref_id="ig:kongmom")
+        await grant_credits(uuid.UUID(second), 2, CreditReason.FOLLOW_IG.value, "follow_ig", ref_id="ig:coco_dad")
+        await grant_credits(uuid.UUID(second), 1, "daily_free", "daily:2026-09-01")  # 목록에 안 나와야 함
+
+    client.portal.call(_claims)
+    headers = _admin_headers(client)
+
+    page1 = client.get("/v1/admin/follow-ig/claims?limit=1", headers=headers)
+    page2 = client.get(f"/v1/admin/follow-ig/claims?limit=1&cursor={page1.json()['next_cursor']}", headers=headers)
+    guest = client.get("/v1/admin/follow-ig/claims")
+
+    assert page1.status_code == 200
+    assert [i["instagram_username"] for i in page1.json()["items"]] == ["coco_dad"]
+    assert page1.json()["items"][0]["member_id"] == second and page1.json()["items"][0]["amount"] == 2
+    assert [i["instagram_username"] for i in page2.json()["items"]] == ["kongmom"]
+    assert page2.json()["next_cursor"] is None
+    assert guest.status_code == 401

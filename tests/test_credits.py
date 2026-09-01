@@ -11,8 +11,10 @@ from tortoise import Tortoise
 
 from app.auth import create_token
 from app.credits import charge_credits
+from app.routers import credits as credits_router
 from app.main import app
 from app.models import (
+    MetricEvent,
     AppSetting,
     CreditLedger,
     GenerationJob,
@@ -52,6 +54,13 @@ async def _set_custom_prompt_credit_cost():
     await AppSetting.create(key="custom_prompt_credit_cost", value="3")
 
 
+async def _opened_instagram(member_id: str, seconds_ago: int = 20) -> None:
+    """「팔로우하러 가기」를 눌러 follow_ig_open 이벤트가 남은 상태를 만든다(기본 20초 전)."""
+    event = await MetricEvent.create(member_id=member_id, event_type="follow_ig_open", meta={})
+    event.created_at = datetime.now(timezone.utc) - timedelta(seconds=seconds_ago)
+    await event.save(update_fields=["created_at"])
+
+
 async def _member_and_entries(member_id: str):
     member = await Member.get(id=member_id)
     entries = await CreditLedger.filter(member_id=member_id).order_by("id")
@@ -76,7 +85,10 @@ def test_earn_actions_and_claims_transition_states(client: TestClient):
         ],
     }
 
-    follow = client.post("/v1/credits/claim", headers=headers, json={"action": "follow_ig"})
+    client.portal.call(_opened_instagram, member_id)
+    follow = client.post(
+        "/v1/credits/claim", headers=headers, json={"action": "follow_ig", "instagram_username": "@Kong.Mom"}
+    )
     daily = client.post("/v1/credits/claim", headers=headers, json={"action": "daily"})
     after = client.get("/v1/credits", headers=headers)
 
@@ -97,6 +109,7 @@ def test_earn_actions_and_claims_transition_states(client: TestClient):
         "cta": "내일 다시",
     }
     _, entries = client.portal.call(_member_and_entries, member_id)
+    assert next(e.ref_id for e in entries if e.dedupe_key == "follow_ig") == "ig:kong.mom"  # 소문자·@ 제거
     today_kst = datetime.now(timezone(timedelta(hours=9))).date().isoformat()
     assert {entry.dedupe_key for entry in entries} == {"follow_ig", f"daily:{today_kst}"}
 
@@ -379,3 +392,48 @@ def test_get_credits_skips_sync_for_unlinked_member(client: TestClient, monkeypa
     monkeypatch.setattr(cafe24, "sync_member_orders", fake_sync)
 
     assert client.get("/v1/credits", headers=headers).status_code == 200
+
+
+def test_follow_ig_requires_username_open_event_and_unique_handle(client: TestClient):
+    """인스타 팔로우 +2 — 아이디 필수 · 누띠 계정을 연 뒤 10초~30분 · 같은 아이디는 전 회원 1회."""
+    first_id, first = _session(client, MemberKind.MEMBER)
+    second_id, second = _session(client, MemberKind.MEMBER)
+
+    no_username = client.post("/v1/credits/claim", headers=first, json={"action": "follow_ig"})
+    bad_username = client.post(
+        "/v1/credits/claim", headers=first, json={"action": "follow_ig", "instagram_username": "kong mom!"}
+    )
+    not_opened = client.post(
+        "/v1/credits/claim", headers=first, json={"action": "follow_ig", "instagram_username": "kongmom"}
+    )
+    client.portal.call(_opened_instagram, first_id, 3)  # 방금 열었음 — 10초 안 지남
+    too_fast = client.post(
+        "/v1/credits/claim", headers=first, json={"action": "follow_ig", "instagram_username": "kongmom"}
+    )
+    client.portal.call(_opened_instagram, first_id, 20)
+    ok = client.post(
+        "/v1/credits/claim", headers=first, json={"action": "follow_ig", "instagram_username": "kongmom"}
+    )
+    client.portal.call(_opened_instagram, second_id, 20)
+    reused = client.post(
+        "/v1/credits/claim", headers=second, json={"action": "follow_ig", "instagram_username": "@KONGMOM"}
+    )
+
+    assert no_username.status_code == 400 and no_username.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert bad_username.status_code == 400
+    assert not_opened.status_code == 400 and not_opened.json()["error"]["code"] == "FOLLOW_IG_NOT_OPENED"
+    assert too_fast.status_code == 400 and too_fast.json()["error"]["code"] == "FOLLOW_IG_NOT_OPENED"
+    assert ok.status_code == 200 and ok.json()["amount_granted"] == 2
+    assert reused.status_code == 409 and reused.json()["error"]["code"] == "INSTAGRAM_ALREADY_USED"
+
+
+def test_follow_ig_open_event_expires_after_30_minutes(client: TestClient):
+    member_id, headers = _session(client, MemberKind.MEMBER)
+    client.portal.call(_opened_instagram, member_id, 31 * 60)
+
+    stale = client.post(
+        "/v1/credits/claim", headers=headers, json={"action": "follow_ig", "instagram_username": "late"}
+    )
+
+    assert stale.status_code == 400 and stale.json()["error"]["code"] == "FOLLOW_IG_NOT_OPENED"
+    assert credits_router.FOLLOW_IG_MAX_AGE == timedelta(minutes=30)
