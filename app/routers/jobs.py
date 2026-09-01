@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Header, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from tortoise.transactions import in_transaction
 
 from app.auth import get_current_member
@@ -17,6 +17,7 @@ from app.models import (
     GenerationResult,
     JobStatus,
     Member,
+    PetProfile,
     SourceImage,
     Style,
     StylePromptVersion,
@@ -57,6 +58,8 @@ class CreateJobRequest(BaseModel):
     pet_id: str | None = None
     custom_prompt: str | None = None
     inputs: dict[str, str] | None = None
+    # 사용자가 고르거나 직접 쓴 견종(비전 추정 대체). 없으면 이전 값을 유지한다.
+    breed: str | None = Field(default=None, max_length=50)
 
 
 class CreateJobResponse(BaseModel):
@@ -78,6 +81,7 @@ class JobResponse(BaseModel):
     credit_cost: int
     upload_id: str
     pet_id: str | None
+    breed: str | None
     progress: int | None
     eta_seconds: int | None
     status_message: str | None
@@ -162,6 +166,14 @@ async def create_job(
     source = await SourceImage.filter(id=upload_id, member_id=member.id).first()
     if source is None:
         raise _not_found()
+    breed = (body.breed or "").strip()
+    if breed:
+        # ponytail: 컬럼명 breed_estimate 는 비전 시절 유산 — 이제 사용자 입력 라벨만 담는다.
+        # 워커([breed] 치환)·계산기 링크가 이 label 을 읽고, 저장된 강아지에도 같이 적는다.
+        source.breed_estimate = {"label": breed}
+        await source.save(update_fields=["breed_estimate"])
+        if source.pet_profile_id is not None:
+            await PetProfile.filter(id=source.pet_profile_id).update(breed_label=breed)
 
     # ponytail: pet_id는 source_image.pet_profile_id로 연결되어 있어 현재 저장하지 않는다.
     _ = body.pet_id
@@ -291,6 +303,7 @@ async def get_job(job_id: str, member: Member = Depends(get_current_member)):
         "credit_cost": job.credit_cost,
         "upload_id": str(job.source_image.id),
         "pet_id": str(job.source_image.pet_profile_id) if job.source_image.pet_profile_id else None,
+        "breed": (job.source_image.breed_estimate or {}).get("label") or None,
         "progress": progress,
         "eta_seconds": eta_seconds,
         "status_message": status_message,

@@ -456,6 +456,7 @@ def test_get_job_returns_all_fields_and_status_specific_values(client: TestClien
         "credit_cost",
         "upload_id",
         "pet_id",
+        "breed",
         "progress",
         "eta_seconds",
         "status_message",
@@ -492,6 +493,7 @@ def test_get_job_returns_all_fields_and_status_specific_values(client: TestClien
         "credit_cost": 1,
         "upload_id": None,
         "pet_id": None,
+        "breed": None,
         "progress": 0,
         "eta_seconds": 200,
         "status_message": None,
@@ -550,6 +552,30 @@ def test_get_job_returns_source_image_pet_id(client: TestClient):
 
     assert response.status_code == 200
     assert response.json()["pet_id"] == pet_id
+
+
+async def _breed_values(upload_id: str) -> tuple[dict | None, str | None]:
+    source = await SourceImage.get(id=upload_id)
+    pet = await PetProfile.get_or_none(id=source.pet_profile_id)
+    return source.breed_estimate, pet.breed_label if pet else None
+
+
+def test_create_job_stores_breed_on_upload_and_pet(client: TestClient):
+    """견종은 비전 추정이 아니라 사용자가 고르거나 쓴 값 — 업로드와 저장된 강아지에 남는다."""
+    member_id, upload_id, headers = _session(client, pet_name="콩이")
+    client.portal.call(_create_style, 1)
+
+    response = _post_job(client, headers, upload_id, style_id=1, breed="  시고르자브종 ")
+
+    assert response.status_code == 202
+    assert client.portal.call(_breed_values, upload_id) == ({"label": "시고르자브종"}, "시고르자브종")
+    job = client.get(f"/v1/jobs/{response.json()['job_id']}", headers=headers).json()
+    assert job["breed"] == "시고르자브종"
+
+    # 빈 값은 지우지 않는다 — 같은 사진으로 다시 만들 때 견종을 다시 안 물어도 된다.
+    again = _post_job(client, headers, upload_id, style_id=1, breed="")
+    assert again.status_code == 202
+    assert client.portal.call(_breed_values, upload_id)[0] == {"label": "시고르자브종"}
 
 
 def test_get_job_hides_other_members_job_and_requires_authentication(client: TestClient):

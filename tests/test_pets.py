@@ -114,6 +114,7 @@ def test_pet_crud_links_upload_and_returns_thumbnail(
         "id": created.json()["id"],
         "name": "콩이",
         "thumbnail_url": "https://cdn.nutti.test/uploads/source.jpg",
+        "breed": None,
     }
     pet, linked_source = client.portal.call(_pet_and_source, created.json()["id"], str(source.id))
     assert pet is not None

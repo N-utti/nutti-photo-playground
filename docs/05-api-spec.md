@@ -138,7 +138,7 @@
 | 계산기 배너 문구("사진에서 푸들로 봤어요") + URL | `GET /v1/calculator-link?pet_id=` → `{breed_code, breed_label, size_label, calculator_url}` |
 | URL 표기(`calculator.html?name=…&breed=…&size=…`) | 위 응답의 `calculator_url`을 그대로 사용(서버가 완성된 URL 반환, UTM 포함) |
 
-**계약 노트**(Q9 확정, PR #122·이슈 #161): 계산기는 별도 코드 체계 없이 **한글 견종명이 키**(`calculator.js` `BREEDS` 40종)라 `breed_code` = `breed_label` = 한글명입니다(`app/breeds.py` 스냅샷, `07-decisions.md#Q9`). 목록에 없거나 매칭 불가 시 `breed_code: "믹스견"` 폴백, 완전 실패 시 `breed_code: null` → 계산기 1단계부터 시작(URL에 breed 파라미터 생략). 3케이스 예시는 §3 `GET /v1/calculator-link` 참고. 비전의 `breed_estimate.code`는 이 값 도메인과 무관합니다(§3 업로드 노트).
+**계약 노트**(Q9 확정, PR #122·이슈 #161): 계산기는 별도 코드 체계 없이 **한글 견종명이 키**(`calculator.js` `BREEDS` 40종)라 `breed_code` = `breed_label` = 한글명입니다(`app/breeds.py` 스냅샷, `07-decisions.md#Q9`). 목록에 없거나 매칭 불가 시 `breed_code: "믹스견"` 폴백, 완전 실패 시 `breed_code: null` → 계산기 1단계부터 시작(URL에 breed 파라미터 생략). 3케이스 예시는 §3 `GET /v1/calculator-link` 참고. 견종은 사용자가 W-04 에서 고르거나 직접 쓴 값입니다(`POST /v1/jobs` `breed`).
 
 ### W-08 · 크리에이티브 모드 ([#p08](wireframe-spec-v0.5.html#p08))
 
@@ -451,8 +451,7 @@
   "upload_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
   "image_url": "https://cdn.nutti.co.kr/uploads/3fa85f64.../orig.jpg",
   "blocking_issue": null,
-  "warnings": [],
-  "breed_estimate": { "code": "toy_poodle", "label": "토이푸들", "confidence": 0.82 }
+  "warnings": []
 }
 ```
 ```json
@@ -463,19 +462,17 @@
   "blocking_issue": null,
   "warnings": [
     { "code": "QUALITY_WARNING", "message": "얼굴이 조금 어두워요", "detail": { "issues": ["dark"] } }
-  ],
-  "breed_estimate": { "code": "mixed", "label": "믹스견", "confidence": 0.41 }
+  ]
 }
 ```
-`breed_estimate.code`는 비전 모델 내부 식별자로, 계산기 견종 키와 값 도메인을 공유하지 않습니다(이슈 #161). 서버(`calculator-link`·워커 `[breed]` 치환)는 **`label`로만** 매칭하므로 클라이언트도 `code`를 계산기 값으로 쓰지 마세요.
+견종은 업로드가 추정하지 않습니다(비전 견종 추정 폐기). 사용자가 W-04 에서 고르거나 직접 쓴 값을 `POST /v1/jobs` 의 `breed` 로 보내면 서버가 업로드(와 붙은 강아지 `breed_label`)에 적어 두고, 워커 `[breed]` 치환·`calculator-link` 가 그 라벨을 읽습니다.
 ```json
 // 200 — 차단(고양이 감지, FR-EDGE-07)
 {
   "upload_id": null,
   "image_url": null,
   "blocking_issue": { "code": "CAT_DETECTED", "message": "누띠는 강아지 전용이에요. 다른 사진을 골라주세요." },
-  "warnings": [],
-  "breed_estimate": null
+  "warnings": []
 }
 ```
 `400 VALIDATION_ERROR`: 파일 누락·지원하지 않는 형식·용량 초과.
@@ -490,11 +487,12 @@
 // 200
 {
   "items": [
-    { "id": "b6f9e6b0-...", "name": "콩이", "thumbnail_url": "https://cdn.nutti.co.kr/pets/b6f9e6b0.jpg", "latest_upload_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6" },
-    { "id": "d1a2b3c4-...", "name": "두부", "thumbnail_url": "https://cdn.nutti.co.kr/pets/d1a2b3c4.jpg", "latest_upload_id": null }
+    { "id": "b6f9e6b0-...", "name": "콩이", "thumbnail_url": "https://cdn.nutti.co.kr/pets/b6f9e6b0.jpg", "breed": "토이푸들", "latest_upload_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6" },
+    { "id": "d1a2b3c4-...", "name": "두부", "thumbnail_url": "https://cdn.nutti.co.kr/pets/d1a2b3c4.jpg", "breed": null, "latest_upload_id": null }
   ]
 }
 ```
+`breed`: 이 강아지로 만들 때 마지막에 입력한 견종(`POST /v1/jobs` `breed` 가 `pet_profile.breed_label` 갱신). 없으면 null — W-04 가 저장된 강아지 선택 시 견종 칸을 미리 채운다.
 `latest_upload_id`(이슈 #9 A안): 해당 펫에 연결된 가장 최근 `source_image` id. 값이 있으면 W-04에서 **업로드 단계 스킵** — 이 값을 `POST /v1/jobs`의 `upload_id`로 그대로 사용(FR-W04-02). 연결된 업로드가 만료·삭제됐으면 `null`(스킵 불가, 새로 업로드).
 
 #### `POST /v1/pets`
@@ -505,7 +503,7 @@
 ```
 ```json
 // 201
-{ "id": "b6f9e6b0-...", "name": "콩이", "thumbnail_url": "https://cdn.nutti.co.kr/pets/b6f9e6b0.jpg" }
+{ "id": "b6f9e6b0-...", "name": "콩이", "thumbnail_url": "https://cdn.nutti.co.kr/pets/b6f9e6b0.jpg", "breed": null }
 ```
 
 #### `PATCH /v1/pets/{pet_id}`
@@ -516,7 +514,7 @@
 ```
 ```json
 // 200
-{ "id": "d1a2b3c4-...", "name": "두부", "thumbnail_url": "https://cdn.nutti.co.kr/pets/d1a2b3c4.jpg" }
+{ "id": "d1a2b3c4-...", "name": "두부", "thumbnail_url": "https://cdn.nutti.co.kr/pets/d1a2b3c4.jpg", "breed": "믹스견" }
 ```
 
 #### `DELETE /v1/pets/{pet_id}`
@@ -537,9 +535,11 @@
   "style_id": 101,
   "upload_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
   "pet_id": null,
-  "custom_prompt": null
+  "custom_prompt": null,
+  "breed": "말티즈"
 }
 ```
+`breed?`(≤50자): 견종 선택 목록(`app/breeds.py` 40종) 값 또는 직접 입력한 이름. 업로드 `source_image.breed_estimate.label` 과 붙은 강아지 `pet_profile.breed_label` 에 저장. 비우면 그 사진의 지난 값 유지(재생성 시 다시 안 물음).
 ```json
 // 202
 { "job_id": "b3e13c4a-2f1e-4a3a-9b1e-1234567890ab", "status": "queued" }
@@ -569,6 +569,7 @@
   "style_id": 101,
   "upload_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
   "pet_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+  "breed": "말티즈",
   "progress": 62,
   "eta_seconds": 14,
   "status_message": "레고 블록을 쌓는 중…",
@@ -585,6 +586,7 @@
   "style_id": 101,
   "upload_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
   "pet_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+  "breed": "말티즈",
   "progress": 100,
   "eta_seconds": 0,
   "status_message": null,
@@ -651,7 +653,7 @@
 
 쿼리: `pet_id?` 또는 `job_id?`
 
-**Q9 확정(2026-08-19, 계산기 실측)**: 계산기(calculator/js/calculator.js의 `BREEDS` 40종)는 별도 코드 체계 없이 **한글 견종명이 키**다 — 따라서 `breed_code`=`breed_label`=한글명(app/breeds.py가 40종·크기 스냅샷 보유, 계산기 목록 변경 시 함께 갱신). 견종 후보는 펫 프로필 기입값 → 비전 추정 라벨 순 — 단 `pet_profile.breed_code/breed_label`을 쓰는 API가 아직 없어(#131-B, W-12 시점) 현재는 항상 NULL이고 실제로는 비전 라벨 갈래만 탄다. ⚠️ 계산기에 프리필 **수신** 코드는 아직 없음(파라미터는 무해하게 무시됨) — 수신부는 카페24 스마트디자인 쪽 후속 작업.
+**Q9 확정(2026-08-19, 계산기 실측)**: 계산기(calculator/js/calculator.js의 `BREEDS` 40종)는 별도 코드 체계 없이 **한글 견종명이 키**다 — 따라서 `breed_code`=`breed_label`=한글명(app/breeds.py가 40종·크기 스냅샷 보유, 계산기 목록 변경 시 함께 갱신). 견종 후보는 펫 프로필 `breed_label` → 최신 업로드 라벨 순 — 둘 다 `POST /v1/jobs` `breed`(사용자가 고르거나 직접 쓴 값)로 채워진다(비전 추정 폐기). ⚠️ 계산기에 프리필 **수신** 코드는 아직 없음(파라미터는 무해하게 무시됨) — 수신부는 카페24 스마트디자인 쪽 후속 작업.
 
 ```json
 // 200 — 정상 매칭

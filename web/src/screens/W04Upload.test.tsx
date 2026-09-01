@@ -18,7 +18,6 @@ import { Route, Routes } from 'react-router'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { renderWithProviders } from '../test/render'
 import { server } from '../test/server'
-import { uploadNoDog } from '../mocks/fixtures'
 import type { StyleDetail } from '../api/types'
 import W04Upload from './W04Upload'
 
@@ -68,7 +67,7 @@ function renderUpload(query = '') {
  */
 const REUSE_JOB_ID = 'b3e13c4a-2f1e-4a3a-9b1e-0000000000fe'
 
-function mockReuseJob(petId: string | null) {
+function mockReuseJob(petId: string | null, breed: string | null = null) {
   server.use(
     http.get('*/v1/jobs/:jobId', () =>
       HttpResponse.json({
@@ -77,6 +76,7 @@ function mockReuseJob(petId: string | null) {
         style_id: 3,
         upload_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
         pet_id: petId,
+        breed,
         custom_prompt: null,
         credit_cost: 1,
         queued_at: '2026-08-20T10:00:00+09:00',
@@ -224,7 +224,6 @@ describe('W-04 · 그림에 들어가는 이름', () => {
           image_url: null,
           blocking_issue: null,
           warnings: [],
-          breed_estimate: null,
         },
       }),
     )
@@ -333,92 +332,87 @@ describe('W-04 · 그림에 들어가는 이름', () => {
 })
 
 /**
- * 짝 필드 `uses_breed` — 그림에 들어가는 **견종** (백엔드 #131 A안 착지분).
- *
- * 이름과 다르게 이 값은 사용자가 넣는 게 아니라 사진에서 추정한 것이라, 예고가 곧
- * 약속이 아닙니다. 그래서 여기서 잡는 건 문구의 내용보다 **말하는 조건**입니다 —
- * 틀리는 방향이 둘이고 둘 다 조용히 틀립니다:
- *
- *   1. 추정이 없는데 말한다 → «토이푸들» 을 기대하고 크레딧을 쓰는데 결과에는 견종이
- *      아예 빠져 있습니다(프롬프트가 «강아지» 면 라벨을 통째로 뺍니다).
- *   2. 추정이 있는데 안 말한다 → #131 이전으로 되돌아간 것이고, 아무도 눈치채지
- *      못합니다. **없는 것은 눈에 띄지 않습니다.**
+ * 견종 칸 — 비전 추정을 대신해 **사용자가 고르거나 직접 씁니다**. 값은 `POST /v1/jobs`
+ * 의 `breed` 로 나가 워커 `[breed]` 치환과 계산기 링크에 쓰입니다.
  */
-describe('W-04 · 그림에 들어가는 견종', () => {
+describe('W-04 · 견종 선택', () => {
   beforeEach(() => {
     sessionStorage.clear()
   })
 
-  it('견종이 인쇄되는 스타일에서 추정값이 있으면 출처를 밝히고 말한다', async () => {
+  function captureJobRequest() {
+    const captured: { body: Record<string, unknown> | null } = { body: null }
+    server.use(
+      http.post('*/v1/jobs', async ({ request }) => {
+        captured.body = (await request.json()) as Record<string, unknown>
+        return HttpResponse.json({ job_id: 'job_test', status: 'queued' }, { status: 202 })
+      }),
+    )
+    return captured
+  }
+
+  it('목록에서 고른 견종을 breed 로 보낸다', async () => {
+    const captured = captureJobRequest()
     mockStyle({ code: '3D_피규어', name: '3D 피규어', uses_breed: true })
     const { container } = renderUpload()
+    const start = await uploadPhoto(container)
 
-    await uploadPhoto(container)
+    await userEvent.selectOptions(screen.getByLabelText('견종'), '말티즈')
+    await userEvent.click(start)
 
-    /*
-      기본 목 업로드가 «토이푸들» 을 답합니다(mocks/fixtures.ts uploadOk). 값 뒤에
-      조사를 붙이지 않는 «항목 · 값» 형식이라 받침 유무와 무관하게 문장이 섭니다.
-    */
-    expect(screen.getByText('토이푸들')).toBeInTheDocument()
-    expect(screen.getByText(/그림에 들어갈 견종/)).toBeInTheDocument()
-    /*
-      출처를 반드시 함께 답니다. 견종은 비전 추정이라 틀릴 수 있고, 단정하면 W-07
-      계산기가 같은 값을 두고 «사진에서 추정» 이라고 말하는 것과 어긋납니다 — 두 화면이
-      같은 값에 다른 확신을 실으면 그중 하나는 반드시 과합니다.
-    */
-    expect(screen.getByText('사진에서 추정한 견종이에요')).toBeInTheDocument()
+    await waitFor(() => expect(captured.body).not.toBeNull())
+    expect(captured.body?.breed).toBe('말티즈')
   })
 
-  it('견종을 못 알아본 사진에서는 아무 말도 안 한다 (FR-EDGE-08)', async () => {
-    /*
-      `uploadNoDog` 는 `breed_estimate: null` 입니다 — 강아지를 못 찾았으니 견종도
-      없습니다. 이때 워커의 `[breed]` 는 «강아지» 로 떨어지고 3D_피규어 프롬프트가
-      라벨을 통째로 빼므로, 여기서 말하면 그냥 거짓말입니다.
-
-      «견종은 안 들어가요» 로 바꾸는 것도 안 됩니다. 지금 사진에 대해서만 참이고
-      다음 사진에서 바로 틀리는데, 그 한 줄 때문에 사용자는 되는 조합을 포기합니다.
-    */
-    server.use(http.post('*/v1/uploads', () => HttpResponse.json(uploadNoDog)))
-    mockStyle({ code: '3D_피규어', name: '3D 피규어', uses_breed: true })
-    const { container } = renderUpload()
-
-    await uploadPhoto(container)
-
-    expect(screen.queryByText(/그림에 들어갈 견종/)).not.toBeInTheDocument()
-    expect(screen.queryByText(/추정한 견종/)).not.toBeInTheDocument()
-  })
-
-  it('견종을 안 쓰는 스타일이면 추정값이 있어도 말하지 않는다', async () => {
-    /*
-      `uses_breed` 는 프롬프트 원문에 `[breed]` 가 있는지를 서버가 계산한 값입니다
-      (mocks/fixtures.test.ts 가 그 정합을 잡습니다). 없는 스타일에서 견종을 예고하면
-      결과물과 무관한 정보를 크레딧 쓰기 직전에 들이미는 셈입니다.
-    */
+  it('목록에 없으면 직접 입력한 값을 보낸다', async () => {
+    const captured = captureJobRequest()
     mockStyle({ code: '찜질방', name: '찜질방', uses_breed: false })
     const { container } = renderUpload()
+    const start = await uploadPhoto(container)
 
-    await uploadPhoto(container)
+    // 견종을 안 쓰는 스타일에서도 칸은 있습니다 — 계산기 링크가 같은 값을 씁니다.
+    await userEvent.selectOptions(screen.getByLabelText('견종'), '직접 입력')
+    await userEvent.type(screen.getByLabelText('견종 직접 입력'), '골든두들')
+    await userEvent.click(start)
 
-    expect(screen.queryByText('토이푸들')).not.toBeInTheDocument()
-    expect(screen.queryByText(/그림에 들어갈 견종/)).not.toBeInTheDocument()
+    await waitFor(() => expect(captured.body).not.toBeNull())
+    expect(captured.body?.breed).toBe('골든두들')
   })
 
-  it('재사용 경로에서는 조용하다 — 프론트가 그 사진의 추정을 모릅니다', async () => {
-    /*
-      «이 사진으로 다른 스타일»(FR-W06-07)로 들어오면 사진은 이어받지만 견종 추정은
-      못 받습니다 — `GET /v1/jobs/{id}` 가 그 값을 안 줍니다. 서버는 알고 있어서
-      그림에는 정상적으로 인쇄되고, 화면만 말을 못 하는 상태입니다.
+  it('고르지 않으면 breed 를 아예 싣지 않는다', async () => {
+    const captured = captureJobRequest()
+    mockStyle({ code: '찜질방', name: '찜질방' })
+    const { container } = renderUpload()
+    const start = await uploadPhoto(container)
 
-      이 테스트가 지키는 건 **지어내지 않는 것**입니다. 여기서 목의 기본 업로드
-      («토이푸들»)가 새어 나오면, 화면이 다른 사진의 견종을 이 사진의 것인 양 말합니다.
-    */
-    mockReuseJob(null)
+    await userEvent.click(start)
+
+    await waitFor(() => expect(captured.body).not.toBeNull())
+    expect(captured.body).not.toHaveProperty('breed')
+  })
+
+  it('저장된 강아지를 고르면 그 강아지로 지난번에 입력한 견종을 미리 채운다', async () => {
+    // 목의 «콩이» 는 `breed: '토이푸들'` 입니다(mocks/fixtures.ts) — 서버 `PetSummary.breed`.
+    mockStyle({ code: '찜질방', name: '찜질방' })
+    renderUpload()
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: '콩이 — 최근 사진으로 바로 만들기' }),
+    )
+
+    await screen.findByRole('button', { name: /이대로 만들기/ }, { timeout: 5000 })
+    expect(screen.getByLabelText('견종')).toHaveValue('토이푸들')
+  })
+
+  it('재사용 경로에서는 그 사진에 적어 둔 견종을 미리 채운다', async () => {
+    mockReuseJob(null, '시고르자브종')
     mockStyle({ code: '3D_피규어', name: '3D 피규어', uses_breed: true })
     renderUpload(`&from_job=${REUSE_JOB_ID}`)
 
     await screen.findByRole('button', { name: /이대로 만들기/ }, { timeout: 5000 })
 
-    expect(screen.queryByText(/그림에 들어갈 견종/)).not.toBeInTheDocument()
-    expect(screen.queryByText('토이푸들')).not.toBeInTheDocument()
+    // 목록 밖 값이라 «직접 입력» 이 열린 채로 그 값이 들어 있습니다.
+    expect(screen.getByLabelText('견종')).toHaveValue('__custom__')
+    expect(screen.getByLabelText('견종 직접 입력')).toHaveValue('시고르자브종')
   })
 })

@@ -34,6 +34,8 @@ export interface JobIntent {
    * 새 키가 나가야 합니다.
    */
   inputs?: Record<string, string>
+  /** 견종도 의도의 일부입니다 — 바꾸면 다른 그림(과 다른 계산기 링크)을 주문한 것입니다. */
+  breed?: string
 }
 
 /**

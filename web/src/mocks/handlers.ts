@@ -21,7 +21,6 @@
 import { HttpResponse, http, delay } from 'msw'
 import type {
   AuthProvider,
-  BreedEstimate,
   Credits,
   EarnAction,
   Job,
@@ -32,7 +31,7 @@ import type {
   PetSummary,
   UploadResult,
 } from '../api/types'
-import { BREED_SIZES, MIX_BREED } from './calculatorBreeds'
+import { BREED_SIZES, MIX_BREED } from '../api/breeds'
 import {
   RESULT_SIZE,
   SOURCE_SIZE,
@@ -86,35 +85,17 @@ function retiredStyleId(): number | null {
   return scenario() === 'styles:retired' ? RETIRED_STYLE_ID : null
 }
 
-/**
- * `upload_id` → 그 업로드가 추정한 견종.
- *
- * 업로드 픽스처마다 `upload_id` 가 고정이라 되짚을 수 있습니다. 별도 저장소를 두지
- * 않는 이유는 리로드입니다 — job 은 localStorage 에 남는데 견종 색인이 메모리에만
- * 있으면, 새로고침 한 번에 "견종을 못 찾은 job" 이 조용히 정상 케이스로 바뀝니다.
- *
- * 모르는 업로드(펫의 `latest_upload_id`, 보관함 시드)는 정상 케이스로 둡니다.
- */
-function breedForUpload(uploadId: string): BreedEstimate | null {
-  const known = [uploadOk, uploadWarned, uploadNoDog, uploadMultiSubject, uploadHumanFaceWarned]
-  const match = known.find((upload) => upload.upload_id === uploadId)
-  return match ? match.breed_estimate : uploadOk.breed_estimate
-}
-
 /** 생성·수정 응답 모양. 목록(`Pet`)과 달리 `latest_upload_id` 가 없습니다(§3). */
 function petSummary(pet: Pet): PetSummary {
-  return { id: pet.id, name: pet.name, thumbnail_url: pet.thumbnail_url }
+  return { id: pet.id, name: pet.name, thumbnail_url: pet.thumbnail_url, breed: pet.breed }
 }
 
+/** 시드 job·펫(목이 지어낸 지난 결과)이 만들 때 입력했다고 치는 견종. */
+const SEED_BREED = '토이푸들'
+
 /**
- * 견종 추정 → 계산기가 아는 이름·크기 (Q9 확정, PR #122 착지분).
- *
- * 서버가 보는 건 `code` 가 아니라 **`label`** 입니다(`app/routers/results.py` —
- * `estimate.get("label")`). 계산기에 코드 체계가 없어서 한글 이름이 곧 키이기
- * 때문인데, 그래서 비전이 준 `code` 는 여기서 쓸 자리가 없습니다.
- *
- * 반환: 매칭되면 그 이름·크기 / 목록 밖이면 믹스견(FR-EDGE-11) / 후보가 아예
- * 없으면 null(FR-EDGE-10).
+ * 사용자가 입력한 견종 → 계산기가 아는 이름·크기 (Q9 확정, PR #122 착지분).
+ * 매칭되면 그 이름·크기 / 목록 밖이면 믹스견(FR-EDGE-11) / 비어 있으면 null(FR-EDGE-10).
  */
 function calculatorBreed(label: string | null | undefined): { name: string; size: string } | null {
   const candidate = label?.trim()
@@ -154,6 +135,8 @@ interface MockJob {
    * 기본값으로 시작합니다. 서버에서도 옛 job 이 같은 모양이 될 수 있습니다.
    */
   inputs?: Record<string, string> | null
+  /** W-04 에서 고르거나 쓴 견종. 서버는 업로드에 적어 두므로 같은 사진의 다음 job 도 물려받습니다. */
+  breed?: string | null
   /** 재료 참조(이슈 #9 A안) — 스펙 §3 이 job 응답에 그대로 싣기로 확정한 값입니다. */
   styleId: number | null
   uploadId: string
@@ -753,6 +736,7 @@ function projectJob(job: MockJob): Job {
       null 로 떨어집니다(아래 DELETE /pets 핸들러) — 서버의 SET NULL 과 같은 모양.
     */
     pet_id: job.petId ?? null,
+    breed: job.breed ?? null,
     /*
       PR #83 착지 예정분(이슈 #81). `style_id` 와 같은 자리에 두는 이유는 이 둘이
       **같은 성격의 값**이기 때문입니다 — job 을 다시 조립하는 재료입니다. 이게 없는
@@ -964,6 +948,7 @@ function seededJob(jobId: string): Job | null {
     // 위와 같은 이유로 null 입니다. `style_id` 가 null 이면 서버도 `input_values` 를
     // 만들지 않으므로(app/routers/jobs.py), 이 둘이 함께 null 인 게 계약상 정합입니다.
     inputs: null,
+    breed: SEED_BREED,
     credit_cost: 1,
     // 시드는 이미 끝난 job 이라 두 시각이 같습니다 — 보관함에서 여는 결과의 경과는
     // 아무도 세지 않습니다(W-05 를 거치지 않음).
@@ -1347,6 +1332,7 @@ export const handlers = [
       thumbnail_url: placeholderImage(name),
       // 방금 올린 사진이 곧 이 펫의 최근 업로드입니다 — 다음 방문에서 스킵이 성립합니다.
       latest_upload_id: upload_id ?? null,
+      breed: null,
     }
     petList.push(pet)
     // 응답은 `latest_upload_id` 없이 나갑니다 — 그 필드를 주는 건 목록뿐입니다
@@ -1399,6 +1385,7 @@ export const handlers = [
       upload_id: string
       pet_id: string | null
       inputs?: Record<string, string>
+      breed?: string
     }
 
     /*
@@ -1528,6 +1515,10 @@ export const handlers = [
       })
     }
 
+    // 서버는 붙은 강아지의 `breed_label` 도 같이 갱신합니다(app/routers/jobs.py).
+    const attachedPet = body.pet_id ? petList.find((entry) => entry.id === body.pet_id) : undefined
+    if (attachedPet && body.breed?.trim()) attachedPet.breed = body.breed.trim()
+
     const forced = scenario()
     const job: MockJob = {
       id: crypto.randomUUID(),
@@ -1542,6 +1533,12 @@ export const handlers = [
       styleId: body.style_id,
       uploadId: body.upload_id,
       petId: body.pet_id ?? null,
+      // 서버는 업로드(source_image)에 적어 두므로 비우면 같은 사진의 지난 값이 남습니다.
+      breed:
+        body.breed?.trim() ||
+        [...state.jobs.values()].find((entry) => entry.uploadId === body.upload_id && entry.breed)
+          ?.breed ||
+        null,
       /*
         `job:unknown-error` — 문서(§1)에 없는 코드로 실패하는 job.
 
@@ -1672,24 +1669,15 @@ export const handlers = [
     상수 하나를 돌려주면 그중 정상만 존재하게 됩니다. 그러면 `api/calculatorLink.ts` 가
     FR-EDGE-10/11 을 위해 갈라 둔 문구가 W-06 배너에서도 W-07 화면에서도 안 나옵니다.
 
-    무엇을 돌려줄지는 서버가 지어내는 게 아니라 **업로드가 추정한 견종**에서 나옵니다
-    (`UploadResult.breed_estimate`). 그래서 job → upload → 견종으로 따라갑니다 —
-    "강아지를 못 찾은 사진"(upload:nodog)이 결과 화면 출구까지 어떻게 이어지는지가
-    이 경로에서만 보입니다.
+    무엇을 돌려줄지는 서버가 지어내는 게 아니라 **W-04 에서 사용자가 입력한 견종**에서
+    나옵니다(`POST /v1/jobs` `breed` → 서버는 업로드와 붙은 강아지에 적어 둡니다).
+    그래서 job → 그 job 의 견종으로 따라갑니다.
 
     **`?pet_id=` 도 같은 체인을 탑니다**(`app/routers/results.py`
-    `_resolve_pet_and_estimate`): 펫 → **그 펫의 최신 업로드** → 견종. 목은 여기를
-    오랫동안 상수(정상 케이스)로 답했는데, 그게 거짓인 자리가 시드에 이미 있습니다 —
-    «두부» 는 `latest_upload_id: null` 이라 사진이 한 장도 없고, 실서버는 그 펫에
-    `breed_code: null` 을 답합니다(FR-EDGE-10, 계산기 1단계부터). W-09 가 «이 강아지
-    간식량 계산하기» 링크를 달면서 이 경로가 앱 안에서 실제로 도달 가능해졌으므로,
-    목이 정상만 답하면 그 갈래는 브라우저에서 영영 안 밟힙니다.
-
-    서버가 보는 건 `pet.breed_label or pet.breed_code` → 비전 라벨 순인데, 앞의 둘은
-    **채우는 API 가 없어 항상 NULL** 입니다 — 목이 눈치로 둔 전제가 아니라 스펙에
-    적힌 사실입니다(05-api-spec.md Q9 절: «쓰는 API 가 없어 현재 항상 NULL, 펫 기입값
-    우선 갈래는 #131-B(W-12) 전까지 휴면», 이슈 #161 → PR #169). 그래서 목은 비전
-    라벨 갈래만 그립니다 — 펫에 견종을 받는 날 이 전제가 바뀝니다.
+    `_resolve_pet_and_estimate`): 펫 `breed_label` → 최신 업로드 라벨. 목은 그 펫으로
+    만든 가장 최근 job 의 값으로 흉내 냅니다. «두부» 는 `latest_upload_id: null` 이라
+    사진이 한 장도 없고, 실서버는 그 펫에 `breed_code: null` 을 답합니다(FR-EDGE-10,
+    계산기 1단계부터) — 정상 케이스로 메우면 그 갈래는 브라우저에서 영영 안 밟힙니다.
   */
   http.get(`${BASE}/calculator-link`, async ({ request }) => {
     await delay(120)
@@ -1720,29 +1708,17 @@ export const handlers = [
     const pet = queryPetId ? petList.find((entry) => entry.id === queryPetId) : undefined
     if (queryPetId && !pet) return apiError(404, 'NOT_FOUND', '강아지를 찾을 수 없습니다')
 
-    /*
-      펫 진입은 그 펫의 최신 업로드를 따라갑니다. `latest_upload_id` 가 없으면 사진이
-      한 장도 없는 펫이라 추정 자체가 없습니다 — 정상 케이스로 메우지 않습니다.
-      시드 job(`state.jobs` 밖)은 업로드를 되짚을 수단이 없어 정상 케이스로 둡니다.
-    */
+    // 시드 job(`state.jobs` 밖)·시드 펫의 지난 결과는 되짚을 수단이 없어 정상 케이스로 둡니다.
     const breed = pet
       ? pet.latest_upload_id
-        ? breedForUpload(pet.latest_upload_id)
+        ? ([...state.jobs.values()].reverse().find((entry) => entry.petId === pet.id && entry.breed)
+            ?.breed ?? SEED_BREED)
         : null
       : job
-        ? breedForUpload(job.uploadId)
-        : uploadOk.breed_estimate
+        ? (job.breed ?? null)
+        : SEED_BREED
 
-    /*
-      추정 라벨을 계산기 40종에 맞춰 봅니다(PR #122 · `calculatorBreeds.ts`). 라벨이
-      비어 오는 일이 실제로 있고(PR #59 — 비전이 확신하지 못하면 필드가 빈 채로 옵니다),
-      그때가 FR-EDGE-10 이 말하는 «세 필드 모두 null + URL 에서 breed 파라미터 생략»
-      입니다. 라벨이 있는데 목록 밖이면 믹스견으로 떨어집니다(FR-EDGE-11).
-
-      후보가 언제나 비전 추정인 것(위 주석)이 화면이 «사진에서» 라고 말해도 되는
-      근거입니다. 펫에 견종을 받는 날 이 전제와 문구가 함께 바뀝니다.
-    */
-    const matched = calculatorBreed(breed?.label)
+    const matched = calculatorBreed(breed)
     const breedCode = matched?.name ?? null
     const size = matched?.size ?? null
     /*
