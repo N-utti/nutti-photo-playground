@@ -487,11 +487,12 @@
 // 200
 {
   "items": [
-    { "id": "b6f9e6b0-...", "name": "콩이", "thumbnail_url": "https://cdn.nutti.co.kr/pets/b6f9e6b0.jpg", "latest_upload_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6" },
-    { "id": "d1a2b3c4-...", "name": "두부", "thumbnail_url": "https://cdn.nutti.co.kr/pets/d1a2b3c4.jpg", "latest_upload_id": null }
+    { "id": "b6f9e6b0-...", "name": "콩이", "thumbnail_url": "https://cdn.nutti.co.kr/pets/b6f9e6b0.jpg", "breed": "토이푸들", "latest_upload_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6" },
+    { "id": "d1a2b3c4-...", "name": "두부", "thumbnail_url": "https://cdn.nutti.co.kr/pets/d1a2b3c4.jpg", "breed": null, "latest_upload_id": null }
   ]
 }
 ```
+`breed`: 이 강아지로 만들 때 마지막에 입력한 견종(`POST /v1/jobs` `breed` 가 `pet_profile.breed_label` 갱신). 없으면 null — W-04 가 저장된 강아지 선택 시 견종 칸을 미리 채운다.
 `latest_upload_id`(이슈 #9 A안): 해당 펫에 연결된 가장 최근 `source_image` id. 값이 있으면 W-04에서 **업로드 단계 스킵** — 이 값을 `POST /v1/jobs`의 `upload_id`로 그대로 사용(FR-W04-02). 연결된 업로드가 만료·삭제됐으면 `null`(스킵 불가, 새로 업로드).
 
 #### `POST /v1/pets`
@@ -502,7 +503,7 @@
 ```
 ```json
 // 201
-{ "id": "b6f9e6b0-...", "name": "콩이", "thumbnail_url": "https://cdn.nutti.co.kr/pets/b6f9e6b0.jpg" }
+{ "id": "b6f9e6b0-...", "name": "콩이", "thumbnail_url": "https://cdn.nutti.co.kr/pets/b6f9e6b0.jpg", "breed": null }
 ```
 
 #### `PATCH /v1/pets/{pet_id}`
@@ -513,7 +514,7 @@
 ```
 ```json
 // 200
-{ "id": "d1a2b3c4-...", "name": "두부", "thumbnail_url": "https://cdn.nutti.co.kr/pets/d1a2b3c4.jpg" }
+{ "id": "d1a2b3c4-...", "name": "두부", "thumbnail_url": "https://cdn.nutti.co.kr/pets/d1a2b3c4.jpg", "breed": "믹스견" }
 ```
 
 #### `DELETE /v1/pets/{pet_id}`

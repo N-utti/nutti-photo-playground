@@ -286,6 +286,8 @@ export interface PetSummary {
    * (app/routers/pets.py `_thumbnail_url`). StyleCard 와 같은 이유로 app/Thumbnail.tsx.
    */
   thumbnail_url: string | null
+  /** 이 강아지로 만들 때 마지막으로 입력한 견종(`POST /v1/jobs` `breed`). W-04 가 미리 채웁니다. */
+  breed: string | null
 }
 
 /** `GET /v1/pets` 목록 항목. */

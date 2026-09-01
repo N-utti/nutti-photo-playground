@@ -392,6 +392,8 @@ export const petList: Pet[] = [
     name: '콩이',
     thumbnail_url: placeholderImage('콩이'),
     latest_upload_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+    // 지난번에 이 강아지로 만들 때 고른 견종 — W-04 가 미리 채우는 경로를 목에서 밟게 합니다.
+    breed: '토이푸들',
   },
   {
     id: 'd1a2b3c4-0000-4000-8000-000000000002',
@@ -400,6 +402,7 @@ export const petList: Pet[] = [
     // 자리 표시자 경로를, latest_upload_id 없음은 스킵 불가 경로를 각각 만듭니다.
     thumbnail_url: null,
     latest_upload_id: null,
+    breed: null,
   },
 ]
 
