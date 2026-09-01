@@ -998,31 +998,49 @@ export const handlers = [
     if (state.me.kind !== 'member') {
       return apiError(403, 'MEMBER_ONLY', '로그인이 필요합니다')
     }
-    const { shop_member_id } = (await request.json()) as { shop_member_id: string }
+    const { shop_member_id, cellphone } = (await request.json()) as {
+      shop_member_id?: string
+      cellphone?: string
+    }
     if (scenario() === 'cafe24:linked') {
       return apiError(409, 'CAFE24_ALREADY_LINKED', '이미 연동된 계정입니다')
     }
-    if (shop_member_id === 'nobody') {
+    if (shop_member_id === 'nobody' || cellphone === '01000000000') {
       return apiError(404, 'CAFE24_MEMBER_NOT_FOUND', '쇼핑몰 회원을 찾을 수 없습니다')
     }
-    console.info(`[mock] 카페24 SMS → ${shop_member_id}: 인증번호 123456`)
+    console.info(`[mock] 카페24 SMS → ${shop_member_id ?? cellphone}: 인증번호 123456`)
     return HttpResponse.json({ sent: true, expires_in: 300 })
   }),
 
+  /*
+    번호 `01057731879` 는 계정이 여러 개인 경우(실측 3개)를 흉내 냅니다 — 첫 verify 는 후보 목록,
+    `shop_member_id` 를 골라 다시 부르면 연동. 그 외 번호·아이디는 바로 연동.
+  */
   http.post(`${BASE}/auth/cafe24/link/verify`, async ({ request }) => {
     await delay(300)
     if (state.me.kind !== 'member') {
       return apiError(403, 'MEMBER_ONLY', '로그인이 필요합니다')
     }
-    const { code } = (await request.json()) as { shop_member_id: string; code: string }
+    const { code, cellphone, shop_member_id } = (await request.json()) as {
+      shop_member_id?: string
+      cellphone?: string
+      code: string
+    }
     if (code !== '123456') {
       return apiError(400, 'CAFE24_CODE_INVALID', '인증번호가 올바르지 않거나 만료됐습니다')
+    }
+    if (cellphone === '01057731879' && !shop_member_id) {
+      return HttpResponse.json({
+        cafe24_linked: false,
+        credit_balance: state.credits.balance,
+        candidates: ['tester123', '4950033661@k', 'wjdtjdnds98'],
+      })
     }
     if (!state.me.cafe24_linked) {
       state.me.cafe24_linked = true
       grantEarnAction('link_account') // 연동 +3 은 클레임이 아니라 verify 가 지급합니다.
     }
-    return HttpResponse.json({ cafe24_linked: true, credit_balance: state.credits.balance })
+    return HttpResponse.json({ cafe24_linked: true, credit_balance: state.credits.balance, candidates: null })
   }),
 
   /*

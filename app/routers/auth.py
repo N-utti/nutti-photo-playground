@@ -26,7 +26,7 @@ from app.auth import (
     state_identity,
     verify_password,
 )
-from app.common import api_error, member_only, unauthorized
+from app.common import api_error, member_only, unauthorized, validation_error
 from app import cafe24
 from app.credits import grant_credits
 from app.models import (
@@ -78,8 +78,10 @@ class AuthorizeResponse(BaseModel):
 
 
 class Cafe24LinkResponse(BaseModel):
-    cafe24_linked: Literal[True]
+    cafe24_linked: bool
     credit_balance: int
+    # 한 휴대폰 번호에 쇼핑몰 계정이 여러 개면(OTP 통과 후에만) 고르게 한다 — 이때 코드는 소비하지 않음
+    candidates: list[str] | None = None
 
 
 class RegisterRequest(BaseModel):
@@ -421,8 +423,10 @@ _cafe24_link_requests: dict[str, deque[float]] = {}
 # 수신자 기준 한도 — 게스트→가입이 자유라 새 회원을 찍어내며 한 사람 폰에 SMS를 퍼붓는 것(비용은 쇼핑몰 부담)을 막는다
 _cafe24_link_targets: dict[str, deque[float]] = {}
 class Cafe24LinkRequest(BaseModel):
-    # 카페24 회원 아이디(영문/숫자/_ . @ -) — 소셜 가입 아이디(예: 4993695098@k) 포함
-    shop_member_id: str = Field(min_length=2, max_length=64, pattern=r"^[A-Za-z0-9_.@\-]+$")
+    # 쇼핑몰 아이디(영문/숫자/_ . @ -) 또는 가입 휴대폰 번호(숫자만) 중 하나 — 카카오/네이버로 쇼핑몰에 가입한
+    # 고객은 아이디(예: 4993695098@k)를 모르므로 번호가 기본 경로
+    shop_member_id: str | None = Field(default=None, min_length=2, max_length=64, pattern=r"^[A-Za-z0-9_.@\-]+$")
+    cellphone: str | None = Field(default=None, pattern=r"^01[0-9]{8,9}$")  # \d는 유니코드 숫자도 통과
 
 
 class Cafe24LinkVerifyRequest(Cafe24LinkRequest):
@@ -434,8 +438,32 @@ class Cafe24LinkRequestResponse(BaseModel):
     expires_in: int
 
 
-def _otp_digest(shop_member_id: str, code: str) -> str:
-    return hashlib.sha256(f"{shop_member_id}:{code}:{settings.jwt_signing_key}".encode()).hexdigest()
+def _link_target(body: Cafe24LinkRequest, *, allow_pick: bool = False) -> tuple[str, str]:
+    """('tel', 번호) 또는 ('id', 아이디). verify에서는 번호 + 아이디(후보 선택) 동시 허용."""
+    if body.cellphone is not None:
+        if body.shop_member_id is not None and not allow_pick:
+            raise validation_error("shop_member_id와 cellphone 중 하나만 보내세요")
+        return "tel", body.cellphone
+    if body.shop_member_id is None:
+        raise validation_error("shop_member_id 또는 cellphone이 필요합니다")
+    return "id", body.shop_member_id
+
+
+def _otp_digest(kind: str, value: str, code: str) -> str:
+    return hashlib.sha256(f"{kind}:{value}:{code}:{settings.jwt_signing_key}".encode()).hexdigest()
+
+
+async def _linkable_candidates(member: Member, shop_member_ids: list[str]) -> list[str]:
+    """조회된 쇼핑몰 계정 중 이 회원이 연동할 수 있는 것 — 이미 연동된 회원은 그 계정만(재바인딩 금지),
+    다른 회원이 선점한 계정 제외."""
+    if member.cafe24_member_id is not None:
+        return [i for i in shop_member_ids if i == member.cafe24_member_id]
+    taken = set(
+        await Member.filter(kind=MemberKind.MEMBER, cafe24_member_id__in=shop_member_ids)
+        .exclude(id=member.id)
+        .values_list("cafe24_member_id", flat=True)
+    )
+    return [i for i in shop_member_ids if i not in taken]
 
 
 async def _assert_cafe24_linkable(member: Member, shop_member_id: str) -> None:
@@ -446,25 +474,38 @@ async def _assert_cafe24_linkable(member: Member, shop_member_id: str) -> None:
         raise api_error(409, "CAFE24_ALREADY_LINKED", "Cafe24 account is already linked")
 
 
+async def _find_shop_accounts(kind: str, value: str) -> list[str]:
+    if kind == "id":
+        return await cafe24.find_customers(member_id=value)
+    return await cafe24.find_customers(cellphone=value)
+
+
 @router.post("/cafe24/link/request", response_model=Cafe24LinkRequestResponse)
 async def cafe24_link_request(
     body: Cafe24LinkRequest, member: Member = Depends(get_current_member)
 ) -> Cafe24LinkRequestResponse:
     if member.kind != MemberKind.MEMBER:
         raise member_only()
-    # 한도 검사를 409보다 먼저 — "이미 연동된 아이디인지"를 무제한으로 캐물을 수 없게
+    kind, value = _link_target(body)
+    # 한도 검사를 404/409보다 먼저 — "가입된 번호인지/이미 연동된 아이디인지"를 무제한으로 캐물을 수 없게
     _check_bucket(_cafe24_link_requests, str(member.id), _CAFE24_LINK_RATE_LIMIT)
-    _check_bucket(_cafe24_link_targets, body.shop_member_id, _CAFE24_LINK_RATE_LIMIT)
-    await _assert_cafe24_linkable(member, body.shop_member_id)
+    _check_bucket(_cafe24_link_targets, value, _CAFE24_LINK_RATE_LIMIT)
     try:
-        if not await cafe24.customer_exists(body.shop_member_id):
+        found = await _find_shop_accounts(kind, value)
+        if not found:
             raise api_error(404, "CAFE24_MEMBER_NOT_FOUND", "쇼핑몰 회원을 찾을 수 없습니다")
+        if not await _linkable_candidates(member, found):
+            raise api_error(409, "CAFE24_ALREADY_LINKED", "Cafe24 account is already linked")
+        if found[0] != value:
+            # 실제 수신 계정 기준으로도 — 번호/아이디를 바꿔 가며 한 폰에 퍼붓지 못하게
+            _check_bucket(_cafe24_link_targets, found[0], _CAFE24_LINK_RATE_LIMIT)
         code = f"{secrets.randbelow(10**6):06d}"
-        await cafe24.send_sms(body.shop_member_id, f"[누띠 놀이터] 쇼핑몰 계정 연동 인증번호 {code} (5분 유효)")
+        # 번호로 찾은 계정이 여러 개여도 같은 폰이라 첫 계정으로 보내면 된다
+        await cafe24.send_sms(found[0], f"[누띠 놀이터] 쇼핑몰 계정 연동 인증번호 {code} (5분 유효)")
     except (httpx.HTTPError, KeyError, ValueError) as exc:
         raise _bad_gateway() from exc
     # ponytail: OTP 해시를 소셜 로그인 state와 같은 nonce 컬럼에 둔다 — 한 회원이 동시에 두 흐름을 타면 서로 덮어씀
-    member.oauth_state_nonce = _otp_digest(body.shop_member_id, code)
+    member.oauth_state_nonce = _otp_digest(kind, value, code)
     member.oauth_state_expires_at = datetime.now(timezone.utc) + timedelta(minutes=5)
     await member.save(update_fields=["oauth_state_nonce", "oauth_state_expires_at"])
     return Cafe24LinkRequestResponse(sent=True, expires_in=300)
@@ -476,8 +517,10 @@ async def cafe24_link_verify(
 ) -> Cafe24LinkResponse:
     if member.kind != MemberKind.MEMBER:
         raise member_only()
-    expected = _otp_digest(body.shop_member_id, body.code)
-    # 1) 코드 소비는 별도 트랜잭션 — 오답으로 예외를 던져도 소비가 롤백되지 않게(단일 시도 보장)
+    kind, value = _link_target(body, allow_pick=True)
+    expected = _otp_digest(kind, value, body.code)
+    # 1) 오답은 즉시 소비(단일 시도). 정답은 아직 두고 아래 2)에서 잠금 안에서 소비 — 번호 흐름은 후보가
+    #    여러 개면 고르기 전까지 코드를 살려 둬야 하므로
     async with in_transaction() as connection:
         locked = await Member.filter(
             id=member.id, kind=MemberKind.MEMBER, merged_into_id__isnull=True
@@ -485,25 +528,51 @@ async def cafe24_link_verify(
         if locked is None:
             raise unauthorized()
         pending, expires_at = locked.oauth_state_nonce, locked.oauth_state_expires_at
-        locked.oauth_state_nonce = None
-        locked.oauth_state_expires_at = None
-        await locked.save(update_fields=["oauth_state_nonce", "oauth_state_expires_at"], using_db=connection)
-    if (
-        pending is None
-        or not secrets.compare_digest(pending, expected)
-        or expires_at is None
-        or expires_at <= datetime.now(timezone.utc)
-    ):
+        matched = (
+            pending is not None
+            and secrets.compare_digest(pending, expected)
+            and expires_at is not None
+            and expires_at > datetime.now(timezone.utc)
+        )
+        if not matched:
+            locked.oauth_state_nonce = None
+            locked.oauth_state_expires_at = None
+            await locked.save(update_fields=["oauth_state_nonce", "oauth_state_expires_at"], using_db=connection)
+    if not matched:
         raise api_error(400, "CAFE24_CODE_INVALID", "인증번호가 올바르지 않거나 만료됐습니다")
-    # 2) 연동 + 최초 1회 +3
+    if kind == "id":
+        chosen = value
+    else:
+        try:
+            found = await _find_shop_accounts(kind, value)
+        except (httpx.HTTPError, KeyError, ValueError) as exc:
+            raise _bad_gateway() from exc
+        candidates = await _linkable_candidates(member, found)
+        if not candidates:
+            raise api_error(409, "CAFE24_ALREADY_LINKED", "Cafe24 account is already linked")
+        if len(candidates) == 1:
+            chosen = candidates[0]
+        elif body.shop_member_id in candidates:
+            chosen = body.shop_member_id
+        else:
+            # OTP를 통과했으니 이 번호의 계정 목록을 보여줘도 된다(번호→아이디 캐내기는 코드 없인 불가)
+            return Cafe24LinkResponse(cafe24_linked=False, credit_balance=member.credit_balance, candidates=candidates)
+    # 2) 코드 소비 + 연동 + 최초 1회 +3 — 같은 잠금 안에서
     try:
         async with in_transaction() as connection:
             locked = await Member.filter(id=member.id).select_for_update().using_db(connection).first()
-            await _assert_cafe24_linkable(locked, body.shop_member_id)
-            locked.cafe24_member_id = body.shop_member_id
+            if locked.oauth_state_nonce is None or not secrets.compare_digest(locked.oauth_state_nonce, expected):
+                raise api_error(400, "CAFE24_CODE_INVALID", "인증번호가 올바르지 않거나 만료됐습니다")
+            locked.oauth_state_nonce = None
+            locked.oauth_state_expires_at = None
+            await _assert_cafe24_linkable(locked, chosen)
+            locked.cafe24_member_id = chosen
             if locked.order_reward_cutoff is None:
                 locked.order_reward_cutoff = datetime.now(timezone.utc)
-            await locked.save(update_fields=["cafe24_member_id", "order_reward_cutoff"], using_db=connection)
+            await locked.save(
+                update_fields=["cafe24_member_id", "order_reward_cutoff", "oauth_state_nonce", "oauth_state_expires_at"],
+                using_db=connection,
+            )
             if not await CreditLedger.filter(member_id=locked.id, dedupe_key="link_account").using_db(connection).exists():
                 await grant_credits(locked.id, 3, CreditReason.LINK_ACCOUNT, "link_account", connection=connection)
     except IntegrityError as exc:  # 두 회원이 같은 아이디를 동시에 verify — UNIQUE(cafe24_member_id)가 마지막 방어선

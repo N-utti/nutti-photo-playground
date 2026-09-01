@@ -218,21 +218,32 @@ describe('EarnActionList', () => {
         return HttpResponse.json({ sent: true, expires_in: 300 })
       }),
       http.post('*/v1/auth/cafe24/link/verify', async ({ request }) => {
-        const { code } = (await request.json()) as { code: string }
-        if (code !== '123456') {
+        const body = (await request.json()) as { code: string; cellphone?: string; shop_member_id?: string }
+        if (body.code !== '123456') {
           return HttpResponse.json(
             { error: { code: 'CAFE24_CODE_INVALID', message: 'bad' } },
             { status: 400 },
           )
         }
-        return HttpResponse.json({ cafe24_linked: true, credit_balance: 14 })
+        // 한 번호에 계정 둘 — 고르기 전까지는 미연동 + 후보 목록
+        if (!body.shop_member_id) {
+          return HttpResponse.json({
+            cafe24_linked: false,
+            credit_balance: 11,
+            candidates: ['tester123', '4950033661@k'],
+          })
+        }
+        verified.push(body)
+        return HttpResponse.json({ cafe24_linked: true, credit_balance: 14, candidates: null })
       }),
     )
+    const verified: unknown[] = []
     const user = userEvent.setup()
     renderWithProviders(<EarnActionList />)
 
     await user.click(await screen.findByRole('button', { name: '연동하기' }))
-    await user.type(screen.getByLabelText('쇼핑몰 아이디'), 'kongmom')
+    // 카카오로 쇼핑몰에 가입한 고객은 아이디를 모릅니다 — 기본 입력은 가입 휴대폰 번호(하이픈 허용).
+    await user.type(screen.getByLabelText('쇼핑몰 가입 휴대폰 번호'), '010-5773-1879')
     await user.click(screen.getByRole('button', { name: '인증번호 받기' }))
 
     const codeInput = await screen.findByLabelText('인증번호 6자리')
@@ -245,9 +256,14 @@ describe('EarnActionList', () => {
     await user.type(codeInput, '123456')
     await user.click(screen.getByRole('button', { name: '연동하고 +3 받기' }))
 
+    // OTP 통과 → 계정이 둘이라 고르기 → 같은 코드로 한 번 더
+    expect(await screen.findByText('연동할 쇼핑몰 계정을 골라 주세요')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '4950033661@k' }))
+
     expect(await screen.findByText('쇼핑몰 계정을 연동했어요')).toBeInTheDocument()
     expect(screen.getByText(/보유 14개/)).toBeInTheDocument()
-    expect(sent).toEqual([{ shop_member_id: 'kongmom' }, { shop_member_id: 'kongmom' }])
+    expect(sent).toEqual([{ cellphone: '01057731879' }, { cellphone: '01057731879' }])
+    expect(verified).toEqual([{ cellphone: '01057731879', shop_member_id: '4950033661@k', code: '123456' }])
   })
 })
 
