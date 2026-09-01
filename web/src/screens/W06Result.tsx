@@ -500,6 +500,28 @@ function ResultUnavailable({ sourceUrl, onRetry }: { sourceUrl: string; onRetry:
 
 // ---------------------------------------------------------------- 출구 1 · 공유/저장
 
+/**
+ * 버튼 두 개가 **각각 끝까지 갑니다** — 눌러서 다른 섹션을 여는 버튼이 아닙니다.
+ *
+ * 예전에는 「인스타 공유」가 아래에 패널을 펼치고, 진짜 동작(저장·공유 시트)은 그
+ * 안에 한 번 더 있었습니다. 즉 같은 이름의 일을 두 번 눌러야 했고, 첫 클릭의 결과는
+ * «화면이 길어졌다» 뿐이었습니다. 결과 화면에서 가장 짧아야 할 두 동선인데 중간에
+ * 계단이 하나씩 끼어 있던 셈입니다. 지금은 상단 두 버튼이 곧바로 파일을 저장하고
+ * 곧바로 공유 시트를 엽니다.
+ *
+ * 미리보기를 함께 걷어낸 이유: 그 그림은 **위 슬라이더와 같은 파일**이었습니다
+ * (PR #73 — 서버는 공유용 사본을 만들지 않고 결과 `public_url` 을 그대로 돌려줍니다,
+ * api/types.ts ShareResult). 같은 사진을 한 화면에 두 번 그리면서 출구 셋(계산기·
+ * 쇼핑몰·다른 스타일)을 한 화면 아래로 밀어내고 있었습니다(FR-W06-08 · 노트6).
+ * 대신 잃는 것이 있습니다 — 슬라이더는 결과를 늘 반쪽만 보여 주므로, 올릴 그림
+ * **전체**를 보려면 이제 슬라이더를 끝까지 밀어야 합니다.
+ *
+ * `POST /jobs/{id}/share` 는 계속 부릅니다. 지금은 응답이 결과 URL 과 같지만, 인스타
+ * 전용 리사이즈·합성이 생기면 값이 갈라질 자리가 거기입니다(types.ts ShareResult) —
+ * `results[0].image_url` 을 질러 쓰면 그날 조용히 다른 파일을 저장하게 됩니다.
+ * 그래서 **누른 뒤에** 부르고(한 번 받아 두면 두 버튼이 같이 씁니다), 그동안 버튼은
+ * 자기 자리에서 «저장 중…»·«공유 시트 여는 중…» 으로 기다립니다.
+ */
 function ShareRow({ job }: { job: Job }) {
   const share = useShareJob(job.job_id)
   const [accountSheet, setAccountSheet] = useState(false)
@@ -507,33 +529,74 @@ function ShareRow({ job }: { job: Job }) {
   // 'opened' 는 저장이 아니라 이미지가 새 탭에서 열렸다는 뜻입니다 — 그때만 안내합니다.
   const [saveOutcome, setSaveOutcome] = useState<SaveImageOutcome | null>(null)
   /*
-    모바일 «인스타에 올리기» — Web Share API 로 이미지 **파일**을 OS 공유 시트에 넘기면
+    «인스타에 올리기» 의 실체 — Web Share API 로 이미지 **파일**을 OS 공유 시트에 넘기면
     인스타그램(게시물/스토리/DM)이 바로 뜹니다. 저장 → 인스타 앱 → 갤러리 왕복을 없애는
     유일한 웹 경로입니다(app/shareImage.ts). 파일 공유가 안 되는 브라우저(데스크톱 대부분)
-    에서는 버튼 자체를 그리지 않고 저장·열기 두 개만 남깁니다.
+    에서는 눌러도 `unsupported` 로 끝나므로 그 자리를 인스타그램 링크로 바꿉니다 —
+    «올리기» 라고 써 두고 아무 일도 안 일어나는 버튼을 두지 않습니다.
   */
   const [sharing, setSharing] = useState(false)
   const [shareOutcome, setShareOutcome] = useState<ShareImageOutcome | null>(null)
   const shareSheetAvailable = canShareImage()
-  /*
-    아래 미리보기가 곧 저장할 그 파일입니다(PR #73 — 공유용 사본을 따로 만들지 않고
-    결과 `public_url` 을 그대로 씁니다). 그러니 미리보기가 안 떴다는 건 «저장을
-    눌러도 실패한다» 는 뜻이고, 그건 **누르기 전에 알 수 있는** 사실입니다.
-    실패한 주소를 들고 있는 이유는 CompareSlider 와 같습니다 — 불리언으로 두면
-    새 주소가 와도 «실패» 가 남습니다.
-  */
-  const [previewFailedUrl, setPreviewFailedUrl] = useState<string | null>(null)
-  const previewBroken =
-    previewFailedUrl !== null && previewFailedUrl === share.data?.share_image_url
   // 서버가 보는 상태를 씁니다 — 시트에서 로그인하면 캐시가 무효화되면서 이 줄이
   // 곧바로 회원으로 바뀝니다. localStorage 의 kind 는 값이 바뀌어도 리렌더가 없습니다.
   const { data: me } = useMe()
   const isMember = me?.kind === 'member'
+  const filename = `nutti-${job.job_id}.jpg`
 
-  function handleSave() {
-    // §2 — 회원은 결과가 자동으로 보관함에 남습니다. 게스트는 남길 곳이 없어
-    // 계정 연동 시트가 뜹니다(W-06 B, FR-W06-09).
-    if (!isMember) setAccountSheet(true)
+  /**
+   * 올릴 파일의 주소. 이미 받아 뒀으면 다시 부르지 않습니다 — 저장하고 이어서 올리는
+   * 흐름이 흔한데 그때마다 왕복을 더하면 공유 시트가 그만큼 늦게 뜹니다.
+   *
+   * 실패는 `null` 로만 알립니다. 사유는 아래 `share.error` 가 이미 화면에 적고 있고,
+   * 여기서 다시 던지면 처리되지 않은 rejection 이 됩니다.
+   */
+  async function resolveShareUrl(): Promise<string | null> {
+    if (share.data) return share.data.share_image_url
+    try {
+      return (await share.mutateAsync()).share_image_url
+    } catch {
+      return null
+    }
+  }
+
+  /*
+    저장은 앵커에 URL 을 그대로 물리지 않고 `saveImage` 를 지납니다. `download` 속성이
+    같은 오리진에서만 먹어서, CDN 이 붙는 순간(app/storage.py `public_url`) «이미지 저장»
+    이 이미지로 이동이 되기 때문입니다 — 이슈 #77, 그리고 그 조건을 배포 문서에 박은
+    PR #78. CORS 가 아직 안 열려 fetch 가 실패하면 예전 동작(새 탭)으로 물러나고,
+    그때만 길게 눌러 저장하라고 안내합니다.
+  */
+  async function handleSaveImage() {
+    setSaving(true)
+    setSaveOutcome(null)
+    try {
+      const url = await resolveShareUrl()
+      if (url === null) return
+      setSaveOutcome(await saveImage(url, filename))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handlePostToInstagram() {
+    // FR-W06-12 의 share_click 은 **공유 의도**를 셉니다 — 저장은 여기 안 셉니다.
+    track({ event_type: 'share_click', properties: { job_id: job.job_id } })
+    setSharing(true)
+    setShareOutcome(null)
+    try {
+      const url = await resolveShareUrl()
+      if (url === null) return
+      const outcome = await shareImage(
+        url,
+        filename,
+        '누띠 사진 놀이터에서 만든 우리 아이 사진 🐾 @nutti_official',
+      )
+      setShareOutcome(outcome)
+      track({ event_type: 'share_sheet', properties: { job_id: job.job_id, outcome } })
+    } finally {
+      setSharing(false)
+    }
   }
 
   return (
@@ -541,154 +604,102 @@ function ShareRow({ job }: { job: Job }) {
       <div className="mt-5 grid grid-cols-2 gap-2">
         <button
           type="button"
-          onClick={handleSave}
-          className="rounded-xl border border-rule-strong bg-surface px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
+          disabled={saving}
+          onClick={() => void handleSaveImage()}
+          className="rounded-xl border border-rule-strong bg-surface px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
         >
-          저장
+          {saving ? '저장 중…' : '이미지 저장'}
         </button>
-        <button
-          type="button"
-          disabled={share.isPending}
-          onClick={() => {
-            track({
-              event_type: 'share_click',
-              properties: { job_id: job.job_id },
-            })
-            share.mutate()
-          }}
-          className="rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99] disabled:opacity-50"
-        >
-          {share.isPending ? '준비 중…' : '인스타 공유'}
-        </button>
+        {/* 공유가 주 버튼(노트3) — 위계는 그대로 두고 하는 일만 앞당겼습니다. */}
+        {shareSheetAvailable ? (
+          <button
+            type="button"
+            disabled={sharing}
+            onClick={() => void handlePostToInstagram()}
+            className="rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99] disabled:opacity-50"
+          >
+            {sharing ? '공유 시트 여는 중…' : '인스타에 올리기'}
+          </button>
+        ) : (
+          <a
+            href="https://www.instagram.com/"
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => track({ event_type: 'share_click', properties: { job_id: job.job_id } })}
+            className="rounded-xl bg-brand px-4 py-3 text-center text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99]"
+          >
+            인스타그램 열기
+          </a>
+        )}
       </div>
 
-      {isMember && (
+      {/*
+        저장이 끝난 뒤에만 다음 걸음을 답니다. 파일 공유가 안 되는 브라우저에서는
+        저장 → 인스타그램이 유일한 경로라 그 말을 여기서 합니다 — 늘 띄워 두면
+        아직 아무것도 안 한 사람에게 하는 잔소리가 됩니다.
+      */}
+      {saveOutcome === 'saved' && (
+        <p className="mt-2 text-center text-xs text-ink-3">
+          {shareSheetAvailable
+            ? '이미지를 저장했어요'
+            : '이미지를 저장했어요 — 인스타그램에서 올려 주세요'}
+        </p>
+      )}
+      {saveOutcome === 'opened' && (
+        <p className="mt-2 text-center text-xs text-ink-3">
+          새 탭에 이미지를 열었어요 — 이미지를 길게 눌러 저장해 주세요.
+        </p>
+      )}
+      {/*
+        서버가 «못 준다» 고 답한 경우입니다(만료된 서명 · 지워진 파일). 새 탭을 열어도
+        같은 오류 페이지라, 예전처럼 «길게 눌러 저장하세요» 라고 하면 사용자는 오류
+        페이지를 누르고 있게 됩니다.
+      */}
+      {saveOutcome === 'failed' && (
+        <p role="alert" className="mt-2 text-center text-sm text-danger">
+          저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.
+        </p>
+      )}
+      {shareOutcome === 'failed' && (
+        <p role="alert" className="mt-2 text-center text-sm text-danger">
+          공유 시트를 열지 못했어요 — 「이미지 저장」으로 저장한 뒤 올려 주세요.
+        </p>
+      )}
+
+      {share.error && (
+        <p role="alert" className="mt-2 text-center text-sm text-danger">
+          {share.error.message}
+        </p>
+      )}
+
+      {/*
+        §2 — 회원은 결과가 자동으로 보관함에 남습니다. 게스트는 남길 곳이 없어 계정
+        연동을 권하는 자리가 필요한데(W-06 B · FR-W06-09), 그 자리가 예전에는 「저장」
+        버튼이었습니다. 그 버튼이 파일 저장으로 바뀐 이상 거기서 로그인 시트를 띄우면
+        «이미지 저장» 을 눌렀는데 로그인을 요구하는 화면이 됩니다 — 그래서 안내 줄로
+        옮깁니다. 회원에게 보관함 링크를 주던 그 자리입니다.
+
+        `me` 가 오기 전에는 **아무 줄도 안 답니다.** 기본값을 게스트로 잡아 두면 회원이
+        결과를 열 때마다 «로그인하면 남아요» 가 한 번 깜빡이고 «저장돼 있어요» 로
+        정정됩니다 — 화면이 먼저 거짓말하고 나중에 고치는 그 패턴입니다.
+      */}
+      {me == null ? null : isMember ? (
         <p className="mt-2 text-center text-xs text-ink-3">
           보관함에 저장돼 있어요.{' '}
           <Link to="/library" className="underline hover:text-brand">
             보관함 보기
           </Link>
         </p>
-      )}
-
-      {share.data && (
-        /*
-          인스타그램은 웹에서 대신 게시할 수 없습니다 — 이미지를 내려받아 사용자가 직접
-          올리는 게 현재로선 유일한 경로입니다.
-
-          이 이미지는 **위 슬라이더의 결과와 같은 파일**입니다(PR #73 — 서버는 공유용
-          사본을 만들지 않고 결과 `public_url` 을 그대로 돌려줍니다, api/types.ts
-          ShareResult). 그래서 «공유용 이미지» 라고 부르지 않습니다 — 새 그림이 생겼다고
-          읽히면 사용자는 서명·구도가 달라진 별도 결과물을 기대하게 되고, 실제로는 방금
-          본 그 사진이라 기대가 어긋납니다. 여기서 다시 그리는 이유는 슬라이더가 결과를
-          늘 반쪽만 보여 주기 때문입니다 — 올릴 그림 전체를 보는 자리는 여기뿐입니다.
-
-          저장은 앵커에 URL 을 그대로 물리지 않고 `saveImage` 를 지납니다. `download`
-          속성이 같은 오리진에서만 먹어서, CDN 이 붙는 순간(app/storage.py `public_url`)
-          «이미지 저장» 이 이미지로 이동이 되기 때문입니다 — 이슈 #77, 그리고 그 조건을
-          배포 문서에 박은 PR #78. CORS 가 아직 안 열려 fetch 가 실패하면 예전 동작으로
-          물러나고, 그때만 길게 눌러 저장하라고 안내합니다.
-        */
-        <div className="mt-3 rounded-lg border border-rule bg-surface p-3">
-          {previewBroken ? (
-            <p role="status" className="rounded-lg border border-warn/30 bg-warn-soft px-3 py-3">
-              <span className="text-sm font-semibold text-warn">
-                이미지를 불러오지 못했어요
-              </span>
-              <span className="mt-0.5 block text-sm text-ink-2">
-                지금은 저장할 수 없어요 — 잠시 뒤 다시 시도해 주세요.
-              </span>
-            </p>
-          ) : (
-            <img
-              src={share.data.share_image_url}
-              alt="저장할 결과 이미지"
-              onError={() => setPreviewFailedUrl(share.data?.share_image_url ?? null)}
-              className="w-full rounded-lg bg-canvas-2"
-            />
-          )}
-          {/* 볼 그림이 없는데 «저장해서 올려 주세요» 라고 하면 안내가 아니라 딴소리입니다. */}
-          {!previewBroken && (
-            <p className="mt-2 text-center text-xs text-ink-3">
-              {shareSheetAvailable
-                ? '누띠 서명이 이미 들어 있어요 — 「인스타에 올리기」에서 게시물이나 스토리를 고르세요'
-                : '누띠 서명이 이미 들어 있어요 — 저장해서 인스타그램에 올려 주세요'}
-            </p>
-          )}
-          {shareSheetAvailable && (
-            <button
-              type="button"
-              disabled={sharing || previewBroken}
-              onClick={() => {
-                const url = share.data?.share_image_url
-                if (!url) return
-                setSharing(true)
-                setShareOutcome(null)
-                void shareImage(url, `nutti-${job.job_id}.jpg`, '누띠 사진 놀이터에서 만든 우리 아이 사진 🐾 @nutti_official')
-                  .then((outcome) => {
-                    setShareOutcome(outcome)
-                    track({ event_type: 'share_sheet', properties: { job_id: job.job_id, outcome } })
-                  })
-                  .finally(() => setSharing(false))
-              }}
-              className="mt-2 w-full rounded-lg bg-brand px-3 py-3 text-center text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99] disabled:opacity-50"
-            >
-              {sharing ? '공유 시트 여는 중…' : '인스타에 올리기'}
-            </button>
-          )}
-          {shareOutcome === 'failed' && (
-            <p role="alert" className="mt-2 text-center text-xs text-danger">
-              공유 시트를 열지 못했어요 — 아래 「이미지 저장」으로 저장한 뒤 올려 주세요.
-            </p>
-          )}
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              // 실패할 걸 알면서 누르게 두지 않습니다 — 이유는 바로 위에 적혀 있습니다.
-              disabled={saving || previewBroken}
-              onClick={() => {
-                const url = share.data?.share_image_url
-                if (!url) return
-                setSaving(true)
-                setSaveOutcome(null)
-                void saveImage(url, `nutti-${job.job_id}.jpg`)
-                  .then(setSaveOutcome)
-                  .finally(() => setSaving(false))
-              }}
-              className="rounded-lg border border-rule-strong px-3 py-2 text-center text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
-            >
-              {saving ? '저장 중…' : '이미지 저장'}
-            </button>
-            <a
-              href="https://www.instagram.com/"
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-lg bg-brand px-3 py-2 text-center text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99]"
-            >
-              인스타그램 열기
-            </a>
-          </div>
-          {saveOutcome === 'opened' && (
-            <p className="mt-2 text-center text-xs text-ink-3">
-              새 탭에 이미지를 열었어요 — 이미지를 길게 눌러 저장해 주세요.
-            </p>
-          )}
-          {/*
-            미리보기가 떴는데도 저장이 실패하는 경로가 남아 있습니다 — 그 사이에 주소가
-            만료됐거나(서명 URL), 미리보기가 캐시에서 나왔거나. 이때 예전처럼 «새 탭에
-            열었어요» 라고 하면 사용자는 오류 페이지를 길게 누르고 있게 됩니다.
-          */}
-          {saveOutcome === 'failed' && (
-            <p role="alert" className="mt-2 text-center text-sm text-danger">
-              저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.
-            </p>
-          )}
-        </div>
-      )}
-
-      {share.error && (
-        <p role="alert" className="mt-2 text-center text-sm text-danger">
-          {share.error.message}
+      ) : (
+        <p className="mt-2 text-center text-xs text-ink-3">
+          <button
+            type="button"
+            onClick={() => setAccountSheet(true)}
+            className="underline hover:text-brand"
+          >
+            로그인
+          </button>
+          하면 이 결과가 보관함에 남아요
         </p>
       )}
 
