@@ -989,31 +989,47 @@ export const handlers = [
   http.get(`${BASE}/auth/me`, () => HttpResponse.json({ ...state.me, credit_balance: state.credits.balance })),
 
   /*
-    로그인·연동 시작. 실제 서버는 카카오/네이버/카페24 URL 을 조립해 주지만, 목에서는
-    **우리 콜백 라우트로 되돌립니다** — 그래야 프로바이더 없이 왕복 전체(시트 → 이동 →
-    /auth/callback → 세션 교체 → 복귀)를 로컬에서 밟아 볼 수 있습니다.
+    쇼핑몰 계정 연동 — SMS 인증번호 2단계. 실제 서버는 카페24가 회원 휴대폰으로 문자를
+    보내지만, 목에서는 코드가 항상 `123456` 입니다(콘솔에도 찍음). 그 외는 오답.
   */
-  http.get(`${BASE}/auth/cafe24/authorize`, async () => {
-    await delay(150)
+  http.post(`${BASE}/auth/cafe24/link/request`, async ({ request }) => {
+    await delay(300)
     // claim 과 같은 이유로 403 MEMBER_ONLY (PR #58) — 게스트 토큰은 멀쩡합니다.
     if (state.me.kind !== 'member') {
       return apiError(403, 'MEMBER_ONLY', '로그인이 필요합니다')
     }
-    return HttpResponse.json({ authorize_url: mockAuthorizeUrl('cafe24') })
-  }),
-
-  http.get(`${BASE}/auth/cafe24/callback`, async () => {
-    await delay(300)
+    const { shop_member_id } = (await request.json()) as { shop_member_id: string }
     if (scenario() === 'cafe24:linked') {
       return apiError(409, 'CAFE24_ALREADY_LINKED', '이미 연동된 계정입니다')
     }
+    if (shop_member_id === 'nobody') {
+      return apiError(404, 'CAFE24_MEMBER_NOT_FOUND', '쇼핑몰 회원을 찾을 수 없습니다')
+    }
+    console.info(`[mock] 카페24 SMS → ${shop_member_id}: 인증번호 123456`)
+    return HttpResponse.json({ sent: true, expires_in: 300 })
+  }),
+
+  http.post(`${BASE}/auth/cafe24/link/verify`, async ({ request }) => {
+    await delay(300)
+    if (state.me.kind !== 'member') {
+      return apiError(403, 'MEMBER_ONLY', '로그인이 필요합니다')
+    }
+    const { code } = (await request.json()) as { shop_member_id: string; code: string }
+    if (code !== '123456') {
+      return apiError(400, 'CAFE24_CODE_INVALID', '인증번호가 올바르지 않거나 만료됐습니다')
+    }
     if (!state.me.cafe24_linked) {
       state.me.cafe24_linked = true
-      grantEarnAction('link_account') // 연동 +3 은 클레임이 아니라 이 콜백이 지급합니다.
+      grantEarnAction('link_account') // 연동 +3 은 클레임이 아니라 verify 가 지급합니다.
     }
     return HttpResponse.json({ cafe24_linked: true, credit_balance: state.credits.balance })
   }),
 
+  /*
+    소셜 로그인 시작. 실제 서버는 카카오/네이버 URL 을 조립해 주지만, 목에서는
+    **우리 콜백 라우트로 되돌립니다** — 그래야 프로바이더 없이 왕복 전체(시트 → 이동 →
+    /auth/callback → 세션 교체 → 복귀)를 로컬에서 밟아 볼 수 있습니다.
+  */
   http.get(`${BASE}/auth/:provider/authorize`, async ({ params }) => {
     await delay(150)
     const provider = String(params.provider)

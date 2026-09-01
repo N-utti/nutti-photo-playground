@@ -25,7 +25,6 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import {
-  useAuthorizeRedirect,
   useCredits,
   useDeletePet,
   useLedger,
@@ -33,7 +32,6 @@ import {
   usePets,
   useRenamePet,
 } from '../api/queries'
-import { rememberAuthReturn } from '../app/authReturn'
 import BackButton from '../app/BackButton'
 import ConfirmDialog from '../app/ConfirmDialog'
 import { amountTone, reasonLabel, shortDate, signedAmount } from '../app/ledgerFormat'
@@ -42,6 +40,7 @@ import { initialOf } from '../app/initials'
 import Thumbnail from '../app/Thumbnail'
 import AccountSheet from './AccountSheet'
 import LogoutConfirm from './LogoutConfirm'
+import ShopLinkSheet from './ShopLinkSheet'
 import WithdrawConfirm from './WithdrawConfirm'
 import type { Me, Pet } from '../api/types'
 
@@ -424,17 +423,11 @@ function DeletePetDialog({ pet, onClose }: { pet: Pet; onClose: () => void }) {
 
 /**
  * 연동 상태의 단일 출처는 `GET /v1/auth/me.cafe24_linked` 입니다 — W-10 의 "쇼핑몰 계정
- * 연동 +3" 줄과 **같은 값**을 읽고 **같은 authorize** 로 갑니다. 진입점만 둘이고 구현은
- * 하나여서, 한쪽만 고쳐 상태가 어긋나는 일이 생기지 않습니다.
+ * 연동 +3" 줄과 **같은 값**을 읽고 **같은 시트**(ShopLinkSheet, SMS 인증번호 2단계)를
+ * 엽니다. 진입점만 둘이고 구현은 하나여서, 한쪽만 고쳐 상태가 어긋나는 일이 생기지 않습니다.
  */
 function ShopLinkSection({ me }: { me: Me }) {
-  const location = useLocation()
-  const authorize = useAuthorizeRedirect()
-
-  function startLink() {
-    rememberAuthReturn(`${location.pathname}${location.search}`)
-    authorize.mutate('cafe24')
-  }
+  const [linkSheet, setLinkSheet] = useState(false)
 
   return (
     <section className="rounded-xl border border-rule bg-surface px-4 py-4">
@@ -451,17 +444,12 @@ function ShopLinkSection({ me }: { me: Me }) {
           </p>
           <button
             type="button"
-            disabled={authorize.isPending}
-            onClick={startLink}
-            className="mt-3 w-full rounded-xl border border-rule-strong px-4 py-2.5 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
+            onClick={() => setLinkSheet(true)}
+            className="mt-3 w-full rounded-xl border border-rule-strong px-4 py-2.5 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
           >
-            {authorize.isPending ? '여는 중…' : '연동하고 +3 받기'}
+            연동하고 +3 받기
           </button>
-          {authorize.isError && (
-            <p role="alert" className="mt-2 text-center text-sm text-danger">
-              연동 화면을 열지 못했어요. 잠시 뒤 다시 시도해 주세요.
-            </p>
-          )}
+          {linkSheet && <ShopLinkSheet onClose={() => setLinkSheet(false)} />}
         </>
       )}
     </section>

@@ -203,6 +203,52 @@ describe('EarnActionList', () => {
     expect(await screen.findByText(/\+2 크레딧을 받았어요/)).toBeInTheDocument()
     expect(screen.queryByText(/아직 반영되지 않았어요/)).not.toBeInTheDocument()
   })
+
+  it('회원의 연동은 아이디 → 인증번호 두 단계로 끝난다 (페이지 이동 없음)', async () => {
+    /*
+      카페24 OAuth 는 운영자 로그인이라 고객 확인에 못 씁니다 — 연동은 SMS 인증번호
+      2단계입니다(05 §3 link/request·verify). 오답은 1회로 소비되므로 시트가 «다시 받기»
+      로 이끄는지까지 봅니다.
+    */
+    asMember()
+    const sent: unknown[] = []
+    server.use(
+      http.post('*/v1/auth/cafe24/link/request', async ({ request }) => {
+        sent.push(await request.json())
+        return HttpResponse.json({ sent: true, expires_in: 300 })
+      }),
+      http.post('*/v1/auth/cafe24/link/verify', async ({ request }) => {
+        const { code } = (await request.json()) as { code: string }
+        if (code !== '123456') {
+          return HttpResponse.json(
+            { error: { code: 'CAFE24_CODE_INVALID', message: 'bad' } },
+            { status: 400 },
+          )
+        }
+        return HttpResponse.json({ cafe24_linked: true, credit_balance: 14 })
+      }),
+    )
+    const user = userEvent.setup()
+    renderWithProviders(<EarnActionList />)
+
+    await user.click(await screen.findByRole('button', { name: '연동하기' }))
+    await user.type(screen.getByLabelText('쇼핑몰 아이디'), 'kongmom')
+    await user.click(screen.getByRole('button', { name: '인증번호 받기' }))
+
+    const codeInput = await screen.findByLabelText('인증번호 6자리')
+    await user.type(codeInput, '000000')
+    await user.click(screen.getByRole('button', { name: '연동하고 +3 받기' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(/인증번호를 다시 받아 주세요/)
+
+    await user.click(screen.getByRole('button', { name: '인증번호 다시 받기' }))
+    await user.clear(codeInput)
+    await user.type(codeInput, '123456')
+    await user.click(screen.getByRole('button', { name: '연동하고 +3 받기' }))
+
+    expect(await screen.findByText('쇼핑몰 계정을 연동했어요')).toBeInTheDocument()
+    expect(screen.getByText(/보유 14개/)).toBeInTheDocument()
+    expect(sent).toEqual([{ shop_member_id: 'kongmom' }, { shop_member_id: 'kongmom' }])
+  })
 })
 
 /** 목의 기본 게스트 응답과 같은 모양. 회원 전환 전 상태입니다. */

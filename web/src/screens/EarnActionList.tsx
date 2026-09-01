@@ -11,11 +11,9 @@
  */
 
 import { useState } from 'react'
-import { useLocation } from 'react-router'
 import { isApiError } from '../api/client'
 import { track } from '../app/analytics'
-import { useAuthorizeRedirect, useClaimCredit, useCredits, useMe } from '../api/queries'
-import { rememberAuthReturn } from '../app/authReturn'
+import { useClaimCredit, useCredits, useMe } from '../api/queries'
 import {
   NUTTI_INSTAGRAM_HANDLE,
   NUTTI_INSTAGRAM_URL,
@@ -23,6 +21,7 @@ import {
 } from '../app/externalLinks'
 import type { ClaimableAction, EarnAction, EarnActionRow } from '../api/types'
 import AccountSheet from './AccountSheet'
+import ShopLinkSheet from './ShopLinkSheet'
 
 const ACTION_ORDER: EarnAction[] = ['order', 'link_account', 'follow_ig', 'daily']
 
@@ -39,11 +38,10 @@ function isClaimable(action: EarnAction): action is ClaimableAction {
 }
 
 export default function EarnActionList() {
-  const location = useLocation()
   const { data: credits, isPending, isError, error, refetch } = useCredits()
   const { data: me } = useMe()
   const claim = useClaimCredit()
-  const authorize = useAuthorizeRedirect()
+  const [linkSheet, setLinkSheet] = useState(false)
   /*
     `balance` 까지 들고 있는 이유는 아래 안내 문구입니다 — 받은 뒤 잔액이 여전히 음수면
     화면의 «보유 크레딧» 숫자가 **안 움직입니다**(ADR-02 표시 규칙 `max(0, balance)`).
@@ -64,16 +62,16 @@ export default function EarnActionList() {
 
   /**
    * 연동 +3 은 두 단계입니다 — 카페24 연동은 **회원 전용**이라(ADR-11) 게스트는 먼저
-   * 로그인해야 합니다. 게스트에게 곧바로 연동을 걸면 authorize 가 403 MEMBER_ONLY 이므로
+   * 로그인해야 합니다. 게스트에게 곧바로 연동을 걸면 link/request 가 403 MEMBER_ONLY 이므로
    * (PR #58), 같은 버튼이 상태에 따라 다른 일을 합니다(§2 W-10 "게스트에게는 로그인 유도").
+   * 회원이면 SMS 인증번호 2단계 시트(ShopLinkSheet)를 엽니다 — 페이지 이동이 없습니다.
    */
   function startLinkAccount() {
     if (me?.kind !== 'member') {
       setLoginSheet('link')
       return
     }
-    rememberAuthReturn(`${location.pathname}${location.search}`)
-    authorize.mutate('cafe24')
+    setLinkSheet(true)
   }
 
   if (isPending) {
@@ -125,18 +123,11 @@ export default function EarnActionList() {
               onClaim={handleClaim}
               onLinkAccount={startLinkAccount}
               onLogin={() => setLoginSheet('earn')}
-              linking={authorize.isPending}
               memberKnown={me !== undefined}
             />
           </li>
         ))}
       </ul>
-
-      {authorize.isError && (
-        <p role="alert" className="mt-2 text-center text-sm text-danger">
-          연동 화면을 열지 못했어요. 잠시 뒤 다시 시도해 주세요.
-        </p>
-      )}
 
       {granted && (
         <>
@@ -182,6 +173,8 @@ export default function EarnActionList() {
         </p>
       )}
 
+      {linkSheet && <ShopLinkSheet onClose={() => setLinkSheet(false)} />}
+
       {loginSheet && (
         <AccountSheet
           onClose={() => setLoginSheet(null)}
@@ -204,7 +197,6 @@ interface EarnRowProps {
   onLinkAccount: () => void
   /** `login_required` 줄이 눌렸을 때. 게스트에게는 네 줄 전부가 이 길입니다(PR #58). */
   onLogin: () => void
-  linking: boolean
   /** `/me` 가 아직 안 왔으면 연동 버튼이 로그인/연동 중 무엇을 할지 모릅니다. */
   memberKnown: boolean
 }
@@ -231,7 +223,7 @@ function EarnRow({ row, ...rest }: EarnRowProps) {
   )
 }
 
-function EarnCta({ row, claiming, onClaim, onLinkAccount, onLogin, linking, memberKnown }: EarnRowProps) {
+function EarnCta({ row, claiming, onClaim, onLinkAccount, onLogin, memberKnown }: EarnRowProps) {
   /*
     게스트 — 서버가 네 줄 전부 `login_required` + `cta: "로그인"` 으로 내려줍니다
     (PR #58, 이슈 #52). 주문 줄까지 포함해 **먼저** 갈라내는 게 맞습니다:
@@ -286,10 +278,10 @@ function EarnCta({ row, claiming, onClaim, onLinkAccount, onLogin, linking, memb
       <button
         type="button"
         onClick={onLinkAccount}
-        disabled={linking || !memberKnown}
+        disabled={!memberKnown}
         className="shrink-0 rounded-lg border border-rule-strong px-3 py-2 text-xs font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
       >
-        {linking ? '여는 중…' : (row.cta ?? '연동하기')}
+        {row.cta ?? '연동하기'}
       </button>
     )
   }

@@ -149,17 +149,35 @@ export function useWithdraw() {
 }
 
 /**
- * 소셜 로그인·카페24 연동 시작.
+ * 소셜 로그인 시작.
  *
  * 성공 시 돌아오지 않습니다 — `authorize_url` 로 페이지를 통째로 넘깁니다. 그래서
  * 여기서 캐시를 건드릴 필요가 없고, 돌아오는 지점은 `/auth/callback/{provider}` 입니다.
  */
 export function useAuthorizeRedirect() {
   return useMutation({
-    mutationFn: async (provider: SocialProvider | 'cafe24') => {
+    mutationFn: async (provider: SocialProvider) => {
       const { authorize_url } = await auth.authorize(provider)
       window.location.assign(authorize_url)
     },
+  })
+}
+
+/** 쇼핑몰 연동 1/2 — 인증번호 발송. 캐시는 건드리지 않습니다(아직 아무것도 안 바뀜). */
+export function useCafe24LinkRequest() {
+  return useMutation({ mutationFn: auth.cafe24LinkRequest })
+}
+
+/**
+ * 쇼핑몰 연동 2/2 — 인증번호 확인. 토큰은 그대로지만 잔액(+3)·`me.cafe24_linked`·원장·
+ * 획득 목록의 연동 행 상태가 동시에 움직입니다 — 관련 키를 일일이 세는 것보다 전부
+ * 다시 읽는 게 안전합니다.
+ */
+export function useCafe24LinkVerify() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: auth.cafe24LinkVerify,
+    onSuccess: () => client.invalidateQueries(),
   })
 }
 
