@@ -15,7 +15,7 @@
 
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { HttpResponse, http } from 'msw'
+import { HttpResponse, delay, http } from 'msw'
 import { describe, expect, it, vi } from 'vitest'
 import { renderWithProviders } from '../test/render'
 import { server } from '../test/server'
@@ -113,6 +113,41 @@ describe('AccountSheet · 입력 검증', () => {
 
     expect(await screen.findByText(/비밀번호는 8~/)).toBeInTheDocument()
     expect(sent).not.toHaveBeenCalled()
+  })
+})
+
+describe('AccountSheet · 소셜 진행 표시', () => {
+  it('카카오를 누르면 네이버는 눌린 것처럼 보이지 않는다', async () => {
+    /*
+      두 버튼이 `useAuthorizeRedirect()` mutation 하나를 공유합니다. 예전에는 그
+      `isPending` 을 두 버튼 모두의 `disabled:opacity-50` 이 받아서, 카카오를 누르면
+      **네이버까지 같이 흐려졌습니다** — 폰에서 두 개가 같이 눌린 것처럼 보인 원인입니다.
+
+      프로바이더로 나가는 동안 다른 쪽을 못 누르게 막는 것(`disabled`)은 맞습니다.
+      OAuth 를 두 번 시작하면 안 되니까요. 여기서 가르는 것은 **못 누른다는 사실과
+      «내가 이걸 눌렀다»는 표시를 같은 색으로 말하지 않는가** 입니다.
+    */
+    server.use(
+      http.get('*/v1/auth/:provider/authorize', async () => {
+        // 응답을 영원히 붙잡아 «이동 중» 상태를 관찰 가능한 시간 동안 고정합니다.
+        await delay('infinite')
+        return HttpResponse.json({ authorize_url: 'https://example.test/oauth' })
+      }),
+    )
+    const user = userEvent.setup()
+    renderWithProviders(<AccountSheet onClose={vi.fn()} />)
+
+    await user.click(screen.getByRole('button', { name: '카카오로 계속하기' }))
+
+    const kakao = await screen.findByRole('button', { name: '이동 중…' })
+    expect(kakao).toHaveAttribute('aria-busy', 'true')
+    expect(kakao.className).toMatch(/opacity-50/)
+
+    // 안 누른 쪽: 못 누르게는 하되 생김새는 그대로여야 합니다.
+    const naver = screen.getByRole('button', { name: '네이버로 계속하기' })
+    expect(naver).toBeDisabled()
+    expect(naver).toHaveAttribute('aria-busy', 'false')
+    expect(naver.className).not.toMatch(/opacity-50/)
   })
 })
 

@@ -17,7 +17,7 @@
 
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { HttpResponse, http } from 'msw'
+import { HttpResponse, delay, http } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { renderWithProviders } from '../test/render'
 import { server } from '../test/server'
@@ -264,6 +264,57 @@ describe('EarnActionList', () => {
     expect(screen.getByText(/보유 14개/)).toBeInTheDocument()
     expect(sent).toEqual([{ cellphone: '01057731879' }, { cellphone: '01057731879' }])
     expect(verified).toEqual([{ cellphone: '01057731879', shop_member_id: '4950033661@k', code: '123456' }])
+  })
+
+  it('후보를 하나 고르면 고른 것만 진행 중이 된다', async () => {
+    /*
+      AccountSheet 의 소셜 버튼과 같은 결함이 여기에도 있었습니다 — 후보 전부가 `verify`
+      mutation 하나를 공유해서, 한 개를 고르면 `disabled:opacity-50` 이 **나머지 후보까지**
+      흐리게 만들었습니다.
+
+      계정 고르기 화면에서는 그게 더 나쁩니다. 이 화면의 목적이 «어느 계정으로 보상을
+      쌓을지» 를 확인시키는 것인데, 전부 같이 흐려지면 방금 무엇을 골랐는지가 화면에서
+      사라집니다. 여기 적힌 글자가 곧 계정 아이디라 라벨을 «확인 중…» 으로 바꿀 수도
+      없습니다 — 그래서 흐림을 고른 것 하나에만 남깁니다.
+    */
+    asMember()
+    server.use(
+      http.post('*/v1/auth/cafe24/link/request', () =>
+        HttpResponse.json({ sent: true, expires_in: 300 }),
+      ),
+      http.post('*/v1/auth/cafe24/link/verify', async ({ request }) => {
+        const body = (await request.json()) as { shop_member_id?: string }
+        if (!body.shop_member_id) {
+          return HttpResponse.json({
+            cafe24_linked: false,
+            credit_balance: 11,
+            candidates: ['tester123', '4950033661@k'],
+          })
+        }
+        // 고른 뒤의 응답은 붙잡아 둡니다 — «고르는 중» 화면이 넘어가 버리면 볼 수 없습니다.
+        await delay('infinite')
+        return HttpResponse.json({ cafe24_linked: true, credit_balance: 14, candidates: null })
+      }),
+    )
+    const user = userEvent.setup()
+    renderWithProviders(<EarnActionList />)
+
+    await user.click(await screen.findByRole('button', { name: '연동하기' }))
+    await user.type(screen.getByLabelText('쇼핑몰 가입 휴대폰 번호'), '01057731879')
+    await user.click(screen.getByRole('button', { name: '인증번호 받기' }))
+    await user.type(await screen.findByLabelText('인증번호 6자리'), '123456')
+    await user.click(screen.getByRole('button', { name: '연동하고 +3 받기' }))
+
+    await screen.findByText('연동할 쇼핑몰 계정을 골라 주세요')
+    await user.click(screen.getByRole('button', { name: '4950033661@k' }))
+
+    const picked = screen.getByRole('button', { name: '4950033661@k' })
+    const other = screen.getByRole('button', { name: 'tester123' })
+    expect(picked).toHaveAttribute('aria-busy', 'true')
+    expect(picked.className).toMatch(/opacity-50/)
+    expect(other).toBeDisabled()
+    expect(other).toHaveAttribute('aria-busy', 'false')
+    expect(other.className).not.toMatch(/opacity-50/)
   })
 })
 
