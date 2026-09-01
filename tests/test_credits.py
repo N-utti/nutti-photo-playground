@@ -335,3 +335,47 @@ def test_ledger_rejects_cursor_outside_bigint_range(client: TestClient):
 
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+async def _link_member(member_id: str):
+    member = await Member.get(id=member_id)
+    member.cafe24_member_id = "shop-1"
+    member.order_reward_cutoff = datetime.now(timezone.utc)
+    await member.save(update_fields=["cafe24_member_id", "order_reward_cutoff"])
+
+
+def test_get_credits_syncs_linked_member_orders_before_reading_balance(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    """주문하고 돌아온 회원이 30분 크론을 기다리지 않게 — 화면 진입 시 그 회원 주문만 즉석 동기화."""
+    from app import cafe24
+
+    member_id, headers = _session(client, MemberKind.MEMBER, balance=1)
+    client.portal.call(_link_member, member_id)
+    synced: list[str] = []
+
+    async def fake_sync(member, now=None):
+        synced.append(member.cafe24_member_id)
+        await Member.filter(id=member.id).update(credit_balance=21)  # +20 들어온 셈
+        return {"rewarded": 1}
+
+    monkeypatch.setattr(cafe24, "sync_member_orders", fake_sync)
+
+    response = client.get("/v1/credits", headers=headers)
+
+    assert response.status_code == 200
+    assert response.json()["balance"] == 21  # 동기화 뒤 잔액을 다시 읽는다
+    assert synced == ["shop-1"]
+
+
+def test_get_credits_skips_sync_for_unlinked_member(client: TestClient, monkeypatch: pytest.MonkeyPatch):
+    from app import cafe24
+
+    _, headers = _session(client, MemberKind.MEMBER, balance=1)
+
+    async def fake_sync(member, now=None):
+        raise AssertionError("unlinked member must not trigger cafe24 calls")
+
+    monkeypatch.setattr(cafe24, "sync_member_orders", fake_sync)
+
+    assert client.get("/v1/credits", headers=headers).status_code == 200

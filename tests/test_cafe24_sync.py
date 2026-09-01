@@ -37,16 +37,24 @@ async def database(monkeypatch: pytest.MonkeyPatch):
     await Tortoise.close_connections()
 
 
+FETCH_CALLS: list[str | None] = []  # orders 대역이 받은 member_id 필터 기록
+
+
 @pytest.fixture
 def orders(monkeypatch: pytest.MonkeyPatch) -> list[dict]:
     """카페24 주문 API 대역 — 목록을 그대로 돌려준다."""
     store: list[dict] = []
 
-    async def fake_fetch(access_token: str, start: datetime, end: datetime) -> list[dict]:
+    async def fake_fetch(
+        access_token: str, start: datetime, end: datetime, member_id: str | None = None
+    ) -> list[dict]:
         assert access_token == "access"
-        return store
+        FETCH_CALLS.append(member_id)
+        return [o for o in store if member_id is None or o.get("member_id") == member_id]
 
+    FETCH_CALLS.clear()
     monkeypatch.setattr(cafe24, "_fetch_orders", fake_fetch)
+    monkeypatch.setattr(cafe24, "_member_synced_at", {})
     return store
 
 
@@ -161,7 +169,7 @@ async def test_sync_window_starts_from_watermark_lookback_but_not_before_cutoff(
 ):
     calls: list[tuple[datetime, datetime]] = []
 
-    async def fake_fetch(access_token, start, end):
+    async def fake_fetch(access_token, start, end, member_id=None):
         calls.append((start, end))
         return []
 
@@ -238,3 +246,39 @@ async def test_refresh_failure_records_error_and_alerts(monkeypatch: pytest.Monk
     token = await Cafe24OauthToken.get(mall_id="nutti")
     assert token.last_refresh_error.startswith("KeyError")
     assert len(alerts) == 2
+
+
+async def test_member_sync_rewards_only_that_member_and_is_throttled(orders: list[dict]):
+    """크레딧 화면 진입 즉석 동기화 — 그 회원 주문만 카페24에 묻고(member_id 필터), 60초 안 재호출은 무시."""
+    await _token()
+    me = await _linked_member("c1")
+    other = await _linked_member("c2")
+    orders.extend([_order("o1", "c1"), _order("o2", "c2")])
+
+    first = await cafe24.sync_member_orders(me, now=NOW)
+    second = await cafe24.sync_member_orders(me, now=NOW)
+
+    assert first["rewarded"] == 1 and first["fetched"] == 1
+    assert second is None
+    assert FETCH_CALLS == ["c1"]
+    await me.refresh_from_db()
+    await other.refresh_from_db()
+    assert (me.credit_balance, other.credit_balance) == (20, 0)
+
+
+async def test_member_sync_swallows_upstream_failure(monkeypatch: pytest.MonkeyPatch):
+    await _token()
+    me = await _linked_member("c1")
+
+    async def boom(*args, **kwargs):
+        raise httpx.ConnectError("down")
+
+    monkeypatch.setattr(cafe24, "_fetch_orders", boom)
+    monkeypatch.setattr(cafe24, "_member_synced_at", {})
+
+    assert await cafe24.sync_member_orders(me, now=NOW) is None
+
+
+async def test_member_sync_noop_for_unlinked_member():
+    member = await Member.create(kind=MemberKind.MEMBER)
+    assert await cafe24.sync_member_orders(member, now=NOW) is None

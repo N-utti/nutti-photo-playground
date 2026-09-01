@@ -70,6 +70,12 @@ async def _amounts() -> dict[str, int]:
 
 @router.get("", response_model=CreditsResponse)
 async def get_credits(member: Member = Depends(get_current_member)):
+    if member.cafe24_member_id is not None:
+        # 주문하고 돌아온 회원에게 30분 크론을 기다리게 하지 않는다 — 이 회원 주문만 즉석 동기화(60초 1회, 실패 무시)
+        from app import cafe24  # cafe24 → credits._amounts 순환 import 회피
+
+        if await cafe24.sync_member_orders(member) is not None:
+            await member.refresh_from_db(fields=["credit_balance"])
     amounts = await _amounts()
     daily_key = f"daily:{_kst_today().isoformat()}"
     claimed = set(
