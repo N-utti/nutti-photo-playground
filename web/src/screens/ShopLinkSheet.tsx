@@ -18,6 +18,7 @@
 import { useState, type FormEvent } from 'react'
 import { ApiError, isApiError } from '../api/client'
 import { useCafe24LinkRequest, useCafe24LinkVerify } from '../api/queries'
+import FloatingField from '../app/FloatingField'
 import { formatRetryAfter } from '../app/retryAfter'
 import { useModalDialog } from '../app/useModalDialog'
 import type { Cafe24LinkTarget } from '../api/types'
@@ -138,7 +139,6 @@ export default function ShopLinkSheet({ onClose }: { onClose: () => void }) {
     formError ??
     (verify.isError ? linkErrorMessage(verify.error, mode) : null) ??
     (request.isError ? linkErrorMessage(request.error, mode) : null)
-  const inputClass = 'mt-1 w-full rounded-lg border border-rule bg-paper px-3 py-2 text-sm'
   const primaryClass =
     'w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99] disabled:opacity-50'
 
@@ -230,20 +230,18 @@ export default function ShopLinkSheet({ onClose }: { onClose: () => void }) {
                   {mode === 'cellphone' ? '휴대폰 번호' : '쇼핑몰 아이디'}{' '}
                   <span className="font-mono text-ink">{value}</span>
                 </p>
-                <label className="block">
-                  <span className="text-xs text-ink-3">인증번호 6자리</span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    value={code}
-                    onChange={(event) => setCode(event.currentTarget.value.replace(/\D/g, '').slice(0, 6))}
-                    maxLength={6}
-                    required
-                    autoFocus
-                    className={`${inputClass} tracking-[0.3em]`}
-                  />
-                </label>
+                <FloatingField
+                  label="인증번호 6자리"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  value={code}
+                  onChange={(event) => setCode(event.currentTarget.value.replace(/\D/g, '').slice(0, 6))}
+                  maxLength={6}
+                  required
+                  autoFocus
+                  inputClassName="tracking-[0.3em]"
+                />
                 <button type="submit" disabled={verify.isPending} className={primaryClass}>
                   {verify.isPending ? '확인 중…' : '연동하고 +3 받기'}
                 </button>
@@ -258,37 +256,35 @@ export default function ShopLinkSheet({ onClose }: { onClose: () => void }) {
               </form>
             ) : (
               <form onSubmit={submitRequest} className="mt-4 space-y-2">
-                <label className="block">
-                  <span className="text-xs text-ink-3">
-                    {mode === 'cellphone' ? '쇼핑몰 가입 휴대폰 번호' : '쇼핑몰 아이디'}
-                  </span>
-                  {mode === 'cellphone' ? (
-                    <input
-                      type="tel"
-                      inputMode="numeric"
-                      autoComplete="tel-national"
-                      placeholder="01012345678"
-                      value={value}
-                      onChange={(event) => setValue(event.currentTarget.value)}
-                      maxLength={13}
-                      required
-                      autoFocus
-                      className={inputClass}
-                    />
-                  ) : (
-                    <input
-                      type="text"
-                      autoComplete="username"
-                      autoCapitalize="none"
-                      value={value}
-                      onChange={(event) => setValue(event.currentTarget.value)}
-                      maxLength={64}
-                      required
-                      autoFocus
-                      className={inputClass}
-                    />
-                  )}
-                </label>
+                {mode === 'cellphone' ? (
+                  <FloatingField
+                    label="쇼핑몰 가입 휴대폰 번호"
+                    type="tel"
+                    inputMode="numeric"
+                    autoComplete="tel-national"
+                    placeholder="01012345678"
+                    value={value}
+                    onChange={(event) => setValue(event.currentTarget.value)}
+                    maxLength={13}
+                    required
+                    autoFocus
+                  />
+                ) : (
+                  <FloatingField
+                    label="쇼핑몰 아이디"
+                    type="text"
+                    autoComplete="username"
+                    autoCapitalize="none"
+                    // 소셜(카카오·네이버)로 가입했으면 «아이디» 가 아예 없습니다 — 그
+                    // 경우 휴대폰 갈래로 가야 하므로, 어느 아이디를 묻는지 밝힙니다.
+                    placeholder="가입할 때 만든 아이디"
+                    value={value}
+                    onChange={(event) => setValue(event.currentTarget.value)}
+                    maxLength={64}
+                    required
+                    autoFocus
+                  />
+                )}
                 <button type="submit" disabled={request.isPending} className={primaryClass}>
                   {request.isPending ? '보내는 중…' : '인증번호 받기'}
                 </button>
