@@ -98,6 +98,18 @@ crontab -e
 4. 목록의 **[TEST]**로 샘플 전송 → api 로그에 `cafe24 webhook resync` 또는 `accepted: false`(샘플 member_id는 미연동이라 false가 정상). **[로그]**에서 응답코드 202 확인.
 5. 발송 서버 IP `203.245.45.182`, `203.245.45.183`(HTTPS 443) — 방화벽을 좁힐 때 허용.
 
+### 5-2. 인스타 댓글→DM 퍼널 (Meta 앱)
+
+배경: 인스타는 팔로우 여부를 제3자에게 안 준다 — 예외는 메시징 API 프로필의 `is_user_follow_business`(DM 보낸 사용자만). 05 §3 `webhooks/instagram` 참고. Threads 봇 앱(`sns-comment-boooot`)은 권한 체계가 달라 재사용 불가 — **같은 비즈니스(비즈니스 인증 승계) 아래 새 앱**을 만든다.
+
+1. developers.facebook.com → 내 앱 → 앱 만들기(비즈니스 포트폴리오: Nutti) → 제품 추가 **Instagram** → "Instagram API setup with Instagram login".
+2. Instagram 비즈니스 로그인 설정: 리디렉션 URI `https://play.nutti.co.kr/auth/callback/instagram`. 앱 ID/시크릿 → `.env` `INSTAGRAM_APP_ID` / `INSTAGRAM_APP_SECRET`.
+3. `@nutti_official`이 **프로페셔널 계정**인지 확인 → 앱 역할 › **Instagram 테스터**에 추가(인스타 앱 › 설정 › 앱과 웹사이트 › 테스터 초대 수락). 검수 전엔 테스터 계정의 댓글/DM만 웹훅이 온다.
+4. 토큰: `docker compose … run --rm api python scripts/instagram_token.py` → URL을 `@nutti_official` 로그인 상태에서 열어 승인 → 리다이렉트 URL의 `code=…#_`를 `scripts/instagram_token.py <code>`로 교환(장기 60일, 만료 7일 전 자동 갱신).
+5. Webhooks: 콜백 URL `https://api.nutti.co.kr/v1/webhooks/instagram`, 확인 토큰 = `.env` `INSTAGRAM_WEBHOOK_VERIFY_TOKEN`(임의 문자열) → 구독 필드 **`comments`, `messages`**. 콘솔 [테스트] 전송으로 api 로그 200 확인.
+6. 앱 검수: 이용사례에 `instagram_business_basic` · `instagram_business_manage_comments` · `instagram_business_manage_messages` → 스크린캐스트(댓글 → 비공개 답장 → 「완료」 답장 → 코드 DM → 놀이터 로그인 → 크레딧)와 영어 자막, 개인정보처리방침 URL(`nutti.co.kr/privacy.html`) 재사용. Threads 반려 교훈: **엔드투엔드 한 테이크**.
+7. 문구·키워드는 `app/instagram.py` 상수와 `INSTAGRAM_COMMENT_KEYWORDS`. 비공개 답장은 댓글 후 7일 내 1회, 이후 DM은 사용자 마지막 메시지 후 24시간 내.
+
 ## 6. 배포 후 스모크
 
 - `curl -I https://api.nutti.co.kr/v1/styles` → 200, `https://play.nutti.co.kr` 로딩

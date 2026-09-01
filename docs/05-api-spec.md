@@ -49,7 +49,8 @@
 | `CAFE24_ALREADY_LINKED` | HTTP 에러 | 409 | 카페24 연동(request/verify) — 이미 다른 회원/다른 카페24 계정에 연동됨 |
 | `CAFE24_MEMBER_NOT_FOUND` | HTTP 에러 | 404 | `POST /v1/auth/cafe24/link/request` — 입력한 아이디/휴대폰 번호의 쇼핑몰 회원이 없음 |
 | `FOLLOW_IG_NOT_OPENED` | HTTP 에러 | 400 | `POST /v1/credits/claim` follow_ig — 「팔로우하러 가기」(`follow_ig_open` 이벤트) 없이/10초 안에/30분 지나서 받기 |
-| `INSTAGRAM_ALREADY_USED` | HTTP 에러 | 409 | `POST /v1/credits/claim` follow_ig — 같은 인스타 아이디로 이미 다른 회원이 받음 |
+| `INSTAGRAM_ALREADY_USED` | HTTP 에러 | 409 | follow_ig — 같은 인스타 아이디(claim) 또는 같은 인스타 계정 igsid(redeem-instagram)로 이미 다른 회원이 받음 |
+| `INSTAGRAM_CODE_INVALID` | HTTP 에러 | 404 | `POST /v1/credits/redeem-instagram` — 없는/만료(30일)/팔로우 미확인 코드 |
 | `CAFE24_CODE_INVALID` | HTTP 에러 | 400 | `POST /v1/auth/cafe24/link/verify` — 인증번호 불일치·만료·미발급(오답 1회로 코드 소비, 재발송 필요) |
 | `ALREADY_MEMBER` | HTTP 에러 | 409 | 회원 토큰으로 register/login/소셜 authorize 호출 — 로그인 수단 추가는 MVP 미지원(이슈 #17) |
 | `MEMBER_ONLY` | HTTP 에러 | 403 | **유효한 게스트 토큰**으로 회원 전용 기능 접근(`POST /v1/credits/claim`·카페24 연동) — 401과 달리 토큰은 살아있으므로 클라이언트는 세션을 지우지 말고 로그인 시트를 띄움(이슈 #52) |
@@ -737,6 +738,31 @@
 - 응답: 항상 `202 {"accepted": true|false}` — 다른 몰·관심 없는 이벤트·비회원 주문·미연동 회원은 `false`로 조용히 무시(카페24는 실패율이 높으면 웹훅을 자동 OFF 하므로 4xx/5xx를 남발하지 않는다). 형식이 깨진 본문만 `400`.
 - 동기화는 BackgroundTasks로 응답 뒤 실행(웹훅 타임아웃 회피). 누락 보정 = `GET /v1/credits` 진입 즉석 동기화 + 30분 크론(카페24 문서도 웹훅 단독 운영 비권장).
 - 등록 절차·필요 권한(주문 이벤트는 상품분류·판매분류·회원·주문·상품·프로모션·공급사 **읽기** 권한 전부 필요)은 `deploy/README.md` §5.
+
+#### `POST /v1/webhooks/instagram` · `GET /v1/webhooks/instagram` — 인스타 댓글→DM 퍼널(서버 간, 2026-09-01)
+
+Meta 앱(Instagram API with Instagram Login)의 Webhooks에 등록하는 URL. 팔로우 여부를 제3자가 알 수 있는 **유일한 공식 경로**는 메시징 API의 사용자 프로필 `is_user_follow_business`이고, 이 값은 그 사용자가 **우리 계정에 DM을 보낸 뒤**에만 조회된다. 그래서:
+
+1. `comments` 이벤트: 게시물 댓글에 키워드(`INSTAGRAM_COMMENT_KEYWORDS`, 기본 `놀이터`)가 있으면 그 댓글에 **비공개 답장**(댓글 후 7일 내 1회) — "팔로우 후 「완료」라고 답장".
+2. `messages` 이벤트: 답장한 사용자의 프로필 조회 → 팔로우 O면 **1회용 코드(8자, 30일)** + `{INSTAGRAM_LANDING_URL}/?ig=<code>` DM, 팔로우 X면 재안내 DM. 같은 사용자의 미사용 코드는 하나만(웹훅 재전송·재답장에 재발급 없음). 우리 계정의 메아리(`is_echo`)·우리 댓글은 무시.
+3. 놀이터에서 `POST /v1/credits/redeem-instagram`으로 소진(아래).
+
+- 구독 확인: `GET`에 `hub.mode=subscribe&hub.verify_token=…&hub.challenge=…` → 토큰 일치 시 challenge 그대로(200 text), 아니면 403.
+- 인증: `X-Hub-Signature-256: sha256=<HMAC-SHA256(원문, 앱 시크릿)>` 검증 → 불일치·미설정 401. `object != "instagram"`은 200 `{"accepted": false}`.
+- 응답은 즉시 200, 처리(Graph 호출)는 BackgroundTasks — 실패는 로그만(Meta 재시도·구독 해제 회피).
+- 운영 요건·Meta 앱 생성·검수는 `deploy/README.md` §5-2. **검수 통과 전엔 앱 역할(테스터) 계정의 댓글/DM만 웹훅이 온다.**
+
+#### `POST /v1/credits/redeem-instagram` — DM으로 받은 코드 소진(회원 전용)
+
+```json
+// 요청
+{ "code": "K7M2P9QX" }
+```
+```json
+// 200 — ClaimCreditResponse
+{ "balance": 13, "amount_granted": 2 }
+```
+코드는 팔로우가 **API로 확인된** 인스타 사용자에게만 발급되므로 아이디 입력·열기 이벤트 없이 `follow_ig`를 지급한다(원장 `ref_id = "ig:<인스타 username>"`, 회원당 1회 dedupe → 재소진 `409 ALREADY_CLAIMED`). **인스타 계정(igsid)당 1회**: 같은 계정이 새 코드를 받아 다른 놀이터 회원이 넣어도 `409 INSTAGRAM_ALREADY_USED`. 없는/만료/미확인 코드 `404 INSTAGRAM_CODE_INVALID`, 게스트 `403 MEMBER_ONLY`, 형식(6~16자 영숫자) 위반 400. 프론트는 랜딩 `?ig=` 를 기억했다가 로그인 직후 자동 소진하고, W-10 팔로우 행에도 코드 입력을 둔다(검수 통과 후 아이디 입력 경로 제거 예정).
 
 #### `GET /v1/credits`
 

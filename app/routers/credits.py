@@ -4,11 +4,22 @@ from datetime import date, datetime, timedelta, timezone
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from tortoise.expressions import Q
+from tortoise.transactions import in_transaction
 
 from app.auth import get_current_member
 from app.common import KST, api_error, member_only, validation_error
 from app.credits import custom_prompt_credit_cost, grant_credits
-from app.models import AppSetting, CreditLedger, CreditReason, GenerationJob, Member, MemberKind, MetricEvent
+from app.instagram import CODE_TTL as INSTAGRAM_CODE_TTL
+from app.models import (
+    AppSetting,
+    CreditLedger,
+    CreditReason,
+    GenerationJob,
+    InstagramDmCode,
+    Member,
+    MemberKind,
+    MetricEvent,
+)
 
 router = APIRouter(prefix="/credits", tags=["credits"])
 
@@ -180,6 +191,42 @@ async def claim_credit(body: ClaimCreditRequest, member: Member = Depends(get_cu
             "이미 받은 크레딧이에요",
             {"action": body.action},
         )
+    await member.refresh_from_db(fields=["credit_balance"])
+    return {"balance": member.credit_balance, "amount_granted": amount}
+
+
+class RedeemInstagramRequest(BaseModel):
+    code: str = Field(min_length=6, max_length=16, pattern=r"^[A-Za-z0-9]+$")
+
+
+@router.post("/redeem-instagram", response_model=ClaimCreditResponse)
+async def redeem_instagram_code(body: RedeemInstagramRequest, member: Member = Depends(get_current_member)):
+    """인스타 DM으로 받은 1회용 코드 → follow_ig 크레딧. 코드는 팔로우가 **API로 확인된** 사용자에게만 발급되므로
+    (app/instagram.handle_message) 아이디 입력·열기 이벤트 없이 바로 지급한다. 인스타 계정(igsid)당 1회."""
+    if member.kind == MemberKind.GUEST:
+        raise member_only()
+    now = datetime.now(timezone.utc)
+    amount = (await _amounts())["follow_ig_amount"]
+    # 같은 igsid의 코드 행을 전부 잠그고 판정+소진+지급을 한 트랜잭션에 — 코드 2개를 두 회원이 동시에 넣는 경합 차단
+    async with in_transaction() as connection:
+        dm_code = await InstagramDmCode.get_or_none(code=body.code.upper(), using_db=connection)
+        if dm_code is None or dm_code.follow_verified_at is None or dm_code.created_at < now - INSTAGRAM_CODE_TTL:
+            raise api_error(404, "INSTAGRAM_CODE_INVALID", "코드가 올바르지 않거나 만료됐어요")
+        siblings = (
+            await InstagramDmCode.filter(igsid=dm_code.igsid).select_for_update().using_db(connection).all()
+        )
+        if any(row.redeemed_member_id is not None and row.redeemed_member_id != member.id for row in siblings):
+            raise api_error(409, "INSTAGRAM_ALREADY_USED", "이 인스타그램 계정으로는 이미 크레딧을 받았어요")
+        # 외부 connection을 넘기면 grant_credits는 dedupe 충돌을 삼키지 않는다(호출자 트랜잭션이 판단) → 먼저 확인
+        if await CreditLedger.filter(member_id=member.id, dedupe_key="follow_ig").using_db(connection).exists():
+            raise api_error(409, "ALREADY_CLAIMED", "이미 받은 크레딧이에요", {"action": "follow_ig"})
+        # ref_id는 바꿀 수 있는 username이 아니라 igsid — 감사 추적 키는 불변이어야 한다
+        await grant_credits(
+            member.id, amount, "follow_ig", "follow_ig", ref_id=f"ig:{dm_code.igsid}", connection=connection
+        )
+        dm_code.redeemed_member_id = member.id
+        dm_code.redeemed_at = now
+        await dm_code.save(update_fields=["redeemed_member_id", "redeemed_at"], using_db=connection)
     await member.refresh_from_db(fields=["credit_balance"])
     return {"balance": member.credit_balance, "amount_granted": amount}
 
