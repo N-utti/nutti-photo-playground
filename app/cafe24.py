@@ -7,6 +7,7 @@
 """
 
 import logging
+import time
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -26,6 +27,8 @@ REFRESH_MARGIN = timedelta(minutes=5)
 LOOKBACK = timedelta(days=30)
 CHUNK = timedelta(days=90)  # 카페24 주문 조회 기간 상한(3개월)
 PAGE_SIZE = 100
+MEMBER_SYNC_INTERVAL = 60.0  # 회원별 즉석 동기화 최소 간격(초)
+_member_synced_at: dict[str, float] = {}  # ponytail: 프로세스 로컬 — 워커를 늘리면 Redis
 
 
 def _base_url() -> str:
@@ -156,10 +159,13 @@ async def send_sms(shop_member_id: str, content: str) -> None:
         response.raise_for_status()
 
 
-async def _fetch_orders(access_token: str, start: datetime, end: datetime) -> list[dict]:
-    """[start, end] 구간 주문 전부(페이지네이션 포함). 날짜는 KST 일 단위."""
+async def _fetch_orders(
+    access_token: str, start: datetime, end: datetime, member_id: str | None = None
+) -> list[dict]:
+    """[start, end] 구간 주문 전부(페이지네이션 포함). 날짜는 KST 일 단위. member_id를 주면 그 회원 주문만."""
     orders: list[dict] = []
     offset = 0
+    member_filter = {"member_id": member_id} if member_id else {}
     async with httpx.AsyncClient(timeout=30) as client:
         while True:
             response = await client.get(
@@ -170,6 +176,7 @@ async def _fetch_orders(access_token: str, start: datetime, end: datetime) -> li
                     "end_date": end.astimezone(KST).date().isoformat(),
                     "limit": PAGE_SIZE,
                     "offset": offset,
+                    **member_filter,
                 },
             )
             response.raise_for_status()
@@ -213,13 +220,59 @@ async def _apply_order(order: dict, amount: int, summary: dict[str, int]) -> Non
         summary["rewarded"] += 1
 
 
-async def sync_orders(now: datetime | None = None) -> dict[str, int]:
-    now = now or datetime.now(timezone.utc)
-    summary = {
+def _new_summary() -> dict[str, int]:
+    return {
         "fetched": 0, "rewarded": 0, "clawed_back": 0,
         "skipped_unlinked": 0, "skipped_before_cutoff": 0, "skipped_unpaid": 0,
         "skipped_malformed": 0,
     }
+
+
+async def _apply_range(
+    access_token: str, start: datetime, end: datetime, amount: int, summary: dict[str, int],
+    member_id: str | None = None,
+) -> None:
+    cursor = start
+    while cursor < end:
+        chunk_end = min(cursor + CHUNK, end)
+        for order in await _fetch_orders(access_token, cursor, chunk_end, member_id=member_id):
+            summary["fetched"] += 1
+            try:
+                await _apply_order(order, amount, summary)
+            except (KeyError, ValueError):  # 형식 오류 주문 하나가 배치를 죽이지 않게 건별 스킵
+                logger.exception("cafe24 order skipped: malformed %r", order.get("order_id"))
+                summary["skipped_malformed"] += 1
+        cursor = chunk_end
+
+
+async def sync_member_orders(member: Member, now: datetime | None = None) -> dict[str, int] | None:
+    """한 회원의 주문만 즉석 동기화 — 크레딧 화면을 열 때 불러 "주문하고 돌아오면 바로 +20"이 되게.
+    30분 크론(sync_orders)은 놓친 건 보정용으로 그대로 둔다. 화면이 죽으면 안 되므로 실패는 로그만 남기고 None.
+    회원당 MEMBER_SYNC_INTERVAL에 1회 — 새로고침 연타가 카페24 호출로 번지지 않게."""
+    if member.cafe24_member_id is None or member.order_reward_cutoff is None:
+        return None
+    key = str(member.id)
+    ticks = time.monotonic()
+    if ticks - _member_synced_at.get(key, float("-inf")) < MEMBER_SYNC_INTERVAL:
+        return None
+    _member_synced_at[key] = ticks
+    now = now or datetime.now(timezone.utc)
+    summary = _new_summary()
+    try:
+        access_token = await get_access_token(now)
+        amount = (await _amounts())["order_reward_amount"]
+        await _apply_range(
+            access_token, member.order_reward_cutoff, now, amount, summary, member_id=member.cafe24_member_id
+        )
+    except (httpx.HTTPError, KeyError, ValueError, RuntimeError) as exc:
+        logger.warning("cafe24 member sync skipped for %s: %s: %s", key, type(exc).__name__, exc)
+        return None
+    return summary
+
+
+async def sync_orders(now: datetime | None = None) -> dict[str, int]:
+    now = now or datetime.now(timezone.utc)
+    summary = _new_summary()
     token = await Cafe24OauthToken.first()
     if token is None:
         logger.warning("cafe24 order sync skipped: no token")
@@ -236,17 +289,7 @@ async def sync_orders(now: datetime | None = None) -> dict[str, int]:
 
     access_token = await get_access_token(now)
     amount = (await _amounts())["order_reward_amount"]
-    cursor = start
-    while cursor < now:
-        chunk_end = min(cursor + CHUNK, now)
-        for order in await _fetch_orders(access_token, cursor, chunk_end):
-            summary["fetched"] += 1
-            try:
-                await _apply_order(order, amount, summary)
-            except (KeyError, ValueError):  # 형식 오류 주문 하나가 배치를 죽이지 않게 건별 스킵
-                logger.exception("cafe24 order skipped: malformed %r", order.get("order_id"))
-                summary["skipped_malformed"] += 1
-        cursor = chunk_end
+    await _apply_range(access_token, start, now, amount, summary)
 
     token.last_synced_at = now
     await token.save(update_fields=["last_synced_at"])
