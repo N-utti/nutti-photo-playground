@@ -791,19 +791,24 @@ def test_register_reports_expired_member_token(client: TestClient):
     assert response.json()["error"]["code"] == "TOKEN_EXPIRED"
 
 
-def _patch_cafe24_otp(monkeypatch: pytest.MonkeyPatch, *, exists: bool = True) -> dict:
+def _patch_cafe24_otp(
+    monkeypatch: pytest.MonkeyPatch, *, exists: bool = True, phone_accounts: dict[str, list[str]] | None = None
+) -> dict:
     """Admin API 조회·SMS 발송을 대역으로 바꾸고, 발송된 코드를 잡아 둔다."""
     sent: dict = {}
+    phone_accounts = phone_accounts or {}
 
-    async def customer_exists(shop_member_id: str) -> bool:
-        sent.setdefault("lookups", []).append(shop_member_id)
-        return exists
+    async def find_customers(*, member_id: str | None = None, cellphone: str | None = None) -> list[str]:
+        sent.setdefault("lookups", []).append(member_id or cellphone)
+        if cellphone is not None:
+            return list(phone_accounts.get(cellphone, []))
+        return [member_id] if exists else []
 
     async def send_sms(shop_member_id: str, content: str) -> None:
         sent["to"] = shop_member_id
         sent["code"] = re.search(r"\d{6}", content).group(0)
 
-    monkeypatch.setattr(auth_router.cafe24, "customer_exists", customer_exists)
+    monkeypatch.setattr(auth_router.cafe24, "find_customers", find_customers)
     monkeypatch.setattr(auth_router.cafe24, "send_sms", send_sms)
     auth_router._cafe24_link_requests.clear()
     auth_router._cafe24_link_targets.clear()
@@ -848,7 +853,7 @@ def test_cafe24_link_otp_links_member_and_grants_three_credits(
     response = _link_cafe24(client, member_session["token"], monkeypatch, "cafe-user-1")
 
     assert response.status_code == 200, response.text
-    assert response.json() == {"cafe24_linked": True, "credit_balance": 4}
+    assert response.json() == {"cafe24_linked": True, "credit_balance": 4, "candidates": None}
     member, ledger = client.portal.call(_member_and_ledger, member_session["member_id"])
     assert member.cafe24_member_id == "cafe-user-1"
     assert member.order_reward_cutoff is not None
@@ -959,6 +964,91 @@ def test_cafe24_rejects_account_already_linked_to_another_member(
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "CAFE24_ALREADY_LINKED"
     assert client.portal.call(_member, second["member_id"]).cafe24_member_id is None
+
+
+def test_cafe24_link_by_cellphone_single_account(client: TestClient, monkeypatch: pytest.MonkeyPatch):
+    """카카오로 쇼핑몰에 가입한 고객은 아이디(4993…@k)를 모른다 — 가입 번호로 찾아 같은 OTP 흐름."""
+    member_session = _register_member(client, "tel-one@example.com")
+    sent = _patch_cafe24_otp(monkeypatch, phone_accounts={"01012345678": ["4993695098@k"]})
+    headers = {"Authorization": f"Bearer {member_session['token']}"}
+
+    requested = client.post("/v1/auth/cafe24/link/request", headers=headers, json={"cellphone": "01012345678"})
+    assert requested.status_code == 200, requested.text
+    assert sent["to"] == "4993695098@k"
+    verified = client.post(
+        "/v1/auth/cafe24/link/verify", headers=headers, json={"cellphone": "01012345678", "code": sent["code"]}
+    )
+
+    assert verified.status_code == 200, verified.text
+    assert verified.json() == {"cafe24_linked": True, "credit_balance": 4, "candidates": None}
+    assert client.portal.call(_member, member_session["member_id"]).cafe24_member_id == "4993695098@k"
+
+
+def test_cafe24_link_by_cellphone_multiple_accounts_requires_pick(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    """한 번호에 계정이 여러 개(실측 3개)면 OTP 통과 후 목록을 주고, 고를 때까지 코드는 살아 있다."""
+    member_session = _register_member(client, "tel-many@example.com")
+    sent = _patch_cafe24_otp(monkeypatch, phone_accounts={"01057731879": ["tester123", "4950033661@k", "wjdtjdnds98"]})
+    headers = {"Authorization": f"Bearer {member_session['token']}"}
+    client.post("/v1/auth/cafe24/link/request", headers=headers, json={"cellphone": "01057731879"})
+
+    first = client.post(
+        "/v1/auth/cafe24/link/verify", headers=headers, json={"cellphone": "01057731879", "code": sent["code"]}
+    )
+    assert first.status_code == 200, first.text
+    assert first.json() == {
+        "cafe24_linked": False,
+        "credit_balance": 1,
+        "candidates": ["tester123", "4950033661@k", "wjdtjdnds98"],
+    }
+    assert client.portal.call(_member, member_session["member_id"]).oauth_state_nonce is not None
+
+    picked = client.post(
+        "/v1/auth/cafe24/link/verify",
+        headers=headers,
+        json={"cellphone": "01057731879", "code": sent["code"], "shop_member_id": "4950033661@k"},
+    )
+    assert picked.status_code == 200, picked.text
+    assert picked.json()["cafe24_linked"] is True and picked.json()["credit_balance"] == 4
+    member = client.portal.call(_member, member_session["member_id"])
+    assert member.cafe24_member_id == "4950033661@k"
+    assert member.oauth_state_nonce is None  # 골랐으니 소비
+
+
+def test_cafe24_link_by_cellphone_hides_accounts_taken_by_others(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    """남이 선점한 계정은 후보에서 빠지고, 남는 게 하나면 바로 연동 — 목록은 OTP 뒤에만 노출."""
+    owner = _register_member(client, "tel-owner@example.com")
+    assert _link_cafe24(client, owner["token"], monkeypatch, "tester123").status_code == 200
+    other = _register_member(client, "tel-other@example.com")
+    sent = _patch_cafe24_otp(monkeypatch, phone_accounts={"01057731879": ["tester123", "wjdtjdnds98"]})
+    headers = {"Authorization": f"Bearer {other['token']}"}
+    client.post("/v1/auth/cafe24/link/request", headers=headers, json={"cellphone": "01057731879"})
+
+    verified = client.post(
+        "/v1/auth/cafe24/link/verify", headers=headers, json={"cellphone": "01057731879", "code": sent["code"]}
+    )
+
+    assert verified.status_code == 200, verified.text
+    assert client.portal.call(_member, other["member_id"]).cafe24_member_id == "wjdtjdnds98"
+
+
+def test_cafe24_link_request_validates_target_shape(client: TestClient, monkeypatch: pytest.MonkeyPatch):
+    member_session = _register_member(client, "tel-shape@example.com")
+    _patch_cafe24_otp(monkeypatch, phone_accounts={})
+    headers = {"Authorization": f"Bearer {member_session['token']}"}
+
+    neither = client.post("/v1/auth/cafe24/link/request", headers=headers, json={})
+    both = client.post(
+        "/v1/auth/cafe24/link/request", headers=headers, json={"cellphone": "01012345678", "shop_member_id": "x1"}
+    )
+    hyphen = client.post("/v1/auth/cafe24/link/request", headers=headers, json={"cellphone": "010-1234-5678"})
+    unknown = client.post("/v1/auth/cafe24/link/request", headers=headers, json={"cellphone": "01099998888"})
+
+    assert [neither.status_code, both.status_code, hyphen.status_code] == [400, 400, 400]
+    assert unknown.status_code == 404 and unknown.json()["error"]["code"] == "CAFE24_MEMBER_NOT_FOUND"
 
 
 def test_me_lists_kakao_and_local_providers(client: TestClient, monkeypatch: pytest.MonkeyPatch):
