@@ -416,8 +416,10 @@ async def issue_guest_token(request: Request) -> GuestTokenResponse:
 # Fixed Cafe24 paths must be registered before the provider parameter routes below.
 # 쇼핑몰 계정 연동 = 쇼핑몰 아이디 입력 → 카페24 SMS로 6자리 OTP(수신자를 member_id로 지정하므로
 # 우리는 전화번호를 모른다) → 검증 후 연동. 카페24 OAuth는 운영자 로그인이라 고객 인증에 쓸 수 없음.
-_CAFE24_LINK_RATE_LIMIT = 3  # 회원당 시간당 OTP 발송 횟수
+_CAFE24_LINK_RATE_LIMIT = 3  # 회원당·수신 쇼핑몰 아이디당 시간당 OTP 발송 횟수
 _cafe24_link_requests: dict[str, deque[float]] = {}
+# 수신자 기준 한도 — 게스트→가입이 자유라 새 회원을 찍어내며 한 사람 폰에 SMS를 퍼붓는 것(비용은 쇼핑몰 부담)을 막는다
+_cafe24_link_targets: dict[str, deque[float]] = {}
 class Cafe24LinkRequest(BaseModel):
     # 카페24 회원 아이디(영문/숫자/_ . @ -) — 소셜 가입 아이디(예: 4993695098@k) 포함
     shop_member_id: str = Field(min_length=2, max_length=64, pattern=r"^[A-Za-z0-9_.@\-]+$")
@@ -450,8 +452,10 @@ async def cafe24_link_request(
 ) -> Cafe24LinkRequestResponse:
     if member.kind != MemberKind.MEMBER:
         raise member_only()
-    await _assert_cafe24_linkable(member, body.shop_member_id)
+    # 한도 검사를 409보다 먼저 — "이미 연동된 아이디인지"를 무제한으로 캐물을 수 없게
     _check_bucket(_cafe24_link_requests, str(member.id), _CAFE24_LINK_RATE_LIMIT)
+    _check_bucket(_cafe24_link_targets, body.shop_member_id, _CAFE24_LINK_RATE_LIMIT)
+    await _assert_cafe24_linkable(member, body.shop_member_id)
     try:
         if not await cafe24.customer_exists(body.shop_member_id):
             raise api_error(404, "CAFE24_MEMBER_NOT_FOUND", "쇼핑몰 회원을 찾을 수 없습니다")
@@ -492,15 +496,18 @@ async def cafe24_link_verify(
     ):
         raise api_error(400, "CAFE24_CODE_INVALID", "인증번호가 올바르지 않거나 만료됐습니다")
     # 2) 연동 + 최초 1회 +3
-    async with in_transaction() as connection:
-        locked = await Member.filter(id=member.id).select_for_update().using_db(connection).first()
-        await _assert_cafe24_linkable(locked, body.shop_member_id)
-        locked.cafe24_member_id = body.shop_member_id
-        if locked.order_reward_cutoff is None:
-            locked.order_reward_cutoff = datetime.now(timezone.utc)
-        await locked.save(update_fields=["cafe24_member_id", "order_reward_cutoff"], using_db=connection)
-        if not await CreditLedger.filter(member_id=locked.id, dedupe_key="link_account").using_db(connection).exists():
-            await grant_credits(locked.id, 3, CreditReason.LINK_ACCOUNT, "link_account", connection=connection)
+    try:
+        async with in_transaction() as connection:
+            locked = await Member.filter(id=member.id).select_for_update().using_db(connection).first()
+            await _assert_cafe24_linkable(locked, body.shop_member_id)
+            locked.cafe24_member_id = body.shop_member_id
+            if locked.order_reward_cutoff is None:
+                locked.order_reward_cutoff = datetime.now(timezone.utc)
+            await locked.save(update_fields=["cafe24_member_id", "order_reward_cutoff"], using_db=connection)
+            if not await CreditLedger.filter(member_id=locked.id, dedupe_key="link_account").using_db(connection).exists():
+                await grant_credits(locked.id, 3, CreditReason.LINK_ACCOUNT, "link_account", connection=connection)
+    except IntegrityError as exc:  # 두 회원이 같은 아이디를 동시에 verify — UNIQUE(cafe24_member_id)가 마지막 방어선
+        raise api_error(409, "CAFE24_ALREADY_LINKED", "Cafe24 account is already linked") from exc
 
     member = await Member.get(id=member.id)
     return Cafe24LinkResponse(cafe24_linked=True, credit_balance=member.credit_balance)

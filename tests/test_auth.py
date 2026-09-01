@@ -806,6 +806,7 @@ def _patch_cafe24_otp(monkeypatch: pytest.MonkeyPatch, *, exists: bool = True) -
     monkeypatch.setattr(auth_router.cafe24, "customer_exists", customer_exists)
     monkeypatch.setattr(auth_router.cafe24, "send_sms", send_sms)
     auth_router._cafe24_link_requests.clear()
+    auth_router._cafe24_link_targets.clear()
     return sent
 
 
@@ -895,6 +896,15 @@ def test_cafe24_link_request_rejects_unknown_shop_member_and_rate_limits(
         for _ in range(4)
     ]
     assert codes == [200, 200, 200, 429]
+
+    # 수신자 기준 한도 — 다른(새) 회원이 같은 쇼핑몰 아이디로 퍼부어도 그 폰으로는 시간당 3통이 끝
+    other = _register_member(client, "otp-other@example.com")
+    pumped = client.post(
+        "/v1/auth/cafe24/link/request",
+        headers={"Authorization": f"Bearer {other['token']}"},
+        json={"shop_member_id": "shopper3"},
+    )
+    assert pumped.status_code == 429
 
     bad_shape = client.post("/v1/auth/cafe24/link/request", headers=headers, json={"shop_member_id": "a b"})
     assert bad_shape.status_code == 400

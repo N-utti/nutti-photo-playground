@@ -298,7 +298,7 @@
 ```
 - `404 CAFE24_MEMBER_NOT_FOUND`: 해당 아이디의 쇼핑몰 회원 없음(Admin API `GET /admin/customers?member_id=`).
 - `409 CAFE24_ALREADY_LINKED`: ① 그 계정이 이미 **다른 회원**에 연동됨, 또는 ② 이 회원이 이미 **다른 카페24 계정**에 연동됨(재바인딩 금지 — 해제는 MVP 미지원). 발송 전에 검사하므로 SMS 비용이 나가지 않는다.
-- `429 RATE_LIMITED`: 회원당 **시간당 3회** 발송.
+- `429 RATE_LIMITED`: **시간당 3회** — 요청 회원 기준과 수신 쇼핑몰 아이디 기준 둘 다(새 회원을 찍어내며 한 사람 폰에 퍼붓는 SMS 펌핑 차단). 한도 검사가 409 검사보다 먼저라 "이미 연동된 아이디인지"도 무제한으로 캐물을 수 없다.
 - `502 BAD_GATEWAY`: 카페24 토큰 미발급/만료·SMS 잔액 부족·발신번호 미등록 등 Admin API 실패.
 - 재요청은 이전 코드를 **덮어쓴다**(마지막 코드만 유효). 코드는 원문 저장 없이 `sha256(shop_member_id:code:서버키)` 다이제스트만 `member.oauth_state_nonce`(+`oauth_state_expires_at`)에 둔다.
 
