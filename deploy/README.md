@@ -52,7 +52,7 @@ cp .env.example .env && nano .env      # 아래 §3 값 채우기
 | `TRUST_PROXY` | `true` (Caddy 뒤) |
 | `CORS_ALLOWED_ORIGINS` | `https://play.nutti.co.kr` |
 | `CAFE24_REDIRECT_URI` | `https://play.nutti.co.kr/auth/callback/cafe24` (앱 설정에 등록됨 — 운영자 토큰 발급 `scripts/cafe24_token.py` 전용, 고객 콜백 아님) |
-| `CAFE24_SMS_SENDER_NO` | 카페24 관리자 → SMS 발신번호로 **인증 등록된** 번호(하이픈 없이). 쇼핑몰 계정 연동 OTP 발송에 사용 — 미설정/SMS 잔액 0이면 `link/request`가 502 |
+| `CAFE24_SMS_SENDER_NO` | 카페24 관리자 → SMS 발신번호로 **인증 등록된** 번호의 **등록 ID**(`GET /admin/sms/senders`의 `sender_no`, 예: `2` — 전화번호를 넣으면 422 "There is no sender"). 쇼핑몰 계정 연동 OTP 발송에 사용 — 미설정/SMS 서비스 미사용/잔액 0이면 `link/request`가 502 |
 | `KAKAO_REDIRECT_URI` / `NAVER_REDIRECT_URI` | `https://play.nutti.co.kr/auth/callback/kakao` · `/naver` — 각 콘솔에도 등록 |
 | `ACME_EMAIL` | 운영자 메일 |
 | `R2_*`, `CDN_BASE_URL` | §1 |
