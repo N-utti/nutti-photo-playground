@@ -264,38 +264,12 @@ export interface UploadIssue {
   detail?: ({ issues?: string[] } & Record<string, unknown>) | null
 }
 
-/**
- * 견종 추정 (PR #59 구현 착지분).
- *
- * 세 필드가 **각각** null 이 될 수 있습니다 — 서버가 비전 응답을 그대로 흘려보내므로
- * 모델이 확신하지 못하면 값이 빈 채로 옵니다(`app/routers/uploads.py` `BreedEstimate`).
- * 지금 화면은 이 값을 직접 그리지 않고 `GET /v1/calculator-link` 가 조립해 주는
- * `breed_label` 만 쓰므로 표시에 영향은 없습니다. 나중에 직접 그릴 때 «null» 이라고
- * 적힌 화면이 나오지 않도록 여기서 미리 사실대로 적어 둡니다.
- */
-export interface BreedEstimate {
-  /**
-   * 비전 모델이 준 **내부 식별자**입니다. 계산기와 값 도메인을 공유하지 않습니다 —
-   * 계산기에는 코드 체계가 없어 한글 견종명이 곧 키이고(Q9 확정, PR #122), 서버도
-   * 매칭에 `label` 만 씁니다(`app/routers/results.py` · `app/worker.py` 둘 다
-   * `estimate["label"]`). 즉 이 필드를 읽어 견종을 판단하는 코드는 어디에도 없어야
-   * 합니다 — 이건 이제 우리 쪽 규율이 아니라 **계약**입니다(05-api-spec.md §3 업로드
-   * 노트 «클라이언트도 `code` 를 계산기 값으로 쓰지 말 것», 이슈 #161 → PR #169).
-   * 그전까지 §2 W-07 노트는 «42종 코드표와 일치» 라는 Q9 이전 내용이라, 스펙만 읽고
-   * 구현하면 이 필드를 계산기 값으로 넘기는 게 오히려 «맞는» 것처럼 보였습니다.
-   */
-  code: string | null
-  label: string | null
-  confidence: number | null
-}
-
 export interface UploadResult {
   /** 차단된 경우 null. */
   upload_id: string | null
   image_url: string | null
   blocking_issue: Pick<UploadIssue, 'code' | 'message'> | null
   warnings: UploadIssue[]
-  breed_estimate: BreedEstimate | null
 }
 
 // ---------------------------------------------------------------- 펫
@@ -362,6 +336,8 @@ export interface Job {
    * 없으면 우리 아이가» 라는 흐린 문구밖에 쓸 수 없었습니다.
    */
   pet_id: string | null
+  /** 이 사진에 적힌 견종(사용자가 고르거나 쓴 값). 없으면 null — W-04 재사용 경로가 미리 채웁니다. */
+  breed: string | null
   /**
    * 커스텀 job 이면 W-08 에서 보낸 문구 원문, 프리셋 job 이면 `null` (이슈 #81).
    *
@@ -449,6 +425,11 @@ export interface CreateJobBody {
    * **크레딧이 나간 뒤 값만 사라집니다**. 조립은 app/styleInputs.ts `inputsForRequest` 로만.
    */
   inputs?: Record<string, string>
+  /**
+   * 사용자가 고르거나 직접 쓴 견종(비전 추정 대체). 서버는 이 값을 업로드(와 붙은
+   * 강아지)에 적어 두고 워커 `[breed]` 치환·계산기 링크에 씁니다. 비우면 이전 값 유지.
+   */
+  breed?: string
 }
 
 /**
@@ -479,12 +460,11 @@ export interface ShareResult {
  * 40종이고 스냅샷은 `app/breeds.py` — 목록 밖 견종은 `"믹스견"` 으로 떨어집니다
  * (FR-EDGE-11). 세 필드는 **함께** 채워지거나 함께 null 입니다.
  *
- * 견종 후보는 펫 프로필 기입값(`pet_profile.breed_label`) → 비전 추정 라벨 순인데,
- * 그 칸을 채우는 API 가 아직 없어(`POST /v1/pets` 에 견종 필드 없음) 오늘 오는 값은
- * 언제나 사진 추정입니다. 화면이 «사진에서» 라고 말하는 근거가 여기까지입니다.
+ * 견종 후보는 펫 프로필 `breed_label` → 최신 업로드 라벨 순 — 둘 다 W-04 에서 사용자가
+ * 고르거나 직접 쓴 값(`POST /v1/jobs` `breed`)으로 채워집니다. 비전 추정은 없습니다.
  */
 export interface CalculatorLink {
-  /** 추정 완전 실패 시 세 필드 모두 null, URL 에서 breed 파라미터 생략(FR-EDGE-10). */
+  /** 견종을 입력하지 않았으면 세 필드 모두 null, URL 에서 breed 파라미터 생략(FR-EDGE-10). */
   breed_code: string | null
   /** `breed_code` 와 같은 한글 견종명 — 표시용으로 갈라져 있을 뿐입니다. */
   breed_label: string | null

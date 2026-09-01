@@ -495,7 +495,7 @@ W-06 이 그 404 에 걸려 있었습니다. `input_fields` 를 못 받으면 �
 | [#77](https://github.com/N-utti/nutti-photo-playground/issues/77) | 결과 이미지 스토리지에 CORS 헤더 없음 | `CDN_BASE_URL` 을 채우는 배포 시점 | 대기 — 프론트 몫은 닫혔고(PR #78) 남은 건 R2/CDN 운영 설정입니다. `app/saveImage.ts` 가 fetch→blob 으로 저장하고 CORS 가 없으면 새 탭 폴백 — **CORS 가 열려도 그 우회는 걷어내지 않습니다**(PR #80). **닫는 레버는 생겼습니다**(백엔드 PR #112): R2 프로비저닝 직후 `uv run python scripts/setup_r2_cors.py --origins <웹 오리진>` 한 번(GET·HEAD 규칙, `--dry-run` 으로 미리 확인). 다만 **«스크립트가 성공» 은 닫는 근거가 아닙니다** — 규칙은 버킷에 걸리는데 프론트가 부르는 건 그 앞의 CDN 이고, 규칙 적용 전에 CDN 이 한 번이라도 캐시한 응답에는 `Access-Control-Allow-Origin` 이 없어 캐시 퍼지까지 필요합니다. 확인은 **웹 오리진에서 `CDN_BASE_URL` 의 결과 이미지를 실제로 저장**해 보는 것뿐입니다: 실패해도 화면은 조용히 새 탭으로 물러나 오류가 안 나므로(그게 #77 의 «조용히 깨짐»), 닫는 순간에도 같은 조용함이 그대로 남아 있습니다 |
 | [#81](https://github.com/N-utti/nutti-photo-playground/issues/81) | job 응답에 `custom_prompt`·`credit_cost` 없음 | W-06 «다시 만들기» — W-08 커스텀 job 한정 | 해결 (PR #83). 커스텀 결과를 **다른 기기·링크로 열어도** 같은 문구·같은 비용으로 다시 만듭니다. 이 필드가 로컬 색인의 마지막 존재 이유였어서 `api/jobContext.ts` 를 호출부째 삭제했고, 맥락 조립은 `app/reuseFromJob.ts` `contextFromJob` 하나로 모였습니다. `credit_cost` 덕에 W-06 이 비용을 알아내려 스타일 상세를 따로 부르던 조회도 없어졌습니다 |
 | [#127](https://github.com/N-utti/nutti-photo-playground/issues/127) | job 응답에 `input_values` 없음 | W-06 «다시 만들기» — `input_fields` 를 가진 24종 한정 | 해결 (백엔드 PR #139 → 프론트 PR #143). `GET /v1/jobs/{id}` 가 `inputs` 를 답해 **지난 값 되살리기**까지 닫혔습니다 — 그전까지 열려 있던 건 이 절반뿐이었고, «말없이 기본값으로 바꾸는» 나머지 절반은 계약 없이 먼저 닫아 둔 상태였습니다. 합치는 순서가 규칙입니다: **기본값 → 지난번 값 → 이 화면에서 고친 값**(`screens/W06Result.tsx` `Regenerate`). `inputs` 를 그대로 폼 값으로 쓰지 않는 이유가 첫 항목입니다 — `default` 가 없는 `prefill` 칸은 서버가 저장하지 않아(`_resolve_input_values` 가 `continue`) `inputs` 에 **아예 없고**, 그 칸을 비운 채 두면 이름이 인쇄되는 스타일에서 폼이 «우리 아이» 라고 잘못 말합니다. 지금 스키마에 없는 라벨은 걸러 냅니다(`app/styleInputs.ts` `restoredInputValues`) — 운영이 job 이후에 칸을 바꾸면 `inputs` 에 없어진 라벨이 남습니다. 스타일 상세는 계속 부릅니다: `inputs` 는 「무엇으로 만들었나」만 답하고 「지금 무엇을 고를 수 있나」는 스키마 쪽에만 있습니다. 접힌 줄 아래 한 줄이 **지금 값의 출처**를 밝힙니다 — 계약 이전 job(`inputs: null`)은 «지난번 값은 불러올 수 없어 기본값이에요», 되살린 경우는 «지난번에 만든 값 그대로예요», 사용자가 고친 뒤에는 아무 말도 안 합니다 |
-| [#131](https://github.com/N-utti/nutti-photo-playground/issues/131) | 워커의 `[breed]` 치환이 항상 «강아지» 로 떨어짐 | W-04 확인 단계의 **견종** 예고 | 해결 (A안 → 백엔드 PR #137). 워커가 `breed_label` → `source_image.breed_estimate["label"]` → «강아지» 로 한 단계 더 내려갑니다 — 이제 실제로 인쇄됩니다. **다만 예고는 W-04 에서만 합니다.** 견종은 사용자가 넣는 값이 아니라 사진에서 **추정**한 값이고 비전이 확신 못 하면 빈 채로 오므로(PR #59), 업로드 전인 W-02·W-03 은 무엇이 박힐지 모릅니다 — 거기서 예고하면 보장할 수 없는 걸 약속하게 됩니다. `uses_pet_name` 과 갈리는 지점이 정확히 여기입니다(이름은 우리가 받아서 넣으니 예고가 곧 약속). 그래서 사진이 손에 들어온 뒤, 추정값이 **실제로 있을 때만**, 출처를 밝히고 말합니다(`screens/W04Upload.tsx` `BreedPrintNotice`). 없으면 침묵합니다 — «견종은 안 들어가요» 는 다음 사진에서 틀립니다. 재사용 경로(다른 스타일·저장된 강아지)도 조용합니다: `GET /v1/jobs/{id}`·`GET /v1/pets` 가 추정값을 안 줘서 프론트가 모릅니다(서버는 알아서 그림에는 정상 인쇄됩니다) |
+| [#131](https://github.com/N-utti/nutti-photo-playground/issues/131) | 워커의 `[breed]` 치환이 항상 «강아지» 로 떨어짐 | W-04 확인 단계의 **견종** 칸 | 해결. 비전 견종 추정은 폐기했고, W-04 확인 단계에서 사용자가 계산기 40종 목록(`api/breeds.ts`)에서 고르거나 «직접 입력» 으로 씁니다(`screens/W04Upload.tsx` `BreedField`). 값은 `POST /v1/jobs` `breed` 로 나가 서버가 업로드·붙은 강아지에 적어 두고, 워커 `[breed]` 치환과 계산기 링크가 그 값을 읽습니다. 재사용 경로는 `GET /v1/jobs/{id}` 의 `breed` 로 미리 채웁니다 |
 | [#149](https://github.com/N-utti/nutti-photo-playground/issues/149) | 커스텀 프롬프트 비용(`app_setting.custom_prompt_credit_cost`)을 읽을 경로 없음 | W-02 하단 링크·W-04 업로드 후 링크·W-08 만들기 버튼 | 해결 (A안 → PR #151). `GET /v1/credits` 가 `custom_prompt_credit_cost` 를 답합니다. 프론트가 지어내던 상수(`CUSTOM_PROMPT_COST_ESTIMATE = 2`)는 삭제했고, 세 화면이 같은 쿼리에서 읽습니다(`app/customPromptCost.ts` — 잔액 배지가 이미 구독 중이라 왕복은 그대로 0). **모르는 동안은 숫자를 감춥니다** — 로딩 중에 2 를 그리면 화면이 먼저 단정하고 나중에 정정합니다. 402 의 `required` 는 여전히 정책값을 덮습니다(화면을 열어 둔 사이 운영이 값을 바꾼 경우) |
 
 [#11](https://github.com/N-utti/nutti-photo-playground/issues/11)(auth 보안 후속 M3~M6·L1~L6)은 **프론트가 막히는 지점이 없어** 위 표에 넣지 않습니다 — 확인 근거는
@@ -620,20 +620,16 @@ W-06 이 그 404 에 걸려 있었습니다. `input_fields` 를 못 받으면 �
    나간 작업의 결과를 화면이 영영 못 받습니다. 갈라 주는 건 `isFatalJobError()` 하나이고
    `retry`·`refetchInterval`·W-05·W-06이 전부 이걸 씁니다. 목 시나리오 `job:flaky`로
    전 구간을 밟을 수 있습니다.
-11. **계산기 배너 문구는 업로드가 정합니다.** `GET /v1/calculator-link` 가 돌려주는
-   견종은 그 job 이 쓴 업로드의 `breed_estimate` **`label`** 에서 나옵니다(서버가 매칭에
-   쓰는 건 `code` 가 아닙니다 — 계산기에 코드 체계가 없어 **한글 견종명이 곧 키**이고
-   목록은 40종, `app/breeds.py`). `code` 는 비전 모델 내부 식별자라 **클라이언트도
-   계산기 값으로 쓰면 안 됩니다** — 우리가 알아서 지키던 규율이었는데 이제 스펙에
-   적혔습니다(05-api-spec.md §3 업로드 노트, 이슈 #161 → PR #169).
-   목도 job → upload 로 따라갑니다. 그래서
-   «강아지를 못 찾은 사진»(`upload:nodog`)은 «견종을 확인하지 못했어요 · 1단계부터»
-   (FR-EDGE-10)로, **목록 밖 견종**(`upload:warn` — 목 픽스처가 «골든두들»)은
-   «견종을 하나로 좁히지 못해 믹스견 · 중형으로 넘겨요»(FR-EDGE-11)로 떨어집니다.
-   폴백 문구가 «사진에서 …으로 봤어요» 가 **아닌** 이유: 그 믹스견은 사진에서 읽은 값이
-   아니라 읽은 견종이 목록에 없어 대신 넣은 값일 수 있고, 응답만으로는 둘을 구분할 수
-   없습니다. 이름은 **저장된 강아지가 있을 때만** 붙고(없으면 «우리 아이는»), W-06 배너와
-   W-07 화면이 같은 문장을 말하는지는 `api/calculatorLink.ts` 한 곳이 보장합니다.
+11. **계산기 배너 문구는 W-04 에서 입력한 견종이 정합니다.** `GET /v1/calculator-link` 가
+   돌려주는 견종은 그 job 을 만들 때 `POST /v1/jobs` `breed` 로 보낸 값(서버가 업로드·붙은
+   강아지에 적어 둔 라벨)에서 나옵니다. 계산기에 코드 체계가 없어 **한글 견종명이 곧
+   키**이고 목록은 40종(`app/breeds.py` = `api/breeds.ts`). 목도 job → 그 job 의 `breed` 로
+   따라갑니다. 그래서 견종을 안 고른 job 은 «견종을 입력하지 않았어요 · 1단계부터»
+   (FR-EDGE-10)로, **목록 밖 견종**(직접 입력 «골든두들»)은 «믹스견 · 중형으로 넘겨요»
+   (FR-EDGE-11)로 떨어집니다. 폴백 문구가 «입력한 견종 …» 이 **아닌** 이유: 그 믹스견은
+   사용자가 쓴 값이 아니라 쓴 견종이 목록에 없어 대신 넣은 값일 수 있고, 응답만으로는 둘을
+   구분할 수 없습니다. 이름은 **저장된 강아지가 있을 때만** 붙고(없으면 «우리 아이는»), W-06
+   배너와 W-07 화면이 같은 문장을 말하는지는 `api/calculatorLink.ts` 한 곳이 보장합니다.
    목이 그 세 갈래를 **실제로 만들어 내는지**는 `mocks/calculatorLink.handler.test.ts` 가
    봅니다 — 화면 테스트는 응답을 직접 써 넣고 시작하므로 거기서는 안 보이는 자리입니다.
 12. **회복 가능한 에러로 화면을 헐지 마세요.** W-05·W-06은 `error`가 있어도 이미 받아 둔

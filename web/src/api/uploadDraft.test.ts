@@ -21,7 +21,6 @@ const DRAFT: UploadDraft = {
     image_url: 'https://cdn.example.test/up_01HQZX.jpg',
     blocking_issue: null,
     warnings: [],
-    breed_estimate: { code: 'poodle', label: '푸들', confidence: 0.82 },
   },
 }
 

@@ -23,6 +23,7 @@ const JOB = {
   source_image_url: 'https://cdn.example.test/up_01HQZX.jpg',
   custom_prompt: null,
   pet_id: null,
+  breed: '말티즈',
 } as Job
 
 describe('contextFromJob', () => {
@@ -33,6 +34,7 @@ describe('contextFromJob', () => {
       sourceImageUrl: 'https://cdn.example.test/up_01HQZX.jpg',
       customPrompt: null,
       petId: null,
+      breed: '말티즈',
     })
   })
 

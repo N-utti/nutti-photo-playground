@@ -12,7 +12,7 @@
  * `?pet_id=` 를 `?job_id=` 와 나란히 규정하는 경로 — 보관함(W-09)에서 강아지를 고르면
  * 뜨는 «이 강아지 간식량 계산하기» 가 그 링크입니다(`W09Library` `PetFilter`).
  *
- * **`?pet_id=` 는 세 갈래를 다 냅니다.** 서버는 그 펫의 **최신 사진** 추정을 따라가므로
+ * **`?pet_id=` 는 세 갈래를 다 냅니다.** 서버는 그 펫의 **최신 사진**에 적힌 견종을 따라가므로
  * (`app/routers/results.py` `_resolve_pet_and_estimate`), 사진이 한 장도 없는 강아지는
  * `breed_code: null` 로 와서 계산기 1단계부터 시작합니다(FR-EDGE-10). 그리고 **없는
  * 강아지는 404** 입니다 — 폴백이 아닙니다. 아래 `notFound` 갈래가 그 자리입니다.
@@ -58,7 +58,7 @@ export default function W07Calculator() {
           <div className="rounded-xl border border-rule bg-surface px-4 py-5">
             <p className="text-sm font-semibold">어떤 강아지인지 알 수 없어요</p>
             <p className="mt-1 text-sm text-ink-2">
-              결과 화면에서 넘어오면 사진에서 추정한 견종으로 2단계부터 시작할 수 있어요.
+              결과 화면에서 넘어오면 만들 때 입력한 견종으로 2단계부터 시작할 수 있어요.
             </p>
             <Link
               to="/styles"
@@ -132,16 +132,14 @@ function HandoffCard({
         {/* 노트4 — 믹스견은 판별이 부정확합니다. 단정하면 신뢰를 잃으므로 출처를
             밝히고 되돌아갈 길이 있다는 걸 넘어가기 **전에** 말합니다.
 
-            믹스견일 때 "사진에서 가져온 값" 이라고 하지 않는 이유: 그 값은 사진에서
-            읽은 게 아니라 **읽은 견종이 계산기 목록에 없어서 대신 넣은 값**일 수
-            있습니다(FR-EDGE-11 — 응답만으로는 구분이 안 됩니다. `calculatorLink.ts`).
-            사진 탓으로 돌리면 사용자는 사진을 다시 찍고, 고쳐야 할 자리는 계산기
-            1단계입니다. */}
+            믹스견일 때 "입력한 값" 이라고 하지 않는 이유: 그 값은 사용자가 쓴 게
+            아니라 **쓴 견종이 계산기 목록에 없어서 서버가 대신 넣은 값**일 수
+            있습니다(FR-EDGE-11 — 응답만으로는 구분이 안 됩니다. `calculatorLink.ts`). */}
         {summary.kind !== 'unknown' && (
           <p className="mt-2 rounded-lg bg-good-soft px-3 py-2 text-xs text-good">
             {summary.kind === 'mixed'
               ? '계산기 1단계에서 견종을 직접 고를 수 있어요.'
-              : '사진에서 가져온 값이에요. 다르면 계산기 1단계에서 바꿀 수 있어요.'}
+              : '만들 때 입력한 값이에요. 다르면 계산기 1단계에서 바꿀 수 있어요.'}
           </p>
         )}
 

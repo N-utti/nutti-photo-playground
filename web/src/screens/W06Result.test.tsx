@@ -34,6 +34,7 @@ function failedJob(errorCode: string): Job {
     style_id: 8,
     upload_id: 'up_01HQZX',
     pet_id: null,
+    breed: null,
     custom_prompt: null,
     inputs: null,
     // 실패해도 0 이 되지 않습니다 — 반환은 별도 트랜잭션이라 이 값은 그대로입니다.

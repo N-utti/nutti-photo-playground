@@ -66,7 +66,7 @@ async def get_calculator_link(
         raise validation_error("pet_id 또는 job_id가 필요합니다")
     pet, estimate = await _resolve_pet_and_estimate(member.id, pet_id, job_id)
 
-    # 견종 후보: 펫 프로필 기입값 → 비전 추정 라벨 (FR-EDGE-10: 없으면 breed 생략)
+    # 견종 후보: 펫 프로필 기입값 → 업로드에 적힌 사용자 입력 라벨 (FR-EDGE-10: 없으면 breed 생략)
     candidate = None
     if pet is not None:
         candidate = pet.breed_label or pet.breed_code

@@ -37,18 +37,11 @@ class Warning(BaseModel):
     detail: dict | None = None
 
 
-class BreedEstimate(BaseModel):
-    code: str | None = None
-    label: str | None = None
-    confidence: float | None = None
-
-
 class UploadResponse(BaseModel):
     upload_id: str | None = None
     image_url: str | None = None
     blocking_issue: BlockingIssue | None = None
     warnings: list[Warning]
-    breed_estimate: BreedEstimate | None = None
 
 
 class _VisionResult(BaseModel):
@@ -56,7 +49,6 @@ class _VisionResult(BaseModel):
     is_cat: bool
     multi_subject: bool
     human_face: bool
-    breed: BreedEstimate | None = None
 
 
 def _blocked(code: str, message: str) -> dict:
@@ -65,7 +57,6 @@ def _blocked(code: str, message: str) -> dict:
         "image_url": None,
         "blocking_issue": {"code": code, "message": message},
         "warnings": [],
-        "breed_estimate": None,
     }
 
 
@@ -102,8 +93,7 @@ async def _analyze_vision(jpeg_bytes: bytes) -> _VisionResult | None:
         return None
 
     prompt = """이미지를 검사해 다음 JSON만 반환하세요.
-{"is_dog": bool, "is_cat": bool, "multi_subject": bool, "human_face": bool,
- "breed": {"code": str|null, "label": str|null, "confidence": float|null}|null}
+{"is_dog": bool, "is_cat": bool, "multi_subject": bool, "human_face": bool}
 is_dog/is_cat은 해당 동물이 명확히 보이는지, multi_subject는 동물이 여러 마리인지 판정하세요."""
     try:
         response = await AsyncOpenAI(
@@ -179,9 +169,7 @@ async def upload_photo(
         "is_cat": False,
         "multi_subject": False,
         "human_face": False,
-        "breed": None,
     }
-    breed_estimate = vision_values["breed"]
     quality_check = {
         **quality,
         "multi_subject": vision_values["multi_subject"],
@@ -251,7 +239,6 @@ async def upload_photo(
         width=image.width,
         height=image.height,
         quality_check=quality_check,
-        breed_estimate=breed_estimate,
         expires_at=member.guest_expires_at if member.kind == MemberKind.GUEST else None,
     )
     return {
@@ -259,5 +246,4 @@ async def upload_photo(
         "image_url": public_url(key),
         "blocking_issue": None,
         "warnings": warnings,
-        "breed_estimate": breed_estimate,
     }

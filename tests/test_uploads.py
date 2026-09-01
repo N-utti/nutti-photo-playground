@@ -72,7 +72,6 @@ def _vision(**overrides) -> uploads_router._VisionResult:
         "is_cat": False,
         "multi_subject": False,
         "human_face": False,
-        "breed": {"code": "toy_poodle", "label": "토이푸들", "confidence": 0.82},
     }
     values.update(overrides)
     return uploads_router._VisionResult(**values)
@@ -111,7 +110,7 @@ async def _expiry_values(upload_id: str, member_id: str):
     return source.expires_at, member.guest_expires_at
 
 
-def test_normal_upload_saves_image_and_breed(
+def test_normal_upload_saves_image(
     client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path
 ):
     _mock_vision(monkeypatch, _vision())
@@ -126,7 +125,6 @@ def test_normal_upload_saves_image_and_breed(
         "image_url": body["image_url"],
         "blocking_issue": None,
         "warnings": [],
-        "breed_estimate": {"code": "toy_poodle", "label": "토이푸들", "confidence": 0.82},
     }
     source = client.portal.call(_source, body["upload_id"])
     assert source.width == source.height == 64
@@ -157,7 +155,7 @@ def test_dark_image_returns_quality_warning(client: TestClient, monkeypatch: pyt
 
 
 def test_cat_blocks_without_saving(client: TestClient, monkeypatch: pytest.MonkeyPatch):
-    _mock_vision(monkeypatch, _vision(is_dog=False, is_cat=True, breed=None))
+    _mock_vision(monkeypatch, _vision(is_dog=False, is_cat=True))
     session = _guest(client)
 
     response = client.post("/v1/uploads", headers=_headers(session), files=_files())
@@ -171,7 +169,6 @@ def test_cat_blocks_without_saving(client: TestClient, monkeypatch: pytest.Monke
             "message": "누띠는 강아지 전용이에요. 다른 사진을 골라주세요.",
         },
         "warnings": [],
-        "breed_estimate": None,
     }
     assert client.portal.call(_source_count) == 0
 
@@ -259,7 +256,6 @@ def test_missing_openai_key_skips_vision_without_not_a_dog_warning(
 
     assert response.status_code == 200
     assert response.json()["upload_id"] is not None
-    assert response.json()["breed_estimate"] is None
     assert "NOT_A_DOG" not in {warning["code"] for warning in response.json()["warnings"]}
 
 

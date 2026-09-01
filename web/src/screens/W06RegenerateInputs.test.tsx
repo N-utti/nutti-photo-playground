@@ -60,6 +60,7 @@ function succeededJob(overrides: Partial<Job> = {}): Job {
     style_id: STYLE_ID,
     upload_id: 'up_01HQZY',
     pet_id: null,
+    breed: null,
     custom_prompt: null,
     // 위 머리말 참고 — 되살리기를 보는 테스트만 이 값을 직접 적습니다.
     inputs: null,

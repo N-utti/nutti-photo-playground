@@ -33,7 +33,6 @@ function withPhoto() {
       image_url: 'https://cdn.example.test/up_01HQZX.jpg',
       blocking_issue: null,
       warnings: [],
-      breed_estimate: null,
     },
   })
 }
