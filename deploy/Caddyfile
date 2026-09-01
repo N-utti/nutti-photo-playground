@@ -1,0 +1,24 @@
+# Caddy가 Let's Encrypt TLS를 자동 발급·갱신한다. Cloudflare DNS는 "DNS only"(회색 구름)로 두어
+# ACME HTTP 챌린지가 오리진에 직접 닿게 한다. (프록시 주황 구름을 켜려면 Origin Cert로 전환)
+{
+	email {$ACME_EMAIL}
+}
+
+play.nutti.co.kr {
+	root * /srv/web
+	encode gzip
+	# SPA — /auth/callback/cafe24 같은 클라이언트 라우트는 전부 index.html
+	try_files {path} /index.html
+	file_server
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+}
+
+api.nutti.co.kr {
+	encode gzip
+	reverse_proxy api:8000
+}

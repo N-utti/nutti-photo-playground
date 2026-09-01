@@ -1,0 +1,64 @@
+# 프로덕션 compose — 06-architecture ADR-06 (국내 VPS 1대 + Docker Compose + Cloudflare R2/CDN)
+# 실행: docker compose -f deploy/docker-compose.prod.yml up -d --build   (저장소 루트에서)
+# ponytail: 단일 호스트 전제. 리플리카·오토스케일은 트래픽이 VPS 한 대를 넘을 때.
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    # POSTGRES_PASSWORD는 루트 .env에 두고 DATABASE_URL과 같은 값으로 맞춘다
+    env_file: ../.env
+    environment:
+      POSTGRES_USER: nutti
+      POSTGRES_DB: nutti
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nutti"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    # 포트 미공개 — 호스트 밖에서 DB 접근 불가
+
+  api:
+    build: ..
+    restart: unless-stopped
+    # --proxy-headers + TRUST_PROXY=true: Caddy 뒤에서 실제 클라이언트 IP(레이트리밋)
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips=*
+    env_file: ../.env
+    volumes:
+      - media:/app/var/media
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose: ["8000"]
+
+  worker:
+    build: ..
+    restart: unless-stopped
+    command: python -m app.worker
+    env_file: ../.env
+    volumes:
+      - media:/app/var/media
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ../web/dist:/srv/web:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  media:
+  caddy_data:
+  caddy_config:
