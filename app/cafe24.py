@@ -245,15 +245,17 @@ async def _apply_range(
         cursor = chunk_end
 
 
-async def sync_member_orders(member: Member, now: datetime | None = None) -> dict[str, int] | None:
+async def sync_member_orders(
+    member: Member, now: datetime | None = None, *, force: bool = False
+) -> dict[str, int] | None:
     """한 회원의 주문만 즉석 동기화 — 크레딧 화면을 열 때 불러 "주문하고 돌아오면 바로 +20"이 되게.
     30분 크론(sync_orders)은 놓친 건 보정용으로 그대로 둔다. 화면이 죽으면 안 되므로 실패는 로그만 남기고 None.
-    회원당 MEMBER_SYNC_INTERVAL에 1회 — 새로고침 연타가 카페24 호출로 번지지 않게."""
+    회원당 MEMBER_SYNC_INTERVAL에 1회 — 새로고침 연타가 카페24 호출로 번지지 않게(웹훅은 force로 우회)."""
     if member.cafe24_member_id is None or member.order_reward_cutoff is None:
         return None
     key = str(member.id)
     ticks = time.monotonic()
-    if ticks - _member_synced_at.get(key, float("-inf")) < MEMBER_SYNC_INTERVAL:
+    if not force and ticks - _member_synced_at.get(key, float("-inf")) < MEMBER_SYNC_INTERVAL:
         return None
     _member_synced_at[key] = ticks
     now = now or datetime.now(timezone.utc)
