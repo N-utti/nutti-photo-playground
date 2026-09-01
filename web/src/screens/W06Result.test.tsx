@@ -12,7 +12,7 @@
  * 사실을 알릴 자리조차 사라집니다.
  */
 
-import { fireEvent, screen } from '@testing-library/react'
+import { fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
 import { Route, Routes } from 'react-router'
@@ -232,6 +232,49 @@ describe('W-06 · 공유 패널', () => {
     expect(screen.getByRole('button', { name: '이미지 저장' })).toBeDisabled()
     // 볼 그림이 없는데 «저장해서 올려 주세요» 는 안내가 아니라 딴소리입니다.
     expect(screen.queryByText(/저장해서 인스타그램에 올려 주세요/)).not.toBeInTheDocument()
+  })
+
+  it('파일 공유가 되는 브라우저에서는 「인스타에 올리기」가 OS 공유 시트로 이미지를 넘긴다', async () => {
+    /*
+      인스타그램은 웹에서 대신 게시할 수 없어서, 모바일에서 게시물/스토리로 가는 가장 짧은
+      길은 Web Share API 로 **파일**을 넘기는 것입니다(app/shareImage.ts). 데스크톱(jsdom
+      기본)처럼 파일 공유가 안 되면 버튼이 없어야 하고, 되면 blob 을 File 로 감싸 share 에
+      넘겨야 합니다 — URL 만 넘기면 인스타는 공유 대상에 뜨지 않습니다.
+    */
+    const user = userEvent.setup()
+    const shared: ShareData[] = []
+    Object.defineProperty(navigator, 'canShare', { configurable: true, value: () => true })
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      value: async (data: ShareData) => {
+        shared.push(data)
+      },
+    })
+    server.use(
+      http.post(`*/v1/jobs/${JOB_ID}/share`, () =>
+        HttpResponse.json({ share_image_url: 'https://cdn.example.test/result_01HQZX.jpg' }),
+      ),
+      http.get('https://cdn.example.test/result_01HQZX.jpg', () =>
+        HttpResponse.arrayBuffer(new Uint8Array([255, 216, 255]).buffer, {
+          headers: { 'Content-Type': 'image/jpeg' },
+        }),
+      ),
+    )
+    try {
+      renderResult(succeededJob())
+
+      await user.click(await screen.findByRole('button', { name: '인스타 공유' }))
+      await user.click(await screen.findByRole('button', { name: '인스타에 올리기' }))
+
+      await waitFor(() => expect(shared).toHaveLength(1))
+      expect(shared[0].files?.[0]).toBeInstanceOf(File)
+      expect(shared[0].files?.[0].name).toBe(`nutti-${JOB_ID}.jpg`)
+      expect(shared[0].text).toMatch(/@nutti_official/)
+    } finally {
+      // 다른 테스트는 «파일 공유 불가» 브라우저를 전제합니다.
+      delete (navigator as { canShare?: unknown }).canShare
+      delete (navigator as { share?: unknown }).share
+    }
   })
 })
 

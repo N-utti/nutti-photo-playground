@@ -42,6 +42,7 @@ import {
 import { useGuestSessionReset } from '../app/guestSession'
 import { contextFromJob, withReuse } from '../app/reuseFromJob'
 import { saveImage, type SaveImageOutcome } from '../app/saveImage'
+import { canShareImage, shareImage, type ShareImageOutcome } from '../app/shareImage'
 import { StyleInputForm } from '../app/StyleInputForm'
 import {
   effectiveInputValue,
@@ -506,6 +507,15 @@ function ShareRow({ job }: { job: Job }) {
   // 'opened' 는 저장이 아니라 이미지가 새 탭에서 열렸다는 뜻입니다 — 그때만 안내합니다.
   const [saveOutcome, setSaveOutcome] = useState<SaveImageOutcome | null>(null)
   /*
+    모바일 «인스타에 올리기» — Web Share API 로 이미지 **파일**을 OS 공유 시트에 넘기면
+    인스타그램(게시물/스토리/DM)이 바로 뜹니다. 저장 → 인스타 앱 → 갤러리 왕복을 없애는
+    유일한 웹 경로입니다(app/shareImage.ts). 파일 공유가 안 되는 브라우저(데스크톱 대부분)
+    에서는 버튼 자체를 그리지 않고 저장·열기 두 개만 남깁니다.
+  */
+  const [sharing, setSharing] = useState(false)
+  const [shareOutcome, setShareOutcome] = useState<ShareImageOutcome | null>(null)
+  const shareSheetAvailable = canShareImage()
+  /*
     아래 미리보기가 곧 저장할 그 파일입니다(PR #73 — 공유용 사본을 따로 만들지 않고
     결과 `public_url` 을 그대로 씁니다). 그러니 미리보기가 안 떴다는 건 «저장을
     눌러도 실패한다» 는 뜻이고, 그건 **누르기 전에 알 수 있는** 사실입니다.
@@ -600,7 +610,35 @@ function ShareRow({ job }: { job: Job }) {
           {/* 볼 그림이 없는데 «저장해서 올려 주세요» 라고 하면 안내가 아니라 딴소리입니다. */}
           {!previewBroken && (
             <p className="mt-2 text-center text-xs text-ink-3">
-              누띠 서명이 이미 들어 있어요 — 저장해서 인스타그램에 올려 주세요
+              {shareSheetAvailable
+                ? '누띠 서명이 이미 들어 있어요 — 「인스타에 올리기」에서 게시물이나 스토리를 고르세요'
+                : '누띠 서명이 이미 들어 있어요 — 저장해서 인스타그램에 올려 주세요'}
+            </p>
+          )}
+          {shareSheetAvailable && (
+            <button
+              type="button"
+              disabled={sharing || previewBroken}
+              onClick={() => {
+                const url = share.data?.share_image_url
+                if (!url) return
+                setSharing(true)
+                setShareOutcome(null)
+                void shareImage(url, `nutti-${job.job_id}.jpg`, '누띠 사진 놀이터에서 만든 우리 아이 사진 🐾 @nutti_official')
+                  .then((outcome) => {
+                    setShareOutcome(outcome)
+                    track({ event_type: 'share_sheet', properties: { job_id: job.job_id, outcome } })
+                  })
+                  .finally(() => setSharing(false))
+              }}
+              className="mt-2 w-full rounded-lg bg-brand px-3 py-3 text-center text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99] disabled:opacity-50"
+            >
+              {sharing ? '공유 시트 여는 중…' : '인스타에 올리기'}
+            </button>
+          )}
+          {shareOutcome === 'failed' && (
+            <p role="alert" className="mt-2 text-center text-xs text-danger">
+              공유 시트를 열지 못했어요 — 아래 「이미지 저장」으로 저장한 뒤 올려 주세요.
             </p>
           )}
           <div className="mt-2 grid grid-cols-2 gap-2">
