@@ -425,6 +425,26 @@ function grantEarnAction(action: EarnAction): void {
 }
 
 /**
+ * **병합하면 게스트 크레딧이 사라집니다.** 이 값이 그때 남는 잔액입니다 — 기존 회원 계정이
+ * 원래 갖고 있던 것.
+ *
+ * 서버가 병합에서 옮기는 건 자산 다섯 종(펫·업로드·job·커스텀 프롬프트·계측)뿐이고
+ * `credit_balance` 는 **안 옮깁니다**(`app/routers/auth.py` 병합 분기). 게스트 잔액은 죽은
+ * 행에 남고 응답의 `credit_balance` 는 기존 회원 본인 값입니다.
+ *
+ * 목은 오래도록 게스트 잔액을 그대로 돌려줬습니다. 그래서 「크레딧을 이어서 쓰세요」라는
+ * 우리 문구가 브라우저에서 **항상 참으로 보였습니다** — 목이 계약이 아니라 우리 문구를
+ * 대변하고 있었던 셈이고, 사용자만 실제로 손해를 봤습니다.
+ *
+ * 기본 잔액(11)보다 작은 값이라 병합하면 숫자가 **내려갑니다**. 같으면 이 갈래가 있는지
+ * 없는지 화면에서 구분이 안 됩니다.
+ *
+ * 획득 목록은 게스트 것을 그대로 둡니다 — 기존 회원이 뭘 이미 받았는지는 목이 알 수 없고,
+ * 여기서 지어내면 없는 계약을 흉내내게 됩니다.
+ */
+const MERGED_ACCOUNT_BALANCE = 3
+
+/**
  * 게스트 → 회원 (UC-07). merged 여부와 무관하게 목의 `/auth/me` 는 회원이 됩니다.
  * 실제 서버는 병합이면 **다른 member_id** 를 주지만, 목은 자산을 실제로 옮기지 않으므로
  * id 를 유지해 job 주소가 살아 있게 둡니다 — 그 차이는 백엔드에서만 관찰됩니다.
@@ -439,6 +459,9 @@ function promoteToMember(options: {
   if (!state.me.providers.includes(options.provider)) state.me.providers.push(options.provider)
   if (options.email) state.me.email = options.email.trim().toLowerCase()
   if (options.nickname && state.me.nickname === null) state.me.nickname = options.nickname
+  // 병합은 기존 회원 행으로 들어가는 것이라 게스트가 들고 있던 잔액을 안 가져옵니다.
+  // 승격(기존 회원 없음)은 **같은 행**이 회원이 되는 것이라 잔액이 그대로 따라갑니다.
+  if (options.merged) state.credits.balance = MERGED_ACCOUNT_BALANCE
   // 새 로그인은 이전 리프레시를 무효화합니다(회원당 1개) — 덮어쓰기가 그 규칙입니다.
   state.refreshToken = `mock-refresh.${crypto.randomUUID()}`
   persist()

@@ -188,3 +188,65 @@ describe('AccountSheet · 모드 전환', () => {
     expect(screen.queryByText('이메일 또는 비밀번호가 맞지 않아요.')).not.toBeInTheDocument()
   })
 })
+
+describe('AccountSheet · 병합하면 게스트 크레딧이 사라진다', () => {
+  it('로그인 전에는 크레딧을 약속하지 않는다', async () => {
+    /*
+      로그인은 두 경로로 갈립니다. **승격**(기존 회원 없음)은 게스트 행 자체가 회원이 되어
+      잔액이 남고, **병합**(기존 계정으로 로그인)은 자산 다섯 종만 옮기고 `credit_balance`
+      는 안 옮깁니다 — 게스트 크레딧이 사라집니다. 이 시트는 **로그인 전**에 뜨므로 어느
+      쪽일지 모릅니다.
+
+      그래서 두 경로 모두에서 참인 말만 합니다. 이 단언이 있는 이유는 「크레딧을 이어서
+      쓰세요」가 **네 곳**에 있었고(기본값 + AccountEntry·W01Landing·W12MyPage) 그 중
+      하나도 테스트가 잡지 않았기 때문입니다. 되돌려 놓아도 아무도 모릅니다.
+
+      아래 두 테스트가 그 «사라짐» 을 실제로 밟습니다.
+    */
+    renderWithProviders(<AccountSheet onClose={vi.fn()} />)
+
+    const sheet = screen.getByRole('dialog')
+
+    expect(sheet).toHaveTextContent('만든 결과를 보관함에 저장하고 다른 기기에서도 열어 보세요.')
+    expect(sheet).not.toHaveTextContent(/크레딧/)
+  })
+
+  it('기존 계정으로 로그인하면 그 계정 본인 잔액이 뜬다 — 게스트 잔액이 아니라', async () => {
+    /*
+      **목이 오래도록 이걸 가려 왔습니다.**
+
+      서버가 병합에서 옮기는 건 자산 다섯 종(펫·업로드·job·커스텀 프롬프트·계측)뿐이고
+      `credit_balance` 는 안 옮깁니다(`app/routers/auth.py` 병합 분기). 게스트 잔액은 죽은
+      행에 남고 응답은 기존 회원 본인 값입니다. 그런데 목의 `promoteToMember` 는 게스트
+      잔액을 그대로 돌려줘서, 「크레딧을 이어서 쓰세요」라는 우리 문구가 브라우저에서
+      **항상 참으로 보였습니다** — 목이 계약이 아니라 우리 문구를 대변하고 있었습니다.
+
+      승격(가입, 기존 회원 없음)은 **같은 행**이 회원이 되는 것이라 잔액이 따라갑니다.
+      한 시트에서 두 경로가 갈리는 게 이 결함의 핵심이라 둘을 나란히 봅니다.
+
+      목을 그대로 지나갑니다(`server.use` 로 응답을 지어내지 않음). 지어내면 화면이
+      숫자를 그리는지만 확인되고, 정작 「목이 그 상태를 만들 수 있는가」는 그대로 남습니다.
+    */
+    const user = userEvent.setup()
+    renderWithProviders(<AccountSheet onClose={vi.fn()} />)
+
+    await submitForm(user, { password: 'nutti1234' })
+
+    expect(await screen.findByText('로그인됐어요')).toBeInTheDocument()
+    // 게스트 기본 잔액은 11 입니다(fixtures `initialCredits`). 병합이면 그 값이 아니어야 합니다.
+    expect(screen.getByText('보유 크레딧 3개')).toBeInTheDocument()
+    expect(screen.queryByText('보유 크레딧 11개')).not.toBeInTheDocument()
+  })
+
+  it('가입은 승격이라 게스트 잔액이 그대로 따라온다', async () => {
+    // 같은 행이 회원이 되는 것이라 크레딧이 살아남습니다 — 위와 갈리는 유일한 지점입니다.
+    const user = userEvent.setup()
+    renderWithProviders(<AccountSheet onClose={vi.fn()} />)
+
+    await user.click(screen.getByRole('tab', { name: '가입' }))
+    await submitForm(user, { email: 'new@nutti.co.kr' })
+
+    expect(await screen.findByText('로그인됐어요')).toBeInTheDocument()
+    expect(screen.getByText('보유 크레딧 11개')).toBeInTheDocument()
+  })
+})
