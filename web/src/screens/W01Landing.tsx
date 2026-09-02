@@ -116,7 +116,7 @@ export default function W01Landing() {
 
       <main className="mx-auto w-full max-w-(--container-canvas) px-4">
         {/* 모바일은 헤드라인 → 슬라이더 → CTA 세로 순서, 데스크톱은 좌(문구·CTA)/우(슬라이더). */}
-        <section className="grid gap-4 pt-6 desktop:grid-cols-2 desktop:items-center desktop:gap-12 desktop:pt-14">
+        <section className="grid gap-4 pt-6 desktop:grid-cols-2 desktop:items-center desktop:gap-12 desktop:pt-10">
           {/* 히어로만 display 서체를 씁니다. Ohsquare 는 굵고 둥글어서 큰 글씨에서만
               브랜드로 읽히고, 앱바 h1(text-base)에 쓰면 밀도만 나빠집니다. */}
           <h1 className="font-display text-3xl leading-tight desktop:col-start-1 desktop:row-start-1 desktop:self-end desktop:text-5xl">
@@ -125,7 +125,26 @@ export default function W01Landing() {
             초상화로, 프라모델로
           </h1>
 
-          <div className="desktop:col-start-2 desktop:row-span-2 desktop:row-start-1">
+          {/*
+            데스크톱에서는 히어로 **폭을 남은 높이에서 역산**합니다. 프레임이 4:3 이라
+            폭을 정하면 높이가 따라오고, 그래서 첫 화면이 스크롤 없이 들어갑니다.
+
+            519px 은 히어로를 뺀 나머지의 합입니다 — 헤더 59 + 이 구역 위 여백 40 +
+            인기 스타일 구역(위 여백 40 + 내용 284) + 탭바 자리 96. 인기 스타일 카드는
+            폭이 넓을수록 커지므로 컨테이너가 꽉 찬 1180px 기준으로 잡았습니다. 그보다
+            좁은 데스크톱에서는 카드가 작아져 여유가 더 생깁니다.
+
+            높이 대신 폭에 거는 이유는 잘림입니다. 4:3 프레임에 `max-height` 를 걸면
+            폭은 그대로라 비가 어긋나고 `object-cover` 가 위아래를 잘라냅니다 — 하필
+            그 크롭은 파일에 구워 넣어 피해 둔 것입니다(HERO_BEFORE 주석).
+
+            360px 아래로는 안 줄입니다. 그 아래에서는 왼쪽 칸(헤드라인 + CTA, 약 258px)이
+            행 높이를 정하므로 히어로를 더 줄여도 페이지가 안 짧아지고, 비교 슬라이더만
+            못 알아볼 크기가 됩니다. 그래서 창이 아주 낮으면(대략 790px 미만) 스크롤이
+            남습니다 — 없앨 수는 있지만 이 화면이 첫 3초에 증명해야 하는 것(노트1)을
+            버리는 값이라 거기서 멈췄습니다.
+          */}
+          <div className="desktop:col-start-2 desktop:row-span-2 desktop:row-start-1 desktop:mx-auto desktop:w-[min(100%,max(360px,(100dvh_-_519px)*4/3))]">
             <BeforeAfterSlider />
           </div>
 
@@ -149,8 +168,10 @@ export default function W01Landing() {
           </div>
         </section>
 
-        {/* 노트5 — 카탈로그를 암시하되 스크롤을 잡아먹지 않게 한 줄로 제한. */}
-        <section className="pt-10 desktop:pt-16">
+        {/* 노트5 — 카탈로그를 암시하되 스크롤을 잡아먹지 않게 한 줄로 제한.
+            데스크톱 위 여백이 pt-16 이었는데, 그 «스크롤을 잡아먹지 않게» 를 실제로
+            지키려면 여기서 24px 을 내주는 게 맞습니다. 모바일과 같은 값이 됩니다. */}
+        <section className="pt-10">
           <div className="flex items-baseline justify-between gap-2">
             <h2 className="text-base font-bold">지금 인기 스타일</h2>
             <Link to="/styles" className="text-sm text-ink-2 underline hover:text-brand">
