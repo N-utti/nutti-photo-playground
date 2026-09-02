@@ -357,10 +357,10 @@ async def _link_member(member_id: str):
     await member.save(update_fields=["cafe24_member_id", "order_reward_cutoff"])
 
 
-def test_get_credits_syncs_linked_member_orders_before_reading_balance(
+def test_get_credits_schedules_linked_member_sync_in_background(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ):
-    """주문하고 돌아온 회원이 30분 크론을 기다리지 않게 — 화면 진입 시 그 회원 주문만 즉석 동기화."""
+    """동기화는 응답을 막지 않는 백그라운드 예약(#225) — 주 지급 경로는 웹훅(#201), 이쪽은 놓친 건 보정."""
     from app import cafe24
 
     member_id, headers = _session(client, MemberKind.MEMBER, balance=1)
@@ -377,8 +377,8 @@ def test_get_credits_syncs_linked_member_orders_before_reading_balance(
     response = client.get("/v1/credits", headers=headers)
 
     assert response.status_code == 200
-    assert response.json()["balance"] == 21  # 동기화 뒤 잔액을 다시 읽는다
-    assert synced == ["shop-1"]
+    assert response.json()["balance"] == 1  # 응답은 동기화를 기다리지 않는다 — 갱신분은 웹훅/다음 조회 몫
+    assert synced == ["shop-1"]  # TestClient는 백그라운드 태스크를 응답 후 실행 — 예약 자체는 검증된다
 
 
 def test_get_credits_skips_sync_for_unlinked_member(client: TestClient, monkeypatch: pytest.MonkeyPatch):
