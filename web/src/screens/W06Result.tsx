@@ -529,11 +529,13 @@ function ShareRow({ job }: { job: Job }) {
   // 'opened' 는 저장이 아니라 이미지가 새 탭에서 열렸다는 뜻입니다 — 그때만 안내합니다.
   const [saveOutcome, setSaveOutcome] = useState<SaveImageOutcome | null>(null)
   /*
-    «인스타에 올리기» 의 실체 — Web Share API 로 이미지 **파일**을 OS 공유 시트에 넘기면
+    «공유» 의 실체 — Web Share API 로 이미지 **파일**을 OS 공유 시트에 넘기면
     인스타그램(게시물/스토리/DM)이 바로 뜹니다. 저장 → 인스타 앱 → 갤러리 왕복을 없애는
-    유일한 웹 경로입니다(app/shareImage.ts). 파일 공유가 안 되는 브라우저(데스크톱 대부분)
-    에서는 눌러도 `unsupported` 로 끝나므로 그 자리를 인스타그램 링크로 바꿉니다 —
-    «올리기» 라고 써 두고 아무 일도 안 일어나는 버튼을 두지 않습니다.
+    유일한 웹 경로입니다(app/shareImage.ts). 다만 시트에 뜨는 건 인스타그램만이 아니라
+    카톡·메시지·에어드롭이기도 해서, 버튼은 «인스타에 올리기» 가 아니라 실제로 열리는
+    것의 이름인 «공유» 로 씁니다. 파일 공유가 안 되는 브라우저(데스크톱 대부분)에서는
+    눌러도 `unsupported` 로 끝나므로 그 자리를 인스타그램 링크로 바꿉니다 —
+    눌러도 아무 일이 안 일어나는 버튼을 두지 않습니다.
   */
   const [sharing, setSharing] = useState(false)
   const [shareOutcome, setShareOutcome] = useState<ShareImageOutcome | null>(null)
@@ -618,7 +620,7 @@ function ShareRow({ job }: { job: Job }) {
             onClick={() => void handlePostToInstagram()}
             className="rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99] disabled:opacity-50"
           >
-            {sharing ? '공유 시트 여는 중…' : '인스타에 올리기'}
+            {sharing ? '공유 시트 여는 중…' : '공유'}
           </button>
         ) : (
           <a

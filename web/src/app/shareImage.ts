@@ -1,5 +1,5 @@
 /**
- * 결과 이미지를 **OS 공유 시트**로 넘깁니다 — 모바일에서 «인스타에 올리기» 의 실체입니다.
+ * 결과 이미지를 **OS 공유 시트**로 넘깁니다 — 모바일에서 W-06 «공유» 버튼의 실체입니다.
  *
  * 인스타그램은 웹에서 대신 게시할 방법이 없습니다(공개 게시 API 없음). 남은 길은 둘인데,
  * «저장 → 인스타 앱 → 갤러리에서 다시 찾기» 는 왕복이 길고, Web Share API 로 파일을 넘기면
@@ -27,7 +27,7 @@ export async function shareImage(url: string, filename: string, text: string): P
   let file: File
   try {
     // 결과 <img> 가 Origin 없이 받아 둔 응답(ACAO 헤더 없음)을 브라우저 캐시가 재사용해
-    // CORS 로 죽는다 — 라이브에서 «인스타에 올리기» 가 항상 failed 였던 원인. 캐시를 건너뛴다.
+    // CORS 로 죽는다 — 라이브에서 W-06 공유 버튼이 항상 failed 였던 원인. 캐시를 건너뛴다.
     const response = await fetch(url, { cache: 'no-store' })
     if (!response.ok) return 'failed'
     const blob = await response.blob()
