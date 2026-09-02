@@ -55,7 +55,12 @@ export default function W01Landing() {
     // pb-24 — 아래 고정된 탭바가 페이지 마지막 줄을 덮지 않게 자리를 비웁니다
     // (W-02·W-09 와 같은 값). 여백을 안 두면 "인기 스타일" 마지막 행이 탭바 뒤에
     // 깔려 스크롤을 끝까지 내려도 안 보입니다.
-    <div className="min-h-full bg-paper pb-24">
+    //
+    // 데스크톱만 pb-20 입니다. 96px 은 **아이폰 기준**입니다 — 탭바 자체는 59px 이고
+    // 나머지는 홈 인디케이터(safe-area, 최대 34px) 몫입니다. 데스크톱에는 그게 없어서
+    // 37px 이 그냥 비어 있었고, 그만큼이 첫 화면을 넘치게 하고 있었습니다. 80px 이면
+    // 탭바 위로 21px 이 남습니다.
+    <div className="min-h-full bg-paper pb-24 desktop:pb-20">
       {/* 노트3 — 이 사이트가 누띠의 것임을 처음부터 밝힙니다. */}
       <header className="flex items-center gap-2 border-b border-rule bg-surface px-4 py-3">
         {/*
@@ -116,7 +121,10 @@ export default function W01Landing() {
 
       <main className="mx-auto w-full max-w-(--container-canvas) px-4">
         {/* 모바일은 헤드라인 → 슬라이더 → CTA 세로 순서, 데스크톱은 좌(문구·CTA)/우(슬라이더). */}
-        <section className="grid gap-4 pt-6 desktop:grid-cols-2 desktop:items-center desktop:gap-12 desktop:pt-10">
+        {/* 데스크톱 세로 간격만 32px 입니다(가로는 48px 그대로). 헤드라인과 CTA 는 한
+            덩어리로 읽혀야 하는 짝이라 48px 은 원래 넓었고, 줄이면 왼쪽 칸 높이가
+            248→232 로 내려갑니다 — 아래 히어로 하한이 그 값을 따라갑니다. */}
+        <section className="grid gap-4 pt-6 desktop:grid-cols-2 desktop:items-center desktop:gap-x-12 desktop:gap-y-8 desktop:pt-10">
           {/* 히어로만 display 서체를 씁니다. Ohsquare 는 굵고 둥글어서 큰 글씨에서만
               브랜드로 읽히고, 앱바 h1(text-base)에 쓰면 밀도만 나빠집니다. */}
           <h1 className="font-display text-3xl leading-tight desktop:col-start-1 desktop:row-start-1 desktop:self-end desktop:text-5xl">
@@ -129,8 +137,8 @@ export default function W01Landing() {
             데스크톱에서는 히어로 **폭을 남은 높이에서 역산**합니다. 프레임이 4:3 이라
             폭을 정하면 높이가 따라오고, 그래서 첫 화면이 스크롤 없이 들어갑니다.
 
-            519px 은 히어로를 뺀 나머지의 합입니다 — 헤더 59 + 이 구역 위 여백 40 +
-            인기 스타일 구역(위 여백 40 + 내용 284) + 탭바 자리 96. 인기 스타일 카드는
+            503px 은 히어로를 뺀 나머지의 합입니다 — 헤더 59 + 이 구역 위 여백 40 +
+            인기 스타일 구역(위 여백 40 + 내용 284) + 탭바 자리 80. 인기 스타일 카드는
             폭이 넓을수록 커지므로 컨테이너가 꽉 찬 1180px 기준으로 잡았습니다. 그보다
             좁은 데스크톱에서는 카드가 작아져 여유가 더 생깁니다.
 
@@ -138,13 +146,16 @@ export default function W01Landing() {
             폭은 그대로라 비가 어긋나고 `object-cover` 가 위아래를 잘라냅니다 — 하필
             그 크롭은 파일에 구워 넣어 피해 둔 것입니다(HERO_BEFORE 주석).
 
-            360px 아래로는 안 줄입니다. 그 아래에서는 왼쪽 칸(헤드라인 + CTA, 약 258px)이
-            행 높이를 정하므로 히어로를 더 줄여도 페이지가 안 짧아지고, 비교 슬라이더만
-            못 알아볼 크기가 됩니다. 그래서 창이 아주 낮으면(대략 790px 미만) 스크롤이
-            남습니다 — 없앨 수는 있지만 이 화면이 첫 3초에 증명해야 하는 것(노트1)을
-            버리는 값이라 거기서 멈췄습니다.
+            308px 아래로는 안 줄입니다. 그게 왼쪽 칸(헤드라인 120 + 세로 간격 32 +
+            CTA 80 = 232)과 같은 높이라, 더 줄여도 행 높이는 왼쪽이 정하므로 페이지가
+            안 짧아지고 비교 슬라이더만 작아집니다.
+
+            그래서 이 페이지의 **최소 높이는 735px** 이고(503 + 232), 창이 그보다 낮으면
+            스크롤이 남습니다. 더 내리려면 헤드라인이나 인기 스타일 카드를 줄여야 하는데,
+            여백을 0 으로 만들어도 650 이라 1366×768 노트북(뷰포트 약 625)은 어차피 못
+            들어옵니다 — 목표에서 뺐습니다.
           */}
-          <div className="desktop:col-start-2 desktop:row-span-2 desktop:row-start-1 desktop:mx-auto desktop:w-[min(100%,max(360px,(100dvh_-_519px)*4/3))]">
+          <div className="desktop:col-start-2 desktop:row-span-2 desktop:row-start-1 desktop:mx-auto desktop:w-[min(100%,max(308px,(100dvh_-_503px)*4/3))]">
             <BeforeAfterSlider />
           </div>
 
