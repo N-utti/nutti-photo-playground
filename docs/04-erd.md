@@ -51,7 +51,7 @@ erDiagram
         uuid id PK
         uuid member_id FK
         text name
-        text breed_code "NULL, 42종 코드 또는 믹스견"
+        text breed_code "NULL, 40종 한글 견종명 또는 믹스견"
         text breed_label "NULL"
         text size "NULL"
         text thumbnail_key "R2 UUID key"
@@ -91,7 +91,7 @@ erDiagram
         int width
         int height
         jsonb quality_check "blur/dark/multi_subject/no_dog/cat/human_face"
-        jsonb breed_estimate "NULL, {code,label,confidence}"
+        jsonb breed_estimate "NULL, {label} - W-04 사용자 입력, 컬럼명은 유산(#210)"
         timestamptz expires_at "NULL"
         timestamptz created_at
     }
@@ -211,7 +211,7 @@ erDiagram
 | `id` | UUID | PK | |
 | `member_id` | UUID | FK → `member.id`, NOT NULL | |
 | `name` | TEXT | NOT NULL | |
-| `breed_code` | TEXT | NULL | 계산기 42종 코드표 또는 `"믹스견"`(FR-EDGE-11 폴백) |
+| `breed_code` | TEXT | NULL | 계산기 40종 목록(한글 견종명 키, Q9) 또는 `"믹스견"`(FR-EDGE-11 폴백) |
 | `breed_label` | TEXT | NULL | |
 | `size` | TEXT | NULL | |
 | `thumbnail_key` | TEXT | NULL | R2 storage key(UUID) |
@@ -264,7 +264,7 @@ erDiagram
 | `storage_key` | TEXT | UNIQUE, NOT NULL | R2 key(**UUID**, 추측 방지 — NFR-SEC-02) |
 | `width` / `height` | INT | | |
 | `quality_check` | JSONB | NOT NULL | `{blur, dark, multi_subject, no_dog, cat, human_face}` 감지 결과(UC-03) |
-| `breed_estimate` | JSONB | NULL | `{code, label, confidence}` |
+| `breed_estimate` | JSONB | NULL | `{label}` — W-04 사용자 입력값(#210 비전 추정 폐기, 컬럼명은 유산) |
 | `expires_at` | TIMESTAMPTZ | NULL | 보존 정책 §4 참고 |
 | `created_at` | TIMESTAMPTZ | NOT NULL | |
 
@@ -493,7 +493,7 @@ erDiagram
 | | 소요시간·산출장수 | `style.avg_seconds`, `style.output_count` |
 | W-04 업로드 (`#p04`) | 저장된 강아지 목록 | `pet_profile.name/thumbnail_key` |
 | | 품질 경고 | `source_image.quality_check` |
-| | 견종 추정 | `source_image.breed_estimate` |
+| | 견종 입력값(W-04 사용자 입력) | `source_image.breed_estimate` |
 | W-05 대기 (`#p05`) | 진행률·잔여초 | `generation_job.status/queued_at/started_at`(서버 계산, 저장 컬럼 아님) |
 | | 진행 문구 | `style.progress_message` |
 | W-06 결과 (`#p06`) | 결과 1장·서명 | `generation_result.storage_key/seq/signature_variant` |
