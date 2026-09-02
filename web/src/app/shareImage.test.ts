@@ -104,6 +104,36 @@ describe('shareImage', () => {
     expect(await shareImage(file, '우리 아이')).toBe('shared')
   })
 
+  it('text 를 안 주면 payload 에 키 자체가 없다 — 저장(갤러리) 의도', async () => {
+    /*
+      «이미지 저장» 이 모바일에서 이 함수를 타면서 생긴 규칙입니다. text 를 무조건 실으면
+      갤러리에 넣으려던 사람이 카톡을 고르는 순간 입력창에 홍보 문구가 미리 채워집니다.
+      undefined 값으로 싣는 게 아니라 키를 아예 빼야 합니다.
+    */
+    const payloads: ShareData[] = []
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      value: async (data: ShareData) => {
+        payloads.push(data)
+      },
+    })
+    expect(await shareImage(file)).toBe('shared')
+    expect(payloads[0]).not.toHaveProperty('text')
+    expect(payloads[0].files).toHaveLength(1)
+  })
+
+  it('여러 장이면 한 시트에 한꺼번에 — W-09 일괄 저장', async () => {
+    const payloads: ShareData[] = []
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      value: async (data: ShareData) => {
+        payloads.push(data)
+      },
+    })
+    expect(await shareImage([file, file])).toBe('shared')
+    expect(payloads[0].files).toHaveLength(2)
+  })
+
   it('사용자가 닫은 것은 실패가 아니라 cancelled', async () => {
     withShare(() => {
       throw new DOMException('canceled', 'AbortError')

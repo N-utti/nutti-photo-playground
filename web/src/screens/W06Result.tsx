@@ -41,6 +41,8 @@ import {
 } from '../api/queries'
 import { useGuestSessionReset } from '../app/guestSession'
 import { contextFromJob, withReuse } from '../app/reuseFromJob'
+import { InAppSaveGuide } from '../app/InAppSaveGuide'
+import { detectInAppBrowser } from '../app/inAppBrowser'
 import { saveImage, type SaveImageOutcome } from '../app/saveImage'
 import {
   canShareImage,
@@ -545,6 +547,9 @@ function ShareRow({ job }: { job: Job }) {
   const [saving, setSaving] = useState(false)
   // 'opened' 는 저장이 아니라 이미지가 새 탭에서 열렸다는 뜻입니다 — 그때만 안내합니다.
   const [saveOutcome, setSaveOutcome] = useState<SaveImageOutcome | null>(null)
+  // 카카오톡·인스타 웹뷰 — 저장이 조용히 죽는 곳이라 저장 대신 안내를 띄웁니다.
+  const inAppBrowser = detectInAppBrowser()
+  const [inAppGuide, setInAppGuide] = useState(false)
   /*
     «공유» 의 실체 — Web Share API 로 이미지 **파일**을 OS 공유 시트에 넘기면
     인스타그램(게시물/스토리/DM)이 바로 뜹니다. 저장 → 인스타 앱 → 갤러리 왕복을 없애는
@@ -588,18 +593,51 @@ function ShareRow({ job }: { job: Job }) {
   }
 
   /*
-    저장은 앵커에 URL 을 그대로 물리지 않고 `saveImage` 를 지납니다. `download` 속성이
-    같은 오리진에서만 먹어서, CDN 이 붙는 순간(app/storage.py `public_url`) «이미지 저장»
-    이 이미지로 이동이 되기 때문입니다 — 이슈 #77, 그리고 그 조건을 배포 문서에 박은
-    PR #78. CORS 가 아직 안 열려 fetch 가 실패하면 예전 동작(새 탭)으로 물러나고,
-    그때만 길게 눌러 저장하라고 안내합니다.
+    저장은 두 갈래입니다.
+
+    **파일 공유가 되는 브라우저(사실상 모바일)** 는 공유 시트로 파일을 넘깁니다 — 웹이
+    사진 앱(갤러리)에 이미지를 넣는 유일한 경로가 시트의 「이미지 저장」이라서입니다.
+    iOS 에서 blob 다운로드는 갤러리가 아니라 파일 앱으로 떨어져서, 저장했는데 사진첩에
+    없다는 문의가 됩니다. 문구 없이 파일만 넘기는 이유는 shareImage 주석에 있습니다.
+    시트가 아예 못 열리면(failed) 아래 다운로드 경로로 물러납니다 — 파일로는 남습니다.
+
+    **데스크톱** 은 앵커에 URL 을 그대로 물리지 않고 `saveImage` 를 지납니다. `download`
+    속성이 같은 오리진에서만 먹어서, CDN 이 붙는 순간(app/storage.py `public_url`)
+    «이미지 저장» 이 이미지로 이동이 되기 때문입니다 — 이슈 #77, 그리고 그 조건을 배포
+    문서에 박은 PR #78. CORS 가 아직 안 열려 fetch 가 실패하면 예전 동작(새 탭)으로
+    물러나고, 그때만 길게 눌러 저장하라고 안내합니다.
   */
   async function handleSaveImage() {
+    /*
+      카카오톡·인스타 웹뷰는 시트도 다운로드도 없이 조용히 버립니다 — 성공한 척하지
+      않고 저장이 되는 곳(외부 브라우저)으로 안내합니다(app/inAppBrowser.tsx).
+    */
+    if (!shareSheetAvailable && inAppBrowser !== null) {
+      setInAppGuide(true)
+      return
+    }
     setSaving(true)
     setSaveOutcome(null)
+    setShareOutcome(null)
+    setInAppGuide(false)
     try {
       const url = await resolveShareUrl()
       if (url === null) return
+      if (shareSheetAvailable) {
+        if (shareFile.current === null) shareFile.current = await fetchShareFile(url, filename)
+        if (shareFile.current !== null) {
+          const outcome = await shareImage(shareFile.current)
+          /*
+            직접 닫은 것(cancelled)과 활성화 만료(expired)는 다운로드로 물러나면 안 됩니다 —
+            전자는 의사 표시고, 후자는 파일이 이미 손에 있어 한 번 더 누르면 바로 뜹니다.
+          */
+          if (outcome === 'expired') {
+            setShareOutcome('expired')
+            return
+          }
+          if (outcome !== 'failed') return
+        }
+      }
       setSaveOutcome(await saveImage(url, filename))
     } finally {
       setSaving(false)
@@ -693,6 +731,7 @@ function ShareRow({ job }: { job: Job }) {
           저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.
         </p>
       )}
+      {inAppGuide && inAppBrowser !== null && <InAppSaveGuide browser={inAppBrowser} />}
       {/*
         사진을 받는 사이에 활성화 창이 지나 브라우저가 시트를 거절한 경우입니다. 사진은
         이미 손에 있으니(`shareFile`) 한 번 더 누르면 곧바로 뜹니다 — 저장하러 보내면

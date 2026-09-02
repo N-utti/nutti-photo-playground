@@ -62,9 +62,12 @@ export async function fetchShareFile(url: string, filename: string): Promise<Fil
  * 받아 둔 파일을 공유 시트로 넘깁니다. **여기에는 `await` 가 하나뿐이라야 합니다** — 앞에
  * 뭘 더 붙이면 위에서 설명한 활성화 창 문제가 되돌아옵니다.
  */
-export async function shareImage(file: File, text: string): Promise<ShareImageOutcome> {
+export async function shareImage(file: File | File[], text?: string): Promise<ShareImageOutcome> {
+  const files = Array.isArray(file) ? file : [file]
   try {
-    await navigator.share({ files: [file], text })
+    // text 를 안 받으면 payload 에도 싣지 않습니다 — «저장» 의도로 시트를 열 때(갤러리 경로)
+    // 메신저에 홍보 문구가 미리 채워지는 것을 막습니다. 배열은 W-09 일괄 저장이 씁니다.
+    await navigator.share(text === undefined ? { files } : { files, text })
     return 'shared'
   } catch (error) {
     if (!(error instanceof DOMException)) return 'failed'
