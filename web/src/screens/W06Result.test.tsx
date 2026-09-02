@@ -283,7 +283,7 @@ describe('W-06 · 저장·공유 버튼', () => {
     expect(screen.queryByText(/길게 눌러 저장/)).not.toBeInTheDocument()
   })
 
-  it('파일 공유가 되는 브라우저에서는 「인스타에 올리기」가 OS 공유 시트로 이미지를 넘긴다', async () => {
+  it('파일 공유가 되는 브라우저에서는 「공유」가 OS 공유 시트로 이미지를 넘긴다', async () => {
     /*
       인스타그램은 웹에서 대신 게시할 수 없어서, 모바일에서 게시물/스토리로 가는 가장 짧은
       길은 Web Share API 로 **파일**을 넘기는 것입니다(app/shareImage.ts). blob 을 File 로
@@ -309,7 +309,7 @@ describe('W-06 · 저장·공유 버튼', () => {
     try {
       renderResult(succeededJob())
 
-      await user.click(await screen.findByRole('button', { name: '인스타에 올리기' }))
+      await user.click(await screen.findByRole('button', { name: '공유' }))
 
       await waitFor(() => expect(shared).toHaveLength(1))
       expect(shared[0].files?.[0]).toBeInstanceOf(File)
@@ -322,11 +322,11 @@ describe('W-06 · 저장·공유 버튼', () => {
     }
   })
 
-  it('파일 공유가 안 되는 브라우저에는 「인스타에 올리기」를 두지 않는다', async () => {
+  it('파일 공유가 안 되는 브라우저에는 「공유」를 두지 않는다', async () => {
     /*
       jsdom 기본값이 곧 데스크톱입니다(`navigator.canShare` 없음). 거기서 그 버튼을
-      그리면 눌러도 `unsupported` 로 끝나 아무 일도 안 일어납니다 — «올리기» 라고 써
-      두고 아무 일도 안 하는 버튼 대신, 실제로 갈 수 있는 인스타그램 링크를 둡니다.
+      그리면 눌러도 `unsupported` 로 끝나 아무 일도 안 일어납니다 — 눌러도 아무 일이
+      안 일어나는 버튼 대신, 실제로 갈 수 있는 인스타그램 링크를 둡니다.
     */
     renderResult(succeededJob())
 
@@ -334,7 +334,7 @@ describe('W-06 · 저장·공유 버튼', () => {
       'href',
       'https://www.instagram.com/',
     )
-    expect(screen.queryByRole('button', { name: '인스타에 올리기' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '공유' })).not.toBeInTheDocument()
   })
 
   it('게스트에게 보관함으로 가는 길을 남긴다', async () => {
