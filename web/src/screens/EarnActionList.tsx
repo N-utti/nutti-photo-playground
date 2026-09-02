@@ -279,8 +279,20 @@ function EarnRow({ row, ...rest }: EarnRowProps) {
   const best = row.action === 'order'
 
   return (
+    /*
+      `flex-wrap` 은 인스타 줄 하나 때문에 있습니다. 나머지 줄의 조작부는 버튼 한 개라
+      제목 옆에 그대로 서지만, 인스타는 입력 두 칸 + 버튼 둘 + 링크로 이뤄진 **폼**이라
+      제목 옆에 밀어 넣으면 제목 칸이 110px 로 눌려 «인스타 팔로 / 우» 처럼 단어 중간에서
+      끊깁니다.
+
+      그 조작부만 `w-full` 을 달아 아랫줄로 내려보냅니다(FollowIgCta). 여기서 action 을
+      다시 보고 분기하지 않는 이유는 EarnCta 가 이미 상태별로 무엇을 그릴지 정하고
+      있어서입니다 — 게스트(`login_required`)나 완료(`done`)면 그 폼 자체가 안 나오고,
+      그때는 이 줄도 평소처럼 한 줄로 남습니다. 조건을 여기에 한 벌 더 두면 두 곳이
+      어긋나는 날이 옵니다.
+    */
     <div
-      className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-3 ${
+      className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border px-3 py-3 ${
         best ? 'border-brand bg-surface' : 'border-rule bg-surface'
       }`}
     >
@@ -429,60 +441,72 @@ function FollowIgCta({
     return () => window.clearInterval(id)
   }, [openedAt])
 
+  /*
+    제목 옆이 아니라 **아랫줄 전체**를 씁니다(`w-full` — EarnRow 의 `flex-wrap` 이 받습니다).
+
+    전에는 이 폼이 제목 옆 오른쪽 칸에 세로로 쌓여 있었습니다. 그러면 세 가지가 같이
+    무너집니다: 제목 칸이 110px 로 눌려 «인스타 팔로 / 우» 로 끊기고, 세 줄의 왼쪽 끝이
+    입력·버튼 폭에 따라 제각각이 되고(실측 122 / 217 / 220), **서로 다른 두 방법이 한
+    사다리처럼** 보입니다.
+
+    그래서 방법 두 개를 각각 한 줄로 묶고, 입력이 남는 폭을 먹게(`flex-1`) 해서 두 줄의
+    양끝을 맞췄습니다. 순서도 뒤집었습니다 — 이 줄의 제목은 «인스타 팔로우» 이므로 주
+    경로(팔로우 → 아이디 → 받기)가 먼저고, DM 코드는 이미 코드를 받은 사람을 위한
+    지름길이라 아래입니다.
+  */
   return (
-    <div className="flex shrink-0 flex-col items-end gap-1.5">
+    <>
       {/*
-        인스타 게시물에 댓글 → DM 으로 받은 코드(05 §3 redeem-instagram). 팔로우가 API 로 확인된
-        사람에게만 오는 코드라 아이디·열기 없이 바로 받습니다. 링크로 들어왔으면 자동 소진되고,
-        여기는 코드를 손으로 옮겨 적는 사람용입니다.
+        이 링크만 **제목 줄 오른쪽**에 섭니다. 조각 둘을 프래그먼트로 내보내면 둘 다
+        줄 컨테이너의 flex 항목이 되고, 링크는 `shrink-0` 이라 제목 옆에 남고 아래
+        폼은 `w-full` 이라 다음 줄로 넘어갑니다(EarnRow 의 `flex-wrap`).
+
+        그 자리는 다른 줄에서 «쇼핑몰 →»·«연동하기»·«내일 다시» 가 서는 자리입니다.
+        여기 오는 것이 버튼이 아니라 **밑줄 링크**인 건 그래서입니다 — 이걸 누른다고
+        크레딧이 들어오지 않고, 돌아와서 아이디를 넣고 받기를 눌러야 합니다. 같은
+        무게로 그리면 그 자체가 획득 버튼인 것처럼 읽힙니다.
       */}
+      <a
+        href={NUTTI_INSTAGRAM_URL}
+        target="_blank"
+        rel="noreferrer"
+        onClick={() => {
+          // 서버는 이 이벤트의 시각으로 «열고 나서 받았는지» 를 판정합니다(10초~30분).
+          track({ event_type: 'follow_ig_open', properties: { from: 'W-10' } })
+          setOpenedAt(Date.now())
+          setWaitLeft(FOLLOW_IG_MIN_WAIT_SECONDS)
+        }}
+        /*
+          `self-start mt-0.5` — 줄 컨테이너가 `items-center` 라 그냥 두면 링크가 제목
+          두 줄(«인스타 팔로우 +2» / «@nutti_official») **사이**에 걸쳐 어느 쪽과도 안
+          맞습니다(실측 327~343, 두 줄의 경계가 337). 첫 줄에 맞춥니다 — 이 링크가 짝을
+          이루는 것은 제목이지 그 아래 보조 문구가 아닙니다.
+        */
+        className="mt-0.5 shrink-0 self-start text-xs text-ink-3 underline hover:text-brand"
+      >
+        {/*
+          글자를 그대로 둡니다. 이 라벨은 **서버가 이름으로 부릅니다** — 400
+          FOLLOW_IG_NOT_OPENED 의 메시지가 「먼저 「팔로우하러 가기」로 …」이고
+          (app/routers/credits.py), 위 claim 오류 문구·목·문서·테스트 셀렉터도 같은
+          글자를 씁니다. 화살표 하나를 붙이면 그 문장들이 가리키는 이름과 화면의 글자가
+          어긋납니다.
+        */}
+        팔로우하러 가기
+      </a>
+
+      <div className="w-full">
       <div className="flex items-center gap-2">
         <input
           type="text"
-          aria-label="인스타 DM 코드"
-          placeholder="DM으로 받은 코드"
-          autoCapitalize="characters"
+          aria-label="인스타그램 아이디"
+          placeholder="내 인스타 아이디"
+          autoCapitalize="none"
           autoCorrect="off"
-          value={code}
-          onChange={(event) => setCode(event.currentTarget.value.toUpperCase())}
-          maxLength={16}
-          className="w-36 rounded-lg border border-rule bg-paper px-2 py-1.5 font-mono text-xs"
+          value={username}
+          onChange={(event) => setUsername(event.currentTarget.value)}
+          maxLength={31}
+          className="min-w-0 flex-1 rounded-lg border border-rule bg-paper px-2 py-1.5 text-xs"
         />
-        <button
-          type="button"
-          onClick={() => onRedeem(code.trim())}
-          disabled={claiming || !codeValid}
-          className="rounded-lg border border-rule-strong px-3 py-2 text-xs font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
-        >
-          코드로 받기
-        </button>
-      </div>
-      <input
-        type="text"
-        aria-label="인스타그램 아이디"
-        placeholder="내 인스타 아이디"
-        autoCapitalize="none"
-        autoCorrect="off"
-        value={username}
-        onChange={(event) => setUsername(event.currentTarget.value)}
-        maxLength={31}
-        className="w-36 rounded-lg border border-rule bg-paper px-2 py-1.5 text-xs"
-      />
-      <div className="flex items-center gap-2">
-        <a
-          href={NUTTI_INSTAGRAM_URL}
-          target="_blank"
-          rel="noreferrer"
-          onClick={() => {
-            // 서버는 이 이벤트의 시각으로 «열고 나서 받았는지» 를 판정합니다(10초~30분).
-            track({ event_type: 'follow_ig_open', properties: { from: 'W-10' } })
-            setOpenedAt(Date.now())
-            setWaitLeft(FOLLOW_IG_MIN_WAIT_SECONDS)
-          }}
-          className="text-xs text-ink-3 underline hover:text-brand"
-        >
-          팔로우하러 가기
-        </a>
         <button
           type="button"
           onClick={() => onClaim({ action: 'follow_ig', instagram_username: handle })}
@@ -496,12 +520,56 @@ function FollowIgCta({
                   ? '인스타 아이디를 입력해 주세요'
                   : undefined
           }
-          className="rounded-lg border border-rule-strong px-3 py-2 text-xs font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
+          /*
+            `min-w-24` — 아래 «코드로 받기» 와 폭을 맞춥니다. 두 줄이 [입력][버튼] 으로
+            같은 모양인데 버튼 폭이 다르면(실측 49 vs 87) 입력이 남는 폭을 먹는 만큼
+            **입력의 오른쪽 끝도 어긋납니다**(304 vs 266). 바깥 양끝만 맞고 안쪽 경계는
+            안 맞는 상태였습니다.
+
+            `w-` 가 아니라 `min-w-` 인 이유는 이 버튼만 글자가 바뀌기 때문입니다 —
+            «받기» · «받는 중…» · «10초 후 받기» 셋이 돌아갑니다. 지금은 셋 다 96px 안에
+            들어가서(카운트다운도 실측 96) 폭이 흔들리지 않지만, 고정폭으로 박아 두면
+            글자가 하나만 길어져도 눌립니다.
+          */
+          className="min-w-24 shrink-0 rounded-lg border border-rule-strong px-3 py-2 text-xs font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
         >
           {/* 남은 초를 적습니다 — 비활성 버튼만 두면 «왜 안 눌리지» 가 됩니다. */}
           {claiming ? '받는 중…' : waitLeft > 0 ? `${waitLeft}초 후 받기` : (row.cta ?? '받기')}
         </button>
       </div>
-    </div>
+
+      {/*
+        인스타 게시물에 댓글 → DM 으로 받은 코드(05 §3 redeem-instagram). 팔로우가 API 로 확인된
+        사람에게만 오는 코드라 아이디·열기 없이 바로 받습니다. 링크로 들어왔으면 자동 소진되고,
+        여기는 코드를 손으로 옮겨 적는 사람용입니다.
+
+        한 줄 설명을 붙인 이유: 이게 **또 하나의 필수 단계가 아니라 다른 길**이라는 걸
+        말해 주지 않으면, 위 아이디를 넣은 사람이 코드까지 넣어야 하는 줄 압니다.
+      */}
+      <p className="mt-3 text-xs text-ink-3">DM으로 코드를 받았다면</p>
+      <div className="mt-1.5 flex items-center gap-2">
+        <input
+          type="text"
+          aria-label="인스타 DM 코드"
+          placeholder="DM으로 받은 코드"
+          autoCapitalize="characters"
+          autoCorrect="off"
+          value={code}
+          onChange={(event) => setCode(event.currentTarget.value.toUpperCase())}
+          maxLength={16}
+          className="min-w-0 flex-1 rounded-lg border border-rule bg-paper px-2 py-1.5 font-mono text-xs"
+        />
+        <button
+          type="button"
+          onClick={() => onRedeem(code.trim())}
+          disabled={claiming || !codeValid}
+          /* 위 «받기» 와 같은 폭(min-w-24). 이유는 그쪽 주석. */
+          className="min-w-24 shrink-0 rounded-lg border border-rule-strong px-3 py-2 text-xs font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
+        >
+          코드로 받기
+        </button>
+      </div>
+      </div>
+    </>
   )
 }
