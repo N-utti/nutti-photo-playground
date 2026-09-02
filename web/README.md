@@ -368,10 +368,35 @@ Router 가 그 API 를 씁니다. 여기서 또 보내면 화면 하나가 **두
 
 3번은 백엔드 env 라 제 몫이 아닙니다 — 배포 시 함께 넣어 주세요.
 
-⚠️ **API 서버 호스트는 아직 미정입니다.** 확정된 건 놀이터 **프론트** 도메인 하나이고,
-`web/.env.production` 의 `VITE_API_BASE_URL` 은 여전히 자리표시자
-(`https://api.example.invalid/v1`)입니다. 프론트와 오리진이 다르면 3번이 필수이고,
-같은 오리진에 얹으면 3번이 필요 없습니다 — 그 선택이 아직 안 됐습니다.
+### 호스트 3개로 확정됐습니다 (2026-09-01 · PR #189)
+
+`play.nutti.co.kr`(SPA) · `api.nutti.co.kr`(FastAPI) · `img.nutti.co.kr`(R2 CDN). 백엔드가
+`web/.env.production` 을 직접 고쳐 `VITE_API_BASE_URL=https://api.nutti.co.kr/v1` 을 채웠고,
+이 값을 읽는 곳은 `api/client.ts` 의 base 하나뿐이라 **프론트 코드 변경은 없었습니다**.
+정적 서빙은 Vultr VPS 위의 Caddy 가 `web/dist` 를 그대로 내려 줍니다(`deploy/Caddyfile`).
+
+**오리진이 갈렸다는 사실이 프론트에 청구서를 두 장 남깁니다** — 둘 다 `deploy/`·`app/` 소유
+파일이라 여기서 못 고치고 이슈 [#219](https://github.com/N-utti/nutti-photo-playground/issues/219)
+로 올렸습니다.
+
+- **CORS 안전목록 밖의 응답 헤더는 `expose_headers` 에 없으면 JS 가 못 읽습니다.** 안전목록은
+  `Cache-Control`·`Content-Language`·`Content-Length`·`Content-Type`·`Expires`·`Last-Modified`·
+  `Pragma` 뿐입니다. 지금 `app/main.py` 는 `ETag` 만 노출해서 `Retry-After` 가 프로덕션에서
+  늘 null 이 되고, 429 문구 5 곳이 「잠시 뒤」로 고정됩니다(윈도우는 최대 60분입니다).
+  **응답 헤더를 새로 읽기 시작할 때마다 서버의 `expose_headers` 를 같이 확인하세요** — 목은
+  같은 오리진이라 이 부류를 **영영 못 잡습니다**.
+- **Caddy 의 `try_files {path} /index.html` 이 404 를 삼킵니다.** 로컬 vite 에서 겪은 그 함정
+  (「실수하기 쉬운 지점」의 SPA fallback 항목)이 프로덕션에도 그대로 있습니다.
+
+**`public/_redirects` 는 지웠습니다** — Cloudflare Pages/Netlify 형식인데 배포 대상이 Caddy 로
+확정(ADR-06)돼 아무도 안 읽고, `dist/` 에 실려 배포 오리진에 공개되기만 했습니다. 거기 적혀
+있던 근거는 잃지 않게 여기 옮겨 둡니다 — **정적 호스팅으로 되돌아간다면 다시 만들어야 합니다**:
+
+> 라우팅이 전부 클라이언트(react-router)라 `/styles/101`·`/jobs/{id}` 같은 경로는 그 이름의
+> 파일이 없어 404 가 납니다. 특히 `/auth/callback/{provider}` 는 카카오·네이버·카페24가
+> **직접 보내는** 주소라 우회로가 없습니다 — fallback 이 없으면 로그인이 배포 직후 100%
+> 깨집니다. 그리고 **200(rewrite)이어야 하고 302 가 아닙니다**: 리다이렉트로 처리하면 주소창이
+> `/` 로 바뀌면서 OAuth 콜백의 `code`·`state` 쿼리가 사라집니다.
 
 ## 배포 전 — 계산기 프리필 **수신부** (2026-08-28 실측)
 

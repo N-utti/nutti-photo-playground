@@ -1,12 +1,48 @@
 // `vitest/config` 의 defineConfig 는 vite 의 것을 감싸 `test` 키를 더해 줍니다 —
 // 삼중 슬래시 참조 없이 이 import 하나로 타입이 붙습니다.
-import { defineConfig } from 'vitest/config'
+import { defineConfig, type Plugin } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import { rm } from 'node:fs/promises'
+import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+/**
+ * MSW 의 서비스워커 스크립트를 목이 꺼진 빌드 산출물에서 지웁니다.
+ *
+ * `mockServiceWorker.js` 는 `public/` 에 있어야 합니다 — 서비스워커는 자기 URL 의
+ * 경로 아래만 가로챌 수 있어서 앱과 같은 스코프(루트)에서 서빙돼야 하고, dev 서버가
+ * 그 자리를 주는 건 `public/` 뿐입니다. 그런데 `public/` 는 빌드 때 통째로 `dist/` 로
+ * 복사되므로, 그대로 두면 목이 꺼진 프로덕션 산출물에도 실려 나갑니다.
+ *
+ * 자바스크립트 쪽은 이미 안 실립니다 — `main.tsx` 가 `import.meta.env` 리터럴 비교로
+ * 감싸서 MSW 모듈을 통째로 떨궈 냅니다(mocks/browser.ts 주석). 남는 건 이 정적 파일
+ * 하나이고, 등록하는 코드가 없으니 동작을 바꾸지는 않습니다. 그래도 지우는 이유는
+ * **배포 오리진에 우리 목 워커가 공개로 놓이기 때문**입니다(`play.nutti.co.kr` 은
+ * `dist/` 를 Caddy 가 그대로 서빙합니다 — deploy/Caddyfile).
+ *
+ * `config.env` 를 보고 판단하므로 `--mode development` 로 «목 켜진 빌드» 를 만드는
+ * 경우에는 남습니다 — 그 산출물은 워커가 있어야 동작합니다.
+ */
+function dropMockServiceWorker(): Plugin {
+  let target: string | null = null
+  return {
+    name: 'drop-mock-service-worker',
+    apply: 'build',
+    configResolved(config) {
+      target =
+        config.env.VITE_ENABLE_MOCKS === 'true'
+          ? null
+          : path.resolve(config.root, config.build.outDir, 'mockServiceWorker.js')
+    },
+    async closeBundle() {
+      if (target) await rm(target, { force: true })
+    },
+  }
+}
+
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), dropMockServiceWorker()],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
