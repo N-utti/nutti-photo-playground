@@ -230,9 +230,18 @@ img {
 
    `:disabled` 는 제외합니다. 못 누르는 버튼(생성 중·이름 미입력 등)이 눌릴 것처럼
    보이면 그게 더 나쁜 거짓말입니다. `[role="button"]` 은 지금 코드엔 없지만, 나중에
-   div 로 버튼을 만들어도 새는 구멍이 없도록 같이 받아 둡니다. */
+   div 로 버튼을 만들어도 새는 구멍이 없도록 같이 받아 둡니다.
+
+   `select` 도 같이 받습니다 — 누르면 목록이 열리는데 커서만 화살표였습니다. 지금은
+   견종 칸(app/BreedField.tsx) 하나뿐이지만, 이 규칙이 그 파일이 아니라 여기 있어야
+   다음 select 가 같은 구멍을 다시 파지 않습니다.
+
+   `input` 은 통째로 받지 않습니다. 글자를 넣는 칸은 I 자 커서가 맞고, 하나뿐인
+   `type="range"`(W-06 비교 슬라이더)는 좌우로 끄는 것이라 `cursor-ew-resize` 를
+   자기 자리에서 따로 지정합니다. */
 @layer base {
   button:not(:disabled),
+  select:not(:disabled),
   [role='button']:not([aria-disabled='true']) {
     cursor: pointer;
   }
