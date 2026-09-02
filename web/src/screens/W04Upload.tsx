@@ -1021,7 +1021,7 @@ function PetNameNotice({
   onPetSaved: (petId: string) => void
 }) {
   return (
-    <section className="mt-3 rounded-lg border border-rule bg-surface-2 px-3 py-3">
+    <section className="mt-3 rounded-lg border border-rule bg-surface px-3 py-3">
       {/*
         변수 뒤에 조사를 붙이지 않습니다. `«{petName}» 라는` 은 받침 없는 이름에서만
         맞고(«콩이» 라는 ✓) 받침이 있으면 틀립니다(«뽀식» 라는 ✗ → 뽀식이라는).
@@ -1073,9 +1073,14 @@ function SavePetForm({
       className={
         // `first:mt-0` — 위에 문단이 없는 경우(이름을 아직 모를 때)에는 이 폼이 카드의
         // 첫 요소라, 마진을 그대로 두면 카드 안쪽 여백이 두 배로 보입니다.
+        //
+        // 바탕이 `surface-2` 인 이유는 index.css 의 카드 바탕 규칙입니다 — 이 폼은
+        // 만들기 버튼 **뒤**에 있고, 여기 적은 이름은 이번 그림에 아무 영향이 없습니다.
+        // 같은 폼이 `inline` 으로 버튼 앞에 올라가면 그때는 그림에 박히는 이름을 받는
+        // 자리가 되고, 감싸는 카드가 `surface` 라 색도 같이 올라갑니다.
         variant === 'inline'
           ? 'mt-3 first:mt-0'
-          : 'mt-6 rounded-lg border border-rule bg-surface p-3'
+          : 'mt-6 rounded-lg border border-rule bg-surface-2 p-3'
       }
       onSubmit={(event) => {
         event.preventDefault()
