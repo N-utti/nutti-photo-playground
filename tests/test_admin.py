@@ -1010,3 +1010,10 @@ def test_admin_follow_ig_claims_lists_handles_for_manual_cross_check(client: Tes
     assert [i["instagram_username"] for i in page2.json()["items"]] == ["kongmom"]
     assert page2.json()["next_cursor"] is None
     assert guest.status_code == 401
+
+
+def test_admin_ui_served_without_auth(client: TestClient):
+    response = client.get("/v1/admin/ui")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/html")
+    assert "운영 콘솔" in response.text

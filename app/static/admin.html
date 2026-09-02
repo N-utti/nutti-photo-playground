@@ -1,0 +1,346 @@
+<!doctype html>
+<!-- 누띠 운영 콘솔(스탑갭) — W-11 정식 화면(web/ SPA)이 배선되면 이 파일은 삭제한다.
+     같은 오리진(api.nutti.co.kr)에서 서빙되므로 CORS 설정이 필요 없다. -->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>누띠 운영 콘솔</title>
+<style>
+  :root { --line:#e3e3e3; --muted:#777; --accent:#2f6fed; --bad:#c0392b; --ok:#1e8e4e; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.5 system-ui, -apple-system, "Malgun Gothic", sans-serif; color:#222; background:#fafafa; }
+  header { display:flex; align-items:center; gap:12px; padding:10px 16px; background:#fff; border-bottom:1px solid var(--line); }
+  header h1 { font-size:16px; margin:0; }
+  header .who { color:var(--muted); font-size:12px; margin-left:auto; }
+  nav { display:flex; gap:2px; padding:8px 16px 0; flex-wrap:wrap; }
+  nav button { border:1px solid var(--line); border-bottom:none; background:#f1f1f1; padding:6px 12px; cursor:pointer; border-radius:6px 6px 0 0; }
+  nav button.on { background:#fff; font-weight:600; }
+  main { background:#fff; border-top:1px solid var(--line); padding:16px; min-height:70vh; }
+  section { display:none; } section.on { display:block; }
+  table { border-collapse:collapse; width:100%; font-size:13px; }
+  th, td { border-bottom:1px solid var(--line); padding:5px 8px; text-align:left; white-space:nowrap; }
+  th { background:#f7f7f7; position:sticky; top:0; }
+  tr.sel { background:#eef4ff; }
+  .scroll { overflow-x:auto; max-height:60vh; overflow-y:auto; border:1px solid var(--line); }
+  .panel { border:1px solid var(--line); border-radius:8px; padding:12px; margin:12px 0; background:#fcfcfc; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:end; margin:6px 0; }
+  label.f { display:flex; flex-direction:column; font-size:12px; color:var(--muted); gap:2px; }
+  input, select, textarea { font:inherit; padding:5px 8px; border:1px solid var(--line); border-radius:6px; background:#fff; }
+  textarea { width:100%; min-height:110px; }
+  button.act { font:inherit; padding:6px 12px; border:1px solid var(--accent); color:#fff; background:var(--accent); border-radius:6px; cursor:pointer; }
+  button.warn { border-color:var(--bad); background:var(--bad); }
+  button.ghost { border:1px solid var(--line); background:#fff; color:#222; }
+  .muted { color:var(--muted); font-size:12px; }
+  #toast { position:fixed; bottom:16px; left:50%; transform:translateX(-50%); background:#222; color:#fff; padding:8px 16px; border-radius:8px; display:none; max-width:90vw; z-index:9; }
+  #toast.err { background:var(--bad); } #toast.ok { background:var(--ok); }
+  #login { max-width:320px; margin:80px auto; }
+  .badge { display:inline-block; padding:1px 7px; border-radius:10px; font-size:11px; background:#eee; }
+  .badge.public, .badge.active { background:#d9f2e2; color:#14602f; }
+  .badge.retired { background:#fbe2de; color:#8a2317; }
+  .badge.draft { background:#eee; color:#555; }
+  .badge.ab { background:#fdf3d7; color:#7a5b00; }
+</style>
+</head>
+<body>
+<div id="login" hidden>
+  <h1>누띠 운영 콘솔</h1>
+  <div class="panel">
+    <div class="row"><label class="f">이메일<input id="lg-email" type="email" autocomplete="username"></label></div>
+    <div class="row"><label class="f">비밀번호<input id="lg-pw" type="password" autocomplete="current-password"></label></div>
+    <div class="row"><button class="act" onclick="login()">로그인</button></div>
+    <p class="muted">5회 실패 시 이메일 잠금 (1시간)</p>
+  </div>
+</div>
+
+<div id="app" hidden>
+  <header>
+    <h1>누띠 운영 콘솔</h1>
+    <span class="who" id="who"></span>
+    <button class="ghost" onclick="logout()">로그아웃</button>
+  </header>
+  <nav id="nav"></nav>
+  <main>
+    <section id="tab-styles">
+      <div class="scroll"><table id="styles-table"></table></div>
+      <div id="style-edit"></div>
+      <div class="panel">
+        <b>새 스타일 (draft로 생성)</b>
+        <div class="row">
+          <label class="f">code<input id="ns-code"></label>
+          <label class="f">이름<input id="ns-name"></label>
+          <label class="f">섹션<input id="ns-section"></label>
+          <label class="f">크레딧<input id="ns-cost" type="number" value="1" min="0" style="width:70px"></label>
+          <button class="act" onclick="createStyle()">추가</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-prompts">
+      <div class="row">
+        <label class="f">스타일<select id="pv-style" onchange="loadVersions()"></select></label>
+      </div>
+      <div class="scroll"><table id="pv-table"></table></div>
+      <div class="panel">
+        <b>새 프롬프트 버전 (draft로 생성)</b>
+        <textarea id="pv-text" placeholder="프롬프트 원문"></textarea>
+        <div class="row">
+          <label class="f">traffic_weight<input id="pv-weight" type="number" value="100" min="0" style="width:90px"></label>
+          <button class="act" onclick="createVersion()">추가</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-custom">
+      <div class="row"><button class="ghost" onclick="loadCustom()">새로고침</button></div>
+      <div class="scroll"><table id="custom-table"></table></div>
+    </section>
+
+    <section id="tab-settings">
+      <div class="scroll"><table id="settings-table"></table></div>
+      <p class="muted">human_face_policy는 block/warn/allow, 나머지는 0 이상 정수. 저장 즉시 서비스에 반영된다.</p>
+    </section>
+
+    <section id="tab-credits">
+      <div class="panel">
+        <b>수동 크레딧 조정 (원장 reason=cs_adjustment, ref=admin:{id})</b>
+        <div class="row">
+          <label class="f">member_id (UUID)<input id="cr-member" style="width:290px" placeholder="팔로우 대조 탭이나 DB에서"></label>
+          <label class="f">amount (±, 회수는 음수)<input id="cr-amount" type="number" style="width:110px"></label>
+          <label class="f">dedupe_key<input id="cr-dedupe" style="width:200px"></label>
+          <button class="act" onclick="adjustCredits()">실행</button>
+        </div>
+        <div id="cr-result" class="muted"></div>
+      </div>
+    </section>
+
+    <section id="tab-followig">
+      <div class="row"><button class="ghost" onclick="loadClaims(true)">새로고침</button></div>
+      <div class="scroll"><table id="claims-table"></table></div>
+      <div class="row"><button class="ghost" id="claims-more" onclick="loadClaims(false)" hidden>더 보기</button></div>
+      <p class="muted">인스타 앱의 실제 팔로워 목록과 수동 대조. 허위면 크레딧 탭에서 음수 조정으로 회수.</p>
+    </section>
+
+    <section id="tab-cafe24">
+      <div class="panel" id="cafe24-box">불러오는 중…</div>
+    </section>
+  </main>
+</div>
+<div id="toast"></div>
+
+<script>
+'use strict';
+/* ponytail: 스탑갭 콘솔 — 프레임워크·번들러 없이 fetch만. W-11 정식 화면이 오면 삭제. */
+const TABS = [
+  ['styles','스타일'], ['prompts','프롬프트 버전'], ['custom','커스텀 승격'],
+  ['settings','운영 설정'], ['credits','크레딧 조정'], ['followig','팔로우 대조'], ['cafe24','카페24'],
+];
+let token = sessionStorage.getItem('nutti_admin_token') || '';
+let styles = [], claimsCursor = null;
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const badge = (s) => `<span class="badge ${esc(s)}">${esc(s)}</span>`;
+const fmtDate = (s) => s ? new Date(s).toLocaleString('ko-KR', {timeZone:'Asia/Seoul'}) : '-';
+
+function toast(msg, cls) {
+  const t = $('toast');
+  t.textContent = msg; t.className = cls || ''; t.style.display = 'block';
+  clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 3500);
+}
+
+async function api(method, path, body) {
+  const res = await fetch('/v1/admin' + path, {
+    method,
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  let data = null;
+  try { data = await res.json(); } catch { /* 본문 없는 응답 */ }
+  if (res.status === 401 && path !== '/login') { logout(); throw new Error('세션 만료 — 다시 로그인하세요'); }
+  if (!res.ok) throw new Error(data?.error?.message || data?.detail?.[0]?.msg || `HTTP ${res.status}`);
+  return data;
+}
+const guard = (fn) => (...a) => fn(...a).catch(e => toast(e.message, 'err'));
+
+// ---- 인증 ----
+async function login() {
+  try {
+    const data = await api('POST', '/login', { email: $('lg-email').value, password: $('lg-pw').value });
+    token = data.token;
+    sessionStorage.setItem('nutti_admin_token', token);
+    sessionStorage.setItem('nutti_admin_email', data.email);
+    $('lg-pw').value = '';
+    boot();
+  } catch (e) { toast(e.message, 'err'); }
+}
+function logout() {
+  token = '';
+  sessionStorage.removeItem('nutti_admin_token');
+  $('app').hidden = true; $('login').hidden = false;
+}
+
+// ---- 스타일 ----
+const loadStyles = guard(async () => {
+  styles = (await api('GET', '/styles')).items;
+  $('styles-table').innerHTML =
+    '<tr><th>id</th><th>code</th><th>이름</th><th>섹션</th><th>상태</th><th>정렬</th><th>크레딧</th><th>평균초</th><th>선택률</th><th>공유율</th><th>쇼핑몰</th></tr>' +
+    styles.map(s => `<tr onclick="editStyle(${s.id})" style="cursor:pointer">
+      <td>${s.id}</td><td>${esc(s.code)}</td><td>${esc(s.name)}</td><td>${esc(s.section)}</td>
+      <td>${badge(s.status)}</td><td>${s.sort_order}</td><td>${s.credit_cost}</td><td>${s.avg_seconds}</td>
+      <td>${(s.selection_rate*100).toFixed(1)}%</td><td>${(s.share_rate*100).toFixed(1)}%</td><td>${(s.shop_click_rate*100).toFixed(1)}%</td></tr>`).join('');
+  $('pv-style').innerHTML = styles.map(s => `<option value="${s.id}">${s.id} · ${esc(s.name)} (${esc(s.status)})</option>`).join('');
+});
+
+function editStyle(id) {
+  const s = styles.find(x => x.id === id);
+  $('style-edit').innerHTML = `<div class="panel"><b>#${s.id} ${esc(s.code)} 수정</b>
+    <div class="row">
+      <label class="f">이름<input id="es-name" value="${esc(s.name)}"></label>
+      <label class="f">섹션<input id="es-section" value="${esc(s.section)}"></label>
+      <label class="f">상태<select id="es-status">${['draft','public','ab','retired'].map(v => `<option ${v===s.status?'selected':''}>${v}</option>`).join('')}</select></label>
+      <label class="f">정렬<input id="es-sort" type="number" value="${s.sort_order}" style="width:70px"></label>
+      <label class="f">크레딧<input id="es-cost" type="number" value="${s.credit_cost}" min="0" style="width:70px"></label>
+      <label class="f">평균초<input id="es-avg" type="number" value="${s.avg_seconds}" min="1" style="width:70px"></label>
+      <button class="act" onclick="saveStyle(${s.id})">저장</button>
+      <button class="warn" id="es-retire" onclick="retireStyle(${s.id}, this)">회수</button>
+    </div></div>`;
+}
+const saveStyle = guard(async (id) => {
+  await api('PATCH', `/styles/${id}`, {
+    name: $('es-name').value, section: $('es-section').value, status: $('es-status').value,
+    sort_order: +$('es-sort').value, credit_cost: +$('es-cost').value, avg_seconds: +$('es-avg').value,
+  });
+  toast('저장됨', 'ok'); $('style-edit').innerHTML = ''; loadStyles();
+});
+const retireStyle = guard(async (id, btn) => {
+  if (btn.dataset.armed !== '1') { btn.dataset.armed = '1'; btn.textContent = '정말 회수?'; return; }
+  await api('DELETE', `/styles/${id}`);
+  toast('회수됨(retired)', 'ok'); $('style-edit').innerHTML = ''; loadStyles();
+});
+const createStyle = guard(async () => {
+  await api('POST', '/styles', {
+    code: $('ns-code').value, name: $('ns-name').value,
+    section: $('ns-section').value, credit_cost: +$('ns-cost').value,
+  });
+  toast('draft로 생성됨 — 공개하려면 상태를 public으로', 'ok'); loadStyles();
+});
+
+// ---- 프롬프트 버전 ----
+const loadVersions = guard(async () => {
+  const sid = $('pv-style').value;
+  if (!sid) return;
+  const items = (await api('GET', `/styles/${sid}/prompt-versions`)).items;
+  $('pv-table').innerHTML =
+    '<tr><th>v</th><th>상태</th><th>weight</th><th>생성</th><th>프롬프트(앞 120자)</th><th></th></tr>' +
+    items.map(v => `<tr><td>${v.version}</td><td>${badge(v.status)}</td>
+      <td><input type="number" min="0" value="${v.traffic_weight}" style="width:70px" id="vw-${v.id}"></td>
+      <td>${fmtDate(v.created_at)}</td>
+      <td style="white-space:normal;max-width:480px">${esc(v.prompt_text.slice(0,120))}${v.prompt_text.length>120?'…':''}</td>
+      <td>
+        <button class="ghost" onclick="patchVersion(${sid},${v.id},{traffic_weight:+document.getElementById('vw-${v.id}').value})">weight 저장</button>
+        ${v.status!=='active' ? `<button class="act" onclick="patchVersion(${sid},${v.id},{status:'active'})">활성화</button>` : ''}
+        ${v.status!=='retired' ? `<button class="ghost" onclick="patchVersion(${sid},${v.id},{status:'retired'})">폐기</button>` : ''}
+      </td></tr>`).join('') || '<tr><td>버전 없음</td></tr>';
+});
+const patchVersion = guard(async (sid, vid, body) => {
+  await api('PATCH', `/styles/${sid}/prompt-versions/${vid}`, body);
+  toast('반영됨', 'ok'); loadVersions();
+});
+const createVersion = guard(async () => {
+  const sid = $('pv-style').value;
+  await api('POST', `/styles/${sid}/prompt-versions`, { prompt_text: $('pv-text').value, traffic_weight: +$('pv-weight').value });
+  toast('draft 버전 생성됨 — 쓰려면 활성화', 'ok'); $('pv-text').value = ''; loadVersions();
+});
+
+// ---- 커스텀 프롬프트 ----
+const loadCustom = guard(async () => {
+  const items = (await api('GET', '/custom-prompts/top?limit=50')).items;
+  $('custom-table').innerHTML =
+    '<tr><th>횟수</th><th>문구</th><th></th></tr>' +
+    items.map((c, i) => `<tr><td>${c.frequency}</td><td style="white-space:normal">${esc(c.normalized_text)}</td>
+      <td>${c.promotable
+        ? `<span class="row" style="margin:0"><input id="pm-sec-${i}" placeholder="섹션" style="width:90px"><input id="pm-cost-${i}" type="number" value="2" min="0" style="width:60px"><button class="act" onclick="promote('${c.id}',${i})">승격</button></span>`
+        : '<span class="muted">승격됨</span>'}</td></tr>`).join('') || '<tr><td>없음</td></tr>';
+});
+const promote = guard(async (id, i) => {
+  const style = await api('POST', `/custom-prompts/${id}/promote`, { section: $(`pm-sec-${i}`).value, credit_cost: +$(`pm-cost-${i}`).value });
+  toast(`스타일 #${style.id} (${style.code}) draft 생성 — 프롬프트 버전을 달고 public 전환 필요`, 'ok');
+  loadCustom();
+});
+
+// ---- 설정 ----
+const loadSettings = guard(async () => {
+  const items = (await api('GET', '/settings')).items;
+  $('settings-table').innerHTML =
+    '<tr><th>키</th><th>값</th><th>수정</th><th></th></tr>' +
+    items.map((s, i) => `<tr><td>${esc(s.key)}</td>
+      <td>${s.key === 'human_face_policy'
+        ? `<select id="st-${i}">${['block','warn','allow'].map(v => `<option ${v===s.value?'selected':''}>${v}</option>`).join('')}</select>`
+        : `<input id="st-${i}" type="number" min="0" value="${s.value}" style="width:90px">`}</td>
+      <td class="muted">${fmtDate(s.updated_at)}</td>
+      <td><button class="ghost" onclick="saveSetting('${esc(s.key)}',${i},${s.key==='human_face_policy'})">저장</button></td></tr>`).join('');
+});
+const saveSetting = guard(async (key, i, isStr) => {
+  const raw = $(`st-${i}`).value;
+  await api('PATCH', `/settings/${key}`, { value: isStr ? raw : +raw });
+  toast(`${key} 저장됨`, 'ok'); loadSettings();
+});
+
+// ---- 크레딧 ----
+const adjustCredits = guard(async () => {
+  const r = await api('POST', '/credits/adjust', {
+    member_id: $('cr-member').value.trim(), amount: +$('cr-amount').value, dedupe_key: $('cr-dedupe').value.trim(),
+  });
+  $('cr-result').textContent = `완료 — ${r.member_id} 잔액 ${r.balance} (${r.amount_granted > 0 ? '+' : ''}${r.amount_granted})`;
+  toast('조정 완료', 'ok'); newDedupe();
+});
+function newDedupe() {
+  $('cr-dedupe').value = 'cs-' + new Date().toISOString().slice(0,10) + '-' + Math.random().toString(36).slice(2,6);
+}
+
+// ---- 팔로우 대조 ----
+const loadClaims = guard(async (reset) => {
+  if (reset) { claimsCursor = null; $('claims-table').innerHTML = ''; }
+  const data = await api('GET', `/follow-ig/claims?limit=50${claimsCursor ? '&cursor=' + claimsCursor : ''}`);
+  if (!$('claims-table').innerHTML)
+    $('claims-table').innerHTML = '<tr><th>인스타 아이디</th><th>member_id</th><th>+</th><th>수령 시각</th></tr>';
+  $('claims-table').insertAdjacentHTML('beforeend',
+    data.items.map(c => `<tr><td>@${esc(c.instagram_username)}</td><td class="muted">${esc(c.member_id)}</td><td>${c.amount}</td><td>${fmtDate(c.claimed_at)}</td></tr>`).join('') || '<tr><td>없음</td></tr>');
+  claimsCursor = data.next_cursor;
+  $('claims-more').hidden = !claimsCursor;
+});
+
+// ---- 카페24 ----
+const loadCafe24 = guard(async () => {
+  try {
+    const s = await api('GET', '/cafe24/status');
+    $('cafe24-box').innerHTML = `<b>몰 ${esc(s.mall_id)}</b><br>
+      토큰 만료: ${fmtDate(s.expires_at)}<br>
+      마지막 주문 동기화: ${fmtDate(s.last_synced_at)}<br>
+      마지막 갱신 오류: ${s.last_refresh_error ? `<span style="color:var(--bad)">${esc(s.last_refresh_error)}</span>` : '없음'}`;
+  } catch (e) {
+    $('cafe24-box').textContent = e.message; // 404 = 토큰 없음
+  }
+});
+
+// ---- 탭/부트 ----
+const LOADERS = { styles: loadStyles, prompts: async () => { await loadStyles(); loadVersions(); }, custom: loadCustom,
+  settings: loadSettings, credits: async () => {}, followig: () => loadClaims(true), cafe24: loadCafe24 };
+function show(tab) {
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+  document.querySelectorAll('main section').forEach(s => s.classList.toggle('on', s.id === 'tab-' + tab));
+  LOADERS[tab]();
+}
+function boot() {
+  $('login').hidden = true; $('app').hidden = false;
+  $('who').textContent = sessionStorage.getItem('nutti_admin_email') || '';
+  $('nav').innerHTML = TABS.map(([k, name]) => `<button data-tab="${k}" onclick="show('${k}')">${name}</button>`).join('');
+  newDedupe();
+  show('styles');
+}
+$('lg-pw').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+if (token) boot(); else $('login').hidden = false;
+</script>
+</body>
+</html>
