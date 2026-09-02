@@ -414,14 +414,22 @@ function guestAware(rows: Credits['earn_actions']): Credits['earn_actions'] {
   return rows.map((row) => ({ ...row, status: 'login_required' as const, cta: '로그인' }))
 }
 
-/** 획득 행 1건을 지급 처리. 연동 +3 처럼 claim 을 거치지 않는 경로가 씁니다. */
-function grantEarnAction(action: EarnAction): void {
+/**
+ * 획득 행 1건을 지급 처리. 연동 보상처럼 claim 을 거치지 않는 경로가 씁니다.
+ *
+ * **실제로 지급한 금액을 돌려줍니다 — 이미 받았거나 없는 행이면 0.** 연동 응답의
+ * `amount_granted`(백엔드 PR #230)가 그 값이라, 여기서 돌려주지 않으면 목이 지급액을
+ * 지어내야 합니다. 지어내면 「이미 연동된 계정 재확인」에서 0 이어야 할 자리에 정책값이
+ * 실려, 화면의 `+0` 갈래가 목 위에서 영영 안 밟힙니다.
+ */
+function grantEarnAction(action: EarnAction): number {
   const row = state.credits.earn_actions.find((entry) => entry.action === action)
-  if (!row || row.status !== 'available') return
+  if (!row || row.status !== 'available') return 0
   state.credits.balance += row.amount
   row.status = 'done'
   row.cta = null
   persist()
+  return row.amount
 }
 
 /**
@@ -1165,14 +1173,24 @@ export const handlers = [
       return HttpResponse.json({
         cafe24_linked: false,
         credit_balance: state.credits.balance,
+        // 후보를 고르는 단계라 아직 지급 전입니다. 서버도 두 분기 모두 이 필드를 내려줍니다.
+        amount_granted: 0,
         candidates: ['tester123', '4950033661@k', 'wjdtjdnds98'],
       })
     }
-    if (!state.me.cafe24_linked) {
-      state.me.cafe24_linked = true
-      grantEarnAction('link_account') // 연동 +3 은 클레임이 아니라 verify 가 지급합니다.
-    }
-    return HttpResponse.json({ cafe24_linked: true, credit_balance: state.credits.balance, candidates: null })
+    /*
+      연동 보상은 클레임이 아니라 verify 가 지급합니다. **두 번째 verify 는 0 입니다** —
+      이미 연동된 계정을 다시 확인하는 경우이고, 화면이 「+0 크레딧을 받았어요」라고
+      말하지 않는지 밟아 볼 수 있는 유일한 자리입니다.
+    */
+    const granted = state.me.cafe24_linked ? 0 : grantEarnAction('link_account')
+    state.me.cafe24_linked = true
+    return HttpResponse.json({
+      cafe24_linked: true,
+      credit_balance: state.credits.balance,
+      amount_granted: granted,
+      candidates: null,
+    })
   }),
 
   /*
