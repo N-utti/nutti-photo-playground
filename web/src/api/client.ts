@@ -180,6 +180,47 @@ interface RequestOptions {
   skipAuth?: boolean
   /** 내부용 — 토큰 재발급 후 재시도가 무한 반복되지 않도록 하는 플래그. */
   _retried?: boolean
+  /**
+   * 내부용 — 부팅 관문(`openWhenSessionReady`)을 기다리지 않습니다.
+   *
+   * 관문 자체를 여는 요청(`POST /auth/guest`)에만 붙습니다. 이게 없으면 관문이
+   * 자기가 열리기를 기다리며 영원히 닫혀 있습니다.
+   */
+  _skipSessionGate?: boolean
+}
+
+/* ------------------------------------------------------- 부팅 관문
+
+   첫 방문자에게는 토큰이 없고, 토큰 없이 나간 요청은 401 로 돌아옵니다. 그래서
+   원래 `main.tsx` 가 `await ensureSession()` **한 뒤에** `createRoot().render()` 를
+   불렀습니다 — 데이터는 안전해지지만 대가가 첫 페인트였습니다. 게스트 발급이
+   왕복하는 동안 화면에는 아무것도 없고(측정: 목 위에서도 FCP 248ms 가 발급 응답
+   217ms 뒤에 붙어 있었습니다), 실서버·모바일 회선에서는 그 왕복이 수백 ms 로
+   늘어납니다. 이 앱은 쇼핑몰의 홍보 유입구라 그 시간이 곧 이탈입니다.
+
+   기다림을 없앨 수는 없습니다 — 토큰은 여전히 필요합니다. 옮길 뿐입니다: 렌더를
+   막던 것을 **요청을 막는 것**으로 바꿉니다. 껍데기(헤더·탭바·히어로 문구·스켈레톤)는
+   토큰 없이도 참이므로 즉시 그려지고, 토큰이 필요한 요청만 관문 앞에서 대기합니다.
+   화면이 «먼저 거짓말하고 나중에 정정하는» 일은 생기지 않습니다. 사용자가 보는
+   로딩 상태는 원래 스켈레톤이 맡던 그 상태 그대로입니다.
+
+   `ensureSession()` 이 실패해도(429) 관문은 **엽니다**. 여기서 막으면 발급 제한에
+   걸린 사용자에게 영원히 로딩만 도는 화면이 남습니다 — 요청은 나가서 401 을 받고,
+   그 사유는 RootLayout 배너가 설명합니다.
+
+   `null` 로 되돌리는 이유는 한 번 열린 관문을 다시 잠그지 않기 위해서입니다.
+   이후의 만료·회전은 `request()` 의 401 경로가 따로 다룹니다. */
+let sessionGate: Promise<void> | null = null
+
+export function openWhenSessionReady(booting: Promise<unknown>): void {
+  sessionGate = booting.then(
+    () => {
+      sessionGate = null
+    },
+    () => {
+      sessionGate = null
+    },
+  )
 }
 
 function buildUrl(path: string, query?: RequestOptions['query']): string {
@@ -196,6 +237,10 @@ function buildUrl(path: string, query?: RequestOptions['query']): string {
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   assertNotAdminPath(path)
   const { method = 'GET', json, formData, query, idempotencyKey, signal, skipAuth } = options
+
+  // 부팅 관문. 토큰을 **읽기 전에** 기다려야 합니다 — 아래 `session.token` 을 먼저
+  // 집으면 발급이 끝나기 전의 null 을 그대로 들고 나갑니다.
+  if (sessionGate && !options._skipSessionGate) await sessionGate
 
   const headers: Record<string, string> = {}
   const token = skipAuth ? null : session.token
@@ -508,7 +553,12 @@ function reissueGuestSession(): Promise<void> {
  */
 async function issueGuestSession(): Promise<GuestSession> {
   try {
-    return await request<GuestSession>('/auth/guest', { method: 'POST', _retried: true })
+    return await request<GuestSession>('/auth/guest', {
+      method: 'POST',
+      _retried: true,
+      // 이 요청이 곧 관문입니다 — 자기를 기다리게 두면 열리지 않습니다.
+      _skipSessionGate: true,
+    })
   } catch (error) {
     if (isApiError(error, 'RATE_LIMITED')) {
       window.dispatchEvent(

@@ -13,7 +13,13 @@
 import { HttpResponse, http } from 'msw'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { server } from '../test/server'
-import { SESSION_LOST_EVENT, request, session, type SessionLostDetail } from './client'
+import {
+  SESSION_LOST_EVENT,
+  openWhenSessionReady,
+  request,
+  session,
+  type SessionLostDetail,
+} from './client'
 
 const BASE = '*/v1'
 
@@ -162,5 +168,68 @@ describe('리프레시 회전', () => {
 
     expect(session.token).toBeNull()
     expect(lost).toEqual([{ kind: 'member' }])
+  })
+})
+
+/**
+ * 부팅 관문 — **첫 페인트를 인증에서 떼어 놓은 대가를 누가 치르는가**.
+ *
+ * 예전에는 `main.tsx` 가 `await ensureSession()` 한 뒤에 렌더했습니다. 토큰 없이 나간
+ * 요청이 401 로 돌아오는 걸 막는 방법이었는데, 그 대가로 게스트 발급이 왕복하는 내내
+ * 화면이 비어 있었습니다. 지금은 렌더가 먼저 나가고 **요청**이 관문 앞에서 기다립니다.
+ *
+ * 이 맞바꿈은 조용히 되돌아갑니다. 누가 `request()` 의 관문 한 줄을 지우거나
+ * `main.tsx` 에서 `openWhenSessionReady()` 를 빼도 화면은 멀쩡히 뜨고, 목 위에서는
+ * 발급이 워낙 빨라 경합이 거의 안 납니다 — 실서버 모바일 회선에서 첫 방문자만
+ * 401 을 받습니다. 그래서 화면이 아니라 **요청이 나간 시점**을 여기서 셉니다.
+ */
+describe('부팅 관문', () => {
+  /** 관문을 손으로 여는 테스트라, 열지 못한 채 끝나면 다음 테스트가 통째로 멈춥니다. */
+  afterEach(async () => {
+    openWhenSessionReady(Promise.resolve())
+    await Promise.resolve()
+  })
+
+  /** 목 요청이 실제로 나갈 틈을 줍니다 — 마이크로태스크 한 바퀴로는 부족합니다. */
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
+
+  it('관문이 열리기 전에는 요청이 나가지 않는다', async () => {
+    const sent: Array<string | null> = []
+    server.use(
+      http.get(`${BASE}/credits`, ({ request: sentRequest }) => {
+        sent.push(sentRequest.headers.get('Authorization'))
+        return HttpResponse.json({ balance: 0 })
+      }),
+    )
+
+    let openGate!: () => void
+    openWhenSessionReady(
+      new Promise<void>((resolve) => {
+        openGate = resolve
+      }),
+    )
+
+    // 아직 토큰이 없는 상태. 관문이 없으면 여기서 헤더 없이 나가 401 을 받습니다.
+    const inFlight = request('/credits')
+    await settle()
+    expect(sent, '관문이 닫혀 있는데 요청이 나갔습니다').toEqual([])
+
+    // 부팅이 끝나는 순간 = 토큰이 서고 관문이 열리는 순간.
+    session.set('guest-token', 'guest')
+    openGate()
+    await inFlight
+
+    // 기다린 보람은 헤더에 있습니다 — 관문을 지우면 여기가 `[null]` 이 됩니다.
+    expect(sent).toEqual(['Bearer guest-token'])
+  })
+
+  it('발급이 실패해도 관문은 열린다', async () => {
+    server.use(http.get(`${BASE}/credits`, () => HttpResponse.json({ balance: 0 })))
+
+    // 429 로 발급이 막힌 경우. 여기서 관문이 닫힌 채 남으면 사용자에게는 영원히
+    // 도는 로딩만 보입니다 — 401 을 받고 배너로 사유를 듣는 편이 낫습니다.
+    openWhenSessionReady(Promise.reject(new Error('RATE_LIMITED')))
+
+    await expect(request('/credits')).resolves.toBeTruthy()
   })
 })
