@@ -995,28 +995,39 @@ def test_admin_follow_ig_claims_lists_handles_for_manual_cross_check(client: Tes
     from app.models import InstagramDmCode
 
     third = client.portal.call(_create_member, MemberKind.MEMBER)
+    spoofer = client.portal.call(_create_member, MemberKind.MEMBER)
 
     async def _claims():
         await grant_credits(uuid.UUID(first), 2, CreditReason.FOLLOW_IG.value, "follow_ig", ref_id="ig:kongmom")
         await grant_credits(uuid.UUID(second), 2, CreditReason.FOLLOW_IG.value, "follow_ig", ref_id="ig:coco_dad")
         await grant_credits(uuid.UUID(second), 1, "daily_free", "daily:2026-09-01")  # 목록에 안 나와야 함
         # DM 코드 경로 — ref_id는 불변 igsid, 목록엔 발급 때 저장한 username으로 풀려야 한다(#226)
-        await InstagramDmCode.create(code="DMCODE01", igsid="17841400001234567", ig_username="dm.follower")
+        await InstagramDmCode.create(
+            code="DMCODE01", igsid="17841400001234567", ig_username="dm.follower",
+            redeemed_member_id=uuid.UUID(third),
+        )
         await grant_credits(
             uuid.UUID(third), 2, CreditReason.FOLLOW_IG.value, "follow_ig", ref_id="ig:17841400001234567"
+        )
+        # 같은 숫자열을 "아이디 입력" 경로로 주장한 다른 회원 — 소진 회원이 아니므로 dm으로 오분류되면 안 됨(보안 리뷰)
+        await grant_credits(
+            uuid.UUID(spoofer), 2, CreditReason.FOLLOW_IG.value, "follow_ig", ref_id="ig:17841400001234567"
         )
 
     client.portal.call(_claims)
     headers = _admin_headers(client)
 
-    page1 = client.get("/v1/admin/follow-ig/claims?limit=1", headers=headers)
+    page1 = client.get("/v1/admin/follow-ig/claims?limit=2", headers=headers)
     page2 = client.get(f"/v1/admin/follow-ig/claims?limit=2&cursor={page1.json()['next_cursor']}", headers=headers)
     guest = client.get("/v1/admin/follow-ig/claims")
 
     assert page1.status_code == 200
-    dm_row = page1.json()["items"][0]
+    spoof_row, dm_row = page1.json()["items"]  # 최신순: spoofer 입력 행 → third DM 행
     assert dm_row["instagram_username"] == "dm.follower"  # igsid가 아니라 대조 가능한 아이디
     assert dm_row["source"] == "dm" and dm_row["igsid"] == "17841400001234567"
+    # igsid 숫자열을 입력 경로로 주장해도 dm으로 위장되지 않는다 — (소진 회원, igsid) 쌍 대조
+    assert spoof_row["source"] == "input" and spoof_row["igsid"] is None
+    assert spoof_row["instagram_username"] == "17841400001234567"
     assert [i["instagram_username"] for i in page2.json()["items"]] == ["coco_dad", "kongmom"]
     assert [i["source"] for i in page2.json()["items"]] == ["input", "input"]
     assert all(i["igsid"] is None for i in page2.json()["items"])

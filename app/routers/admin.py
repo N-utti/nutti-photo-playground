@@ -478,26 +478,29 @@ async def admin_follow_ig_claims(
     rows = await query.order_by("-id").limit(limit + 1).values("id", "member_id", "ref_id", "amount", "created_at")
     page = rows[:limit]
     refs = {row["ref_id"].removeprefix("ig:") for row in page}
-    # ponytail: username/igsid 구분은 DM 코드 테이블 매칭으로 — 순수 숫자 인스타 아이디가 실존 igsid와
-    # 충돌할 확률은 무시(충돌해도 대조용 표기가 바뀔 뿐 지급·회수 로직과 무관)
-    dm_usernames = (
-        {
-            code["igsid"]: code["ig_username"]
-            for code in await InstagramDmCode.filter(igsid__in=refs).values("igsid", "ig_username")
-        }
-        if refs
-        else {}
-    )
+    # DM 행 판별은 값 충돌이 아니라 (소진 회원, igsid) 쌍으로 — 입력 경로 username은 사용자 주장값이라
+    # igsid 형태(순수 숫자)를 넣어 dm 행으로 위장(대조 면제)하는 것을 막는다(보안 리뷰 #232).
+    dm_usernames: dict[tuple, str | None] = {}
+    if refs:
+        dm_rows = await InstagramDmCode.filter(
+            igsid__in=refs, redeemed_member_id__in=[row["member_id"] for row in page]
+        ).order_by("id").values("igsid", "ig_username", "redeemed_member_id")
+        for code in dm_rows:
+            key = (code["redeemed_member_id"], code["igsid"])
+            # 같은 igsid의 형제 행 중 username이 남은 행 우선(발급 시점 username null 가능)
+            if dm_usernames.get(key) is None:
+                dm_usernames[key] = code["ig_username"]
     items = []
     for row in page:
         ref = row["ref_id"].removeprefix("ig:")
-        is_dm = ref in dm_usernames
+        dm_key = (row["member_id"], ref)
+        is_dm = dm_key in dm_usernames
         items.append(
             {
                 "ledger_id": row["id"],
                 "member_id": str(row["member_id"]),
                 # DM 행에서 username이 못 남았으면(null) igsid 칸으로 추적한다
-                "instagram_username": dm_usernames[ref] if is_dm else ref,
+                "instagram_username": dm_usernames[dm_key] if is_dm else ref,
                 "source": "dm" if is_dm else "input",
                 "igsid": ref if is_dm else None,
                 "amount": row["amount"],
