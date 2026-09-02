@@ -297,6 +297,8 @@ const INITIAL_ME: Omit<Me, 'credit_balance'> = {
  */
 const PRISTINE_PETS = structuredClone(petList)
 const PRISTINE_LIBRARY = structuredClone(libraryItems)
+// 원장도 이제 **가변**입니다 — 주문 시나리오가 행을 앞에 끼워 넣습니다(applyOrderScenario).
+const PRISTINE_LEDGER = structuredClone(ledgerEntries)
 
 const state = {
   credits: snapshot?.credits ?? (structuredClone(initialCredits) as Credits),
@@ -353,10 +355,12 @@ export function resetMockState(): void {
   */
   petList.splice(0, petList.length, ...structuredClone(PRISTINE_PETS))
   libraryItems.splice(0, libraryItems.length, ...structuredClone(PRISTINE_LIBRARY))
+  ledgerEntries.splice(0, ledgerEntries.length, ...structuredClone(PRISTINE_LEDGER))
 
   // 잔액을 건드리는 시나리오가 «한 번만 떨어뜨린다» 를 기억하는 플래그. 안 풀면 다음
   // 테스트에서 시나리오를 다시 켜도 잔액이 안 떨어집니다.
   balanceApplied = false
+  orderScenarioApplied = null
 
   sessionStorage.removeItem(PERSIST_KEY)
   localStorage.removeItem(JOBS_KEY)
@@ -632,6 +636,57 @@ const SCENARIO_BALANCE: Record<string, number> = {
 function customPromptCost(): number {
   return scenario() === 'credit:custom-cost-3' ? 3 : 2
 }
+/**
+ * 주문 웹훅이 **방금 도착한 것처럼** 잔액을 움직입니다 (백엔드 PR #201).
+ *
+ * 목의 `GET /v1/credits` 는 지금까지 정적이었습니다 — 몇 번을 새로고침하든 같은 값이라
+ * 「쇼핑몰에서 주문하고 돌아오면 +20」도 「취소하면 −20」도 **브라우저에서 밟을 수가
+ * 없었습니다.** 원장 픽스처에 `order_reward`·`order_clawback` 행이 들어 있긴 하지만
+ * 그건 **결과를 적어 둔 것**이라, 라벨과 음수 표기만 확인될 뿐 «숫자가 움직이는 순간»
+ * 은 여전히 못 봅니다.
+ *
+ * 회수 쪽이 특히 중요해졌습니다. 30분 크론이던 시절 취소는 나중에 원장에서 발견하는
+ * 일이었는데, #201 의 웹훅이 이걸 **사용자가 화면을 보고 있는 수 초 안**으로 옮겼습니다.
+ * W-10 주문 줄에 「취소하면 회수」를 적어 둔 근거가 그것이고, 그 문장이 가리키는 사건을
+ * 목이 만들 수 있어야 합니다.
+ *
+ * **한 번만** 먹습니다. 잔액 조회는 앱바 배지가 화면마다 부르는데 매번 더하면 폴링할
+ * 때마다 잔액이 불어나서, 흉내 내려던 «주문 한 건» 이 아니라 없는 사건이 됩니다.
+ * 시나리오를 껐다 켜면 다시 한 번 먹습니다(`applyEmptyScenario` 와 같은 규칙).
+ *
+ * 금액을 `earn_actions` 에서 읽는 이유는 운영이 주문 보상을 바꿀 수 있기 때문입니다
+ * (PR #186 의 `PATCH /v1/admin/settings/{key}`). 여기에 20 을 박아 두면 서버가 30 인
+ * 상황에서 목만 20 을 움직여, 화면이 말하는 금액과 실제 변화가 갈립니다.
+ */
+const ORDER_SCENARIO_REF = '#20260902'
+let orderScenarioApplied: string | null = null
+
+function applyOrderScenario(): void {
+  const forced = scenario()
+  if (forced !== 'order:paid' && forced !== 'order:cancelled') {
+    orderScenarioApplied = null
+    return
+  }
+  if (orderScenarioApplied === forced) return
+  orderScenarioApplied = forced
+
+  const paid = forced === 'order:paid'
+  const amount = state.credits.earn_actions.find((row) => row.action === 'order')?.amount ?? 20
+  state.credits.balance += paid ? amount : -amount
+  /*
+    같은 주문번호로 짝을 맞춥니다 — `order:paid` 로 받고 `order:cancelled` 로 회수하면
+    원장에 한 주문의 일생이 두 줄로 남습니다. 번호가 다르면 「내가 취소한 그 주문」인지
+    사용자가 확인할 수 없고, 그게 이 표를 보러 오는 유일한 이유입니다.
+  */
+  ledgerEntries.unshift({
+    reason: paid ? 'order_reward' : 'order_clawback',
+    ref_label: ORDER_SCENARIO_REF,
+    occurred_on: new Date().toISOString().slice(0, 10),
+    amount: paid ? amount : -amount,
+  })
+  persist()
+}
+
 let balanceApplied = false
 function applyEmptyScenario() {
   const forced = SCENARIO_BALANCE[scenario()]
@@ -1907,6 +1962,7 @@ export const handlers = [
       })
     }
     applyEmptyScenario()
+    applyOrderScenario()
     return HttpResponse.json({
       ...state.credits,
       earn_actions: guestAware(state.credits.earn_actions),
