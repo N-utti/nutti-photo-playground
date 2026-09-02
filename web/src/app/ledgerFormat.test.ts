@@ -25,6 +25,9 @@ describe('reasonLabel', () => {
     ['daily_free', '매일 무료'],
     ['guest_trial', '첫 무료'],
     ['cs_adjustment', '고객센터 조정'],
+    // 병합 시 게스트 잔액 이관 (백엔드 PR #235 · 이슈 #11 L6). 라벨은 그 PR 이 넣었는데
+    // 이 표에만 안 들어와서, 열한 번째 사유만 «표 밖» 이 돼 있었습니다.
+    ['guest_merge', '게스트 크레딧 이전'],
   ])('%s → %s', (reason, label) => {
     expect(reasonLabel(reason)).toBe(label)
   })
