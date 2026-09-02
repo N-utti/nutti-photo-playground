@@ -42,7 +42,12 @@ import {
 import { useGuestSessionReset } from '../app/guestSession'
 import { contextFromJob, withReuse } from '../app/reuseFromJob'
 import { saveImage, type SaveImageOutcome } from '../app/saveImage'
-import { canShareImage, shareImage, type ShareImageOutcome } from '../app/shareImage'
+import {
+  canShareImage,
+  fetchShareFile,
+  shareImage,
+  type ShareImageOutcome,
+} from '../app/shareImage'
 import { StyleInputForm } from '../app/StyleInputForm'
 import {
   effectiveInputValue,
@@ -275,9 +280,16 @@ function ResultPanel({ job }: { job: Job }) {
         target="_blank"
         rel="noreferrer"
         onClick={() =>
+          /*
+            `from` 은 다른 두 출구(TabBar `'tabbar'` · EarnActionList `'W-10'`)가 이미
+            싣고 있는데 여기만 빠져 있었습니다. 링크의 `utm_content` 로 쇼핑몰 쪽
+            GA4 에서는 화면이 갈리지만, 놀이터 쪽 이벤트에서는 이 출구만 익명이라
+            「어느 화면이 주문을 만들었나」가 반쪽이었습니다. 값이 `w06_result` 가
+            아닌 건 이벤트 쪽 관례가 UTM 과 따로 서 있기 때문입니다.
+          */
           track({
             event_type: 'shop_exit_click',
-            properties: { job_id: job.job_id },
+            properties: { job_id: job.job_id, from: 'W-06' },
           })
         }
         className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-brand-2 bg-brand-soft px-3 py-3 hover:border-brand hover:bg-gold-soft"
@@ -534,11 +546,19 @@ function ShareRow({ job }: { job: Job }) {
     유일한 웹 경로입니다(app/shareImage.ts). 다만 시트에 뜨는 건 인스타그램만이 아니라
     카톡·메시지·에어드롭이기도 해서, 버튼은 «인스타에 올리기» 가 아니라 실제로 열리는
     것의 이름인 «공유» 로 씁니다. 파일 공유가 안 되는 브라우저(데스크톱 대부분)에서는
-    눌러도 `unsupported` 로 끝나므로 그 자리를 인스타그램 링크로 바꿉니다 —
-    눌러도 아무 일이 안 일어나는 버튼을 두지 않습니다.
+    아래 `shareSheetAvailable` 이 그 자리를 인스타그램 링크로 바꿉니다 — 눌러도 아무 일이
+    안 일어나는 버튼을 두지 않습니다.
   */
   const [sharing, setSharing] = useState(false)
   const [shareOutcome, setShareOutcome] = useState<ShareImageOutcome | null>(null)
+  /*
+    받아 둔 파일을 **탭 사이에 들고 있습니다.** `navigator.share()` 는 사용자 제스처의
+    활성화 창 안에서 불려야 하는데 파일 받기가 그 앞에 있어서, 회선이 느리면 첫 탭이
+    `expired` 로 끝날 수 있습니다(app/shareImage.ts). 그때 이 값이 남아 있으면 두 번째
+    탭은 네트워크 없이 시트가 떠서, 「다시 눌러 주세요」가 실제로 통하는 안내가 됩니다.
+    state 가 아니라 ref 인 건 이 값이 화면에 아무것도 안 그리기 때문입니다.
+  */
+  const shareFile = useRef<File | null>(null)
   const shareSheetAvailable = canShareImage()
   // 서버가 보는 상태를 씁니다 — 시트에서 로그인하면 캐시가 무효화되면서 이 줄이
   // 곧바로 회원으로 바뀝니다. localStorage 의 kind 는 값이 바뀌어도 리렌더가 없습니다.
@@ -587,13 +607,19 @@ function ShareRow({ job }: { job: Job }) {
     setSharing(true)
     setShareOutcome(null)
     try {
-      const url = await resolveShareUrl()
-      if (url === null) return
-      const outcome = await shareImage(
-        url,
-        filename,
-        '누띠 사진 놀이터에서 만든 우리 아이 사진 🐾 @nutti_official',
-      )
+      if (shareFile.current === null) {
+        const url = await resolveShareUrl()
+        // 사유는 아래 `share.error` 가 이미 적고 있습니다 — 여기서 또 말하지 않습니다.
+        if (url === null) return
+        shareFile.current = await fetchShareFile(url, filename)
+      }
+      const outcome =
+        shareFile.current === null
+          ? 'failed'
+          : await shareImage(
+              shareFile.current,
+              '누띠 사진 놀이터에서 만든 우리 아이 사진 🐾 @nutti_official',
+            )
       setShareOutcome(outcome)
       track({ event_type: 'share_sheet', properties: { job_id: job.job_id, outcome } })
     } finally {
@@ -660,6 +686,16 @@ function ShareRow({ job }: { job: Job }) {
       {saveOutcome === 'failed' && (
         <p role="alert" className="mt-2 text-center text-sm text-danger">
           저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.
+        </p>
+      )}
+      {/*
+        사진을 받는 사이에 활성화 창이 지나 브라우저가 시트를 거절한 경우입니다. 사진은
+        이미 손에 있으니(`shareFile`) 한 번 더 누르면 곧바로 뜹니다 — 저장하러 보내면
+        안 됩니다.
+      */}
+      {shareOutcome === 'expired' && (
+        <p role="alert" className="mt-2 text-center text-sm text-danger">
+          사진을 받는 사이에 공유 시트가 닫혔어요 — 한 번 더 눌러 주세요.
         </p>
       )}
       {shareOutcome === 'failed' && (

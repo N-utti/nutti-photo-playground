@@ -33,7 +33,7 @@ npm run test     # vitest — 컴포넌트 회귀 테스트
 |---|---|---|
 | 게스트·로그인·연동·탈퇴 | `/auth/*` | 구현 (`DELETE /auth/me` 포함 — 2026-08-21 실측) |
 | 스타일 카탈로그·상세 | `/styles`, `/styles/{id}` | 구현 |
-| 업로드(품질·비전·견종) | `POST /uploads` | 구현 |
+| 업로드(품질·비전) | `POST /uploads` | 구현 — 견종은 여기서 안 봅니다(#210 이 비전 추정 폐기, W-04 에서 사용자가 고름) |
 | 펫 CRUD | `/pets*` | 구현 |
 | 크레딧·클레임·원장 | `/credits*` | 구현 |
 | 생성 요청·조회 | `POST /jobs`, `GET /jobs/{id}` | 구현 |
@@ -57,7 +57,7 @@ localhost:8000/openapi.json` 의 `paths['/v1/auth/me']` 키로 확인됩니다).
 이번엔 스키마가 뒤처져 `column "input_fields" does not exist` 로 500 이 납니다. 백엔드를
 당긴 뒤에는 `python -m uv run aerich upgrade` 를 먼저 돌립니다.
 
-비전 검사(고양이 차단·견종 추정)와 실제 이미지 생성은 `OPENAI_API_KEY`가 있어야
+비전 검사(고양이 차단·사람 얼굴·여러 마리)와 실제 이미지 생성은 `OPENAI_API_KEY`가 있어야
 켜집니다. 키가 없으면 업로드는 경고 없이 통과하고, 워커는 포스터라이즈 폴백 이미지를
 만듭니다 — 배선 검증에는 충분하지만 «결과물 품질»은 그 그림으로 판단할 수 없습니다.
 
@@ -79,8 +79,8 @@ localhost:8000/openapi.json` 의 `paths['/v1/auth/me']` 키로 확인됩니다).
 
 ```js
 localStorage.setItem('nutti.mock.scenario', 'job:normal')   // 예전 기본값(1.5초 큐 + 12초 생성) — W-05 를 밟는 유일한 «정상» 경로
-localStorage.setItem('nutti.mock.scenario', 'upload:warn')  // 품질 경고(비차단) · 견종은 계산기 목록 밖(→ 믹스견 폴백)
-localStorage.setItem('nutti.mock.scenario', 'upload:nodog') // 강아지 미검출 경고(FR-EDGE-08) · 견종 추정 실패
+localStorage.setItem('nutti.mock.scenario', 'upload:warn')  // 품질 경고(비차단)
+localStorage.setItem('nutti.mock.scenario', 'upload:nodog') // 강아지 미검출 경고(FR-EDGE-08)
 localStorage.setItem('nutti.mock.scenario', 'upload:multi') // 여러 마리(FR-EDGE-09)
 localStorage.setItem('nutti.mock.scenario', 'upload:face')  // 사람 얼굴 — policy=warn (FR-EDGE-06)
 localStorage.setItem('nutti.mock.scenario', 'upload:face-block') // 사람 얼굴 — policy=block (FR-EDGE-06)
@@ -97,6 +97,8 @@ localStorage.setItem('nutti.mock.scenario', 'credit:custom-cost-3') // 커스텀
 localStorage.setItem('nutti.mock.scenario', 'styles:no-images') // 예시 이미지가 없는 스타일 — 자리표시자·캐러셀 생략(기본 목은 시드가 채운 실서버 그대로 1장)
 localStorage.setItem('nutti.mock.scenario', 'styles:rich')      // 운영이 예시를 더 올리고 궁합 태그를 채운 뒤 — 캐러셀 페이저·궁합 칩
 localStorage.setItem('nutti.mock.scenario', 'styles:retired')   // 운영이 스타일을 회수한 뒤(PR #182 DELETE = status:retired) — 목록·상세·job 생성 셋 다 빠짐. **먼저 그 스타일로 결과를 하나 만든 뒤** 켜세요(아래)
+localStorage.setItem('nutti.mock.scenario', 'cafe24:upstream') // 쇼핑몰(카페24) 서버가 응답 없음 — 502. 연동 인증번호 요청·확인 **양쪽**에서 남. 백엔드 PR #197 이 프로덕션 실측 사유를 로그로 남긴 그 오류이고, 이 시나리오가 없던 동안 ShopLinkSheet 의 전용 문구가 브라우저에서 한 번도 안 떴습니다
+localStorage.setItem('nutti.mock.scenario', 'ig:used')        // 인스타 DM 코드를 **남이 먼저** 소진 — 409. 코드는 `NUTTI2026` 을 그대로 넣으세요(형식은 맞고 계정이 이미 쓰인 상태). 「이미 받은 크레딧이에요」(내가 받음)와 다른 문장인지 봅니다
 localStorage.setItem('nutti.mock.scenario', 'session:expired') // 액세스 만료 — 게스트는 재발급 → 404, 회원은 리프레시 회전으로 조용히 복구(PR #57)
 localStorage.setItem('nutti.mock.scenario', 'refresh:fail')    // 만료 + 회전 401 — 회원 재로그인 안내(다른 기기 로그인·30일 초과와 같은 코드)
 localStorage.setItem('nutti.mock.scenario', 'refresh:429')     // 만료 + 회전 429 — 공유 IP 에서 남이 태운 버킷에 걸린 회원(이슈 #11 R3). 세션은 살아 있고 기다리면 풀림
@@ -183,7 +185,7 @@ job 째로 **404** 인 경우(«삭제한 결과입니다»)는 지운 게 이 �
 | `screens/W05Waiting.test.tsx` | 5xx 한 번에 화면을 헐어 **살아 있는 작업**을 포기시키는 것 · 1분을 넘겨 놓고 "거의 다 됐어요"라고 하는 것 |
 | `screens/W06Result.test.tsx` | 문서에 없는 `error_code` 하나에 결과 화면이 통째로 죽는 것(실측 이력) |
 | `screens/W06RegenerateInputs.test.tsx` | 「다시 만들기」가 화면에 적어 놓은 옵션을 요청에서 빼는 것 — 같은 버튼·같은 크레딧으로 **다른 그림**이 나오는 것(이슈 #127) |
-| `screens/W04Upload.test.tsx` | 그림에 **글자로 박히는 것**(이름·견종)을 크레딧 쓰기 전에 말하지 않는 것 — 폴백 «우리 아이»를 예고만 하고 통과시키는 것 · 추정 못 한 견종을 말해 «토이푸들»을 기대하게 하는 것 · 반대로 아는 견종을 안 말해 #131 이전으로 조용히 되돌아가는 것 |
+| `screens/W04Upload.test.tsx` | 그림에 **글자로 박히는 것**(이름·견종)을 크레딧 쓰기 전에 말하지 않는 것 — 폴백 «우리 아이»를 예고만 하고 통과시키는 것 · 고르지 않은 견종을 말해 «토이푸들»을 기대하게 하는 것 · 반대로 고른 견종을 안 말해 #131 이전으로 조용히 되돌아가는 것 |
 | `screens/W07Calculator.test.tsx` | 견종을 모르는데 안다고 해서 **남의 강아지 기준 간식량**을 넘기는 것 |
 | `screens/EarnActionList.test.tsx` | 매출 직결 줄이 응답 순서에 밀리는 것 · 게스트에게 받지 못할 보상을 약속하는 것 |
 | `screens/W08Creative.test.tsx` | 서버가 막은 문구에 **서버 원문**을 띄워 무엇을 고칠지 모르게 하는 것 · 안내만 띄우고 버튼은 열어 두는 것 |
@@ -347,6 +349,17 @@ Router 가 그 API 를 씁니다. 여기서 또 보내면 화면 하나가 **두
 문서가 못 박는 두 가지 — 사용자의 직접 클릭이 아니라 **JS 로 이동시키면** `_gl` 이 안
 붙고, 중간에서 `Event.stopPropagation()` 을 하면 이벤트가 문서 노드까지 못 갑니다.
 오늘 출구 넷(W-06 쇼핑몰·계산기, W-07, W-10, 탭바)은 전부 평범한 `<a href>` 입니다.
+
+⚠️ **누띠샵으로 나가는 주소를 직접 쓰지 마세요 — `shopLink(exit)` 을 지나야 합니다**
+(`app/externalLinks.ts`, PR #208). 이 함수가 유입 추적 파라미터를 붙입니다:
+`utm_source=nutti_playground` · `utm_medium=referral` · `utm_campaign=playground_exit` ·
+`utm_content=<출구>`(`w06_result`·`w10_credits`·`tabbar`). `NUTTI_SHOP_URL` 을 `href` 에
+그대로 물리면 링크는 멀쩡히 동작하고 화면도 똑같아서, **어느 화면이 주문을 만들었는지만
+조용히 사라집니다.** `app/externalLinks.test.ts` 가 네 파라미터를 전부 못 박고 있지만
+그건 이 함수를 **쓸 때**만 지켜 줍니다 — 우회하면 잡을 방법이 없습니다.
+
+계산기 링크(`utm_campaign=calculator_handoff`)는 서버가 완성해 내려주므로 프론트가
+가공하지 않습니다(FR-W07-03). 규약은 같고 캠페인 이름만 다릅니다.
 
 ## 놀이터 도메인 — `play.nutti.co.kr` (2026-08-26 확정)
 
@@ -548,7 +561,7 @@ W-06 이 그 404 에 걸려 있었습니다. `input_fields` 를 못 받으면 �
 | [#33](https://github.com/N-utti/nutti-photo-playground/issues/33) | 보관함 항목 `pet_id` 가 `null` 일 수 있는지 §3 에 없음 | W-09 강아지 필터 | 해결 (PR #51 — §3 에 `pet_id: uuid \| null` 명시). 삭제된 펫과 «펫 없이 만든 결과»를 클라이언트가 구분하지 않는 것도 확정이고, **삭제된 펫을 가리키는 `?pet_id=` 조회는 404 가 아니라 빈 목록**이라 W-09 는 그 필터를 «전체»로 걷습니다 |
 | [#41](https://github.com/N-utti/nutti-photo-playground/issues/41) | job 응답에 시작 시각(`created_at`) 없음 | W-05 FR-EDGE-02 판정 | 해결. 응답이 `queued_at`·`started_at`을 답하고 W-05가 **서버 우선**으로 잽니다(`useStartedAt`). 워커가 재시도할 때도 최초 `started_at`을 유지하므로 판정 기준이 재시도마다 리셋되지 않습니다(`app/worker.py` `lease_job`) |
 | [#71](https://github.com/N-utti/nutti-photo-playground/issues/71) | 스타일·펫 썸네일 URL이 `public_url()` 을 안 거쳐 로컬에서 404 | W-02 카탈로그·W-04 펫 목록 (목을 끈 로컬 한정) | 해결 (PR #74). 프론트는 무변경(`/media` dev proxy 는 PR #72 로 이미 있음) |
-| [#77](https://github.com/N-utti/nutti-photo-playground/issues/77) | 결과 이미지 스토리지에 CORS 헤더 없음 | `CDN_BASE_URL` 을 채우는 배포 시점 | 대기 — 프론트 몫은 닫혔고(PR #78) 남은 건 R2/CDN 운영 설정입니다. `app/saveImage.ts` 가 fetch→blob 으로 저장하고 CORS 가 없으면 새 탭 폴백 — **CORS 가 열려도 그 우회는 걷어내지 않습니다**(PR #80). **닫는 레버는 생겼습니다**(백엔드 PR #112): R2 프로비저닝 직후 `uv run python scripts/setup_r2_cors.py --origins <웹 오리진>` 한 번(GET·HEAD 규칙, `--dry-run` 으로 미리 확인). 다만 **«스크립트가 성공» 은 닫는 근거가 아닙니다** — 규칙은 버킷에 걸리는데 프론트가 부르는 건 그 앞의 CDN 이고, 규칙 적용 전에 CDN 이 한 번이라도 캐시한 응답에는 `Access-Control-Allow-Origin` 이 없어 캐시 퍼지까지 필요합니다. 확인은 **웹 오리진에서 `CDN_BASE_URL` 의 결과 이미지를 실제로 저장**해 보는 것뿐입니다: 실패해도 화면은 조용히 새 탭으로 물러나 오류가 안 나므로(그게 #77 의 «조용히 깨짐»), 닫는 순간에도 같은 조용함이 그대로 남아 있습니다 |
+| [#77](https://github.com/N-utti/nutti-photo-playground/issues/77) | 결과 이미지 스토리지에 CORS 헤더 없음 | — | **닫힘 (2026-09-01)** — R2 버킷 `nutti-media` 에 `AllowedOrigins=[https://play.nutti.co.kr]`·GET/HEAD 적용, `CDN_BASE_URL=https://img.nutti.co.kr`. 다만 **서버 CORS 는 필요조건이었지 충분조건이 아니었습니다**: 결과 `<img>` 가 `crossOrigin` 없이 받아 둔 무-CORS 응답을 브라우저 캐시가 재사용해 저장·공유가 계속 실패했고, PR #215 의 `cache: 'no-store'` 가 그 나머지 절반입니다(`app/saveImage.ts`·`app/shareImage.ts`, 두 파일의 테스트가 그 옵션을 못 박습니다). **`<a download>` 로 되돌리지 마세요** — CORS 는 fetch 를 허용할 뿐, 교차 출처에서 무시되는 `download` 속성을 되살리지 않습니다(PR #80). 로컬에서는 허용 오리진이 `play.nutti.co.kr` 하나뿐이라 항상 새 탭 폴백입니다 — **이 경로의 진짜 확인은 배포 오리진의 실기기에서만** 되고, 그 한 건이 아직 안 밟혔습니다 |
 | [#81](https://github.com/N-utti/nutti-photo-playground/issues/81) | job 응답에 `custom_prompt`·`credit_cost` 없음 | W-06 «다시 만들기» — W-08 커스텀 job 한정 | 해결 (PR #83). 커스텀 결과를 **다른 기기·링크로 열어도** 같은 문구·같은 비용으로 다시 만듭니다. 이 필드가 로컬 색인의 마지막 존재 이유였어서 `api/jobContext.ts` 를 호출부째 삭제했고, 맥락 조립은 `app/reuseFromJob.ts` `contextFromJob` 하나로 모였습니다. `credit_cost` 덕에 W-06 이 비용을 알아내려 스타일 상세를 따로 부르던 조회도 없어졌습니다 |
 | [#127](https://github.com/N-utti/nutti-photo-playground/issues/127) | job 응답에 `input_values` 없음 | W-06 «다시 만들기» — `input_fields` 를 가진 24종 한정 | 해결 (백엔드 PR #139 → 프론트 PR #143). `GET /v1/jobs/{id}` 가 `inputs` 를 답해 **지난 값 되살리기**까지 닫혔습니다 — 그전까지 열려 있던 건 이 절반뿐이었고, «말없이 기본값으로 바꾸는» 나머지 절반은 계약 없이 먼저 닫아 둔 상태였습니다. 합치는 순서가 규칙입니다: **기본값 → 지난번 값 → 이 화면에서 고친 값**(`screens/W06Result.tsx` `Regenerate`). `inputs` 를 그대로 폼 값으로 쓰지 않는 이유가 첫 항목입니다 — `default` 가 없는 `prefill` 칸은 서버가 저장하지 않아(`_resolve_input_values` 가 `continue`) `inputs` 에 **아예 없고**, 그 칸을 비운 채 두면 이름이 인쇄되는 스타일에서 폼이 «우리 아이» 라고 잘못 말합니다. 지금 스키마에 없는 라벨은 걸러 냅니다(`app/styleInputs.ts` `restoredInputValues`) — 운영이 job 이후에 칸을 바꾸면 `inputs` 에 없어진 라벨이 남습니다. 스타일 상세는 계속 부릅니다: `inputs` 는 「무엇으로 만들었나」만 답하고 「지금 무엇을 고를 수 있나」는 스키마 쪽에만 있습니다. 접힌 줄 아래 한 줄이 **지금 값의 출처**를 밝힙니다 — 계약 이전 job(`inputs: null`)은 «지난번 값은 불러올 수 없어 기본값이에요», 되살린 경우는 «지난번에 만든 값 그대로예요», 사용자가 고친 뒤에는 아무 말도 안 합니다 |
 | [#131](https://github.com/N-utti/nutti-photo-playground/issues/131) | 워커의 `[breed]` 치환이 항상 «강아지» 로 떨어짐 | W-04 확인 단계의 **견종** 칸 | 해결. 비전 견종 추정은 폐기했고, W-04 확인 단계에서 사용자가 계산기 40종 목록(`api/breeds.ts`)에서 고르거나 «직접 입력» 으로 씁니다(`screens/W04Upload.tsx` `BreedField`). 값은 `POST /v1/jobs` `breed` 로 나가 서버가 업로드·붙은 강아지에 적어 두고, 워커 `[breed]` 치환과 계산기 링크가 그 값을 읽습니다. 재사용 경로는 `GET /v1/jobs/{id}` 의 `breed` 로 미리 채웁니다 |

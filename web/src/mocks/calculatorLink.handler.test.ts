@@ -113,6 +113,28 @@ describe('목 · GET /v1/calculator-link?pet_id=', () => {
     expect(link.calculator_url).toContain(`name=${pet.name}`)
   })
 
+  it('사진이 없어도 강아지에 적힌 견종을 따라간다', async () => {
+    /*
+      **이 파일에서 순서를 지키는 유일한 자리입니다.** 서버는 강아지에 저장된 견종을
+      1순위로 보고 없을 때만 최신 사진에 적힌 값으로 내려갑니다(app/routers/results.py:69·72).
+      목은 오래도록 반대였는데 안 드러났습니다 — 콩이는 사진과 견종이 둘 다 있고 그
+      견종이 하필 시드 견종과 같은 값이라 어느 쪽을 읽어도 결과가 같고, 두부는 둘 다
+      없어서 역시 못 가립니다.
+
+      보리가 그 사이를 가릅니다. 순서가 뒤집히면 사진이 없으니 곧바로 견종 없음으로
+      떨어져서, 화면은 실서버에서 일어나지 않을 FR-EDGE-10 안내를 띄우게 됩니다.
+    */
+    const pet = petList[2]
+    expect(pet.latest_upload_id).toBeNull()
+    expect(pet.breed).toBe('웰시코기')
+
+    const link = await (await linkForPet(pet.id)).json()
+
+    expect(link.breed_code).toBe('웰시코기')
+    expect(link.size_label).toBe('중형')
+    expect(link.calculator_url).toContain(`name=${pet.name}`)
+  })
+
   it('없는 강아지는 폴백이 아니라 404 다', async () => {
     // 마이페이지에서 강아지를 지운 뒤 히스토리·북마크로 돌아오는 자리입니다. 200 을
     // 주면 지워진 강아지로 앱 밖 계산기에 넘어가고, 거기서는 되돌릴 곳이 없습니다.
