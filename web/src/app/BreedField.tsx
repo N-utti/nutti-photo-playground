@@ -30,7 +30,7 @@ export default function BreedField({
   const selectValue = custom ? CUSTOM_BREED : value
 
   return (
-    <section className="mt-3 rounded-lg border border-rule bg-surface-2 px-3 py-3">
+    <section className="mt-3 rounded-lg border border-rule bg-surface px-3 py-3">
       <label htmlFor={id} className="text-sm font-semibold">
         견종
       </label>
