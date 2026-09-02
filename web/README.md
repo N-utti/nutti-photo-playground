@@ -97,6 +97,8 @@ localStorage.setItem('nutti.mock.scenario', 'credit:custom-cost-3') // 커스텀
 localStorage.setItem('nutti.mock.scenario', 'styles:no-images') // 예시 이미지가 없는 스타일 — 자리표시자·캐러셀 생략(기본 목은 시드가 채운 실서버 그대로 1장)
 localStorage.setItem('nutti.mock.scenario', 'styles:rich')      // 운영이 예시를 더 올리고 궁합 태그를 채운 뒤 — 캐러셀 페이저·궁합 칩
 localStorage.setItem('nutti.mock.scenario', 'styles:retired')   // 운영이 스타일을 회수한 뒤(PR #182 DELETE = status:retired) — 목록·상세·job 생성 셋 다 빠짐. **먼저 그 스타일로 결과를 하나 만든 뒤** 켜세요(아래)
+localStorage.setItem('nutti.mock.scenario', 'order:paid')      // 주문 결제 웹훅이 방금 도착 — **다음** 잔액 조회에서 +주문보상, 원장 맨 앞에 `order_reward`. 한 번만 먹습니다(폴링해도 안 불어남). 밟는 법: W-10 에서 「쇼핑몰 →」로 나갔다 돌아오기(창 포커스 시 재조회)
+localStorage.setItem('nutti.mock.scenario', 'order:cancelled') // 주문 취소 웹훅 — 다음 조회에서 회수(−주문보상)·원장에 `order_clawback`. `order:paid` 뒤에 켜면 같은 주문번호로 두 줄이 짝을 이룹니다. W-10 주문 줄의 「취소하면 회수」가 가리키는 사건이 이것이고, #201 웹훅 전에는 30분 뒤에나 보이던 일입니다
 localStorage.setItem('nutti.mock.scenario', 'cafe24:upstream') // 쇼핑몰(카페24) 서버가 응답 없음 — 502. 연동 인증번호 요청·확인 **양쪽**에서 남. 백엔드 PR #197 이 프로덕션 실측 사유를 로그로 남긴 그 오류이고, 이 시나리오가 없던 동안 ShopLinkSheet 의 전용 문구가 브라우저에서 한 번도 안 떴습니다
 localStorage.setItem('nutti.mock.scenario', 'ig:used')        // 인스타 DM 코드를 **남이 먼저** 소진 — 409. 코드는 `NUTTI2026` 을 그대로 넣으세요(형식은 맞고 계정이 이미 쓰인 상태). 「이미 받은 크레딧이에요」(내가 받음)와 다른 문장인지 봅니다
 localStorage.setItem('nutti.mock.scenario', 'session:expired') // 액세스 만료 — 게스트는 재발급 → 404, 회원은 리프레시 회전으로 조용히 복구(PR #57)
