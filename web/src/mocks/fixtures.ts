@@ -265,7 +265,9 @@ export function styleDetailFor(
     /*
       시드는 `fit_tags` 를 안 건드립니다(모델 기본값 `[]`). PR #141 이 채운 건 썸네일
       뿐이라 **이건 여전히 빈 배열입니다** — 2026-08-24 실측으로 확인했습니다. 채우는
-      경로는 admin API 인데 아직 501 이라, 운영도 넣을 수 없습니다.
+      경로(`POST`/`PATCH /v1/admin/styles` 의 `fit_tags`)는 PR #182 로 열렸지만, 운영이
+      실제로 넣기 전까지 실서버는 계속 빈 배열입니다. 그래서 기본 갈래는 `[]` 로 두고
+      채워진 스타일은 `images === 'rich'` 로만 밟습니다.
     */
     fit_tags:
       images === 'rich'
@@ -410,9 +412,11 @@ export const initialCredits: Credits = {
   balance: 11,
   /*
     실서버 실측값입니다 — `app_setting` 에 `custom_prompt_credit_cost` 행이 없어서
-    `GET /v1/credits` 가 폴백 2 를 내려 줍니다(app/credits.py). admin 라우터가
-    `not_implemented` 라 그 행을 만들 수단 자체가 없습니다. «2 가 아닌 서버» 는
-    시나리오 `credit:custom-cost-3` 으로 밟습니다 — handlers.ts 의 customPromptCost().
+    `GET /v1/credits` 가 폴백 2 를 내려 줍니다(app/credits.py). 그 행을 만드는 수단은
+    PR #186 이 열었지만(`PATCH /v1/admin/settings/{key}`, 없으면 새로 만듭니다) 운영이
+    아직 안 눌러서 폴백 그대로입니다 — 즉 이 값은 «정책값» 이 아니라 «미설정» 입니다.
+    «2 가 아닌 서버» 는 시나리오 `credit:custom-cost-3` 으로 밟습니다 — handlers.ts 의
+    customPromptCost().
   */
   custom_prompt_credit_cost: 2,
   earn_actions: [
