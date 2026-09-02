@@ -388,18 +388,25 @@ Router 가 그 API 를 씁니다. 여기서 또 보내면 화면 하나가 **두
 이 값을 읽는 곳은 `api/client.ts` 의 base 하나뿐이라 **프론트 코드 변경은 없었습니다**.
 정적 서빙은 Vultr VPS 위의 Caddy 가 `web/dist` 를 그대로 내려 줍니다(`deploy/Caddyfile`).
 
-**오리진이 갈렸다는 사실이 프론트에 청구서를 두 장 남깁니다** — 둘 다 `deploy/`·`app/` 소유
+**오리진이 갈렸다는 사실이 프론트에 청구서를 두 장 남겼습니다** — 둘 다 `deploy/`·`app/` 소유
 파일이라 여기서 못 고치고 이슈 [#219](https://github.com/N-utti/nutti-photo-playground/issues/219)
-로 올렸습니다.
+로 올렸고, **백엔드 PR #222 가 둘 다 닫았습니다(2026-09-02)**. 청구서의 내용을 지우지 않고
+남겨 두는 이유는, 이 부류가 **로컬에서는 영영 안 드러나기** 때문입니다 — 다음에 헤더를
+새로 읽거나 자산 경로를 늘릴 때 같은 자리에서 같은 방식으로 다시 납니다.
 
 - **CORS 안전목록 밖의 응답 헤더는 `expose_headers` 에 없으면 JS 가 못 읽습니다.** 안전목록은
   `Cache-Control`·`Content-Language`·`Content-Length`·`Content-Type`·`Expires`·`Last-Modified`·
-  `Pragma` 뿐입니다. 지금 `app/main.py` 는 `ETag` 만 노출해서 `Retry-After` 가 프로덕션에서
-  늘 null 이 되고, 429 문구 5 곳이 「잠시 뒤」로 고정됩니다(윈도우는 최대 60분입니다).
+  `Pragma` 뿐입니다. `Retry-After` 는 오리진이 갈린 뒤 한동안 프로덕션에서 늘 null 이었고
+  429 문구 5 곳이 「잠시 뒤」로 고정돼 있었습니다(윈도우는 최대 60분입니다) — 백엔드 PR #222
+  가 `app/main.py` 의 `expose_headers` 에 추가해 해결됐습니다(이슈 #219).
   **응답 헤더를 새로 읽기 시작할 때마다 서버의 `expose_headers` 를 같이 확인하세요** — 목은
-  같은 오리진이라 이 부류를 **영영 못 잡습니다**.
-- **Caddy 의 `try_files {path} /index.html` 이 404 를 삼킵니다.** 로컬 vite 에서 겪은 그 함정
-  (「실수하기 쉬운 지점」의 SPA fallback 항목)이 프로덕션에도 그대로 있습니다.
+  같은 오리진이라 이 부류를 **영영 못 잡습니다**. 로컬에서 멀쩡하고 프로덕션에서만 조용히
+  비는 종류라, 헤더를 읽는 코드를 쓰는 날 서버를 같이 보는 것 말고 잡을 방법이 없습니다.
+- **Caddy 의 SPA fallback 이 404 를 삼키던 것**(없는 JS 가 200 HTML 로 와서 MIME 오류로 백지,
+  폰트면 조용히 폴백 서체)도 **PR #222 로 닫혔습니다** — `deploy/Caddyfile` 의 `@spa` 매처가
+  자산 경로를 제외하고, `@page` 가 HTML 에 `no-cache` 를 걸어 옛 index.html 이 지워진 해시
+  자산을 가리키는 사고도 막습니다. 로컬 vite 쪽 같은 함정은 「실수하기 쉬운 지점」의 SPA
+  fallback 항목에 그대로 있습니다.
 
 **`public/_redirects` 는 지웠습니다** — Cloudflare Pages/Netlify 형식인데 배포 대상이 Caddy 로
 확정(ADR-06)돼 아무도 안 읽고, `dist/` 에 실려 배포 오리진에 공개되기만 했습니다. 거기 적혀
