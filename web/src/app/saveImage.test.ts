@@ -53,6 +53,30 @@ describe('saveImage', () => {
     expect(clicked[0].target).toBe('')
   })
 
+  it('캐시를 건너뛴다 — 그러지 않으면 라이브에서 늘 실패한다', async () => {
+    /*
+      **이 옵션을 지우지 마세요.** 결과 `<img>` 는 `crossOrigin` 없이 로드하므로 브라우저가
+      `Origin` 을 안 보내고, R2 는 매칭되는 CORS 규칙이 없어 `Access-Control-Allow-Origin`
+      과 `Vary: Origin` 이 **둘 다 없는** 응답을 돌려줍니다. `Vary` 가 없으니 그 캐시
+      엔트리가 같은 URL 의 모든 후속 요청에 매칭되고, 여기 fetch(mode: cors)가 그걸
+      재사용해 ACAO 부재로 죽습니다 — 라이브에서 저장·공유가 **항상** 실패하던 원인이고
+      PR #215 가 고친 것입니다.
+
+      단언이 여기 있는 이유: MSW 도 jsdom 도 HTTP 캐시가 없어 `cache` 옵션을 **무시합니다.**
+      화면 테스트로는 이 한 줄을 지워도 전부 초록이라, 다음 사람에게는 «아무것도 안 하는
+      옵션» 으로 보입니다. 이 파일이 그 오해를 막는 유일한 자리입니다.
+    */
+    interceptAnchors()
+    Object.assign(URL, { createObjectURL: () => 'blob:nutti', revokeObjectURL: () => {} })
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response(new Blob(['x'], { type: 'image/jpeg' }), { status: 200 }))
+
+    await saveImage(URL_, 'nutti.jpg')
+
+    expect(fetchSpy).toHaveBeenCalledWith(URL_, { cache: 'no-store' })
+  })
+
   it('서버가 못 준다고 답하면 새 탭을 열지 않는다', async () => {
     const clicked = interceptAnchors()
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 404 }))

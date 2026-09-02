@@ -362,6 +362,13 @@ export function resetMockState(): void {
   localStorage.removeItem(JOBS_KEY)
   localStorage.removeItem(DELETED_KEY)
   localStorage.removeItem(SCENARIO_KEY)
+  /*
+    DM 링크(`?ig=`)로 들어오면 코드가 여기 저장되고(app/instagramCode.ts), 지우지 않으면
+    **초기화 후에도 남습니다.** 브라우저 QA 에서는 시나리오를 리셋해도 W-10 을 열 때마다
+    자동 소진이 다시 도는 것으로 보이고, 테스트는 손으로 지우고 있었습니다. 목 상태를
+    되돌린다는 말에 이 값이 안 들어갈 이유가 없습니다.
+  */
+  localStorage.removeItem('nutti.instagram.code')
 }
 
 /**
@@ -1039,6 +1046,16 @@ export const handlers = [
     if (scenario() === 'cafe24:linked') {
       return apiError(409, 'CAFE24_ALREADY_LINKED', '이미 연동된 계정입니다')
     }
+    /*
+      쇼핑몰(카페24) 서버가 답을 안 주는 경우입니다. **지어낸 상황이 아닙니다** — 백엔드
+      PR #197 이 프로덕션에서 실제로 난 이 오류의 사유를 로그로 남기려고 올라온 PR 입니다.
+      목에 이 분기가 없어서 `ShopLinkSheet.tsx:51` 의 전용 문구가 브라우저에서 한 번도
+      안 떴습니다. request·verify 양쪽에 두는 건 업스트림이 어느 단계에서 죽을지 우리가
+      못 고르기 때문입니다.
+    */
+    if (scenario() === 'cafe24:upstream') {
+      return apiError(502, 'BAD_GATEWAY', '쇼핑몰 서버에서 응답을 받지 못했습니다')
+    }
     if (shop_member_id === 'nobody' || cellphone === '01000000000') {
       return apiError(404, 'CAFE24_MEMBER_NOT_FOUND', '쇼핑몰 회원을 찾을 수 없습니다')
     }
@@ -1059,6 +1076,9 @@ export const handlers = [
       shop_member_id?: string
       cellphone?: string
       code: string
+    }
+    if (scenario() === 'cafe24:upstream') {
+      return apiError(502, 'BAD_GATEWAY', '쇼핑몰 서버에서 응답을 받지 못했습니다')
     }
     if (code !== '123456') {
       return apiError(400, 'CAFE24_CODE_INVALID', '인증번호가 올바르지 않거나 만료됐습니다')
@@ -1708,12 +1728,21 @@ export const handlers = [
     const pet = queryPetId ? petList.find((entry) => entry.id === queryPetId) : undefined
     if (queryPetId && !pet) return apiError(404, 'NOT_FOUND', '강아지를 찾을 수 없습니다')
 
-    // 시드 job(`state.jobs` 밖)·시드 펫의 지난 결과는 되짚을 수단이 없어 정상 케이스로 둡니다.
+    /*
+      순서가 서버와 같아야 합니다 — **강아지에 저장된 견종이 1순위**이고, 없을 때만 그
+      강아지의 최신 사진에 적힌 견종으로 내려갑니다(app/routers/results.py, 백엔드 PR #211).
+      전에는 사진부터 뒤졌는데, 콩이의 견종이 하필 `SEED_BREED` 와 같은 값이라 결과가
+      우연히 맞아서 안 드러났습니다. 갈리는 건 «사진은 없고 견종만 아는 강아지» 뿐이고,
+      픽스처의 보리가 그 자리입니다.
+
+      시드 job(`state.jobs` 밖)·시드 펫의 지난 결과는 되짚을 수단이 없어 정상 케이스로 둡니다.
+    */
     const breed = pet
-      ? pet.latest_upload_id
-        ? ([...state.jobs.values()].reverse().find((entry) => entry.petId === pet.id && entry.breed)
-            ?.breed ?? SEED_BREED)
-        : null
+      ? (pet.breed ??
+        (pet.latest_upload_id
+          ? ([...state.jobs.values()].reverse().find((entry) => entry.petId === pet.id && entry.breed)
+              ?.breed ?? SEED_BREED)
+          : null))
       : job
         ? (job.breed ?? null)
         : SEED_BREED
@@ -1947,6 +1976,19 @@ export const handlers = [
     const { code } = (await request.json()) as { code: string }
     if (code.toUpperCase() !== 'NUTTI2026') {
       return apiError(404, 'INSTAGRAM_CODE_INVALID', '코드가 올바르지 않거나 만료됐어요')
+    }
+    /*
+      **다른 사람이 이미 쓴 코드**입니다. 서버는 인스타 계정 하나가 전 회원 통틀어 한 번만
+      받게 막는데(app/routers/credits.py), 목에는 인스타 계정 식별자 개념이 없어 이 상태를
+      세울 방법이 아예 없었습니다. 그래서 `EarnActionList.tsx:202-203` 의 문구가 브라우저
+      에서 영영 안 뜨고, 테스트도 「없는 코드」쪽만 덮고 있었습니다.
+
+      아래 «이미 받음»(`ALREADY_CLAIMED`)과 다릅니다 — 그건 **내가** 이미 받은 것이고,
+      이건 **남이** 그 계정으로 받아 간 것이라 사용자가 할 수 있는 일이 없습니다.
+      DM 링크를 단체방에 공유하면 실제로 나는 일입니다.
+    */
+    if (scenario() === 'ig:used') {
+      return apiError(409, 'INSTAGRAM_ALREADY_USED', '이미 사용된 인스타 계정이에요')
     }
     const row = state.credits.earn_actions.find((a) => a.action === 'follow_ig')
     if (!row || row.status !== 'available') {

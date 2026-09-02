@@ -322,6 +322,121 @@ describe('W-06 · 저장·공유 버튼', () => {
     }
   })
 
+  /**
+   * 파일 공유가 되는 브라우저를 세우고, `navigator.share` 의 동작만 갈아끼웁니다.
+   * 아래 세 갈래는 전부 여기서만 갈립니다 — 화면·목은 같습니다.
+   */
+  function withShareSheet(share: () => void | Promise<void>): () => void {
+    Object.defineProperty(navigator, 'canShare', { configurable: true, value: () => true })
+    Object.defineProperty(navigator, 'share', { configurable: true, value: async () => share() })
+    return () => {
+      delete (navigator as { canShare?: unknown }).canShare
+      delete (navigator as { share?: unknown }).share
+    }
+  }
+
+  function countImageFetches(): () => number {
+    let fetches = 0
+    server.use(
+      http.get(SHARE_URL, () => {
+        fetches += 1
+        return HttpResponse.arrayBuffer(new Uint8Array([255, 216, 255]).buffer, {
+          headers: { 'Content-Type': 'image/jpeg' },
+        })
+      }),
+    )
+    return () => fetches
+  }
+
+  it('활성화 창이 지나 시트가 거절되면 다시 누르라 하고, 그 두 번째는 사진을 다시 받지 않는다', async () => {
+    /*
+      `navigator.share()` 는 사용자 제스처의 **활성화 창 안에서** 불려야 하는데 파일 받기가
+      그 앞에 있습니다(app/shareImage.ts). 회선이 느리면 WebKit 이 `NotAllowedError` 로
+      거절하는데, 그걸 `failed` 로 접으면 화면은 «저장한 뒤 올려 주세요» 라고 말합니다 —
+      사진은 이미 손에 있고 한 번 더 누르면 되는 사람을 다른 길로 보내는 겁니다.
+
+      그래서 **두 번째 탭에서 `imageFetches` 가 그대로 1 인지까지** 봅니다. 안내가 「한 번
+      더 눌러 주세요」인데 그 두 번째도 같은 왕복을 다시 하면 같은 이유로 또 거절당하고,
+      안내 자체가 거짓말이 됩니다. 이 확률은 PR #215(`no-store` — 캐시 히트 0)와
+      PR #213(품질 92·4:4:4 — 파일이 커짐)이 함께 올려놨습니다.
+    */
+    const user = userEvent.setup()
+    let shareCalls = 0
+    const restore = withShareSheet(() => {
+      shareCalls += 1
+      if (shareCalls === 1) throw new DOMException('user gesture required', 'NotAllowedError')
+    })
+    mockShare()
+    const imageFetches = countImageFetches()
+    try {
+      renderResult(succeededJob())
+
+      await user.click(await screen.findByRole('button', { name: '공유' }))
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        '사진을 받는 사이에 공유 시트가 닫혔어요 — 한 번 더 눌러 주세요.',
+      )
+      expect(imageFetches()).toBe(1)
+
+      await user.click(screen.getByRole('button', { name: '공유' }))
+
+      await waitFor(() => expect(shareCalls).toBe(2))
+      // 캐시에서 바로 갑니다. 여기가 2 가 되면 위 안내가 지킬 수 없는 약속이 됩니다.
+      expect(imageFetches()).toBe(1)
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    } finally {
+      restore()
+    }
+  })
+
+  it('시트를 그냥 닫은 것은 실패가 아니라 아무 말도 하지 않는다', async () => {
+    /*
+      `AbortError` 는 사용자가 «취소» 를 누른 것입니다. 여기에 안내를 띄우면 방금 스스로
+      그만둔 사람에게 뭔가 잘못됐다고 말하는 셈입니다.
+    */
+    const user = userEvent.setup()
+    const restore = withShareSheet(() => {
+      throw new DOMException('share canceled', 'AbortError')
+    })
+    mockShare()
+    countImageFetches()
+    try {
+      renderResult(succeededJob())
+
+      await user.click(await screen.findByRole('button', { name: '공유' }))
+
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: '공유' })).not.toBeDisabled(),
+      )
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    } finally {
+      restore()
+    }
+  })
+
+  it('사진을 못 받으면 저장해서 올리라고 한다', async () => {
+    /*
+      활성화 만료와 갈라 두는 쪽입니다 — 사진이 손에 없으니 다시 눌러도 같은 자리에서
+      막힙니다. 라이브에서 이 갈래를 만들던 게 PR #215 가 고친 CORS 캐시 오염이고,
+      서버가 못 주는 경우(만료된 서명·지워진 파일)도 여기로 옵니다.
+    */
+    const user = userEvent.setup()
+    const restore = withShareSheet(() => undefined)
+    mockShare()
+    server.use(http.get(SHARE_URL, () => new HttpResponse(null, { status: 404 })))
+    try {
+      renderResult(succeededJob())
+
+      await user.click(await screen.findByRole('button', { name: '공유' }))
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        '공유 시트를 열지 못했어요 — 「이미지 저장」으로 저장한 뒤 올려 주세요.',
+      )
+    } finally {
+      restore()
+    }
+  })
+
   it('파일 공유가 안 되는 브라우저에는 「공유」를 두지 않는다', async () => {
     /*
       jsdom 기본값이 곧 데스크톱입니다(`navigator.canShare` 없음). 거기서 그 버튼을

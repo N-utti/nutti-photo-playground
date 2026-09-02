@@ -27,8 +27,25 @@ import ShopLinkSheet from './ShopLinkSheet'
 
 const ACTION_ORDER: EarnAction[] = ['order', 'link_account', 'follow_ig', 'daily']
 
+/**
+ * 서버는 열기 이벤트가 **10초 이상** 지나야 팔로우 클레임을 받습니다
+ * (`app/routers/credits.py` `_verify_follow_ig`, 백엔드 PR #202). 그 전에 누르면
+ * `400 FOLLOW_IG_NOT_OPENED` 인데, 그때 화면이 하는 말은 「팔로우하러 가기로 …
+ * 잠시 후 받기를 눌러 주세요」 — **방금 그걸 누른 사람에게** 다시 누르라고 말합니다.
+ * 서버가 아는 초를 화면이 미리 세면 그 왕복이 아예 없어집니다.
+ */
+const FOLLOW_IG_MIN_WAIT_SECONDS = 10
+
 const EARN_COPY: Record<EarnAction, { title: string; note: string }> = {
-  order: { title: '누띠 주문하기', note: '주문 1건당 · 자동 확인' },
+  /*
+    「취소하면 회수」를 여기 한 자리에만 답니다. 결제 취소는 `order_clawback` 으로 −20 이
+    찍히는데(app/ledgerFormat.ts) 지금까지 그 말을 **미리** 하는 데가 한 곳도 없었습니다.
+    30분 배치일 때는 나중에 원장에서 발견하는 일이었지만, 백엔드 PR #201 의 웹훅이 이걸
+    사용자가 화면을 보고 있는 수 초 안으로 옮겼습니다 — 이유 없이 숫자가 줄어드는 걸
+    보게 됩니다. 연동 시트·마이페이지까지 같이 적지 않는 건, 아직 주문도 안 한 사람에게
+    취소 얘기가 흐름 내내 따라다니면 그건 안내가 아니라 잔소리이기 때문입니다.
+  */
+  order: { title: '누띠 주문하기', note: '주문 1건당 · 자동 확인, 취소하면 회수' },
   link_account: { title: '쇼핑몰 계정 연동', note: '최초 1회' },
   follow_ig: { title: '인스타 팔로우', note: NUTTI_INSTAGRAM_HANDLE },
   daily: { title: '오늘의 무료', note: '매일 자정 충전' },
@@ -390,11 +407,27 @@ function FollowIgCta({
   onRedeem: (code: string) => void
 }) {
   const [username, setUsername] = useState('')
-  const [opened, setOpened] = useState(false)
+  /*
+    「팔로우하러 가기」를 누른 시각. 불리언이 아니라 시각인 건 남은 초를 **벽시계로**
+    세기 위해서입니다 — 서버도 벽시계로 판정하는데, 탭이 백그라운드로 가면 타이머는
+    느려집니다. 그때 카운트다운만 믿으면 화면이 서버보다 늦게 열어 줍니다.
+  */
+  const [openedAt, setOpenedAt] = useState<number | null>(null)
+  const [waitLeft, setWaitLeft] = useState(0)
   const [code, setCode] = useState('')
   const handle = username.trim().replace(/^@/, '')
   const valid = /^[A-Za-z0-9._]{1,30}$/.test(handle)
   const codeValid = /^[A-Za-z0-9]{6,16}$/.test(code.trim())
+
+  useEffect(() => {
+    if (openedAt === null) return
+    const id = window.setInterval(() => {
+      const left = Math.ceil((openedAt + FOLLOW_IG_MIN_WAIT_SECONDS * 1000 - Date.now()) / 1000)
+      setWaitLeft(Math.max(0, left))
+      if (left <= 0) window.clearInterval(id)
+    }, 250)
+    return () => window.clearInterval(id)
+  }, [openedAt])
 
   return (
     <div className="flex shrink-0 flex-col items-end gap-1.5">
@@ -443,7 +476,8 @@ function FollowIgCta({
           onClick={() => {
             // 서버는 이 이벤트의 시각으로 «열고 나서 받았는지» 를 판정합니다(10초~30분).
             track({ event_type: 'follow_ig_open', properties: { from: 'W-10' } })
-            setOpened(true)
+            setOpenedAt(Date.now())
+            setWaitLeft(FOLLOW_IG_MIN_WAIT_SECONDS)
           }}
           className="text-xs text-ink-3 underline hover:text-brand"
         >
@@ -452,11 +486,20 @@ function FollowIgCta({
         <button
           type="button"
           onClick={() => onClaim({ action: 'follow_ig', instagram_username: handle })}
-          disabled={claiming || !opened || !valid}
-          title={!opened ? '먼저 「팔로우하러 가기」를 눌러 주세요' : !valid ? '인스타 아이디를 입력해 주세요' : undefined}
+          disabled={claiming || openedAt === null || waitLeft > 0 || !valid}
+          title={
+            openedAt === null
+              ? '먼저 「팔로우하러 가기」를 눌러 주세요'
+              : waitLeft > 0
+                ? '팔로우가 확인되기까지 잠깐 걸려요'
+                : !valid
+                  ? '인스타 아이디를 입력해 주세요'
+                  : undefined
+          }
           className="rounded-lg border border-rule-strong px-3 py-2 text-xs font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
         >
-          {claiming ? '받는 중…' : (row.cta ?? '받기')}
+          {/* 남은 초를 적습니다 — 비활성 버튼만 두면 «왜 안 눌리지» 가 됩니다. */}
+          {claiming ? '받는 중…' : waitLeft > 0 ? `${waitLeft}초 후 받기` : (row.cta ?? '받기')}
         </button>
       </div>
     </div>

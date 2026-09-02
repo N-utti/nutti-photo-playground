@@ -18,6 +18,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
+import { resetMockState } from '../mocks/handlers'
 
 /**
  * `vite.config.ts` 의 `test.env` 가 넣어 주는 절대 URL 과 같은 곳.
@@ -100,5 +101,19 @@ describe('목 상태 격리', () => {
       끌고 갑니다 — 그때 실패하는 건 원인을 만든 테스트가 아니라 애먼 뒷 테스트입니다.
     */
     expect(localStorage.getItem('nutti.mock.scenario')).toBeNull()
+  })
+
+  it('DM 링크로 받아 둔 인스타 코드도 초기화가 걷어간다', async () => {
+    /*
+      `?ig=` 로 들어오면 코드가 localStorage 에 남습니다(app/instagramCode.ts). 리셋
+      목록에서 빠져 있어서, 브라우저 QA 에서는 시나리오를 되돌려도 W-10 을 열 때마다
+      자동 소진이 다시 돌았고 테스트는 손으로 지우고 있었습니다.
+
+      앞 케이스(`nutti.mock.scenario`)와 같은 종류입니다 — 리셋이 놓친 한 줄이 다음
+      테스트를 조용히 다른 상태에서 시작시키는 것.
+    */
+    localStorage.setItem('nutti.instagram.code', 'K7M2P9QX')
+    resetMockState()
+    expect(localStorage.getItem('nutti.instagram.code')).toBeNull()
   })
 })

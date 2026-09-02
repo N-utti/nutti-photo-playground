@@ -406,6 +406,24 @@ export const petList: Pet[] = [
     latest_upload_id: null,
     breed: null,
   },
+  {
+    /*
+      **사진은 없는데 견종은 아는 강아지.** 실서버는 계산기 링크를 만들 때 강아지에
+      저장된 견종(`pet_profile.breed_label`)을 1순위로 보고, 없을 때만 그 강아지의 최신
+      사진에 적힌 견종으로 내려갑니다(app/routers/results.py, 백엔드 PR #211). 이 조합이
+      없으면 목이 그 순서를 뒤집어도 드러나지 않습니다 — 콩이는 사진과 견종이 **둘 다**
+      있는 데다 그 견종이 하필 `SEED_BREED` 와 같은 값이라, 어느 쪽을 읽든 결과가 같기
+      때문입니다. 두부는 반대로 둘 다 없어서 역시 못 가릅니다.
+
+      견종을 「웰시코기」로 둔 것도 그래서입니다. `SEED_BREED` 와 다르고 계산기 목록
+      안에 있는 값이라, 순서가 틀리면 견종이 사라지고 맞으면 «중형» 까지 따라옵니다.
+    */
+    id: 'e5f6a7b8-0000-4000-8000-000000000003',
+    name: '보리',
+    thumbnail_url: placeholderImage('보리'),
+    latest_upload_id: null,
+    breed: '웰시코기',
+  },
 ]
 
 export const initialCredits: Credits = {

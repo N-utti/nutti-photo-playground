@@ -15,12 +15,13 @@
  * (PR #58 · 이슈 #52). 목이 그 상태를 만들어 주므로 여기서 밟을 수 있습니다.
  */
 
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, delay, http } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { renderWithProviders } from '../test/render'
 import { peekInstagramCode } from '../app/instagramCode'
+import { mockAsMember } from '../mocks/handlers'
 import { server } from '../test/server'
 import EarnActionList from './EarnActionList'
 
@@ -67,6 +68,25 @@ function asMember() {
     ),
   )
 }
+
+/**
+ * 팔로우 클레임의 전제를 갖춥니다 — 「팔로우하러 가기」를 누르고 **10초를 지나게** 합니다.
+ *
+ * 서버가 열기 이벤트로부터 10초 이상을 요구하고(`app/routers/credits.py`
+ * `_verify_follow_ig`), 화면이 그 동안 버튼을 잠급니다. 화면이 벽시계로 세므로 시계만
+ * 앞으로 돌리면 다음 tick 에서 열립니다 — 가짜 타이머를 켜면 MSW·react-query 까지
+ * 같이 멈춰서, 여기서는 `Date.now` 만 옮깁니다.
+ */
+async function openFollowAndWait(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+  await user.click(screen.getByRole('link', { name: '팔로우하러 가기' }))
+  const realNow = Date.now.bind(Date)
+  vi.spyOn(Date, 'now').mockImplementation(() => realNow() + 10_000)
+  await waitFor(() => expect(screen.getByRole('button', { name: '받기' })).toBeEnabled())
+}
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 describe('EarnActionList', () => {
   it('회원에게 네 경로를 정해진 순서로 보여 준다', async () => {
@@ -185,7 +205,7 @@ describe('EarnActionList', () => {
     renderWithProviders(<EarnActionList />)
 
     await user.type(await screen.findByLabelText('인스타그램 아이디'), '@kong.mom')
-    await user.click(screen.getByRole('link', { name: '팔로우하러 가기' }))
+    await openFollowAndWait(user)
     await user.click(screen.getByRole('button', { name: '받기' }))
 
     expect(await screen.findByText(/\+2 크레딧을 받았어요/)).toBeInTheDocument()
@@ -202,7 +222,7 @@ describe('EarnActionList', () => {
     renderWithProviders(<EarnActionList />)
 
     await user.type(await screen.findByLabelText('인스타그램 아이디'), '@kong.mom')
-    await user.click(screen.getByRole('link', { name: '팔로우하러 가기' }))
+    await openFollowAndWait(user)
     await user.click(screen.getByRole('button', { name: '받기' }))
 
     expect(await screen.findByText(/\+2 크레딧을 받았어요/)).toBeInTheDocument()
@@ -269,6 +289,31 @@ describe('EarnActionList', () => {
     expect(screen.getByText(/보유 14개/)).toBeInTheDocument()
     expect(sent).toEqual([{ cellphone: '01057731879' }, { cellphone: '01057731879' }])
     expect(verified).toEqual([{ cellphone: '01057731879', shop_member_id: '4950033661@k', code: '123456' }])
+  })
+
+  it('쇼핑몰 서버가 답을 안 주면 그 사정을 말한다', async () => {
+    /*
+      **지어낸 상황이 아닙니다** — 백엔드 PR #197 이 프로덕션에서 실제로 난 이 오류의
+      사유를 로그로 남기려고 올라온 PR 입니다. 그런데 목에 이 분기가 없어서
+      `ShopLinkSheet.tsx:51` 의 전용 문구는 브라우저에서 한 번도 안 떴습니다.
+
+      여기서도 `server.use` 로 502 를 지어내지 않고 **목 핸들러를 그대로 지납니다.**
+      응답을 이 파일에서 만들면 문구만 확인되고, 목이 그 상태를 못 만든다는 사실은
+      그대로 남습니다. 시나리오 키를 심은 게 닫으려던 갭입니다.
+
+      문구가 「잠시 뒤 다시」인 것도 봅니다 — 사용자가 잘못한 게 없는 오류라 입력을
+      고치라고 하면 안 됩니다.
+    */
+    mockAsMember()
+    localStorage.setItem('nutti.mock.scenario', 'cafe24:upstream')
+    const user = userEvent.setup()
+    renderWithProviders(<EarnActionList />)
+
+    await user.click(await screen.findByRole('button', { name: '연동하기' }))
+    await user.type(screen.getByLabelText('쇼핑몰 가입 휴대폰 번호'), '01057731879')
+    await user.click(screen.getByRole('button', { name: '인증번호 받기' }))
+
+    expect(await screen.findByText(/쇼핑몰 문자 발송이 잠시 안 되고 있어요/)).toBeInTheDocument()
   })
 
   it('후보를 하나 고르면 고른 것만 진행 중이 된다', async () => {
@@ -357,12 +402,47 @@ function guestMe() {
     expect(claimButton).toBeDisabled()
     await user.type(screen.getByLabelText('인스타그램 아이디'), '@Kong.Mom')
     expect(claimButton).toBeDisabled() // 아직 안 열었음
-    await user.click(screen.getByRole('link', { name: '팔로우하러 가기' }))
-    expect(claimButton).toBeEnabled()
+    await openFollowAndWait(user)
     await user.click(claimButton)
 
     expect(await screen.findByText(/\+2 크레딧을 받았어요/)).toBeInTheDocument()
     expect(sent).toEqual([{ action: 'follow_ig', instagram_username: 'Kong.Mom' }]) // @ 제거, 소문자화는 서버
+  })
+
+  it('연 직후 10초 동안은 못 누르게 하고, 남은 초를 말한다', async () => {
+    /*
+      서버는 열기 이벤트로부터 **10초 이상**이어야 클레임을 받습니다
+      (`app/routers/credits.py` `_verify_follow_ig`, 백엔드 PR #202). 화면이 열자마자
+      버튼을 열어 주던 때는 빨리 누른 사람이 `400 FOLLOW_IG_NOT_OPENED` 를 맞았고, 그때
+      뜨는 문구가 「팔로우하러 가기로 … 잠시 후 받기를 눌러 주세요」였습니다 — **방금 그걸
+      누른 사람에게** 다시 누르라고 말하는 겁니다.
+
+      목으로는 이 갈래를 못 밟습니다. `handlers.ts` 는 열림 여부를 불리언으로만 들고 있어
+      열자마자 통과시키므로, 실서버에서 가장 흔할 팔로우 오류가 목 위에는 아예 없습니다.
+      그래서 여기서 **시계를 직접** 다룹니다.
+
+      금액이 아니라 초를 봅니다 — 라벨이 `row.cta` 로 돌아왔는지까지 확인해야 카운트다운이
+      끝났다는 뜻이 됩니다.
+    */
+    asMember()
+    const user = userEvent.setup()
+    renderWithProviders(<EarnActionList />)
+
+    await user.type(await screen.findByLabelText('인스타그램 아이디'), '@kong.mom')
+    await user.click(screen.getByRole('link', { name: '팔로우하러 가기' }))
+
+    const waiting = screen.getByRole('button', { name: /초 후 받기/ })
+    expect(waiting).toBeDisabled()
+    expect(waiting).toHaveTextContent('10초 후 받기')
+
+    // 5초만 지나면 아직입니다 — 여기서 열리면 서버가 400 으로 답합니다.
+    const realNow = Date.now.bind(Date)
+    vi.spyOn(Date, 'now').mockImplementation(() => realNow() + 5_000)
+    await waitFor(() => expect(screen.getByRole('button', { name: /초 후 받기/ })).toHaveTextContent('5초 후 받기'))
+    expect(screen.getByRole('button', { name: /초 후 받기/ })).toBeDisabled()
+
+    vi.spyOn(Date, 'now').mockImplementation(() => realNow() + 10_000)
+    await waitFor(() => expect(screen.getByRole('button', { name: '받기' })).toBeEnabled())
   })
 
 describe('EarnActionList · 인스타 DM 코드', () => {
@@ -412,5 +492,32 @@ describe('EarnActionList · 인스타 DM 코드', () => {
     await user.click(button)
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/코드가 올바르지 않거나 만료됐어요/)
+  })
+
+  it('남이 먼저 쓴 인스타 계정이면 그렇게 말한다', async () => {
+    /*
+      서버는 인스타 계정 하나가 **전 회원 통틀어 한 번만** 받게 막습니다. DM 링크를
+      단체방에 공유하면 실제로 납니다.
+
+      이 테스트가 `server.use` 로 응답을 덮지 않고 **목 핸들러를 그대로 지나는** 이유가
+      핵심입니다. 목에는 인스타 계정 식별자 개념이 없어 이 상태를 세울 방법이 아예
+      없었고, 그래서 이 문구는 브라우저 QA 에서 영영 안 떴습니다. 응답을 여기서 지어내면
+      문구만 확인하고 그 사실은 그대로 남습니다 — 시나리오 키를 심어 목이 **스스로**
+      이 상태를 만들게 하는 게 닫으려던 갭입니다.
+
+      「이미 받은 크레딧이에요」와 다른 문장인 것도 봅니다. 그건 내가 받은 것이고 이건
+      남이 받아 간 것이라, 사용자가 할 수 있는 일이 다릅니다.
+    */
+    mockAsMember()
+    localStorage.setItem('nutti.mock.scenario', 'ig:used')
+    const user = userEvent.setup()
+    renderWithProviders(<EarnActionList />)
+
+    await user.type(await screen.findByLabelText('인스타 DM 코드'), 'nutti2026')
+    await user.click(screen.getByRole('button', { name: '코드로 받기' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      '이 인스타그램 계정으로는 이미 크레딧을 받았어요.',
+    )
   })
 })
