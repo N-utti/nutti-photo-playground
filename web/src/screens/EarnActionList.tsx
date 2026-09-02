@@ -455,10 +455,16 @@ function FollowIgCta({
     지름길이라 아래입니다.
   */
   return (
-    <div className="w-full">
+    <>
       {/*
-        열기 → 아이디 → 받기. 링크가 입력 위에 있는 이유는 순서가 그렇기 때문입니다 —
-        아래 받기 버튼은 이 링크를 누르기 전에는 잠겨 있습니다(서버도 시각으로 검사).
+        이 링크만 **제목 줄 오른쪽**에 섭니다. 조각 둘을 프래그먼트로 내보내면 둘 다
+        줄 컨테이너의 flex 항목이 되고, 링크는 `shrink-0` 이라 제목 옆에 남고 아래
+        폼은 `w-full` 이라 다음 줄로 넘어갑니다(EarnRow 의 `flex-wrap`).
+
+        그 자리는 다른 줄에서 «쇼핑몰 →»·«연동하기»·«내일 다시» 가 서는 자리입니다.
+        여기 오는 것이 버튼이 아니라 **밑줄 링크**인 건 그래서입니다 — 이걸 누른다고
+        크레딧이 들어오지 않고, 돌아와서 아이디를 넣고 받기를 눌러야 합니다. 같은
+        무게로 그리면 그 자체가 획득 버튼인 것처럼 읽힙니다.
       */}
       <a
         href={NUTTI_INSTAGRAM_URL}
@@ -470,7 +476,13 @@ function FollowIgCta({
           setOpenedAt(Date.now())
           setWaitLeft(FOLLOW_IG_MIN_WAIT_SECONDS)
         }}
-        className="text-xs text-ink-3 underline hover:text-brand"
+        /*
+          `self-start mt-0.5` — 줄 컨테이너가 `items-center` 라 그냥 두면 링크가 제목
+          두 줄(«인스타 팔로우 +2» / «@nutti_official») **사이**에 걸쳐 어느 쪽과도 안
+          맞습니다(실측 327~343, 두 줄의 경계가 337). 첫 줄에 맞춥니다 — 이 링크가 짝을
+          이루는 것은 제목이지 그 아래 보조 문구가 아닙니다.
+        */
+        className="mt-0.5 shrink-0 self-start text-xs text-ink-3 underline hover:text-brand"
       >
         {/*
           글자를 그대로 둡니다. 이 라벨은 **서버가 이름으로 부릅니다** — 400
@@ -481,7 +493,9 @@ function FollowIgCta({
         */}
         팔로우하러 가기
       </a>
-      <div className="mt-1.5 flex items-center gap-2">
+
+      <div className="w-full">
+      <div className="flex items-center gap-2">
         <input
           type="text"
           aria-label="인스타그램 아이디"
@@ -506,7 +520,18 @@ function FollowIgCta({
                   ? '인스타 아이디를 입력해 주세요'
                   : undefined
           }
-          className="shrink-0 rounded-lg border border-rule-strong px-3 py-2 text-xs font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
+          /*
+            `min-w-24` — 아래 «코드로 받기» 와 폭을 맞춥니다. 두 줄이 [입력][버튼] 으로
+            같은 모양인데 버튼 폭이 다르면(실측 49 vs 87) 입력이 남는 폭을 먹는 만큼
+            **입력의 오른쪽 끝도 어긋납니다**(304 vs 266). 바깥 양끝만 맞고 안쪽 경계는
+            안 맞는 상태였습니다.
+
+            `w-` 가 아니라 `min-w-` 인 이유는 이 버튼만 글자가 바뀌기 때문입니다 —
+            «받기» · «받는 중…» · «10초 후 받기» 셋이 돌아갑니다. 지금은 셋 다 96px 안에
+            들어가서(카운트다운도 실측 96) 폭이 흔들리지 않지만, 고정폭으로 박아 두면
+            글자가 하나만 길어져도 눌립니다.
+          */
+          className="min-w-24 shrink-0 rounded-lg border border-rule-strong px-3 py-2 text-xs font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
         >
           {/* 남은 초를 적습니다 — 비활성 버튼만 두면 «왜 안 눌리지» 가 됩니다. */}
           {claiming ? '받는 중…' : waitLeft > 0 ? `${waitLeft}초 후 받기` : (row.cta ?? '받기')}
@@ -538,11 +563,13 @@ function FollowIgCta({
           type="button"
           onClick={() => onRedeem(code.trim())}
           disabled={claiming || !codeValid}
-          className="shrink-0 rounded-lg border border-rule-strong px-3 py-2 text-xs font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
+          /* 위 «받기» 와 같은 폭(min-w-24). 이유는 그쪽 주석. */
+          className="min-w-24 shrink-0 rounded-lg border border-rule-strong px-3 py-2 text-xs font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
         >
           코드로 받기
         </button>
       </div>
-    </div>
+      </div>
+    </>
   )
 }
