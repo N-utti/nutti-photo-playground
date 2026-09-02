@@ -302,7 +302,7 @@ def test_kakao_callback_merges_all_assets_into_existing_member(
     )
     assert {pet.member_id, source.member_id, job.member_id, prompt.member_id, event.member_id} == {existing.id}
     assert guest_row.merged_into_id == existing.id
-    assert existing.credit_balance == response.json()["credit_balance"] == 8  # 게스트 잔액 +1 이관(#11 L6)
+    assert existing.credit_balance == response.json()["credit_balance"] == 7  # 무료 체험 +1은 이관 안 됨(#11 L6, farming 차단)
     assert existing.oauth_state_nonce is None
     assert existing.oauth_state_expires_at is None
 
@@ -633,7 +633,7 @@ def test_login_merges_guest_into_existing_local_member(client: TestClient):
     assert response.status_code == 200
     assert response.json()["member_id"] == registered["member_id"]
     assert response.json()["merged"] is True
-    assert response.json()["credit_balance"] == 2  # 기존 1 + 게스트 잔액 1 이관(#11 L6)
+    assert response.json()["credit_balance"] == 1  # 게스트 무료 체험 +1은 이관 대상 아님(#11 L6, farming 차단)
     guest_row = client.portal.call(_member, guest["member_id"])
     assert str(guest_row.merged_into_id) == registered["member_id"]
     assert guest_row.oauth_state_nonce is None  # N3(#11): 병합된 게스트 행에 nonce 잔류 금지

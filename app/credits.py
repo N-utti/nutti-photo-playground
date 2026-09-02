@@ -31,7 +31,9 @@ def _validate_delta(delta: int, reason) -> None:
     sign = _REASON_SIGN.get(str(getattr(reason, "value", reason)))
     if sign is None:
         raise ValueError(f"unknown credit reason: {reason!r}")
-    if delta == 0 or (sign != 0 and delta * sign <= 0):
+    # 0은 거부하지 않는다 — 관리자가 보상액을 0으로 두는 건 정상 운영(무료 프로모션)이고,
+    # 0 거부는 claim 500·워커 사망으로 번진다(보안 리뷰 #235). L5의 목적은 역부호 차단뿐.
+    if sign != 0 and delta * sign < 0:
         raise ValueError(f"credit delta {delta} inconsistent with reason {reason!r}")
 
 

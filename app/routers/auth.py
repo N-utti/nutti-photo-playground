@@ -383,21 +383,27 @@ async def _merge_or_promote_guest(
         # N3(#11): 병합돼 죽는 게스트 행에 OAuth nonce 비밀값을 남기지 않는다(데이터 위생)
         guest.oauth_state_nonce = None
         guest.oauth_state_expires_at = None
-        await guest.save(
-            update_fields=["merged_into_id", "oauth_state_nonce", "oauth_state_expires_at"],
-            using_db=connection,
-        )
-        if guest.credit_balance > 0:
-            # L6(#11): 게스트가 쓰다 남긴 크레딧을 병합 대상에게 이관 — 말없이 소멸시키지 않는다.
-            # dedupe(guest_merge:<게스트 id>)로 1회, ref_id로 출처 추적. 게스트 행 잔액은 병합으로 사장.
+        update_guest_fields = ["merged_into_id", "oauth_state_nonce", "oauth_state_expires_at"]
+        # L6(#11): 게스트가 **벌어들인** 크레딧만 병합 대상에게 이관 — 무료 체험(guest_trial)분은 제외.
+        # 전액 이관은 게스트 발급→병합 반복으로 무료 +1을 영구 계정에 적립하는 farming 경로가 된다(보안 리뷰 #235).
+        # 오늘은 게스트 획득 경로가 없어 사실상 0이지만, 게스트가 벌 수 있게 되는 순간 자동으로 이관이 산다.
+        trial = await CreditLedger.filter(
+            member_id=guest.id, dedupe_key="guest_trial"
+        ).using_db(connection).first()
+        transferable = guest.credit_balance - (trial.amount if trial else 0)
+        if transferable > 0:
             await grant_credits(
                 existing.id,
-                guest.credit_balance,
+                transferable,
                 CreditReason.GUEST_MERGE,
                 f"guest_merge:{guest.id}",
                 ref_id=str(guest.id),
                 connection=connection,
             )
+            # 죽는 행이지만 전 회원 잔액 합계의 이중 계상은 막는다(보안 리뷰 LOW-5)
+            guest.credit_balance -= transferable
+            update_guest_fields.append("credit_balance")
+        await guest.save(update_fields=update_guest_fields, using_db=connection)
         logger.info("auth guest merge: guest=%s -> member=%s via=%s", guest.id, existing.id, id_field)  # L-F
         existing.oauth_state_nonce = None
         existing.oauth_state_expires_at = None
@@ -615,7 +621,7 @@ async def cafe24_link_verify(
     except IntegrityError as exc:  # 두 회원이 같은 아이디를 동시에 verify — UNIQUE(cafe24_member_id)가 마지막 방어선
         raise api_error(409, "CAFE24_ALREADY_LINKED", "Cafe24 account is already linked") from exc
 
-    logger.info("cafe24 linked: member=%s shop=%s", member.id, chosen)  # L-F
+    logger.info("cafe24 linked: member=%s shop=%s***", member.id, chosen[:3])  # L-F — 식별자 최소화(보안 리뷰 LOW-6)
     member = await Member.get(id=member.id)
     return Cafe24LinkResponse(cafe24_linked=True, credit_balance=member.credit_balance)
 

@@ -458,6 +458,7 @@ def test_grant_credits_rejects_reason_sign_mismatch(client: TestClient):
 
     assert client.portal.call(_attempt, -1, "daily_free") == "rejected"
     assert client.portal.call(_attempt, 1, "order_clawback") == "rejected"
-    assert client.portal.call(_attempt, 0, "cs_adjustment") == "rejected"
     assert client.portal.call(_attempt, 1, "no_such_reason") == "rejected"
     assert client.portal.call(_attempt, -1, "cs_adjustment") == "granted"
+    # 0은 거부하지 않는다 — 보상액 0 설정(무료 프로모션)이 claim 500·워커 사망으로 번지면 안 됨(보안 리뷰)
+    assert client.portal.call(_attempt, 0, "daily_free") == "granted"
