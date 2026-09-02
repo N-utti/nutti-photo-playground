@@ -27,6 +27,7 @@
 import { Link, useLocation } from 'react-router'
 import { AccountEntry } from './AccountEntry'
 import { track } from './analytics'
+import { CreditBadge } from './CreditBadge'
 import { shopLink } from './externalLinks'
 import { TABS, isActive } from './navTabs'
 
@@ -89,12 +90,18 @@ export default function DesktopNav() {
         </nav>
 
         {/*
-          크레딧 배지는 여기 두지 않습니다. 화면 앱바가 이미 들고 있어서(W-02·W-04·
-          W-06·W-08·W-09) 데스크톱에서 같은 숫자가 두 줄에 겹쳐 보이게 됩니다. 계정
-          진입점은 반대입니다 — W-02 앱바 하나에만 있어서 나머지 화면에서는 마이페이지로
+          데스크톱에서는 크레딧 배지도 계정 진입점도 **여기 하나**입니다.
+
+          배지는 원래 앱바 다섯 곳(W-02·W-04·W-06·W-08·W-09)에 흩어져 있었고, 그래서
+          이 줄에 넣으면 같은 숫자가 위아래로 겹쳤습니다. 반대로 올려 놓고 앱바 쪽을
+          데스크톱에서 내렸습니다 — 그러지 않으면 탭 자체인 화면(스타일·보관함)의 앱바에
+          고유한 것이 배지 하나만 남아, 그 한 줄을 없앨 수가 없습니다.
+
+          계정 진입점은 처음부터 W-02 앱바 하나에만 있어서 나머지 화면에서는 마이페이지로
           가는 문이 없었습니다.
         */}
         <div className="ml-auto flex items-center gap-3">
+          <CreditBadge showUnit />
           <AccountEntry />
         </div>
       </div>

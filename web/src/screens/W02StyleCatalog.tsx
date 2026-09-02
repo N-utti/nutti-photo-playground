@@ -152,8 +152,13 @@ export default function W02StyleCatalog() {
   return (
     <Shell sheetOpen={sheetOpen}>
       <div className="screen-min-h bg-paper pb-24 desktop:pb-10">
-        {/* 앱바 — 크레딧 배지의 표시 규칙(ADR-02 음수·미상 처리)은 app/CreditBadge.tsx 에 있습니다. */}
-        <header className="sticky top-0 desktop:top-14 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
+        {/* 앱바 — 크레딧 배지의 표시 규칙(ADR-02 음수·미상 처리)은 app/CreditBadge.tsx 에 있습니다.
+
+            **데스크톱에서는 통째로 내립니다.** 이 줄에 있는 넷이 전부 바로 위 GNB 에
+            있습니다 — 로고 마크, «스타일» 제목(GNB 의 켜진 탭이 같은 말을 합니다),
+            크레딧 배지, 계정 아바타. 남길 게 없는 줄을 55px 짜리로 두면 그건 위치를
+            알려 주는 게 아니라 같은 말을 두 번 하는 것입니다. */}
+        <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3 desktop:hidden">
           {/*
             앱바의 마크는 파비콘과 같은 발바닥입니다 — apple-touch-icon 으로 이미
             받아 둔 파일을 그대로 재사용하므로(index.html) 요청이 늘지 않습니다.
@@ -174,23 +179,18 @@ export default function W02StyleCatalog() {
           </Link>
           <h1 className="text-base font-bold">스타일</h1>
           <CreditBadge showUnit />
-          {/* 숫자 = 크레딧 받기(W-10), 아바타 = 계정(W-12). 역할을 겹치지 않게 나눕니다.
-              데스크톱에서는 GNB 가 같은 진입점을 들고 있어 여기서는 내립니다 — 안 내리면
-              한 화면에 아바타가 둘입니다. `contents` 는 이 span 이 flex 항목으로 세지
-              않게 해서(gap-3 이 빈 칸을 만들지 않게) 모바일 배치를 그대로 둡니다. */}
-          <span className="contents desktop:hidden">
-            <AccountEntry />
-          </span>
+          {/* 숫자 = 크레딧 받기(W-10), 아바타 = 계정(W-12). 역할을 겹치지 않게 나눕니다. */}
+          <AccountEntry />
         </header>
 
         {/* 앵커바 — 점프 전용(노트2). 눌러도 다른 섹션을 숨기지 않습니다.
-            57px 은 위 앱바 높이입니다. 데스크톱에서는 그 위에 GNB(56px, app/DesktopNav.tsx)가
-            한 줄 더 서므로 111px 로 내려갑니다 (GNB 56 + 데스크톱 앱바 55, 실측) — 이 값이 틀리면 앵커바가 앱바를 덮거나
-            둘 사이에 배경이 비칩니다. */}
+            57px 은 위 앱바 높이입니다. 데스크톱에는 그 앱바가 없으므로 GNB(56px,
+            app/DesktopNav.tsx) 바로 아래인 `top-14` 입니다. 값이 틀리면 앵커바가 위
+            줄을 덮거나 둘 사이로 배경이 비칩니다. */}
         <nav
           ref={anchorBarRef}
           aria-label="섹션 바로가기"
-          className="sticky top-[57px] z-10 flex gap-2 overflow-x-auto border-b border-rule bg-paper/95 px-4 py-2 backdrop-blur desktop:top-[111px]"
+          className="sticky top-[57px] z-10 flex gap-2 overflow-x-auto border-b border-rule bg-paper/95 px-4 py-2 backdrop-blur desktop:top-14"
         >
           {sectionNames.map((name, index) => (
             <a
@@ -222,9 +222,9 @@ export default function W02StyleCatalog() {
               }}
               // scroll-mt-28(112px) — 앵커로 뛴 섹션 제목이 앱바(57)+앵커바(41) 뒤에
               // 깔리지 않게 하는 여백입니다. 데스크톱에는 GNB(56)가 한 줄 더 있어
-              // 166px 입니다(앵커바 아래 끝 158 + 여유 8). 위 관측자는 이 값을 `scrollMarginTop` 에서 읽어 가므로
+              // 데스크톱은 앱바가 없어 111px 입니다(GNB 56 + 앵커바 47 + 여유 8). 위 관측자는 이 값을 `scrollMarginTop` 에서 읽어 가므로
               // (78행 주석) 여기만 고치면 칩 활성 판정도 같이 따라옵니다.
-              className="scroll-mt-28 pt-6 desktop:scroll-mt-[166px]"
+              className="scroll-mt-28 pt-6 desktop:scroll-mt-[111px]"
             >
               <div className="flex items-baseline gap-2">
                 <h2 className="text-lg font-bold">{section.name}</h2>

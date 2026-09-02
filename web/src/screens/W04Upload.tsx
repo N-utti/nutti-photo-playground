@@ -402,7 +402,12 @@ export default function W04Upload() {
             같은 화살표가 어떤 때는 나가고 어떤 때는 안 나갑니다. */}
         <BackButton fallback="/styles" />
         <h1 className="text-base font-bold">{confirming ? '확인' : '사진 선택'}</h1>
-        <CreditBadge />
+        {/* 데스크톱에서는 GNB 가 배지를 들고 있어 여기서는 내립니다 — 안 내리면 같은
+            숫자가 위아래 두 줄에 겹칩니다. `contents` 는 이 span 이 flex 항목으로 세지
+            않게 해서 모바일 배치를 그대로 둡니다. */}
+        <span className="contents desktop:hidden">
+          <CreditBadge />
+        </span>
       </header>
 
       <main className="mx-auto w-full max-w-md px-4 py-4">
