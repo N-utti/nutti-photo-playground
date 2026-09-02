@@ -267,7 +267,7 @@ async def sync_member_orders(
         await _apply_range(
             access_token, member.order_reward_cutoff, now, amount, summary, member_id=member.cafe24_member_id
         )
-    except (httpx.HTTPError, KeyError, ValueError, RuntimeError) as exc:
+    except Exception as exc:  # 응답 뒤 백그라운드에서 도는 자리(#225) — 어떤 실패도 커넥션·화면에 닿으면 안 된다(보안 리뷰 LOW-4)
         logger.warning("cafe24 member sync skipped for %s: %s: %s", key, type(exc).__name__, exc)
         return None
     return summary
