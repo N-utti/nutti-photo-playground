@@ -13,6 +13,7 @@
 import { useEffect, useState } from 'react'
 import { isApiError } from '../api/client'
 import { track } from '../app/analytics'
+import { creditAmountPhrase } from '../app/earnAmount'
 import { useClaimCredit, useCredits, useMe, useRedeemInstagramCode } from '../api/queries'
 import { clearInstagramCode, peekInstagramCode } from '../app/instagramCode'
 import {
@@ -132,6 +133,9 @@ export default function EarnActionList() {
   const rows = [...credits.earn_actions].sort(
     (a, b) => ACTION_ORDER.indexOf(a.action) - ACTION_ORDER.indexOf(b.action),
   )
+  // 연동 보상은 아래 로그인 시트의 **문장 안에도** 들어갑니다 — 목록 줄(`+{row.amount}`)과
+  // 출처가 같아야 합니다. 운영이 바꾸는 값이 됐습니다(app/earnAmount.ts · 백엔드 PR #186).
+  const linkAmount = rows.find((row) => row.action === 'link_account')?.amount ?? null
 
   function handleClaim(body: ClaimBody) {
     setGranted(null)
@@ -231,7 +235,7 @@ export default function EarnActionList() {
           title="먼저 로그인해 주세요"
           description={
             loginSheet === 'link'
-              ? '쇼핑몰 계정 연동은 회원만 할 수 있어요. 로그인 후 연동하면 +3 크레딧을 받아요.'
+              ? `쇼핑몰 계정 연동은 회원만 할 수 있어요. 로그인 후 연동하면 ${creditAmountPhrase(linkAmount)}을 받아요.`
               : '크레딧 받기는 회원만 할 수 있어요. 로그인하면 지금까지 만든 결과도 그대로 이어집니다.'
           }
         />

@@ -18,6 +18,7 @@
 import { useState, type FormEvent } from 'react'
 import { ApiError, isApiError } from '../api/client'
 import { useCafe24LinkRequest, useCafe24LinkVerify } from '../api/queries'
+import { creditAmountPhrase, linkAccountCtaLabel, useEarnAmount } from '../app/earnAmount'
 import FloatingField from '../app/FloatingField'
 import { formatRetryAfter } from '../app/retryAfter'
 import { useModalDialog } from '../app/useModalDialog'
@@ -55,6 +56,12 @@ function linkErrorMessage(error: unknown, mode: Mode): string {
 export default function ShopLinkSheet({ onClose }: { onClose: () => void }) {
   const request = useCafe24LinkRequest()
   const verify = useCafe24LinkVerify()
+  /*
+    보상 금액은 이 시트가 정하지 않습니다 — `app_setting.link_account_amount` 고, 운영이
+    바꿀 수 있게 된 값입니다(백엔드 PR #186). 두 진입점(W-10 목록 · W-12 마이페이지)이
+    이미 이 값을 화면에 적고 있어, 시트만 리터럴로 두면 같은 흐름 안에서 숫자가 갈립니다.
+  */
+  const linkAmount = useEarnAmount('link_account')
   const [mode, setMode] = useState<Mode>('cellphone')
   const [value, setValue] = useState('')
   const [code, setCode] = useState('')
@@ -158,9 +165,17 @@ export default function ShopLinkSheet({ onClose }: { onClose: () => void }) {
             <h2 id="shop-link-sheet-title" className="text-base font-bold">
               쇼핑몰 계정을 연동했어요
             </h2>
+            {/*
+              여기만 성격이 다릅니다 — 이 문장은 「받을 금액」이 아니라 「**받은** 금액」인데,
+              `Cafe24LinkResult` 에는 `amount_granted` 가 없습니다(`cafe24_linked` ·
+              `credit_balance` · `candidates` 뿐). 클레임 경로(`ClaimResult`)는 주는데
+              연동 경로만 안 주는 비대칭이라, 지금은 정책값으로 대신 적습니다 — 리터럴 3 보다는
+              가깝지만 «지급 당시의 금액» 은 여전히 아닙니다. 실제 지급액은 백엔드가
+              내려 줘야 닫힙니다. 확정 숫자는 보유 잔액(`credit_balance`) 쪽입니다.
+            */}
             <p className="mt-1 text-sm text-ink-2">
-              연동 보상 +3 크레딧을 받았어요. 지금부터 주문하시면 주문 보상도 쌓여요. (보유{' '}
-              {Math.max(0, done.credit_balance)}개)
+              연동 보상 {creditAmountPhrase(linkAmount)}을 받았어요. 지금부터 주문하시면 주문 보상도
+              쌓여요. (보유 {Math.max(0, done.credit_balance)}개)
             </p>
             <button type="button" onClick={onClose} className={`mt-4 ${primaryClass}`}>
               계속하기
@@ -243,7 +258,7 @@ export default function ShopLinkSheet({ onClose }: { onClose: () => void }) {
                   inputClassName="tracking-[0.3em]"
                 />
                 <button type="submit" disabled={verify.isPending} className={primaryClass}>
-                  {verify.isPending ? '확인 중…' : '연동하고 +3 받기'}
+                  {verify.isPending ? '확인 중…' : linkAccountCtaLabel(linkAmount)}
                 </button>
                 <button
                   type="button"

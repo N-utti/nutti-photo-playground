@@ -35,6 +35,7 @@ import {
 import BackButton from '../app/BackButton'
 import ConfirmDialog from '../app/ConfirmDialog'
 import FloatingField from '../app/FloatingField'
+import { creditAmountPhrase, linkAccountCtaLabel, useEarnAmount } from '../app/earnAmount'
 import { amountTone, reasonLabel, shortDate, signedAmount } from '../app/ledgerFormat'
 import { memberInitial, memberLabel, PROVIDER_LABEL } from '../app/memberIdentity'
 import { initialOf } from '../app/initials'
@@ -428,26 +429,35 @@ function DeletePetDialog({ pet, onClose }: { pet: Pet; onClose: () => void }) {
  */
 function ShopLinkSection({ me }: { me: Me }) {
   const [linkSheet, setLinkSheet] = useState(false)
+  /*
+    두 금액 다 `app_setting` 이고 운영이 바꿉니다(백엔드 PR #186) — W-10 목록 줄과 같은
+    출처(`earn_actions[].amount`)를 읽습니다. 한 쿼리에서 나오므로 둘은 늘 같이 알거나
+    같이 모릅니다. 모르는 동안 숫자를 지어내지 않는 이유는 app/earnAmount.ts 에 있습니다.
+  */
+  const linkAmount = useEarnAmount('link_account')
+  const orderAmount = useEarnAmount('order')
 
   return (
     <section className="rounded-xl border border-rule bg-surface px-4 py-4">
       <h2 className="text-sm font-semibold">쇼핑몰 계정 연동</h2>
       {me.cafe24_linked ? (
         <p className="mt-1 text-sm text-ink-2">
-          <span className="font-semibold text-good">✓ 연동됨</span> · 누띠에서 주문하면 +20 크레딧이
-          자동으로 들어와요.
+          <span className="font-semibold text-good">✓ 연동됨</span> · 누띠에서 주문하면{' '}
+          {creditAmountPhrase(orderAmount)}이 자동으로 들어와요.
         </p>
       ) : (
         <>
           <p className="mt-1 text-sm text-ink-2">
-            연동하면 +3 크레딧을 받고, 이후 주문은 +20씩 자동으로 쌓여요.
+            {linkAmount === null || orderAmount === null
+              ? '연동하면 크레딧을 받고, 이후 주문에도 자동으로 쌓여요.'
+              : `연동하면 +${linkAmount} 크레딧을 받고, 이후 주문은 +${orderAmount}씩 자동으로 쌓여요.`}
           </p>
           <button
             type="button"
             onClick={() => setLinkSheet(true)}
             className="mt-3 w-full rounded-xl border border-rule-strong px-4 py-2.5 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
           >
-            연동하고 +3 받기
+            {linkAccountCtaLabel(linkAmount)}
           </button>
           {linkSheet && <ShopLinkSheet onClose={() => setLinkSheet(false)} />}
         </>
