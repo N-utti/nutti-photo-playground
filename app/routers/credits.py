@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends
 from pydantic import BaseModel, Field
 from tortoise.expressions import Q
 from tortoise.transactions import in_transaction
@@ -115,13 +115,14 @@ async def _amounts() -> dict[str, int]:
 
 
 @router.get("", response_model=CreditsResponse)
-async def get_credits(member: Member = Depends(get_current_member)):
+async def get_credits(background_tasks: BackgroundTasks, member: Member = Depends(get_current_member)):
     if member.cafe24_member_id is not None:
-        # 주문하고 돌아온 회원에게 30분 크론을 기다리게 하지 않는다 — 이 회원 주문만 즉석 동기화(60초 1회, 실패 무시)
+        # 주문 보상의 주 경로는 결제 웹훅(#201, 즉시 +20) — 이 동기화는 놓친 건 보정용 보조 수단이라
+        # 응답을 막지 않는 백그라운드로 뺀다(#225). 이 조회는 거의 모든 화면의 앱바 배지가 쓰므로
+        # 카페24가 느려져도(타임아웃 30초) 화면이 기다리면 안 된다. 60초 1회 스로틀·실패 로그만은 그대로.
         from app import cafe24  # cafe24 → credits._amounts 순환 import 회피
 
-        if await cafe24.sync_member_orders(member) is not None:
-            await member.refresh_from_db(fields=["credit_balance"])
+        background_tasks.add_task(cafe24.sync_member_orders, member)
     amounts = await _amounts()
     daily_key = f"daily:{_kst_today().isoformat()}"
     claimed = set(
