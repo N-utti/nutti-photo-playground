@@ -56,13 +56,16 @@ export default function W01Landing() {
     // (W-02·W-09 와 같은 값). 여백을 안 두면 "인기 스타일" 마지막 행이 탭바 뒤에
     // 깔려 스크롤을 끝까지 내려도 안 보입니다.
     //
-    // 데스크톱만 pb-20 입니다. 96px 은 **아이폰 기준**입니다 — 탭바 자체는 59px 이고
-    // 나머지는 홈 인디케이터(safe-area, 최대 34px) 몫입니다. 데스크톱에는 그게 없어서
-    // 37px 이 그냥 비어 있었고, 그만큼이 첫 화면을 넘치게 하고 있었습니다. 80px 이면
-    // 탭바 위로 21px 이 남습니다.
-    <div className="min-h-full bg-paper pb-24 desktop:pb-20">
-      {/* 노트3 — 이 사이트가 누띠의 것임을 처음부터 밝힙니다. */}
-      <header className="flex items-center gap-2 border-b border-rule bg-surface px-4 py-3">
+    // 데스크톱에는 탭바가 아예 없습니다(상단 GNB 로 갔습니다 — app/DesktopNav.tsx).
+    // 비켜 줄 것이 없으니 40px 은 순수한 아래 여백입니다.
+    <div className="screen-min-h bg-paper pb-24 desktop:pb-10">
+      {/* 노트3 — 이 사이트가 누띠의 것임을 처음부터 밝힙니다.
+
+          데스크톱에서는 내립니다. 이 줄이 들고 있던 셋(로고·«스타일»·로그인)이 전부
+          상단 GNB(app/DesktopNav.tsx)에 있어서, 두 줄을 다 그리면 같은 링크가 위아래로
+          겹칩니다. 모바일에는 GNB 가 없으므로 이 헤더가 그대로 남습니다 — 그래서
+          아래 로그인 시트 상태도 계속 쓰입니다. */}
+      <header className="flex items-center gap-2 border-b border-rule bg-surface px-4 py-3 desktop:hidden">
         {/*
           쇼핑몰 헤더에 걸린 것과 같은 NUTTi 워드마크입니다(출처·라이선스는
           public/brand/NOTICE.md). 서체로 흉내 내지 않고 로고 원본을 씁니다 —
@@ -86,9 +89,12 @@ export default function W01Landing() {
           <span className="font-display text-base">놀이터</span>
         </Link>
         <nav className="ml-auto flex items-center gap-4" aria-label="주요">
-          <Link to="/styles" className="hidden text-sm text-ink-2 hover:text-ink desktop:block">
-            스타일
-          </Link>
+          {/*
+            여기 있던 «스타일» 링크를 지웠습니다. 데스크톱에만 보이는 링크였는데
+            이 헤더 자체가 이제 모바일 전용이라, 두 조건이 겹쳐 **어떤 폭에서도 안
+            그려지는** 줄이 됐습니다. 데스크톱에서 카탈로그로 가는 길은 GNB 의
+            «스타일» 탭이고, 모바일은 하단 탭바의 같은 칸입니다.
+          */}
           {/*
             FR-W01-05 로그인 칩. `/me` 가 오기 전에는 아무것도 그리지 않습니다 —
             게스트로 깜빡였다가 "○○님"으로 바뀌면 회원이 매 방문마다 로그아웃된 것처럼
@@ -137,8 +143,8 @@ export default function W01Landing() {
             데스크톱에서는 히어로 **폭을 남은 높이에서 역산**합니다. 프레임이 4:3 이라
             폭을 정하면 높이가 따라오고, 그래서 첫 화면이 스크롤 없이 들어갑니다.
 
-            503px 은 히어로를 뺀 나머지의 합입니다 — 헤더 59 + 이 구역 위 여백 40 +
-            인기 스타일 구역(위 여백 40 + 내용 284) + 탭바 자리 80. 인기 스타일 카드는
+            460px 은 히어로를 뺀 나머지의 합입니다 — GNB 56 + 이 구역 위 여백 40 +
+            인기 스타일 구역(위 여백 40 + 내용 284) + 아래 여백 40. 인기 스타일 카드는
             폭이 넓을수록 커지므로 컨테이너가 꽉 찬 1180px 기준으로 잡았습니다. 그보다
             좁은 데스크톱에서는 카드가 작아져 여유가 더 생깁니다.
 
@@ -150,12 +156,10 @@ export default function W01Landing() {
             CTA 80 = 232)과 같은 높이라, 더 줄여도 행 높이는 왼쪽이 정하므로 페이지가
             안 짧아지고 비교 슬라이더만 작아집니다.
 
-            그래서 이 페이지의 **최소 높이는 735px** 이고(503 + 232), 창이 그보다 낮으면
-            스크롤이 남습니다. 더 내리려면 헤드라인이나 인기 스타일 카드를 줄여야 하는데,
-            여백을 0 으로 만들어도 650 이라 1366×768 노트북(뷰포트 약 625)은 어차피 못
-            들어옵니다 — 목표에서 뺐습니다.
+            그래서 이 페이지의 **최소 높이는 692px** 이고(460 + 232), 창이 그보다 낮으면
+            스크롤이 남습니다. 더 내리려면 헤드라인이나 인기 스타일 카드를 줄여야 합니다.
           */}
-          <div className="desktop:col-start-2 desktop:row-span-2 desktop:row-start-1 desktop:mx-auto desktop:w-[min(100%,max(308px,(100dvh_-_503px)*4/3))]">
+          <div className="desktop:col-start-2 desktop:row-span-2 desktop:row-start-1 desktop:mx-auto desktop:w-[min(100%,max(308px,(100dvh_-_460px)*4/3))]">
             <BeforeAfterSlider />
           </div>
 

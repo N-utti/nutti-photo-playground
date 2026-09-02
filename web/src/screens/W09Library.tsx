@@ -141,8 +141,23 @@ export default function W09Library() {
   const selectedItems = items.filter((item) => selected?.has(item.result_id))
 
   return (
-    <div className="min-h-full bg-canvas pb-24">
-      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
+    <div className="screen-min-h bg-canvas pb-24 desktop:pb-10">
+      {/*
+        데스크톱에서는 **평시에만** 내립니다.
+
+        평시 이 줄이 들고 있는 것은 «보관함» 제목과 크레딧 배지인데, 둘 다 바로 위
+        GNB 에 있습니다(켜진 탭이 같은 말을 하고 배지도 그쪽입니다). 남는 «선택» 버튼은
+        아래 목록 위로 옮겼습니다 — 버튼 하나 때문에 같은 말을 두 번 하는 줄을 남길
+        이유가 없습니다.
+
+        선택 모드는 반대입니다. «취소»·«N장 선택» 은 GNB 어디에도 없고, 이 줄이 없으면
+        데스크톱에서 선택을 빠져나갈 길이 사라집니다.
+      */}
+      <header
+        className={`sticky top-0 desktop:top-14 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3 ${
+          selected ? '' : 'desktop:hidden'
+        }`}
+      >
         {selected ? (
           <>
             <button
@@ -187,6 +202,25 @@ export default function W09Library() {
           (게스트 결과는 만든 브라우저에서 30일)은 `MemberOnlyNotice` 가 그대로 합니다.
         */}
         {guestReset && <GuestResetNotice onLogin={() => setLoginSheet(true)} />}
+
+        {/*
+          데스크톱에서 «선택» 이 서는 자리. 위 앱바가 내려가면서 여기로 옮겼습니다
+          (모바일은 앱바 쪽 버튼을 그대로 씁니다 — 그래서 `desktop:` 하나로 갈립니다).
+
+          목록 위 오른쪽인 이유는 이 버튼이 **목록에 하는 일**이기 때문입니다. 고를 것이
+          없으면(`items.length === 0`) 위 앱바와 같은 조건으로 아예 안 그립니다.
+        */}
+        {!selected && items.length > 0 && (
+          <div className="hidden justify-end desktop:flex">
+            <button
+              type="button"
+              onClick={() => setSelected(new Set())}
+              className="text-sm text-ink-2 hover:text-ink"
+            >
+              선택
+            </button>
+          </div>
+        )}
 
         <PetFilter pets={pets} value={petId} onChange={selectPet} />
 

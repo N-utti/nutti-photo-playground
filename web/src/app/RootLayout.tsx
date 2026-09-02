@@ -10,6 +10,7 @@
 import { useEffect, useState } from 'react'
 import { Outlet, useMatches } from 'react-router'
 import { ensureSession, isApiError, retryMemberRotation, session } from '../api/client'
+import DesktopNav from './DesktopNav'
 import JobStatusBar from './JobStatusBar'
 import { formatRetryAfter } from './retryAfter'
 import { clearSessionStatus, useSessionStatus } from './sessionStatus'
@@ -19,6 +20,15 @@ export default function RootLayout() {
     <>
       <DocumentTitle />
       <SessionBanner />
+      {/*
+        데스크톱 상단 GNB (app/DesktopNav.tsx). 모바일 하단 탭바와 달리 화면이 직접
+        붙이지 않고 여기서 한 번에 깝니다 — 붙일 화면을 고르는 판단 자체가 없어야
+        «모든 화면에서 보인다» 가 성립하고, 새 라우트가 늘어도 빠지지 않습니다.
+
+        세션 배너 **아래**입니다. 배너는 앱 전체가 요청을 못 보내는 상태를 알리는
+        것이라, 그 위에 평소와 같은 내비가 얹혀 있으면 무엇이 급한지 흐려집니다.
+      */}
+      <DesktopNav />
       <Outlet />
       {/* 화면 위에 떠 있는 것이라 흐름의 마지막에 둡니다 — 같은 z 인 탭바와 만나도
           이쪽이 위입니다. 붙이고 뗄 조건은 전부 그 안에 있습니다. */}

@@ -65,9 +65,21 @@ afterEach(() => {
   localStorage.removeItem('nutti.deleted-jobs')
 })
 
+/**
+ * «선택» 버튼은 **자리가 둘**입니다 — 모바일은 앱바, 데스크톱은 목록 위(W09Library.tsx).
+ * 데스크톱에서 앱바가 통째로 내려가면서 갈라졌고, 실제로는 폭에 따라 한쪽만 보입니다.
+ *
+ * 다만 jsdom 은 미디어 쿼리를 계산하지 않아 **둘 다 DOM 에 있습니다**. 이름으로만
+ * 찾으면 "Found multiple elements" 로 죽으므로, 여기서는 모바일 자리(앱바 안)를
+ * 집습니다 — 이 파일이 보는 것은 선택 상태이지 어느 폭에서 눌렀는지가 아닙니다.
+ */
+function selectButton() {
+  return within(screen.getByRole('banner')).getByRole('button', { name: '선택' })
+}
+
 /** 선택 모드로 들어가 첫 항목을 고릅니다. */
 async function selectFirstItem(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: '선택' }))
+  await user.click(selectButton())
   const tiles = screen.getAllByRole('button', { name: /결과$/ })
   await user.click(tiles[0])
 }
@@ -109,7 +121,7 @@ describe('W-09 · 보관함', () => {
     await selectFirstItem(user)
     await user.click(screen.getByRole('button', { name: '취소' }))
 
-    expect(screen.getByRole('button', { name: '선택' })).toBeInTheDocument()
+    expect(selectButton()).toBeInTheDocument()
     expect(screen.queryByText(/장 선택/)).not.toBeInTheDocument()
   })
 
@@ -118,7 +130,7 @@ describe('W-09 · 보관함', () => {
     renderLibrary()
 
     await screen.findByText('2026년 8월')
-    await user.click(screen.getByRole('button', { name: '선택' }))
+    await user.click(selectButton())
 
     expect(screen.getByRole('button', { name: '삭제' })).toBeDisabled()
   })
@@ -161,7 +173,7 @@ describe('W-09 · 보관함', () => {
     await waitFor(() => {
       expect(screen.queryByRole('button', { name: first! })).not.toBeInTheDocument()
     })
-    expect(screen.getByRole('button', { name: '선택' })).toBeInTheDocument()
+    expect(selectButton()).toBeInTheDocument()
     expect(screen.queryByText(/장 선택/)).not.toBeInTheDocument()
   })
 
@@ -307,7 +319,7 @@ describe('W-09 · 보관함', () => {
     renderLibrary()
 
     await screen.findByText('2026년 8월')
-    await user.click(screen.getByRole('button', { name: '선택' }))
+    await user.click(selectButton())
     // 110장을 다 탭합니다 — 상한이 없으면 110장이 한 요청에 실립니다.
     for (const tile of screen.getAllByRole('button', { name: /결과$/ })) fireEvent.click(tile)
 

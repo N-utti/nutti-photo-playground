@@ -50,6 +50,7 @@ import {
 } from '../app/styleInputs'
 // 폼 자체는 W-06 «다시 만들기» 와 함께 씁니다 — 같은 칸을 같은 규칙으로 그려야 합니다.
 import { StyleInputForm } from '../app/StyleInputForm'
+import { TabBar } from '../app/TabBar'
 import Thumbnail from '../app/Thumbnail'
 import { clearUploadDraft, readUploadDraft, writeUploadDraft } from '../api/uploadDraft'
 import BreedField from '../app/BreedField'
@@ -395,14 +396,21 @@ export default function W04Upload() {
   const blocked = upload?.blocking_issue ?? null
 
   return (
-    <div className="min-h-full bg-paper pb-16">
-      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
+    // pb-24 — 모바일 하단 탭바가 마지막 줄을 덮지 않게(W-01·W-02·W-09 와 같은 값).
+    // 데스크톱에는 탭바가 없어 원래 값 그대로입니다.
+    <div className="screen-min-h bg-paper pb-24 desktop:pb-16">
+      <header className="sticky top-0 desktop:top-14 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
         {/* 확인 단계에서도 그냥 뒤로 갑니다 — 사진을 다시 고르는 길은 아래
             «다른 사진 고르기» 입니다(ConfirmPanel). ← 가 화면 안 단계를 되감으면
             같은 화살표가 어떤 때는 나가고 어떤 때는 안 나갑니다. */}
         <BackButton fallback="/styles" />
         <h1 className="text-base font-bold">{confirming ? '확인' : '사진 선택'}</h1>
-        <CreditBadge />
+        {/* 데스크톱에서는 GNB 가 배지를 들고 있어 여기서는 내립니다 — 안 내리면 같은
+            숫자가 위아래 두 줄에 겹칩니다. `contents` 는 이 span 이 flex 항목으로 세지
+            않게 해서 모바일 배치를 그대로 둡니다. */}
+        <span className="contents desktop:hidden">
+          <CreditBadge />
+        </span>
       </header>
 
       <main className="mx-auto w-full max-w-md px-4 py-4">
@@ -480,6 +488,20 @@ export default function W04Upload() {
           }}
         />
       )}
+
+      {/*
+        탭바(모바일 전용). 이 화면은 «만들기» 탭이 **가리키는 목적지**인데 여기에 탭바가
+        없어서, 탭을 누른 순간 탭 목록이 통째로 사라졌습니다.
+
+        빼 뒀던 이유는 만들기 흐름 한복판에 나가는 문 셋을 여는 것이었습니다(TabBar.tsx).
+        그 판단은 W-05·W-06 에 그대로 남습니다 — 거기는 크레딧이 **이미 나간** 뒤이고
+        결과를 기다리는 중이라 문을 넓힐 이유가 없습니다. 여기는 다릅니다: 사진을 고르기
+        전이든 확인 단계든 아직 아무것도 안 썼고, 대가로 치른 것은 «탭을 눌렀는데 탭이
+        사라진다» 는 확실한 어색함이었습니다.
+
+        데스크톱에는 안 나옵니다(`desktop:hidden`) — 그쪽은 상단 GNB 가 같은 일을 합니다.
+      */}
+      <TabBar />
     </div>
   )
 }
