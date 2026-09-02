@@ -283,6 +283,44 @@ describe('W-06 · 저장·공유 버튼', () => {
     expect(screen.queryByText(/길게 눌러 저장/)).not.toBeInTheDocument()
   })
 
+  it('파일 공유가 되는 브라우저에서는 「이미지 저장」도 시트로 간다 — 갤러리에 넣는 유일한 길', async () => {
+    /*
+      iOS 에서 blob 다운로드는 사진 앱이 아니라 파일 앱으로 떨어집니다. 저장 버튼이
+      공유 시트를 열어야(시트의 「이미지 저장」) 갤러리에 들어갑니다. 저장 의도이므로
+      공유 버튼과 달리 text 를 싣지 않습니다 — 실으면 시트에서 카톡을 고른 사람의
+      입력창에 홍보 문구가 미리 채워집니다.
+    */
+    const user = userEvent.setup()
+    const shared: ShareData[] = []
+    Object.defineProperty(navigator, 'canShare', { configurable: true, value: () => true })
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      value: async (data: ShareData) => {
+        shared.push(data)
+      },
+    })
+    mockShare()
+    server.use(
+      http.get(SHARE_URL, () =>
+        HttpResponse.arrayBuffer(new Uint8Array([255, 216, 255]).buffer, {
+          headers: { 'Content-Type': 'image/jpeg' },
+        }),
+      ),
+    )
+    try {
+      renderResult(succeededJob())
+
+      await user.click(await screen.findByRole('button', { name: '이미지 저장' }))
+
+      await waitFor(() => expect(shared).toHaveLength(1))
+      expect(shared[0].files?.[0]).toBeInstanceOf(File)
+      expect(shared[0]).not.toHaveProperty('text')
+    } finally {
+      delete (navigator as { canShare?: unknown }).canShare
+      delete (navigator as { share?: unknown }).share
+    }
+  })
+
   it('파일 공유가 되는 브라우저에서는 「공유」가 OS 공유 시트로 이미지를 넘긴다', async () => {
     /*
       인스타그램은 웹에서 대신 게시할 수 없어서, 모바일에서 게시물/스토리로 가는 가장 짧은
