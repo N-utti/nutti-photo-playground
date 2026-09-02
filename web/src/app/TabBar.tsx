@@ -31,33 +31,28 @@
  * 활성 탭은 `prop` 이 아니라 현재 경로로 정합니다. 화면이 자기 이름을 문자열로
  * 넘기면 그게 틀렸을 때(복사·붙여넣기) 아무 데서도 안 걸립니다.
  *
- * **데스크톱에서도 답니다.** 와이어프레임의 데스크톱 프레임(#p02 B)에는 탭바가
- * 없지만, 그 프레임에는 **대신할 내비가 아무것도 없습니다** — 4열 그리드를 보이려고
- * 그린 프레임이지 내비 설계가 아니고(노트5), W-09 는 아예 모바일만 그렸습니다
- * (`device: Mobile`). 넓은 화면에서만 숨기면 보관함으로 가는 길이 W-06 안의 링크
- * 하나로 줄어듭니다. 데스크톱 내비가 따로 설계되면 그때 폭 분기를 넣으면 됩니다.
+ * **이제 모바일 전용입니다**(`desktop:hidden`). 한동안 데스크톱에서도 이 하단 바를
+ * 그렸는데, 그건 «넓은 화면에서만 숨기면 보관함으로 가는 길이 사라진다» 는 이유였지
+ * 하단 바가 데스크톱에 맞아서가 아니었습니다. 그 자리를 상단 GNB(app/DesktopNav.tsx)가
+ * 가져갔습니다 — 그쪽은 **모든 화면**에 붙으므로, 여기서 데스크톱을 놓아도 길이 줄지
+ * 않고 오히려 여덟 화면에서 늘어납니다.
+ *
+ * 목적지 목록은 app/navTabs.ts 로 나갔습니다 — 두 내비가 같은 곳을 가리켜야 하고,
+ * 상수를 컴포넌트 파일에서 내보내면 react-refresh 가 걸립니다.
  */
 
 import { Link, useLocation } from 'react-router'
 import { track } from './analytics'
 import { shopLink } from './externalLinks'
+import { TABS, isActive, type TabKey } from './navTabs'
 
-/**
- * 순서와 이름은 와이어프레임 표기(#p02·#p09 탭바)를 따르되, 맨 앞에 «홈» 을
- * 더했습니다. 와이어프레임의 4칸에는 `/` 로 돌아오는 길이 **W-02 앱바의 24px 짜리
- * 로고 마크 하나뿐**이었고(W-09 에는 그것도 없습니다), 로고가 홈이라는 건 웹의
- * 관습이지 손가락에 보이는 문은 아닙니다.
- *
- * «만들기» 가 `/upload` 인 것은 FR-W01-02(사진이 먼저 — 랜딩 CTA 도 스타일 없이
- * 여기로 들어옵니다)와 FR-W08-01(크리에이티브 모드는 «만들기» 안의 보조 진입점)이
- * 같이 규정합니다. `/creative` 는 탭이 아니라 그 화면 안의 한 줄입니다.
- */
-const TABS = [
-  { key: 'home', label: '홈', to: '/', icon: HomeIcon },
-  { key: 'styles', label: '스타일', to: '/styles', icon: GridIcon },
-  { key: 'create', label: '만들기', to: '/upload', icon: CameraIcon },
-  { key: 'library', label: '보관함', to: '/library', icon: PhotoStackIcon },
-] as const
+/** 아이콘은 탭바만 씁니다(GNB 는 글자만) — 그래서 목적지 목록이 아니라 여기 있습니다. */
+const ICONS: Record<TabKey, () => React.ReactElement> = {
+  home: HomeIcon,
+  styles: GridIcon,
+  create: CameraIcon,
+  library: PhotoStackIcon,
+}
 
 export function TabBar() {
   const { pathname } = useLocation()
@@ -67,11 +62,12 @@ export function TabBar() {
       aria-label="주요 메뉴"
       // z-20 — W-03 시트·삭제 확인(z-30)보다 아래입니다. 모달이 떠 있는데 탭바가
       // 그 위에 뜨면 모달 밖으로 나가는 길이 열려 모달이 아니게 됩니다.
-      className="fixed inset-x-0 bottom-0 z-20 border-t border-rule bg-surface pb-[env(safe-area-inset-bottom)]"
+      className="fixed inset-x-0 bottom-0 z-20 border-t border-rule bg-surface pb-[env(safe-area-inset-bottom)] desktop:hidden"
     >
       <ul className="mx-auto flex w-full max-w-md">
         {TABS.map((tab) => {
           const active = isActive(pathname, tab.to)
+          const Icon = ICONS[tab.key]
           return (
             <li key={tab.key} className="flex-1">
               <Link
@@ -83,7 +79,7 @@ export function TabBar() {
                   active ? 'font-semibold text-brand' : 'text-ink-3 hover:text-ink'
                 }`}
               >
-                <tab.icon />
+                <Icon />
                 {tab.label}
               </Link>
             </li>
@@ -112,18 +108,6 @@ export function TabBar() {
   )
 }
 
-/**
- * `/styles` 는 자식 라우트가 있어서(`/styles/101` = W-03 시트) 정확히 일치로만
- * 보면 시트가 열린 순간 활성 표시가 꺼집니다. 시트는 여전히 카탈로그 위에 있는
- * 것이므로 접두사로 봅니다.
- *
- * «홈»(`/`)만은 접두사 규칙이 저절로 비껴갑니다 — 붙여 만든 접두사가 `//` 라 어떤
- * 경로와도 안 맞고, 결국 정확히 일치할 때만 켜집니다. 원하던 결과입니다: 여기서
- * 접두사로 봤다면 모든 화면에서 홈이 켜져 있었을 겁니다.
- */
-function isActive(pathname: string, to: string): boolean {
-  return pathname === to || pathname.startsWith(`${to}/`)
-}
 
 // ---------------------------------------------------------------- 아이콘
 

@@ -46,8 +46,8 @@ export default function W07Calculator() {
   const notFound = isApiError(error, 'NOT_FOUND')
 
   return (
-    <div className="min-h-full bg-paper pb-16">
-      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
+    <div className="screen-min-h bg-paper pb-16">
+      <header className="sticky top-0 desktop:top-14 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
         <BackButton fallback="/styles" />
         <h1 className="text-base font-bold">간식량 계산기</h1>
       </header>

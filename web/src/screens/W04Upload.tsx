@@ -395,8 +395,8 @@ export default function W04Upload() {
   const blocked = upload?.blocking_issue ?? null
 
   return (
-    <div className="min-h-full bg-paper pb-16">
-      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
+    <div className="screen-min-h bg-paper pb-16">
+      <header className="sticky top-0 desktop:top-14 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
         {/* 확인 단계에서도 그냥 뒤로 갑니다 — 사진을 다시 고르는 길은 아래
             «다른 사진 고르기» 입니다(ConfirmPanel). ← 가 화면 안 단계를 되감으면
             같은 화살표가 어떤 때는 나가고 어떤 때는 안 나갑니다. */}

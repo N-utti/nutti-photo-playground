@@ -8,8 +8,14 @@
 
 export const NUTTI_SHOP_URL = 'https://nutti.co.kr'
 
-/** 놀이터 → 쇼핑몰 출구 위치. GA4·카페24 유입경로에서 «어느 화면이 주문을 만들었나»를 가르는 키입니다. */
-export type ShopExit = 'w06_result' | 'w10_credits' | 'tabbar'
+/**
+ * 놀이터 → 쇼핑몰 출구 위치. GA4·카페24 유입경로에서 «어느 화면이 주문을 만들었나»를 가르는 키입니다.
+ *
+ * `tabbar` 와 `gnb` 는 같은 «누띠샵» 칸이지만 나눠 둡니다 — 전자는 모바일 하단 탭바,
+ * 후자는 데스크톱 상단 GNB 입니다. 합쳐 두면 이 출구가 모바일에서 눌리는지 데스크톱에서
+ * 눌리는지 GA4 에서 갈라볼 수 없고, 그건 이 링크를 어디에 둘지 정할 때 필요한 숫자입니다.
+ */
+export type ShopExit = 'w06_result' | 'w10_credits' | 'tabbar' | 'gnb'
 
 /**
  * 쇼핑몰로 나가는 **레퍼럴 링크** (PO 요청 2026-09-01).

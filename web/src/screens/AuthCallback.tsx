@@ -173,7 +173,7 @@ function CallbackFrame({
   action?: ReactNode
 }) {
   return (
-    <div className="flex min-h-full items-center justify-center bg-paper px-4 py-16">
+    <div className="flex screen-min-h items-center justify-center bg-paper px-4 py-16">
       <div className="w-full max-w-sm rounded-2xl border border-rule bg-surface p-5 text-center">
         <h1 className="text-base font-bold">{title}</h1>
         <p className="mt-2 text-sm text-ink-2">{body}</p>

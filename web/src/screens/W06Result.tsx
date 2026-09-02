@@ -162,8 +162,8 @@ export default function W06Result() {
   }
 
   return (
-    <div className="min-h-full bg-canvas pb-16">
-      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
+    <div className="screen-min-h bg-canvas pb-16">
+      <header className="sticky top-0 desktop:top-14 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
         {/* 대기 화면(W-05)은 끝나는 순간 `replace` 로 여기 자리를 넘겼으므로,
             한 칸 뒤는 만들기를 시작한 화면입니다 — 끝난 진행 막대로 되돌아가지 않습니다. */}
         <BackButton fallback="/styles" />

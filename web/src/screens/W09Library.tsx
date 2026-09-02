@@ -141,8 +141,8 @@ export default function W09Library() {
   const selectedItems = items.filter((item) => selected?.has(item.result_id))
 
   return (
-    <div className="min-h-full bg-canvas pb-24">
-      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
+    <div className="screen-min-h bg-canvas pb-24 desktop:pb-10">
+      <header className="sticky top-0 desktop:top-14 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
         {selected ? (
           <>
             <button
