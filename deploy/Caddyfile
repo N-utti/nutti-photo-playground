@@ -7,15 +7,30 @@
 play.nutti.co.kr {
 	root * /srv/web
 	encode gzip
-	# SPA — /auth/callback/kakao 같은 클라이언트 라우트는 전부 index.html
-	try_files {path} /index.html
+	# SPA — /auth/callback/kakao 같은 클라이언트 라우트만 index.html 로.
+	# 정적 자산 경로는 제외해 없는 파일이 404 그대로 나가게 한다 (#219:
+	# 없는 JS가 200 HTML 로 오면 MIME 오류로 백지, 폰트면 조용히 폴백 서체).
+	@spa {
+		not path /assets/* /fonts/* /brand/* /hero/* /icons.svg
+		not file
+	}
+	rewrite @spa /index.html
 	file_server
 	header {
 		X-Content-Type-Options nosniff
 		Referrer-Policy strict-origin-when-cross-origin
 	}
-	@assets path /assets/*
+	# 해시 자산만 영구 캐시. file 조건이 없으면 404 응답에도 immutable 이 붙는다 (#219).
+	@assets {
+		path /assets/*
+		file
+	}
 	header @assets Cache-Control "public, max-age=31536000, immutable"
+	# HTML(/ 와 SPA 라우트)은 항상 재검증 — 옛 index.html 캐시가 지워진 해시 자산을
+	# 가리키다 백지가 되는 사고 방지 (#219). header 는 rewrite 앞에 실행되므로
+	# 원 요청 경로 기준 매칭이라 /index.html 지정 대신 자산 제외형으로 건다.
+	@page not path /assets/* /fonts/* /brand/* /hero/* /icons.svg
+	header @page Cache-Control "no-cache"
 }
 
 api.nutti.co.kr {

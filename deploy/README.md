@@ -26,7 +26,7 @@
 1. R2 → Create bucket `nutti-media` (APAC) — **생성 완료(2026-09-01)**, S3 endpoint `https://bd5bc80960aa7aebb998c9822fcdb361.r2.cloudflarestorage.com`. **Custom Domains** → `img.nutti.co.kr` 연결은 **zone이 active(네임서버 전환 완료)여야 API가 받아줌**(pending 상태에선 400) — §0-2 뒤에 수행.
    - ⚠️ 버킷 **수명 주기(Lifecycle) 일괄 삭제 규칙을 걸지 말 것** — `uploads/`·`results/` 키에 게스트/회원 구분이 없어 회원 보관함(W-09) 이미지까지 지워진다. 용량 관리는 `scripts/purge_deleted.py`(논리삭제 실파기)와 과금 알림(Notifications → Usage Based Billing)으로.
 2. R2 API 토큰(Object Read & Write, 버킷 한정) 발급 → `.env`의 `R2_ACCESS_KEY_ID/R2_SECRET_ACCESS_KEY`, `R2_ENDPOINT_URL=https://<account_id>.r2.cloudflarestorage.com`, `R2_BUCKET_NAME=nutti-media`, `CDN_BASE_URL=https://img.nutti.co.kr`.
-3. CORS(이슈 #77): `uv run python scripts/setup_r2_cors.py --origins https://play.nutti.co.kr` — 안 하면 W-06 "이미지 저장"이 조용히 깨진다.
+3. CORS(이슈 #77): **Cloudflare 대시보드 → R2 → `nutti-media` → 설정 → CORS 정책**에서 `https://play.nutti.co.kr` 오리진 허용(GET/HEAD) — 안 하면 W-06 "이미지 저장"이 조용히 깨진다. `scripts/setup_r2_cors.py`는 **Admin API 토큰이 있어야 동작** — 2번의 Object Read & Write 토큰으로는 `PutBucketCors`가 AccessDenied(2026-09-01 실측, 대시보드로 적용 완료).
 
 ## 2. Vultr VPS
 
