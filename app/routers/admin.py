@@ -25,6 +25,7 @@ from app.models import (
     CreditReason,
     CustomPromptLog,
     GenerationJob,
+    InstagramDmCode,
     Member,
     MetricEvent,
     PromptVersionStatus,
@@ -467,25 +468,43 @@ async def admin_follow_ig_claims(
     _: AdminUser = Depends(get_current_admin),
 ):
     """인스타 팔로우 +2 수령 목록 — 인스타는 팔로우 조회 API가 없어 운영자가 실제 팔로워 목록과 대조하는 자리.
-    허위면 `POST /credits/adjust`(음수)로 회수. cursor = 마지막 항목의 ledger id(내림차순)."""
+    허위면 `POST /credits/adjust`(음수)로 회수. cursor = 마지막 항목의 ledger id(내림차순).
+
+    ref_id는 경로별로 다르다(#226): 아이디 입력 경로는 "ig:<username>", DM 코드 경로는 불변 감사 키인
+    "ig:<igsid>". igsid 그대로는 팔로워 목록과 대조가 안 되므로 코드 발급 때 저장한 ig_username으로 풀어 준다."""
     query = CreditLedger.filter(reason=CreditReason.FOLLOW_IG.value, ref_id__startswith="ig:")
     if cursor is not None:
         query = query.filter(id__lt=cursor)
     rows = await query.order_by("-id").limit(limit + 1).values("id", "member_id", "ref_id", "amount", "created_at")
     page = rows[:limit]
-    return {
-        "items": [
+    refs = {row["ref_id"].removeprefix("ig:") for row in page}
+    # ponytail: username/igsid 구분은 DM 코드 테이블 매칭으로 — 순수 숫자 인스타 아이디가 실존 igsid와
+    # 충돌할 확률은 무시(충돌해도 대조용 표기가 바뀔 뿐 지급·회수 로직과 무관)
+    dm_usernames = (
+        {
+            code["igsid"]: code["ig_username"]
+            for code in await InstagramDmCode.filter(igsid__in=refs).values("igsid", "ig_username")
+        }
+        if refs
+        else {}
+    )
+    items = []
+    for row in page:
+        ref = row["ref_id"].removeprefix("ig:")
+        is_dm = ref in dm_usernames
+        items.append(
             {
                 "ledger_id": row["id"],
                 "member_id": str(row["member_id"]),
-                "instagram_username": row["ref_id"].removeprefix("ig:"),
+                # DM 행에서 username이 못 남았으면(null) igsid 칸으로 추적한다
+                "instagram_username": dm_usernames[ref] if is_dm else ref,
+                "source": "dm" if is_dm else "input",
+                "igsid": ref if is_dm else None,
                 "amount": row["amount"],
                 "claimed_at": row["created_at"],
             }
-            for row in page
-        ],
-        "next_cursor": page[-1]["id"] if len(rows) > limit else None,
-    }
+        )
+    return {"items": items, "next_cursor": page[-1]["id"] if len(rows) > limit else None}
 
 
 @router.post("/credits/adjust")

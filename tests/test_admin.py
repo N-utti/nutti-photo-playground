@@ -992,22 +992,35 @@ def test_admin_follow_ig_claims_lists_handles_for_manual_cross_check(client: Tes
     first = client.portal.call(_create_member, MemberKind.MEMBER)
     second = client.portal.call(_create_member, MemberKind.MEMBER)
 
+    from app.models import InstagramDmCode
+
+    third = client.portal.call(_create_member, MemberKind.MEMBER)
+
     async def _claims():
         await grant_credits(uuid.UUID(first), 2, CreditReason.FOLLOW_IG.value, "follow_ig", ref_id="ig:kongmom")
         await grant_credits(uuid.UUID(second), 2, CreditReason.FOLLOW_IG.value, "follow_ig", ref_id="ig:coco_dad")
         await grant_credits(uuid.UUID(second), 1, "daily_free", "daily:2026-09-01")  # 목록에 안 나와야 함
+        # DM 코드 경로 — ref_id는 불변 igsid, 목록엔 발급 때 저장한 username으로 풀려야 한다(#226)
+        await InstagramDmCode.create(code="DMCODE01", igsid="17841400001234567", ig_username="dm.follower")
+        await grant_credits(
+            uuid.UUID(third), 2, CreditReason.FOLLOW_IG.value, "follow_ig", ref_id="ig:17841400001234567"
+        )
 
     client.portal.call(_claims)
     headers = _admin_headers(client)
 
     page1 = client.get("/v1/admin/follow-ig/claims?limit=1", headers=headers)
-    page2 = client.get(f"/v1/admin/follow-ig/claims?limit=1&cursor={page1.json()['next_cursor']}", headers=headers)
+    page2 = client.get(f"/v1/admin/follow-ig/claims?limit=2&cursor={page1.json()['next_cursor']}", headers=headers)
     guest = client.get("/v1/admin/follow-ig/claims")
 
     assert page1.status_code == 200
-    assert [i["instagram_username"] for i in page1.json()["items"]] == ["coco_dad"]
-    assert page1.json()["items"][0]["member_id"] == second and page1.json()["items"][0]["amount"] == 2
-    assert [i["instagram_username"] for i in page2.json()["items"]] == ["kongmom"]
+    dm_row = page1.json()["items"][0]
+    assert dm_row["instagram_username"] == "dm.follower"  # igsid가 아니라 대조 가능한 아이디
+    assert dm_row["source"] == "dm" and dm_row["igsid"] == "17841400001234567"
+    assert [i["instagram_username"] for i in page2.json()["items"]] == ["coco_dad", "kongmom"]
+    assert [i["source"] for i in page2.json()["items"]] == ["input", "input"]
+    assert all(i["igsid"] is None for i in page2.json()["items"])
+    assert page2.json()["items"][0]["member_id"] == second and page2.json()["items"][0]["amount"] == 2
     assert page2.json()["next_cursor"] is None
     assert guest.status_code == 401
 

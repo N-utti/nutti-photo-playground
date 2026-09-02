@@ -764,7 +764,7 @@ Meta 앱(Instagram API with Instagram Login)의 Webhooks에 등록하는 URL. �
 // 200 — ClaimCreditResponse
 { "balance": 13, "amount_granted": 2 }
 ```
-코드는 팔로우가 **API로 확인된** 인스타 사용자에게만 발급되므로 아이디 입력·열기 이벤트 없이 `follow_ig`를 지급한다(원장 `ref_id = "ig:<인스타 username>"`, 회원당 1회 dedupe → 재소진 `409 ALREADY_CLAIMED`). **인스타 계정(igsid)당 1회**: 같은 계정이 새 코드를 받아 다른 놀이터 회원이 넣어도 `409 INSTAGRAM_ALREADY_USED`. 없는/만료/미확인 코드 `404 INSTAGRAM_CODE_INVALID`, 게스트 `403 MEMBER_ONLY`, 형식(6~16자 영숫자) 위반 400. 프론트는 랜딩 `?ig=` 를 기억했다가 로그인 직후 자동 소진하고, W-10 팔로우 행에도 코드 입력을 둔다(검수 통과 후 아이디 입력 경로 제거 예정).
+코드는 팔로우가 **API로 확인된** 인스타 사용자에게만 발급되므로 아이디 입력·열기 이벤트 없이 `follow_ig`를 지급한다(원장 `ref_id = "ig:<igsid>"` — username은 바뀔 수 있어 감사 키는 불변 igsid, 대조 목록에는 코드 발급 때 저장한 username으로 풀려 나간다(#226). 회원당 1회 dedupe → 재소진 `409 ALREADY_CLAIMED`). **인스타 계정(igsid)당 1회**: 같은 계정이 새 코드를 받아 다른 놀이터 회원이 넣어도 `409 INSTAGRAM_ALREADY_USED`. 없는/만료/미확인 코드 `404 INSTAGRAM_CODE_INVALID`, 게스트 `403 MEMBER_ONLY`, 형식(6~16자 영숫자) 위반 400. 프론트는 랜딩 `?ig=` 를 기억했다가 로그인 직후 자동 소진하고, W-10 팔로우 행에도 코드 입력을 둔다(검수 통과 후 아이디 입력 경로 제거 예정).
 
 #### `GET /v1/credits`
 
@@ -1191,12 +1191,14 @@ CS 대응 등 수동 조정. `dedupe_key`는 관리자가 사유별로 직접 �
 // 200
 {
   "items": [
-    { "ledger_id": 812, "member_id": "8f14e457-…", "instagram_username": "kong.mom", "amount": 2, "claimed_at": "2026-09-01T14:20:11+00:00" }
+    { "ledger_id": 812, "member_id": "8f14e457-…", "instagram_username": "kong.mom", "source": "input", "igsid": null, "amount": 2, "claimed_at": "2026-09-01T14:20:11+00:00" },
+    { "ledger_id": 811, "member_id": "77a03c1d-…", "instagram_username": "coco_dad", "source": "dm", "igsid": "17841400001234567", "amount": 2, "claimed_at": "2026-09-01T13:02:40+00:00" }
   ],
-  "next_cursor": 812
+  "next_cursor": 811
 }
 ```
-운영자가 `@nutti_official` 팔로워 목록과 대조해 허위 수령은 `POST /v1/admin/credits/adjust`(음수, `reason: cs_adjustment`)로 회수한다. 별도 회수 엔드포인트는 두지 않는다.
+- `source: "input"` — 아이디 입력 클레임(원장 `ref_id = "ig:<username>"`, 사용자 주장값). `source: "dm"` — DM 코드 소진(원장 `ref_id = "ig:<igsid>"` 불변 감사 키, `instagram_username`은 코드 발급 때 Graph API가 준 값이라 **팔로우 확인이 끝난 실명**). DM 행에 username이 안 남았으면 `instagram_username: null` — `igsid`로 추적한다(#226).
+- 운영자가 `@nutti_official` 팔로워 목록과 대조해 허위 수령은 `POST /v1/admin/credits/adjust`(음수, `reason: cs_adjustment`)로 회수한다. 별도 회수 엔드포인트는 두지 않는다. `dm` 행은 이미 API로 팔로우가 확인된 것이라 대조 대상은 사실상 `input` 행이다.
 
 #### `GET /v1/admin/cafe24/status`
 
