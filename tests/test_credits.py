@@ -441,3 +441,24 @@ def test_follow_ig_open_event_expires_after_30_minutes(client: TestClient):
 
     assert stale.status_code == 400 and stale.json()["error"]["code"] == "FOLLOW_IG_NOT_OPENED"
     assert credits_router.FOLLOW_IG_MAX_AGE == timedelta(minutes=30)
+
+
+def test_grant_credits_rejects_reason_sign_mismatch(client: TestClient):
+    """L5(#11): 사유와 어긋난 부호·0 지급은 원장에 닿기 전에 ValueError. cs_adjustment만 양방향."""
+    from app.credits import grant_credits
+
+    member_id = client.portal.call(_create_member, MemberKind.MEMBER, 5)
+
+    async def _attempt(delta: int, reason: str):
+        try:
+            await grant_credits(uuid.UUID(member_id), delta, reason, f"sign:{reason}:{delta}")
+        except ValueError:
+            return "rejected"
+        return "granted"
+
+    assert client.portal.call(_attempt, -1, "daily_free") == "rejected"
+    assert client.portal.call(_attempt, 1, "order_clawback") == "rejected"
+    assert client.portal.call(_attempt, 1, "no_such_reason") == "rejected"
+    assert client.portal.call(_attempt, -1, "cs_adjustment") == "granted"
+    # 0은 거부하지 않는다 — 보상액 0 설정(무료 프로모션)이 claim 500·워커 사망으로 번지면 안 됨(보안 리뷰)
+    assert client.portal.call(_attempt, 0, "daily_free") == "granted"

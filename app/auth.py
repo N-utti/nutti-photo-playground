@@ -65,11 +65,13 @@ def create_admin_token(admin_id: int) -> str:
     )
 
 
-def create_state(member_id: uuid.UUID, nonce: str, expires_at: datetime) -> str:
+def create_state(member_id: uuid.UUID, nonce: str, expires_at: datetime, provider: str) -> str:
     return jwt.encode(
         {
             "sub": str(member_id),
             "kind": "state",
+            # L-C(#11): kakao authorize로 받은 state를 naver 콜백에 못 쓰게 — 콜백에서 대조(심층 방어)
+            "provider": provider,
             "nonce": nonce,
             "exp": expires_at,
         },
@@ -78,17 +80,21 @@ def create_state(member_id: uuid.UUID, nonce: str, expires_at: datetime) -> str:
     )
 
 
-def state_identity(state: str) -> tuple[uuid.UUID, str]:
+def state_identity(state: str) -> tuple[uuid.UUID, str, str]:
     try:
         payload = jwt.decode(
             state,
             settings.jwt_signing_key,
             algorithms=["HS256"],
-            options={"require": ["sub", "kind", "nonce", "exp"]},
+            options={"require": ["sub", "kind", "nonce", "exp", "provider"]},
         )
-        if payload["kind"] != "state" or not isinstance(payload["nonce"], str):
+        if (
+            payload["kind"] != "state"
+            or not isinstance(payload["nonce"], str)
+            or not isinstance(payload["provider"], str)
+        ):
             raise ValueError
-        return uuid.UUID(payload["sub"]), payload["nonce"]
+        return uuid.UUID(payload["sub"]), payload["nonce"], payload["provider"]
     except (jwt.InvalidTokenError, TypeError, ValueError) as exc:
         raise unauthorized() from exc
 

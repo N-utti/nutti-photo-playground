@@ -53,6 +53,7 @@ class CreditReason(str, enum.Enum):
     ORDER_CLAWBACK = "order_clawback"
     CS_ADJUSTMENT = "cs_adjustment"
     WITHDRAWAL_FORFEIT = "withdrawal_forfeit"
+    GUEST_MERGE = "guest_merge"  # 게스트 → 회원 병합 시 남은 잔액 이관 (#11 L6)
 
 
 class Member(Model):
