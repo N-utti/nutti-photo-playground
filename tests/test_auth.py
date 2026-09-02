@@ -853,7 +853,7 @@ def test_cafe24_link_otp_links_member_and_grants_three_credits(
     response = _link_cafe24(client, member_session["token"], monkeypatch, "cafe-user-1")
 
     assert response.status_code == 200, response.text
-    assert response.json() == {"cafe24_linked": True, "credit_balance": 4, "candidates": None}
+    assert response.json() == {"cafe24_linked": True, "credit_balance": 4, "amount_granted": 3, "candidates": None}
     member, ledger = client.portal.call(_member_and_ledger, member_session["member_id"])
     assert member.cafe24_member_id == "cafe-user-1"
     assert member.order_reward_cutoff is not None
@@ -924,9 +924,26 @@ def test_cafe24_relink_does_not_grant_credits_twice(client: TestClient, monkeypa
 
     assert first.status_code == second.status_code == 200
     assert first.json()["credit_balance"] == second.json()["credit_balance"] == 4
+    assert (first.json()["amount_granted"], second.json()["amount_granted"]) == (3, 0)
     member, ledger = client.portal.call(_member_and_ledger, member_session["member_id"])
     assert member.order_reward_cutoff == first_cutoff
     assert len([entry for entry in ledger if entry.dedupe_key == "link_account"]) == 1
+
+
+def test_cafe24_link_grants_policy_amount(client: TestClient, monkeypatch: pytest.MonkeyPatch):
+    """지급액은 하드코딩 3이 아니라 link_account_amount 정책값 — 응답 amount_granted가 확정값(#224)."""
+    from functools import partial
+
+    from app.models import AppSetting
+
+    client.portal.call(partial(AppSetting.create, key="link_account_amount", value=5))
+    member_session = _register_member(client, "policy-amount@example.com")
+
+    response = _link_cafe24(client, member_session["token"], monkeypatch, "cafe-user-policy")
+
+    assert response.status_code == 200, response.text
+    assert response.json()["amount_granted"] == 5
+    assert response.json()["credit_balance"] == 6  # 가입 +1, 연동 +5
 
 
 def test_cafe24_rejects_rebinding_member_to_another_account(
@@ -980,7 +997,7 @@ def test_cafe24_link_by_cellphone_single_account(client: TestClient, monkeypatch
     )
 
     assert verified.status_code == 200, verified.text
-    assert verified.json() == {"cafe24_linked": True, "credit_balance": 4, "candidates": None}
+    assert verified.json() == {"cafe24_linked": True, "credit_balance": 4, "amount_granted": 3, "candidates": None}
     assert client.portal.call(_member, member_session["member_id"]).cafe24_member_id == "4993695098@k"
 
 
@@ -1000,6 +1017,7 @@ def test_cafe24_link_by_cellphone_multiple_accounts_requires_pick(
     assert first.json() == {
         "cafe24_linked": False,
         "credit_balance": 1,
+        "amount_granted": 0,
         "candidates": ["tester123", "4950033661@k", "wjdtjdnds98"],
     }
     assert client.portal.call(_member, member_session["member_id"]).oauth_state_nonce is not None
@@ -1011,6 +1029,7 @@ def test_cafe24_link_by_cellphone_multiple_accounts_requires_pick(
     )
     assert picked.status_code == 200, picked.text
     assert picked.json()["cafe24_linked"] is True and picked.json()["credit_balance"] == 4
+    assert picked.json()["amount_granted"] == 3  # 지급은 후보를 골라 실제 연동된 이번 요청에서
     member = client.portal.call(_member, member_session["member_id"])
     assert member.cafe24_member_id == "4950033661@k"
     assert member.oauth_state_nonce is None  # 골랐으니 소비
