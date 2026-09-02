@@ -135,7 +135,7 @@
 
 | UI 요소 | 데이터 출처 |
 |---|---|
-| 계산기 배너 문구("사진에서 푸들로 봤어요") + URL | `GET /v1/calculator-link?pet_id=` → `{breed_code, breed_label, size_label, calculator_url}` |
+| 계산기 배너 문구("입력한 견종 푸들 · 소형 · 2단계부터 시작") + URL | `GET /v1/calculator-link?pet_id=` → `{breed_code, breed_label, size_label, calculator_url}` |
 | URL 표기(`calculator.html?name=…&breed=…&size=…`) | 위 응답의 `calculator_url`을 그대로 사용(서버가 완성된 URL 반환, UTM 포함) |
 
 **계약 노트**(Q9 확정, PR #122·이슈 #161): 계산기는 별도 코드 체계 없이 **한글 견종명이 키**(`calculator.js` `BREEDS` 40종)라 `breed_code` = `breed_label` = 한글명입니다(`app/breeds.py` 스냅샷, `07-decisions.md#Q9`). 목록에 없거나 매칭 불가 시 `breed_code: "믹스견"` 폴백, 완전 실패 시 `breed_code: null` → 계산기 1단계부터 시작(URL에 breed 파라미터 생략). 3케이스 예시는 §3 `GET /v1/calculator-link` 참고. 견종은 사용자가 W-04 에서 고르거나 직접 쓴 값입니다(`POST /v1/jobs` `breed`).
