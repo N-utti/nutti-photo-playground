@@ -18,7 +18,9 @@
 import { useState, type FormEvent } from 'react'
 import { ApiError, isApiError } from '../api/client'
 import { useCafe24LinkRequest, useCafe24LinkVerify } from '../api/queries'
-import { creditAmountPhrase, linkAccountCtaLabel, useEarnAmount } from '../app/earnAmount'
+// `creditAmountPhrase` 는 더 안 씁니다 — 성공 문구가 응답값(`amount_granted`)으로 갔습니다.
+// `linkAccountCtaLabel` 은 남습니다: 제출 버튼은 **아직 안 받은** 금액이라 정책값이 맞습니다.
+import { linkAccountCtaLabel, useEarnAmount } from '../app/earnAmount'
 import FloatingField from '../app/FloatingField'
 import { formatRetryAfter } from '../app/retryAfter'
 import { useModalDialog } from '../app/useModalDialog'
@@ -166,16 +168,27 @@ export default function ShopLinkSheet({ onClose }: { onClose: () => void }) {
               쇼핑몰 계정을 연동했어요
             </h2>
             {/*
-              여기만 성격이 다릅니다 — 이 문장은 「받을 금액」이 아니라 「**받은** 금액」인데,
-              `Cafe24LinkResult` 에는 `amount_granted` 가 없습니다(`cafe24_linked` ·
-              `credit_balance` · `candidates` 뿐). 클레임 경로(`ClaimResult`)는 주는데
-              연동 경로만 안 주는 비대칭이라, 지금은 정책값으로 대신 적습니다 — 리터럴 3 보다는
-              가깝지만 «지급 당시의 금액» 은 여전히 아닙니다. 실제 지급액은 백엔드가
-              내려 줘야 닫힙니다. 확정 숫자는 보유 잔액(`credit_balance`) 쪽입니다.
+              여기만 성격이 다릅니다 — 이 문장은 「받을 금액」이 아니라 「**받은** 금액」이라
+              정책값이 아니라 **서버가 방금 지급한 값**(`amount_granted`, 백엔드 PR #230)을
+              말해야 합니다. 그 둘은 지급 이후에 운영이 금액을 바꾸면 갈립니다.
+
+              **0 이면 지급 문장 자체를 뺍니다.** 「연동 보상 +0 크레딧을 받았어요」는
+              받지도 않은 것을 받았다고 말하는 문장입니다. 도달 경로가 실재합니다 — 응답이
+              유실돼 같은 코드로 한 번 더 넣거나, 다른 탭에서 이미 연동된 상태로 확인하는
+              경우입니다(목도 이 상태를 만듭니다: `handlers.ts` 의 두 번째 verify).
+
+              「이미 받으셨어요」처럼 **과거 지급을 단정하지도 않습니다** — 0 은 「이번엔 안
+              줬다」일 뿐이고 언제 받았는지, 받기는 했는지를 응답이 말해 주지 않습니다.
+              확정 숫자는 보유 잔액 쪽이라 그것만 남깁니다.
+
+              로딩 폴백(`creditAmountPhrase` 의 null → 「크레딧」)은 여기서 필요 없습니다.
+              `done` 이 있으면 금액도 이미 손에 있어 «모르는 동안» 이 존재하지 않습니다.
             */}
             <p className="mt-1 text-sm text-ink-2">
-              연동 보상 {creditAmountPhrase(linkAmount)}을 받았어요. 지금부터 주문하시면 주문 보상도
-              쌓여요. (보유 {Math.max(0, done.credit_balance)}개)
+              {done.amount_granted > 0
+                ? `연동 보상 +${done.amount_granted} 크레딧을 받았어요. `
+                : ''}
+              지금부터 주문하시면 주문 보상도 쌓여요. (보유 {Math.max(0, done.credit_balance)}개)
             </p>
             <button type="button" onClick={onClose} className={`mt-4 ${primaryClass}`}>
               계속하기

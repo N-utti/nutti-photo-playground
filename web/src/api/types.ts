@@ -150,6 +150,17 @@ export type Cafe24LinkTarget = { cellphone: string; shop_member_id?: string } | 
 export interface Cafe24LinkResult {
   cafe24_linked: boolean
   credit_balance: number
+  /**
+   * **이번 요청으로 실제 지급된** 연동 보상 (백엔드 PR #230 · 이슈 #224).
+   *
+   * 정책값(`GET /v1/credits` 의 `earn_actions[].amount`)이 아닙니다 — 그 둘은 지급 이후에
+   * 운영이 값을 바꾸면 갈립니다(`PATCH /v1/admin/settings/{key}`). 「받았어요」는 과거를
+   * 말하는 문장이라 정책값으로 대신하면 안 됩니다.
+   *
+   * **미지급이면 0** 입니다: 후보 선택 단계(`cafe24_linked: false`)와 이미 연동된 계정의
+   * 재확인. 옵셔널이 아닌 이유는 두 분기 모두 이 필드를 내려주기 때문입니다.
+   */
+  amount_granted: number
   candidates: string[] | null
 }
 

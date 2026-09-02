@@ -259,7 +259,17 @@ describe('EarnActionList', () => {
           })
         }
         verified.push(body)
-        return HttpResponse.json({ cafe24_linked: true, credit_balance: 14, candidates: null })
+        /*
+          `amount_granted` 를 **정책값과 다른 값**으로 둡니다. 목의 `link_account` 정책값은
+          3 인데(`asMember()`) 여기서 5 를 주면, 화면이 응답값을 안 읽고 정책값을 말하는
+          순간 아래 「+5」 단언이 깨집니다. 같은 값이면 배선이 없어도 통과합니다.
+        */
+        return HttpResponse.json({
+          cafe24_linked: true,
+          credit_balance: 14,
+          amount_granted: 5,
+          candidates: null,
+        })
       }),
     )
     const verified: unknown[] = []
@@ -286,9 +296,51 @@ describe('EarnActionList', () => {
     await user.click(screen.getByRole('button', { name: '4950033661@k' }))
 
     expect(await screen.findByText('쇼핑몰 계정을 연동했어요')).toBeInTheDocument()
+    // 정책값 3 이 아니라 **서버가 방금 지급한** 5 (백엔드 PR #230 · 이슈 #224).
+    expect(screen.getByText(/연동 보상 \+5 크레딧을 받았어요/)).toBeInTheDocument()
     expect(screen.getByText(/보유 14개/)).toBeInTheDocument()
     expect(sent).toEqual([{ cellphone: '01057731879' }, { cellphone: '01057731879' }])
     expect(verified).toEqual([{ cellphone: '01057731879', shop_member_id: '4950033661@k', code: '123456' }])
+  })
+
+  it('지급이 없었으면 「받았어요」라고 말하지 않는다', async () => {
+    /*
+      **「연동 보상 +0 크레딧을 받았어요」는 받지도 않은 것을 받았다고 말하는 문장입니다.**
+
+      도달 경로가 실재합니다 — 응답이 유실돼 같은 코드로 한 번 더 넣거나, 다른 탭에서 이미
+      연동된 상태로 확인하는 경우입니다. 서버는 그때 200 + `amount_granted: 0` 을 줍니다
+      (백엔드 PR #230). 목도 같은 상태를 만듭니다(`mocks/cafe24Link.test.ts` 가 그쪽을 봄).
+
+      「이미 받으셨어요」로 바꾸지 않은 이유: 0 은 「이번엔 안 줬다」일 뿐, 언제 받았는지도
+      받기는 했는지도 응답이 말해 주지 않습니다. 확정 숫자는 보유 잔액 쪽이라 그것만 남깁니다.
+    */
+    asMember()
+    server.use(
+      http.post('*/v1/auth/cafe24/link/request', () =>
+        HttpResponse.json({ sent: true, expires_in: 300 }),
+      ),
+      http.post('*/v1/auth/cafe24/link/verify', () =>
+        HttpResponse.json({
+          cafe24_linked: true,
+          credit_balance: 11,
+          amount_granted: 0,
+          candidates: null,
+        }),
+      ),
+    )
+    const user = userEvent.setup()
+    renderWithProviders(<EarnActionList />)
+
+    await user.click(await screen.findByRole('button', { name: '연동하기' }))
+    await user.type(screen.getByLabelText('쇼핑몰 가입 휴대폰 번호'), '01012345678')
+    await user.click(screen.getByRole('button', { name: '인증번호 받기' }))
+    await user.type(await screen.findByLabelText('인증번호 6자리'), '123456')
+    await user.click(screen.getByRole('button', { name: '연동하고 +3 받기' }))
+
+    expect(await screen.findByText('쇼핑몰 계정을 연동했어요')).toBeInTheDocument()
+    expect(screen.getByText(/보유 11개/)).toBeInTheDocument()
+    expect(screen.queryByText(/받았어요/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/\+0/)).not.toBeInTheDocument()
   })
 
   it('쇼핑몰 서버가 답을 안 주면 그 사정을 말한다', async () => {
