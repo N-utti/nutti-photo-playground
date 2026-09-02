@@ -5,7 +5,10 @@ import uuid
 from collections import deque
 from datetime import datetime
 
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator
 from tortoise.exceptions import IntegrityError
 from tortoise.functions import Count
@@ -41,6 +44,19 @@ from app.routers.uploads import _POLICY_DEFAULTS
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 logger = logging.getLogger(__name__)
+
+_ADMIN_UI_PATH = Path(__file__).resolve().parent.parent / "static" / "admin.html"
+
+
+@router.get("/ui", include_in_schema=False)
+async def admin_ui() -> FileResponse:
+    """운영 콘솔(스탑갭) — W-11 정식 화면(web/ SPA) 배선 전까지 쓰는 단일 파일.
+
+    페이지 자체는 정적 HTML이라 비인증 서빙이고, 데이터는 전부 /v1/admin/* API가
+    관리자 JWT로 지킨다. 같은 오리진이므로 CORS 설정 불필요.
+    """
+    return FileResponse(_ADMIN_UI_PATH, media_type="text/html")
+
 
 _admin_login_requests: dict[str, deque[float]] = {}
 _ADMIN_LOGIN_IP_RATE_LIMIT = 10
