@@ -151,15 +151,24 @@ def _client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
+_PRUNE_INTERVAL = 60.0
+_last_prune_at: dict[int, float] = {}  # 버킷 dict별 마지막 전수 스캔 시각
+
+
 def _prune_expired_buckets(buckets: dict[str, deque[float]], now: float) -> None:
-    if len(buckets) > 10_000:
-        expired_keys = [
-            bucket_key
-            for bucket_key, bucket in buckets.items()
-            if not bucket or bucket[-1] <= now - 3600
-        ]
-        for expired_key in expired_keys:
-            del buckets[expired_key]
+    # N1(#11): 키 10k 초과가 유지되면 요청마다 O(n) 전수 스캔이 돌던 것을 dict별 60초 1회로 상각
+    if len(buckets) <= 10_000:
+        return
+    if now - _last_prune_at.get(id(buckets), float("-inf")) < _PRUNE_INTERVAL:
+        return
+    _last_prune_at[id(buckets)] = now
+    expired_keys = [
+        bucket_key
+        for bucket_key, bucket in buckets.items()
+        if not bucket or bucket[-1] <= now - 3600
+    ]
+    for expired_key in expired_keys:
+        del buckets[expired_key]
 
 
 def _raise_if_limited(requests: deque[float], now: float, limit: int) -> None:
@@ -243,13 +252,13 @@ async def _lock_guest(connection, guest_id) -> Member:
     return guest
 
 
-async def _issue_oauth_state(member: Member) -> str:
+async def _issue_oauth_state(member: Member, provider: str) -> str:
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=5)
     nonce = secrets.token_urlsafe(32)
     member.oauth_state_nonce = nonce
     member.oauth_state_expires_at = expires_at
     await member.save(update_fields=["oauth_state_nonce", "oauth_state_expires_at"])
-    return create_state(member.id, nonce, expires_at)
+    return create_state(member.id, nonce, expires_at, provider)
 
 
 async def _consume_oauth_state(
@@ -371,7 +380,25 @@ async def _merge_or_promote_guest(
         for model in (PetProfile, SourceImage, GenerationJob, CustomPromptLog, MetricEvent):
             await model.filter(member_id=guest.id).using_db(connection).update(member_id=existing.id)
         guest.merged_into_id = existing.id
-        await guest.save(update_fields=["merged_into_id"], using_db=connection)
+        # N3(#11): 병합돼 죽는 게스트 행에 OAuth nonce 비밀값을 남기지 않는다(데이터 위생)
+        guest.oauth_state_nonce = None
+        guest.oauth_state_expires_at = None
+        await guest.save(
+            update_fields=["merged_into_id", "oauth_state_nonce", "oauth_state_expires_at"],
+            using_db=connection,
+        )
+        if guest.credit_balance > 0:
+            # L6(#11): 게스트가 쓰다 남긴 크레딧을 병합 대상에게 이관 — 말없이 소멸시키지 않는다.
+            # dedupe(guest_merge:<게스트 id>)로 1회, ref_id로 출처 추적. 게스트 행 잔액은 병합으로 사장.
+            await grant_credits(
+                existing.id,
+                guest.credit_balance,
+                CreditReason.GUEST_MERGE,
+                f"guest_merge:{guest.id}",
+                ref_id=str(guest.id),
+                connection=connection,
+            )
+        logger.info("auth guest merge: guest=%s -> member=%s via=%s", guest.id, existing.id, id_field)  # L-F
         existing.oauth_state_nonce = None
         existing.oauth_state_expires_at = None
         update_fields = ["oauth_state_nonce", "oauth_state_expires_at"]
@@ -401,6 +428,7 @@ async def _merge_or_promote_guest(
         ],
         using_db=connection,
     )
+    logger.info("auth guest promoted: member=%s via=%s", guest.id, id_field)  # L-F(#11) 보안 이벤트 로깅
     return guest, False
 
 
@@ -547,6 +575,7 @@ async def cafe24_link_verify(
             locked.oauth_state_expires_at = None
             await locked.save(update_fields=["oauth_state_nonce", "oauth_state_expires_at"], using_db=connection)
     if not matched:
+        logger.warning("cafe24 link code rejected: member=%s", member.id)  # L-F
         raise api_error(400, "CAFE24_CODE_INVALID", "인증번호가 올바르지 않거나 만료됐습니다")
     if kind == "id":
         chosen = value
@@ -586,6 +615,7 @@ async def cafe24_link_verify(
     except IntegrityError as exc:  # 두 회원이 같은 아이디를 동시에 verify — UNIQUE(cafe24_member_id)가 마지막 방어선
         raise api_error(409, "CAFE24_ALREADY_LINKED", "Cafe24 account is already linked") from exc
 
+    logger.info("cafe24 linked: member=%s shop=%s", member.id, chosen)  # L-F
     member = await Member.get(id=member.id)
     return Cafe24LinkResponse(cafe24_linked=True, credit_balance=member.credit_balance)
 
@@ -596,7 +626,7 @@ async def social_authorize(
     authorization: str | None = Header(None, alias="Authorization"),
 ) -> AuthorizeResponse:
     guest = await _require_guest(authorization)
-    state = await _issue_oauth_state(guest)
+    state = await _issue_oauth_state(guest, provider)
     if provider == "kakao":
         url = "https://kauth.kakao.com/oauth/authorize"
         client_id = settings.kakao_rest_api_key
@@ -620,7 +650,9 @@ async def social_authorize(
 async def social_callback(
     provider: Literal["kakao", "naver"], code: str, state: str
 ) -> AuthCallbackResponse:
-    guest_id, nonce = state_identity(state)
+    guest_id, nonce, state_provider = state_identity(state)
+    if state_provider != provider:  # L-C(#11): 다른 provider의 authorize로 발급된 state 차단
+        raise unauthorized()
     await _consume_oauth_state(guest_id, nonce, MemberKind.GUEST)
 
     try:
@@ -735,9 +767,11 @@ async def login(
     if member is None:
         await asyncio.to_thread(verify_password, body.password, DUMMY_PASSWORD_HASH)
         _record_failure(_login_requests, email_key)
+        logger.warning("auth login failed (unknown email): ip=%s", _client_ip(request))  # L2 — 이메일은 PII, 미기록
         raise _invalid_credentials()
     if not await asyncio.to_thread(verify_password, body.password, member.password_hash):
         _record_failure(_login_requests, email_key)
+        logger.warning("auth login failed (bad password): member=%s ip=%s", member.id, _client_ip(request))  # L2
         raise _invalid_credentials()
     _login_requests.pop(email_key, None)
 
@@ -774,6 +808,7 @@ async def refresh(body: RefreshRequest, request: Request) -> RefreshResponse:
             or member.refresh_expires_at <= now
         ):
             _record_failure(_refresh_requests, client_ip)
+            logger.warning("auth refresh rejected: ip=%s", client_ip)  # L2 — 재사용/위조/만료 갱신 시도 흔적
             raise unauthorized()
         refresh_token = _rotate_refresh_token(member)
         await member.save(

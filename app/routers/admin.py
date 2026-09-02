@@ -505,13 +505,18 @@ async def admin_adjust_credits(
             "잔액이 음수가 될 수 없습니다",
             {"field": "amount", "balance": member.credit_balance},
         )
-    granted = await grant_credits(
-        body.member_id,
-        body.amount,
-        body.reason.value,
-        body.dedupe_key,
-        ref_id=f"admin:{admin.id}",
-    )
+    try:
+        granted = await grant_credits(
+            body.member_id,
+            body.amount,
+            body.reason.value,
+            body.dedupe_key,
+            ref_id=f"admin:{admin.id}",
+        )
+    except ValueError as exc:  # L5(#11): reason과 amount 부호 불일치(예: order_reward 음수)는 운영 실수 — 400
+        raise validation_error(
+            "amount 부호가 reason과 어긋납니다", {"field": "amount", "reason": body.reason.value}
+        ) from exc
     if not granted:
         raise api_error(
             409,

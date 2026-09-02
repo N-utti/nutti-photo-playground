@@ -302,7 +302,7 @@ def test_kakao_callback_merges_all_assets_into_existing_member(
     )
     assert {pet.member_id, source.member_id, job.member_id, prompt.member_id, event.member_id} == {existing.id}
     assert guest_row.merged_into_id == existing.id
-    assert existing.credit_balance == response.json()["credit_balance"] == 7
+    assert existing.credit_balance == response.json()["credit_balance"] == 8  # 게스트 잔액 +1 이관(#11 L6)
     assert existing.oauth_state_nonce is None
     assert existing.oauth_state_expires_at is None
 
@@ -323,6 +323,7 @@ def test_merged_guest_cannot_callback_again(client: TestClient, monkeypatch: pyt
         {
             "sub": guest["member_id"],
             "kind": "state",
+            "provider": "kakao",
             "nonce": nonce,
             "exp": datetime.now(timezone.utc) + timedelta(minutes=5),
         },
@@ -462,6 +463,18 @@ def test_kakao_state_nonce_must_match_guest(client: TestClient, monkeypatch: pyt
     response = client.get("/v1/auth/kakao/callback", params={"code": "test-code", "state": old_state})
 
     assert response.status_code == 401
+
+
+def test_state_is_bound_to_issuing_provider(client: TestClient, monkeypatch: pytest.MonkeyPatch):
+    """L-C(#11): kakao authorize로 발급된 state는 naver 콜백에서 401 — provider 클레임 대조."""
+    guest = client.post("/v1/auth/guest").json()
+    state = _authorize_state(client, guest["token"], "kakao")
+    _patch_naver(monkeypatch, "naver-user-1")
+
+    response = client.get("/v1/auth/naver/callback", params={"code": "test-code", "state": state})
+
+    assert response.status_code == 401
+    assert client.portal.call(_member, guest["member_id"]).kind == MemberKind.GUEST
 
 
 def test_register_success_normalizes_email_and_hashes_password(client: TestClient):
@@ -608,6 +621,8 @@ def test_register_validates_email_and_password(client: TestClient, body: dict):
 def test_login_merges_guest_into_existing_local_member(client: TestClient):
     registered = _register_member(client, "user@example.com")
     guest = client.post("/v1/auth/guest").json()
+    # 병합 직전 게스트에 미소진 OAuth nonce가 남아 있던 상황(N3)
+    client.portal.call(_replace_oauth_nonce, guest["member_id"], secrets.token_urlsafe(32))
 
     response = client.post(
         "/v1/auth/login",
@@ -618,9 +633,10 @@ def test_login_merges_guest_into_existing_local_member(client: TestClient):
     assert response.status_code == 200
     assert response.json()["member_id"] == registered["member_id"]
     assert response.json()["merged"] is True
-    assert response.json()["credit_balance"] == 1
+    assert response.json()["credit_balance"] == 2  # 기존 1 + 게스트 잔액 1 이관(#11 L6)
     guest_row = client.portal.call(_member, guest["member_id"])
     assert str(guest_row.merged_into_id) == registered["member_id"]
+    assert guest_row.oauth_state_nonce is None  # N3(#11): 병합된 게스트 행에 nonce 잔류 금지
 
 
 def test_login_wrong_password_returns_invalid_credentials(client: TestClient):

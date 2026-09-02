@@ -23,6 +23,7 @@ const REASON_LABEL: Record<string, string> = {
   follow_ig: '인스타 팔로우',
   daily_free: '매일 무료',
   guest_trial: '첫 무료',
+  guest_merge: '게스트 크레딧 이전',
   cs_adjustment: '고객센터 조정',
 }
 

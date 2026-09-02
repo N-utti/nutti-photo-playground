@@ -10,6 +10,30 @@ from app.models import AppSetting, CreditLedger, Member
 
 logger = logging.getLogger(__name__)
 
+# L5(#11): 지급 사유별 delta 부호 — 역부호 지급 버그를 원장에 쓰기 전에 차단. 0 = 양방향 허용.
+_REASON_SIGN = {
+    "generation_charge": -1,
+    "generation_refund": 1,
+    "safety_block_refund": 1,
+    "guest_trial": 1,
+    "link_account": 1,
+    "follow_ig": 1,
+    "daily_free": 1,
+    "order_reward": 1,
+    "order_clawback": -1,
+    "withdrawal_forfeit": -1,
+    "guest_merge": 1,
+    "cs_adjustment": 0,  # 운영 조정만 양방향
+}
+
+
+def _validate_delta(delta: int, reason) -> None:
+    sign = _REASON_SIGN.get(str(getattr(reason, "value", reason)))
+    if sign is None:
+        raise ValueError(f"unknown credit reason: {reason!r}")
+    if delta == 0 or (sign != 0 and delta * sign <= 0):
+        raise ValueError(f"credit delta {delta} inconsistent with reason {reason!r}")
+
 
 async def grant_credits(
     member_id: uuid.UUID,
@@ -19,6 +43,7 @@ async def grant_credits(
     ref_id: str | None = None,
     connection=None,
 ) -> bool:
+    _validate_delta(delta, reason)
     if connection is None:
         try:
             async with in_transaction() as connection:
