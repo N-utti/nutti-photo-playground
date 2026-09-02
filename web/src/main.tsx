@@ -2,10 +2,10 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider } from 'react-router'
-import { ApiError, ensureSession } from './api/client'
+import { ApiError, ensureSession, openWhenSessionReady } from './api/client'
 import { startAnalytics } from './app/analytics'
 import { captureInstagramCode } from './app/instagramCode'
-import { router } from './app/routes'
+import { router, warmScreens } from './app/routes'
 import './index.css'
 
 const queryClient = new QueryClient({
@@ -43,9 +43,28 @@ async function bootstrap() {
   // 인스타 DM 링크(`?ig=`)로 들어온 코드는 세션보다 먼저 집어 둡니다 — 게스트 발급이 주소를 건드리지 않아도
   // 순서를 고정해 두면 나중에 부팅 순서가 바뀌어도 코드를 잃지 않습니다.
   captureInstagramCode()
-  await ensureSession().catch((error: unknown) => {
-    console.error('게스트 세션 발급 실패', error)
-  })
+
+  /*
+    **기다리지 않고** 렌더합니다.
+
+    예전에는 여기서 `await ensureSession()` 했습니다. 토큰 없이 나간 요청이 401 로
+    돌아오는 걸 막으려는 것이었는데, 그 대가로 게스트 발급이 왕복하는 내내 화면이
+    비어 있었습니다 — 목 위에서 잰 FCP 248ms 가 발급 응답 217ms 바로 뒤에 붙어
+    있었고, 실서버 모바일 회선에서는 그 왕복이 더 깁니다. 첫 화면이 이탈률인 앱에서
+    가장 비싼 자리입니다.
+
+    이제 그 보호는 `openWhenSessionReady()` 가 요청 계층에서 합니다(api/client.ts).
+    401 을 막는 효과는 그대로고, 막히는 대상만 «화면 전체»에서 «토큰이 필요한
+    요청»으로 좁아집니다. 껍데기와 스켈레톤은 토큰 없이도 참이라 즉시 나갑니다.
+
+    실패(429)를 여기서 삼키는 이유는 전과 같습니다 — 발급이 막혀도 앱은 띄웁니다.
+    사유는 RootLayout 배너가 설명합니다.
+  */
+  openWhenSessionReady(
+    ensureSession().catch((error: unknown) => {
+      console.error('게스트 세션 발급 실패', error)
+    }),
+  )
 
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
@@ -54,6 +73,10 @@ async function bootstrap() {
       </QueryClientProvider>
     </StrictMode>,
   )
+
+  // 렌더 **뒤**에 부릅니다. 첫 페인트를 앞당기려고 화면을 갈라 놓고 그 앞에 다시
+  // 세우면 되돌리는 셈입니다 — 실제 내려받기도 유휴 시점까지 더 미룹니다.
+  warmScreens()
 }
 
 void bootstrap()
