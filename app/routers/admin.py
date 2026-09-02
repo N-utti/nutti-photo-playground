@@ -25,6 +25,7 @@ from app.models import (
     CreditReason,
     CustomPromptLog,
     GenerationJob,
+    InstagramDmCode,
     Member,
     MetricEvent,
     PromptVersionStatus,
@@ -467,25 +468,46 @@ async def admin_follow_ig_claims(
     _: AdminUser = Depends(get_current_admin),
 ):
     """인스타 팔로우 +2 수령 목록 — 인스타는 팔로우 조회 API가 없어 운영자가 실제 팔로워 목록과 대조하는 자리.
-    허위면 `POST /credits/adjust`(음수)로 회수. cursor = 마지막 항목의 ledger id(내림차순)."""
+    허위면 `POST /credits/adjust`(음수)로 회수. cursor = 마지막 항목의 ledger id(내림차순).
+
+    ref_id는 경로별로 다르다(#226): 아이디 입력 경로는 "ig:<username>", DM 코드 경로는 불변 감사 키인
+    "ig:<igsid>". igsid 그대로는 팔로워 목록과 대조가 안 되므로 코드 발급 때 저장한 ig_username으로 풀어 준다."""
     query = CreditLedger.filter(reason=CreditReason.FOLLOW_IG.value, ref_id__startswith="ig:")
     if cursor is not None:
         query = query.filter(id__lt=cursor)
     rows = await query.order_by("-id").limit(limit + 1).values("id", "member_id", "ref_id", "amount", "created_at")
     page = rows[:limit]
-    return {
-        "items": [
+    refs = {row["ref_id"].removeprefix("ig:") for row in page}
+    # DM 행 판별은 값 충돌이 아니라 (소진 회원, igsid) 쌍으로 — 입력 경로 username은 사용자 주장값이라
+    # igsid 형태(순수 숫자)를 넣어 dm 행으로 위장(대조 면제)하는 것을 막는다(보안 리뷰 #232).
+    dm_usernames: dict[tuple, str | None] = {}
+    if refs:
+        dm_rows = await InstagramDmCode.filter(
+            igsid__in=refs, redeemed_member_id__in=[row["member_id"] for row in page]
+        ).order_by("id").values("igsid", "ig_username", "redeemed_member_id")
+        for code in dm_rows:
+            key = (code["redeemed_member_id"], code["igsid"])
+            # 같은 igsid의 형제 행 중 username이 남은 행 우선(발급 시점 username null 가능)
+            if dm_usernames.get(key) is None:
+                dm_usernames[key] = code["ig_username"]
+    items = []
+    for row in page:
+        ref = row["ref_id"].removeprefix("ig:")
+        dm_key = (row["member_id"], ref)
+        is_dm = dm_key in dm_usernames
+        items.append(
             {
                 "ledger_id": row["id"],
                 "member_id": str(row["member_id"]),
-                "instagram_username": row["ref_id"].removeprefix("ig:"),
+                # DM 행에서 username이 못 남았으면(null) igsid 칸으로 추적한다
+                "instagram_username": dm_usernames[dm_key] if is_dm else ref,
+                "source": "dm" if is_dm else "input",
+                "igsid": ref if is_dm else None,
                 "amount": row["amount"],
                 "claimed_at": row["created_at"],
             }
-            for row in page
-        ],
-        "next_cursor": page[-1]["id"] if len(rows) > limit else None,
-    }
+        )
+    return {"items": items, "next_cursor": page[-1]["id"] if len(rows) > limit else None}
 
 
 @router.post("/credits/adjust")
