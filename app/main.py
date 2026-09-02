@@ -38,7 +38,9 @@ app.add_middleware(
     allow_credentials=False,
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "Idempotency-Key"],
-    expose_headers=["ETag"],
+    # Retry-After 는 CORS 안전목록 헤더가 아니라 노출을 선언해야 크로스오리진 JS 가
+    # 읽을 수 있다 (#219: 없으면 429 안내가 "약 N분 뒤" 대신 "잠시 뒤"로 뭉개진다).
+    expose_headers=["ETag", "Retry-After"],
 )
 
 
