@@ -487,6 +487,37 @@ W-06 이 그 404 에 걸려 있었습니다. `input_fields` 를 못 받으면 �
 거릅니다(이슈 #127). `input_fields` 항목의 `label` 필수(400)는 `_resolve_input_values` 의
 500 을 입구에서 막은 것이라 프론트가 얻는 쪽입니다.
 
+### 5. 커스텀 문구 승격은 사용자 글을 카탈로그에 올립니다 (#184 · 콘솔이 지켜야 할 두 가지)
+
+`POST /v1/admin/custom-prompts/{id}/promote`(#184)가 만드는 `style` 은 네 칸만 채웁니다 —
+`code`(`custom-<uuid8>`) · `name` · `section` · `credit_cost`. 나머지는 전부 모델 기본값이라
+`example_keys`·`fit_tags`·`input_fields` 가 빈 배열이고 `progress_message` 는 null 입니다.
+**이 빈 껍데기는 프론트가 이미 다 견딥니다** — 썸네일 null 은 `app/Thumbnail.tsx`, 예시 0 장은
+`W03StyleDetail.test.tsx` 의 명시적 케이스, `fit_tags` 는 `length > 0` 가드, 빈 `input_fields`
+는 옵션 섹션 자체가 안 그려집니다. 콘솔을 만들 때 여기 손댈 것은 없습니다.
+
+콘솔이 **지켜야 하는** 것은 둘입니다.
+
+- **이름 칸을 반드시 편집 가능하게 둘 것.** `name` 은 `normalized_text`, 즉
+  `custom_prompt.strip().lower()`(`jobs.py:205`) 그대로입니다. 소문자화되고(라틴 문자만 해당),
+  **서버에 길이 제한이 없습니다** — `CreateJobRequest.custom_prompt` 는 맨 `str | None` 이고
+  100 자 상한은 `W08Creative.tsx` 의 `maxLength={100}` 뿐인 **클라이언트 상한**입니다. 모더레이션도
+  `_CUSTOM_PROMPT_BLOCKLIST`(견종·색 변경 키워드)뿐이라 욕설 필터가 아닙니다. 렌더링은 안 깨지지만
+  (W-02 카드는 `truncate`, W-03 `<h2>` 는 줄바꿈) 공개되는 순간 전원의 W-02 에 남의 글이 뜹니다.
+  고치는 수단은 `PATCH /v1/admin/styles/{id}` 의 `name` 이고, 그 자리는 승격 폼입니다.
+- **활성 프롬프트 버전이 0 개면 공개 토글을 잠글 것.** 승격은 `StylePromptVersion` 을 안 만듭니다.
+  그런데 `POST /v1/jobs` 는 활성 버전이 없어도 **job 을 만들고 크레딧을 차감**하고
+  (`jobs.py:188-196`, `prompt_version = None`), 워커가 `_MissingPromptError` →
+  `GENERATION_FAILED` + 환불로 끝냅니다(`worker.py:296-298`). 사용자는 24 초 기다리고 실패 화면을
+  봅니다. 환불되니 손실은 아니지만, **프론트가 미리 막을 길은 없습니다** — `StyleCard`·`StyleDetail`
+  에 「활성 프롬프트 있음」 신호가 없고 `uses_pet_name`/`uses_breed` 는 대용이 못 됩니다(자리표시자
+  없는 정상 프롬프트도 둘 다 false). 이 구멍은 #182 부터 있었지만 승격이 그 상태를 **기본 산출물**로
+  만들었습니다. 서버 가드가 더 강하나 콘솔도 우리 코드라, 백엔드 이슈 대신 여기 적어 둡니다.
+
+`GET /v1/admin/custom-prompts/top` 의 `id` 필드(스펙 §5 에 #184 가 추가)는 promote 호출에만
+쓰입니다. 빈 `normalized_text`(탈퇴 파기, `auth.py`)는 목록에서 빠지고, 같은 문구가 이미 승격됐으면
+`promotable: false` · 재요청은 409 `ALREADY_CLAIMED` 입니다.
+
 목(`mocks/handlers.ts`)에는 `/admin/*` 핸들러가 **하나도 없습니다** — 화면을 시작하는 첫
 작업은 화면이 아니라 목입니다.
 
