@@ -30,6 +30,7 @@ from app.auth import (
 from app.common import api_error, member_only, unauthorized, validation_error
 from app import cafe24
 from app.credits import grant_credits
+from app.routers.credits import _amounts
 from app.models import (
     CreditLedger,
     CreditReason,
@@ -83,6 +84,8 @@ class AuthorizeResponse(BaseModel):
 class Cafe24LinkResponse(BaseModel):
     cafe24_linked: bool
     credit_balance: int
+    # 이번 요청으로 지급된 연동 보상 — 미지급(재연동·후보 선택 단계)이면 0. 화면은 정책값 대신 이 값을 말한다(#224)
+    amount_granted: int = 0
     # 한 휴대폰 번호에 쇼핑몰 계정이 여러 개면(OTP 통과 후에만) 고르게 한다 — 이때 코드는 소비하지 않음
     candidates: list[str] | None = None
 
@@ -565,7 +568,8 @@ async def cafe24_link_verify(
         else:
             # OTP를 통과했으니 이 번호의 계정 목록을 보여줘도 된다(번호→아이디 캐내기는 코드 없인 불가)
             return Cafe24LinkResponse(cafe24_linked=False, credit_balance=member.credit_balance, candidates=candidates)
-    # 2) 코드 소비 + 연동 + 최초 1회 +3 — 같은 잠금 안에서
+    # 2) 코드 소비 + 연동 + 최초 1회 연동 보상 — 같은 잠금 안에서
+    amount_granted = 0
     try:
         async with in_transaction() as connection:
             locked = await Member.filter(id=member.id).select_for_update().using_db(connection).first()
@@ -582,12 +586,15 @@ async def cafe24_link_verify(
                 using_db=connection,
             )
             if not await CreditLedger.filter(member_id=locked.id, dedupe_key="link_account").using_db(connection).exists():
-                await grant_credits(locked.id, 3, CreditReason.LINK_ACCOUNT, "link_account", connection=connection)
+                # 정책값 지급 — 하드코딩 3은 PATCH /admin/settings 이후 실제 지급액과 어긋난다(#224)
+                amount = (await _amounts())["link_account_amount"]
+                await grant_credits(locked.id, amount, CreditReason.LINK_ACCOUNT, "link_account", connection=connection)
+                amount_granted = amount
     except IntegrityError as exc:  # 두 회원이 같은 아이디를 동시에 verify — UNIQUE(cafe24_member_id)가 마지막 방어선
         raise api_error(409, "CAFE24_ALREADY_LINKED", "Cafe24 account is already linked") from exc
 
     member = await Member.get(id=member.id)
-    return Cafe24LinkResponse(cafe24_linked=True, credit_balance=member.credit_balance)
+    return Cafe24LinkResponse(cafe24_linked=True, credit_balance=member.credit_balance, amount_granted=amount_granted)
 
 
 @router.get("/{provider}/authorize", response_model=AuthorizeResponse)

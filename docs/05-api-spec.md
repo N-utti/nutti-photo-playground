@@ -316,16 +316,16 @@
 ```
 ```json
 // 200 — 연동 완료
-{ "cafe24_linked": true, "credit_balance": 15, "candidates": null }
+{ "cafe24_linked": true, "credit_balance": 15, "amount_granted": 3, "candidates": null }
 ```
 ```json
 // 200 — 번호에 연동 가능한 쇼핑몰 계정이 여러 개: 아직 미연동, 코드는 **소비되지 않음**
-{ "cafe24_linked": false, "credit_balance": 12, "candidates": ["tester123", "4950033661@k"] }
+{ "cafe24_linked": false, "credit_balance": 12, "amount_granted": 0, "candidates": ["tester123", "4950033661@k"] }
 // → 같은 코드로 한 번 더: { "cellphone": "01012345678", "code": "482913", "shop_member_id": "4950033661@k" }
 ```
 - 코드는 **단일 시도**: 오답은 즉시 소비, 정답은 연동(또는 계정 선택 완료)과 같은 잠금 안에서 소비된다(무차별 대입 차단). 오답이면 `400 CAFE24_CODE_INVALID` → 프론트는 "인증번호 다시 받기"로 유도. 만료(5분)·미발급도 같은 400.
 - `candidates`는 OTP를 **통과한 뒤에만** 내려간다 — 번호만 알고 코드가 없는 사람은 그 번호의 쇼핑몰 아이디를 알아낼 수 없다. 다른 회원이 선점한 계정은 목록에서 빠지고, 이미 연동된 회원은 자기 계정만 남는다(재바인딩 금지).
-- 연동 +3 크레딧은 `credit_ledger` dedupe(`link_account`)로 1회만 지급 — 재연동해도 반복 수령 불가.
+- 연동 보상(`link_account_amount` 정책값, 기본 3)은 `credit_ledger` dedupe(`link_account`)로 1회만 지급 — 재연동하면 `amount_granted: 0`. **이번 요청으로 실제 지급된 금액은 응답 `amount_granted`가 확정값**이다 — 화면은 `GET /v1/credits`의 정책값을 「받았어요」 근거로 쓰지 않는다(이슈 #224).
 - `member.order_reward_cutoff` 기록(최초 1회) → 이후 주문부터 +20 보상 자격(ADR-09). 동일 계정 재연동(멱등 재시도)은 200이며 cutoff를 앞으로 밀지 않는다.
 - `409 CAFE24_ALREADY_LINKED`: request와 같은 두 경우(request 이후 다른 탭에서 먼저 연동된 경합). **자산 병합은 일어나지 않습니다** — 연동은 로그인이 아니므로 UC-07 미적용.
 
