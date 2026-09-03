@@ -304,11 +304,21 @@ function ResultPanel({ job }: { job: Job }) {
             properties: { job_id: job.job_id, from: 'W-06' },
           })
         }
-        className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-brand-2 bg-brand-soft px-3 py-3 hover:border-brand hover:bg-gold-soft"
+        /*
+          hover 에서 면 색을 바꾸지 않습니다. 예전에는 `bg-gold-soft` 로 갔는데,
+          갈색 카드가 노랑으로 **색상 자체를 갈아타는** 움직임이라 강조가 아니라
+          다른 카드로 바뀌는 것처럼 보였습니다(골드는 이제 팔레트에 없습니다 —
+          index.css 「액센트 세이지」). 테두리가 brand-2 → brand 로 가면서 4.96:1
+          에서 9.06:1 이 되는 것으로 충분하고, 그게 집안의 다른 카드가 하는
+          일이기도 합니다.
+        */
+        className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-brand-2 bg-brand-soft px-3 py-3 hover:border-brand"
       >
         <span>
           <span className="block text-sm font-semibold">{SHOP_BANNER.title}</span>
-          <span className="block text-xs text-ink-3">{SHOP_BANNER.note}</span>
+          {/* `ink-3` 가 아니라 `ink-2` 입니다. 갈색 면 위에서 ink-3 는 4.09:1 로
+              AA 아래이고, 같은 모양의 W-02 재사용 배너는 이미 ink-2 를 씁니다. */}
+          <span className="block text-xs text-ink-2">{SHOP_BANNER.note}</span>
         </span>
         <span aria-hidden className="text-ink-3">
           →

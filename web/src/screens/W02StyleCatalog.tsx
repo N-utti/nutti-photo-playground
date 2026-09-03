@@ -301,7 +301,9 @@ function ReuseBanner({ context }: { context: JobContext }) {
         <span className="block font-semibold">올린 사진 그대로 만들어요</span>
         <span className="block text-xs text-ink-2">스타일만 고르면 바로 확인 단계예요</span>
       </p>
-      <Link to="/styles" className="shrink-0 text-xs text-ink-3 underline underline-offset-2 hover:text-brand">
+      {/* 갈색 면 위라 `ink-3`(4.09:1)가 아니라 `ink-2`(5.82:1) 입니다 — 게다가 이건
+          장식이 아니라 **누르는 것**입니다(index.css 「글자」). */}
+      <Link to="/styles" className="shrink-0 text-xs text-ink-2 underline underline-offset-2 hover:text-brand">
         다른 사진 쓰기
       </Link>
     </div>
@@ -361,7 +363,13 @@ function StyleCardItem({ style, reuseJobId }: { style: StyleCard; reuseJobId: st
           말은 `sr-only` 로 온전히 남깁니다(배지와 같은 이유 — generic `<span>` 에는
           `aria-label` 이 붙지 않습니다).
         */}
-        <span className="shrink-0 font-mono text-xs tabular-nums text-ink-3">
+        {/*
+          색은 `ink-3` 가 아니라 **액센트**입니다. 앱바 배지는 알약 면이 화폐라는
+          것을 말해 주는데 카드에는 알약이 없어서, 이 줄에서 비용은 이름 옆에
+          붙은 또 하나의 회색 글자였습니다. 흰 카드 위 5.43:1 로 `ink-3`(5.29:1)
+          보다 오히려 진하니 대비를 내주고 얻는 것도 아닙니다.
+        */}
+        <span className="shrink-0 font-mono text-xs tabular-nums text-accent">
           <span aria-hidden>◆ {style.credit_cost}</span>
           <span className="sr-only">{style.credit_cost} 크레딧</span>
         </span>
