@@ -102,6 +102,20 @@ function authErrorMessage(error: unknown, mode: 'login' | 'register'): string {
 }
 
 /**
+ * 시트 머리는 **누띠 워드마크 한 줄**입니다. 예전엔 「누띠 계정으로 이어서」 + 「로그인하면
+ * 만든 결과가 보관함에 쌓이고…」 두 줄이었는데, 그 값어치 설명이 진입점 일곱 곳 중 네
+ * 곳에서 글자만 다르고 같은 말이었습니다. 로고가 대신 서면 «누구의 계정인가» 는 한눈에
+ * 전해지고, 문구 자리는 정말 할 말이 있는 화면만 씁니다.
+ *
+ * `description` 은 그래서 **선택**이고 기본값이 없습니다. 넣을 값은 「보관함에 남아요」류의
+ * 일반 안내가 아니라 **«왜 지금 이 창이 떴는가»** 여야 합니다 — 예: 크레딧 받기는 회원만
+ * 할 수 있다는 사실(EarnActionList). 그게 없으면 안 넣는 편이 낫습니다.
+ *
+ * 로고로 바꿔도 `<h2>` 는 남아 있습니다. 대화상자는 이름이 있어야 하고(`aria-labelledby`),
+ * 이름을 지우면 스크린리더가 «대화상자» 라고만 읽습니다. 그래서 제목은 글자로 두되
+ * 시각적으로만 감추고(`sr-only`), 로고 쪽을 장식으로 돌립니다 — 둘 다 읽히면 회사 이름이
+ * 두 번 나옵니다(소셜 버튼 심볼에 `alt=""` 를 준 것과 같은 이유).
+ *
  * **여기서 크레딧을 약속하지 마세요.** 로그인은 두 경로로 갈리는데 그중 하나에서 거짓이
  * 됩니다.
  *
@@ -123,11 +137,9 @@ function authErrorMessage(error: unknown, mode: 'login' | 'register'): string {
  */
 export default function AccountSheet({
   onClose,
-  title = '누띠 계정으로 이어서',
-  description = '만든 결과를 보관함에 저장하고 다른 기기에서도 열어 보세요.',
+  description,
 }: {
   onClose: () => void
-  title?: string
   description?: string
 }) {
   const location = useLocation()
@@ -203,10 +215,28 @@ export default function AccountSheet({
           </>
         ) : (
           <>
-            <h2 id="account-sheet-title" className="text-base font-bold">
-              {title}
+            <h2 id="account-sheet-title" className="sr-only">
+              누띠 계정으로 이어서
             </h2>
-            <p className="mt-1 text-sm text-ink-2">{description}</p>
+            {/*
+              워드마크 원본이 1540×396(=3.89:1)이라 높이만 잡으면 폭은 따라옵니다. 앱바가
+              쓰는 14px 보다 키운 이유는 여기가 시트의 유일한 머리이기 때문입니다 — 앱바에선
+              옆에 「놀이터」가 붙어 한 덩어리지만, 여기서는 혼자 섭니다.
+
+              `mt-2` 는 시트 안쪽 여백(`p-5` = 20px)에 8px 을 더해 28px 을 만듭니다. 아래로는
+              버튼 묶음의 `mt-6` 이 24px 을 냅니다 — **8px 이 아니라 24px 이어야 하는 이유**는
+              소셜 버튼끼리의 간격이 `space-y-2`(8px)이기 때문입니다. 로고 아래를 16px 로 두면
+              그 둘이 너무 가까워서 로고가 머리가 아니라 «버튼 목록의 첫 칸» 처럼 읽힙니다.
+            */}
+            <img
+              src="/brand/nutti-wordmark.svg"
+              alt=""
+              aria-hidden
+              width={70}
+              height={18}
+              className="mx-auto mt-2 h-6 w-auto"
+            />
+            {description && <p className="mt-3 text-center text-sm text-ink-2">{description}</p>}
 
             {/*
               누른 쪽만 «진행 중»으로 보여야 합니다. 두 버튼이 `authorize` 라는 mutation
@@ -219,7 +249,7 @@ export default function AccountSheet({
               OAuth 를 두 번 시작하는 것은 막아야 합니다. 못 누르는 티를 색으로 내지 않을
               뿐이고, 어차피 1초 안에 페이지가 넘어갑니다.
             */}
-            <div className="mt-4 space-y-2">
+            <div className="mt-6 space-y-2">
               {SOCIAL.map((social) => {
                 const busy = authorize.isPending && authorize.variables === social.provider
                 return (

@@ -249,7 +249,11 @@ export default function EarnActionList() {
       {loginSheet && (
         <AccountSheet
           onClose={() => setLoginSheet(null)}
-          title="먼저 로그인해 주세요"
+          /*
+            시트 머리가 로고뿐이라, 문구를 남기는 진입점은 여기가 유일합니다 — 크레딧을
+            받으려다 로그인 창을 만난 사람에게는 «회원만 할 수 있다» 는 이유가 필요합니다.
+            다른 진입점의 「보관함에 쌓여요」류 일반 안내와 다른 종류의 문장입니다.
+          */
           description={
             loginSheet === 'link'
               ? `쇼핑몰 계정 연동은 회원만 할 수 있어요. 로그인 후 연동하면 ${creditAmountPhrase(linkAmount)}을 받아요.`

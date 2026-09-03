@@ -201,13 +201,19 @@ describe('AccountSheet · 병합하면 게스트 크레딧이 사라진다', () 
       쓰세요」가 **네 곳**에 있었고(기본값 + AccountEntry·W01Landing·W12MyPage) 그 중
       하나도 테스트가 잡지 않았기 때문입니다. 되돌려 놓아도 아무도 모릅니다.
 
+      지금은 시트 머리가 로고뿐이라 기본 문구 자체가 없습니다 — 그래서 이 단언은 「기본값이
+      다시 생기지 않는가」를 봅니다. 문구가 되살아나 크레딧을 약속하면 여기서 걸립니다.
+
+      로고로 바꾸면서 제목 글자가 `sr-only` 로 들어갔으므로, 대화상자를 **이름으로** 집어
+      접근 가능한 이름이 남아 있는지도 같이 봅니다 — 이름을 잃으면 스크린리더에는 「대화상자」
+      하나만 뜹니다.
+
       아래 두 테스트가 그 «사라짐» 을 실제로 밟습니다.
     */
     renderWithProviders(<AccountSheet onClose={vi.fn()} />)
 
-    const sheet = screen.getByRole('dialog')
+    const sheet = screen.getByRole('dialog', { name: '누띠 계정으로 이어서' })
 
-    expect(sheet).toHaveTextContent('만든 결과를 보관함에 저장하고 다른 기기에서도 열어 보세요.')
     expect(sheet).not.toHaveTextContent(/크레딧/)
   })
 

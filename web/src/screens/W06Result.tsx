@@ -855,10 +855,7 @@ function ShareRow({ job }: { job: Job }) {
       )}
 
       {accountSheet && (
-        <AccountSheet
-          onClose={() => setAccountSheet(false)}
-          description="로그인하면 지금 결과가 보관함에 남고, 다음에 다른 기기에서도 열 수 있어요."
-        />
+        <AccountSheet onClose={() => setAccountSheet(false)} />
       )}
     </>
   )

@@ -319,15 +319,7 @@ export default function W09Library() {
       )}
 
       {loginSheet && (
-        <AccountSheet
-          onClose={() => setLoginSheet(false)}
-          /* 리셋된 사람에게 "지금까지 만든 결과"는 이미 닿을 수 없는 것을 가리킵니다. */
-          description={
-            guestReset
-              ? '로그인하면 앞으로 만드는 결과가 계정에 남아서, 브라우저를 바꿔도 열 수 있어요.'
-              : '로그인하면 지금까지 만든 결과가 계정에 남아서, 다음에 다른 기기에서도 열 수 있어요.'
-          }
-        />
+        <AccountSheet onClose={() => setLoginSheet(false)} />
       )}
     </div>
   )

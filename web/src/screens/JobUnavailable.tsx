@@ -96,10 +96,7 @@ export default function JobUnavailable({
       )}
 
       {loginSheet && (
-        <AccountSheet
-          onClose={() => setLoginSheet(false)}
-          description="앞으로 만드는 결과가 계정에 쌓여서 다른 기기에서도 열 수 있어요."
-        />
+        <AccountSheet onClose={() => setLoginSheet(false)} />
       )}
     </div>
   )
