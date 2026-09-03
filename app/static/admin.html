@@ -82,13 +82,38 @@
       </div>
       <div class="scroll"><table id="pv-table"></table></div>
       <div class="panel">
-        <b>새 프롬프트 버전 (draft로 생성)</b>
-        <textarea id="pv-text" placeholder="프롬프트 원문"></textarea>
+        <b id="pv-editor-title">프롬프트 편집</b>
+        <p class="muted">표에서 「전문 보기·편집」을 누르면 그 버전의 전문이 아래에 그대로 실린다. 고친 뒤 저장하면 <b>새 버전</b>이 생기고(기존 버전은 남는다), 「바로 활성화」를 켜면 지금 active 인 버전은 폐기되고 새 버전이 그 자리를 잇는다.</p>
+        <textarea id="pv-text" placeholder="프롬프트 원문" style="min-height:360px;font-family:ui-monospace,Consolas,monospace;font-size:13px"></textarea>
         <div class="row">
           <label class="f">traffic_weight<input id="pv-weight" type="number" value="100" min="0" style="width:90px"></label>
-          <button class="act" onclick="createVersion()">추가</button>
+          <label class="f" style="flex-direction:row;align-items:center;gap:6px"><input id="pv-activate" type="checkbox" checked> 저장 후 바로 활성화(기존 active 폐기)</label>
+          <button class="act" onclick="createVersion()">새 버전으로 저장</button>
+          <span class="muted" id="pv-editor-base"></span>
         </div>
       </div>
+    </section>
+
+    <section id="tab-members">
+      <div class="row">
+        <label class="f">검색 (이메일·닉네임·카페24 아이디·UUID)<input id="mb-q" style="width:320px" placeholder="비우면 최신 가입순 전체"></label>
+        <button class="act" onclick="loadMembers(true)">검색</button>
+        <span class="muted" id="mb-total"></span>
+      </div>
+      <div class="scroll"><table id="mb-table"></table></div>
+      <div class="row"><button class="ghost" id="mb-more" onclick="loadMembers(false)" hidden>더 보기</button></div>
+    </section>
+
+    <section id="tab-logs">
+      <div class="row">
+        <label class="f">종류<select id="lg-kind" onchange="loadLogs(true)">
+          <option value="jobs">생성 잡</option><option value="events">행동 이벤트</option><option value="ledger">크레딧 원장</option></select></label>
+        <label class="f">member_id (비우면 전체)<input id="lg-member" style="width:290px"></label>
+        <label class="f" id="lg-status-wrap">status<select id="lg-status"><option value="">전체</option><option>queued</option><option>processing</option><option>succeeded</option><option>failed</option></select></label>
+        <button class="act" onclick="loadLogs(true)">조회</button>
+      </div>
+      <div class="scroll"><table id="lg-table"></table></div>
+      <div class="row"><button class="ghost" id="lg-more" onclick="loadLogs(false)" hidden>더 보기</button></div>
     </section>
 
     <section id="tab-custom">
@@ -132,7 +157,7 @@
 'use strict';
 /* ponytail: 스탑갭 콘솔 — 프레임워크·번들러 없이 fetch만. W-11 정식 화면이 오면 삭제. */
 const TABS = [
-  ['styles','스타일'], ['prompts','프롬프트 버전'], ['custom','커스텀 승격'],
+  ['styles','스타일'], ['prompts','프롬프트 버전'], ['members','회원'], ['logs','로그'], ['custom','커스텀 승격'],
   ['settings','운영 설정'], ['credits','크레딧 조정'], ['followig','팔로우 대조'], ['cafe24','카페24'],
 ];
 let token = sessionStorage.getItem('nutti_admin_token') || '';
@@ -238,19 +263,94 @@ const loadVersions = guard(async () => {
       <td>${fmtDate(v.created_at)}</td>
       <td style="white-space:normal;max-width:480px">${esc(v.prompt_text.slice(0,120))}${v.prompt_text.length>120?'…':''}</td>
       <td>
+        <button class="ghost" onclick="editVersion(${v.id})">전문 보기·편집</button>
         <button class="ghost" onclick="patchVersion(${sid},${v.id},{traffic_weight:+document.getElementById('vw-${v.id}').value})">weight 저장</button>
         ${v.status!=='active' ? `<button class="act" onclick="patchVersion(${sid},${v.id},{status:'active'})">활성화</button>` : ''}
         ${v.status!=='retired' ? `<button class="ghost" onclick="patchVersion(${sid},${v.id},{status:'retired'})">폐기</button>` : ''}
       </td></tr>`).join('') || '<tr><td>버전 없음</td></tr>';
+  pvItems = items;
+  // 처음 열면 active 버전(없으면 최신)의 전문을 편집창에 실어 둔다 — 빈 창에 새로 쓰는 게 아니라 있는 것 위에 고친다.
+  if (!pvEditing || !items.some(v => v.id === pvEditing)) editVersion((items.find(v => v.status === 'active') || items[0] || {}).id);
 });
+let pvItems = [], pvEditing = null;
+function editVersion(vid) {
+  const v = pvItems.find(x => x.id === vid);
+  pvEditing = v ? v.id : null;
+  $('pv-text').value = v ? v.prompt_text : '';
+  $('pv-weight').value = v ? v.traffic_weight : 100;
+  $('pv-editor-title').textContent = v ? `프롬프트 편집 — v${v.version} (${v.status}) 전문` : '프롬프트 편집';
+  $('pv-editor-base').textContent = v ? `v${v.version} 을 바탕으로 새 버전이 만들어진다` : '';
+  if (v) $('pv-text').scrollIntoView({ block: 'nearest' });
+}
 const patchVersion = guard(async (sid, vid, body) => {
   await api('PATCH', `/styles/${sid}/prompt-versions/${vid}`, body);
   toast('반영됨', 'ok'); loadVersions();
 });
 const createVersion = guard(async () => {
   const sid = $('pv-style').value;
-  await api('POST', `/styles/${sid}/prompt-versions`, { prompt_text: $('pv-text').value, traffic_weight: +$('pv-weight').value });
-  toast('draft 버전 생성됨 — 쓰려면 활성화', 'ok'); $('pv-text').value = ''; loadVersions();
+  const base = pvItems.find(x => x.id === pvEditing);
+  if (base && base.prompt_text === $('pv-text').value && !confirm('전문이 바뀌지 않았습니다. 그래도 같은 내용으로 새 버전을 만들까요?')) return;
+  const created = await api('POST', `/styles/${sid}/prompt-versions`, { prompt_text: $('pv-text').value, traffic_weight: +$('pv-weight').value });
+  if ($('pv-activate').checked) {
+    for (const v of pvItems.filter(x => x.status === 'active')) await api('PATCH', `/styles/${sid}/prompt-versions/${v.id}`, { status: 'retired' });
+    await api('PATCH', `/styles/${sid}/prompt-versions/${created.id}`, { status: 'active' });
+    toast(`v${created.version} 활성화 — 다음 생성부터 이 프롬프트`, 'ok');
+  } else {
+    toast(`v${created.version} draft 생성됨 — 쓰려면 활성화`, 'ok');
+  }
+  pvEditing = created.id; loadVersions();
+});
+
+// ---- 회원 ----
+let mbOffset = 0;
+const loadMembers = guard(async (reset) => {
+  if (reset) { mbOffset = 0; $('mb-table').innerHTML = ''; }
+  const data = await api('GET', `/members?limit=50&offset=${mbOffset}&q=${encodeURIComponent($('mb-q').value.trim())}`);
+  if (!$('mb-table').innerHTML)
+    $('mb-table').innerHTML = '<tr><th>종류</th><th>이메일 / 닉네임</th><th>카페24</th><th>소셜</th><th>크레딧</th><th>잡</th><th>가입</th><th>상태</th><th>member_id</th><th></th></tr>';
+  $('mb-table').insertAdjacentHTML('beforeend', data.items.map(m => `<tr>
+    <td>${badge(m.kind)}</td><td>${esc(m.email || '')}${m.nickname ? ` <span class="muted">${esc(m.nickname)}</span>` : ''}</td>
+    <td>${esc(m.cafe24_member_id || '')}</td><td>${[m.kakao && '카카오', m.naver && '네이버'].filter(Boolean).join(' ')}</td>
+    <td>${m.credit_balance}</td><td>${m.job_count}</td><td>${fmtDate(m.created_at)}</td>
+    <td>${m.withdrawn_at ? '<span style="color:var(--bad)">탈퇴</span>' : m.merged_into_id ? '<span class="muted">병합됨</span>' : ''}</td>
+    <td class="muted">${esc(m.id)}</td>
+    <td><button class="ghost" onclick="memberLogs('${m.id}')">로그</button> <button class="ghost" onclick="memberCredits('${m.id}')">크레딧</button></td></tr>`).join('') || '<tr><td>없음</td></tr>');
+  mbOffset += data.items.length;
+  $('mb-total').textContent = `총 ${data.total}명`;
+  $('mb-more').hidden = mbOffset >= data.total;
+});
+function memberLogs(id) { $('lg-member').value = id; show('logs'); }
+function memberCredits(id) { $('cr-member').value = id; show('credits'); }
+
+// ---- 로그 ----
+let lgOffset = 0;
+const LOG_HEAD = {
+  jobs: '<tr><th>시각</th><th>회원</th><th>스타일 / 커스텀</th><th>입력</th><th>상태</th><th>오류</th><th>비용</th><th>시도</th><th>소요</th><th>job_id</th></tr>',
+  events: '<tr><th>시각</th><th>이벤트</th><th>member_id</th><th>style</th><th>job</th><th>meta</th></tr>',
+  ledger: '<tr><th>시각</th><th>member_id</th><th>사유</th><th>ref</th><th>±</th><th>잔액</th></tr>',
+};
+const secs = (a, b) => a && b ? `${Math.round((new Date(b) - new Date(a)) / 1000)}s` : '';
+const LOG_ROW = {
+  jobs: j => `<tr><td>${fmtDate(j.queued_at)}</td><td title="${esc(j.member_id)}">${esc(j.member_label)}</td>
+    <td style="white-space:normal;max-width:320px">${j.style ? esc(j.style) : `<span class="muted">커스텀:</span> ${esc(j.custom_prompt || '')}`}</td>
+    <td class="muted">${j.input_values ? esc(JSON.stringify(j.input_values)) : ''}</td><td>${badge(j.status)}</td>
+    <td style="color:var(--bad)">${esc(j.error_code || '')}</td><td>${j.credit_cost}</td><td>${j.attempt_count}</td>
+    <td>${secs(j.started_at, j.finished_at)}</td><td class="muted">${esc(j.id)}</td></tr>`,
+  events: e => `<tr><td>${fmtDate(e.created_at)}</td><td>${esc(e.event_type)}</td><td class="muted">${esc(e.member_id)}</td>
+    <td>${e.style_id ?? ''}</td><td class="muted">${esc(e.job_id || '')}</td><td class="muted" style="white-space:normal">${esc(JSON.stringify(e.meta))}</td></tr>`,
+  ledger: l => `<tr><td>${fmtDate(l.created_at)}</td><td class="muted">${esc(l.member_id)}</td><td>${esc(l.reason)}</td>
+    <td class="muted">${esc(l.ref_id || '')}</td><td>${l.amount > 0 ? '+' : ''}${l.amount}</td><td>${l.balance_after}</td></tr>`,
+};
+const loadLogs = guard(async (reset) => {
+  const kind = $('lg-kind').value;
+  $('lg-status-wrap').hidden = kind !== 'jobs';
+  if (reset) { lgOffset = 0; $('lg-table').innerHTML = LOG_HEAD[kind]; }
+  const member = $('lg-member').value.trim();
+  const status = kind === 'jobs' ? $('lg-status').value : '';
+  const data = await api('GET', `/${kind}?limit=100&offset=${lgOffset}${member ? '&member_id=' + encodeURIComponent(member) : ''}${status ? '&status=' + status : ''}`);
+  $('lg-table').insertAdjacentHTML('beforeend', data.items.map(LOG_ROW[kind]).join('') || '<tr><td>없음</td></tr>');
+  lgOffset += data.items.length;
+  $('lg-more').hidden = data.items.length < 100;
 });
 
 // ---- 커스텀 프롬프트 ----
@@ -326,6 +426,7 @@ const loadCafe24 = guard(async () => {
 
 // ---- 탭/부트 ----
 const LOADERS = { styles: loadStyles, prompts: async () => { await loadStyles(); loadVersions(); }, custom: loadCustom,
+  members: () => loadMembers(true), logs: () => loadLogs(true),
   settings: loadSettings, credits: async () => {}, followig: () => loadClaims(true), cafe24: loadCafe24 };
 function show(tab) {
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));

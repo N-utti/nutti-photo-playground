@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator
 from tortoise.exceptions import IntegrityError
+from tortoise.expressions import Q
 from tortoise.functions import Count
 from tortoise.transactions import in_transaction
 
@@ -551,6 +552,170 @@ async def admin_adjust_credits(
         "member_id": str(member.id),
         "balance": member.credit_balance,
         "amount_granted": body.amount,
+    }
+
+
+@router.get("/members")
+async def admin_list_members(
+    q: str = Query("", max_length=100),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    _: AdminUser = Depends(get_current_admin),
+):
+    """회원 목록 — 이메일·닉네임·카페24 아이디 부분 일치, UUID 는 정확히. 최신 가입순."""
+    query = Member.all()
+    q = q.strip()
+    if q:
+        cond = Q(email__icontains=q) | Q(nickname__icontains=q) | Q(cafe24_member_id__icontains=q)
+        try:
+            cond |= Q(id=uuid.UUID(q))
+        except ValueError:
+            pass
+        query = query.filter(cond)
+    total = await query.count()
+    rows = (
+        await query.annotate(job_count=Count("jobs"))
+        .order_by("-created_at")
+        .offset(offset)
+        .limit(limit)
+    )
+    return {
+        "total": total,
+        "items": [
+            {
+                "id": str(m.id),
+                "kind": m.kind.value,
+                "email": m.email,
+                "nickname": m.nickname,
+                "cafe24_member_id": m.cafe24_member_id,
+                "kakao": m.kakao_id is not None,
+                "naver": m.naver_id is not None,
+                "credit_balance": m.credit_balance,
+                "job_count": m.job_count,
+                "created_at": m.created_at,
+                "withdrawn_at": m.withdrawn_at,
+                "merged_into_id": str(m.merged_into_id) if m.merged_into_id else None,
+            }
+            for m in rows
+        ],
+    }
+
+
+def _member_filter(member_id: str | None) -> dict:
+    if member_id is None:
+        return {}
+    try:
+        return {"member_id": uuid.UUID(member_id)}
+    except ValueError as exc:
+        raise validation_error("member_id 형식이 올바르지 않습니다") from exc
+
+
+@router.get("/jobs")
+async def admin_list_jobs(
+    member_id: str | None = Query(None),
+    status: str | None = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    _: AdminUser = Depends(get_current_admin),
+):
+    """생성 잡 로그 — 누가·어떤 스타일/프롬프트로·결과(status, error_code)·비용·시각."""
+    query = GenerationJob.filter(**_member_filter(member_id))
+    if status:
+        query = query.filter(status=status)
+    rows = (
+        await query.order_by("-queued_at")
+        .offset(offset)
+        .limit(limit)
+        .prefetch_related("member", "style")
+    )
+    custom_ids = [job.custom_prompt_id for job in rows if job.custom_prompt_id]
+    custom_texts = (
+        {
+            log.id: log.raw_text
+            for log in await CustomPromptLog.filter(id__in=custom_ids).only("id", "raw_text")
+        }
+        if custom_ids
+        else {}
+    )
+    return {
+        "items": [
+            {
+                "id": str(job.id),
+                "member_id": str(job.member_id),
+                "member_label": job.member.email or job.member.nickname or job.member.kind.value,
+                "style": job.style.name if job.style else None,
+                "prompt_version_id": job.prompt_version_id,
+                "custom_prompt": custom_texts.get(job.custom_prompt_id),
+                "input_values": job.input_values,
+                "status": job.status.value,
+                "error_code": job.error_code,
+                "credit_cost": job.credit_cost,
+                "attempt_count": job.attempt_count,
+                "queued_at": job.queued_at,
+                "started_at": job.started_at,
+                "finished_at": job.finished_at,
+            }
+            for job in rows
+        ]
+    }
+
+
+@router.get("/events")
+async def admin_list_events(
+    member_id: str | None = Query(None),
+    event_type: str | None = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    _: AdminUser = Depends(get_current_admin),
+):
+    """행동 로그(metric_event) — 화면 진입·공유 클릭 등, meta 그대로."""
+    query = MetricEvent.filter(**_member_filter(member_id))
+    if event_type:
+        query = query.filter(event_type=event_type)
+    rows = await query.order_by("-id").offset(offset).limit(limit)
+    return {
+        "items": [
+            {
+                "id": event.id,
+                "event_type": event.event_type,
+                "member_id": str(event.member_id),
+                "style_id": event.style_id,
+                "job_id": str(event.job_id) if event.job_id else None,
+                "meta": event.meta,
+                "created_at": event.created_at,
+            }
+            for event in rows
+        ]
+    }
+
+
+@router.get("/ledger")
+async def admin_list_ledger(
+    member_id: str | None = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    _: AdminUser = Depends(get_current_admin),
+):
+    """크레딧 원장 — 지급·차감·환불 전부, balance_after 로 잔액 추적."""
+    rows = (
+        await CreditLedger.filter(**_member_filter(member_id))
+        .order_by("-id")
+        .offset(offset)
+        .limit(limit)
+    )
+    return {
+        "items": [
+            {
+                "id": row.id,
+                "member_id": str(row.member_id),
+                "reason": row.reason.value,
+                "ref_id": row.ref_id,
+                "amount": row.amount,
+                "balance_after": row.balance_after,
+                "created_at": row.created_at,
+            }
+            for row in rows
+        ]
     }
 
 
