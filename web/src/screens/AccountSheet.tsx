@@ -16,6 +16,7 @@ import { ApiError, isApiError } from '../api/client'
 import { useAuthorizeRedirect, useLocalAuth } from '../api/queries'
 import { rememberAuthReturn } from '../app/authReturn'
 import { authWelcomeBalance, authWelcomeMessage } from '../app/authWelcome'
+import { BrandLockup } from '../app/BrandLockup'
 import FloatingField from '../app/FloatingField'
 import { formatRetryAfter } from '../app/retryAfter'
 import { useModalDialog } from '../app/useModalDialog'
@@ -226,27 +227,30 @@ export default function AccountSheet({
           </>
         ) : (
           <>
+            {/*
+              **「누띠」는 쇼핑몰 이름입니다.** 여기 뜨는 계정은 놀이터의 것이고 둘은
+              별개인데(마이페이지의 「쇼핑몰 연동」이 그 증거입니다), 이름이 「누띠」에서
+              끊기면 시트가 쇼핑몰 로그인으로 읽힙니다. 그래서 읽어 주는 이름도 앱바·랜딩과
+              같은 「누띠 놀이터」까지 갑니다.
+            */}
             <h2 id="account-sheet-title" className="sr-only">
-              누띠 계정으로 이어서
+              누띠 놀이터 계정으로 이어서
             </h2>
             {/*
-              워드마크 원본이 1540×396(=3.89:1)이라 높이만 잡으면 폭은 따라옵니다. 앱바가
-              쓰는 14px 보다 키운 이유는 여기가 시트의 유일한 머리이기 때문입니다 — 앱바에선
-              옆에 「놀이터」가 붙어 한 덩어리지만, 여기서는 혼자 섭니다.
+              머리는 랜딩·GNB 와 **같은 잠금 문구**입니다(app/BrandLockup.tsx). 예전엔 여기만
+              워드마크 혼자 섰고, 바로 그 자리 주석이 «앱바에선 옆에 「놀이터」가 붙어 한
+              덩어리지만, 여기서는 혼자 섭니다» 라고 적혀 있었습니다.
+
+              앱바가 쓰는 `text-base` 보다 키운 이유는 여기가 시트의 유일한 머리이기
+              때문입니다(마크 14px → 21px). 크기는 한 값으로만 정합니다 — 마크와 「놀이터」의
+              비율은 잠금 문구가 스스로 지킵니다.
 
               `mt-2` 는 시트 안쪽 여백(`p-5` = 20px)에 8px 을 더해 28px 을 만듭니다. 아래로는
               버튼 묶음의 `mt-6` 이 24px 을 냅니다 — **12px 이 아니라 24px 이어야 하는 이유**는
               버튼끼리의 간격이 `space-y-3`(12px)이기 때문입니다. 로고 아래가 그와 같으면
               로고가 머리가 아니라 «버튼 목록의 첫 칸» 처럼 읽힙니다.
             */}
-            <img
-              src="/brand/nutti-wordmark.svg"
-              alt=""
-              aria-hidden
-              width={70}
-              height={18}
-              className="mx-auto mt-2 h-6 w-auto"
-            />
+            <BrandLockup decorative className="mt-2 justify-center text-2xl" />
             {description && <p className="mt-3 text-center text-sm text-ink-2">{description}</p>}
 
             {/*
@@ -372,6 +376,21 @@ export default function AccountSheet({
                     </button>
                   ))}
                 </div>
+
+                {/*
+                  **쇼핑몰 비밀번호를 넣게 되는 자리는 여기뿐입니다.**
+
+                  소셜 둘은 계정이 자동으로 갈려서 오해해도 손해가 없습니다 — 카카오로
+                  들어오면 그냥 놀이터 계정이 생깁니다. 이메일은 다릅니다. 누띠 쇼핑몰
+                  회원이 자기 쇼핑몰 아이디·비밀번호를 넣으면 「로그인하지 못했어요」만
+                  뜨고, 그 사람은 자기가 **틀린 비밀번호를 쳤다** 고 생각하지 다른 서비스에
+                  로그인하려 했다고는 생각하지 않습니다.
+
+                  그래서 시트 머리(늘 보이는 자리)가 아니라 폼을 펼쳤을 때만 답니다.
+                  #257 이 걷어낸 것은 진입점 네 곳에서 글자만 다르게 반복되던 **값어치
+                  설명**이었고, 이건 그게 아니라 «이 칸에 무엇을 넣는가» 입니다.
+                */}
+                <p className="mt-3 text-sm text-ink-3">누띠 쇼핑몰 계정과는 별개예요.</p>
 
                 <form onSubmit={submit} className="mt-3 space-y-2">
                   <FloatingField

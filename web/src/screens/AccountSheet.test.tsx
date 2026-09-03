@@ -258,9 +258,45 @@ describe('AccountSheet · 병합하면 게스트 크레딧이 사라진다', () 
     */
     renderWithProviders(<AccountSheet onClose={vi.fn()} />)
 
-    const sheet = screen.getByRole('dialog', { name: '누띠 계정으로 이어서' })
+    const sheet = screen.getByRole('dialog', { name: '누띠 놀이터 계정으로 이어서' })
 
     expect(sheet).not.toHaveTextContent(/크레딧/)
+  })
+
+  it('머리가 「누띠」에서 끊기지 않는다 — 누띠는 쇼핑몰 이름이다', () => {
+    /*
+      한동안 시트 머리는 워드마크 혼자였습니다. 「누띠」는 쇼핑몰 이름이고 여기 뜨는 계정은
+      놀이터의 것이라(마이페이지의 「쇼핑몰 연동」이 그 증거) 이름이 거기서 끊기면 시트가
+      쇼핑몰 로그인으로 읽힙니다.
+
+      **보는 쪽과 읽히는 쪽을 둘 다** 셉니다. 잠금 문구는 장식이라(`aria-hidden` — 아래
+      `<h2>` 가 이름을 답니다) 눈에 보이는 「놀이터」만 확인하면 스크린리더 쪽이 「누띠
+      계정」으로 되돌아가도 초록불입니다. 그 반대도 마찬가지고요.
+    */
+    renderWithProviders(<AccountSheet onClose={vi.fn()} />)
+
+    expect(screen.getByText('놀이터')).toBeInTheDocument()
+    expect(screen.getByRole('dialog')).toHaveAccessibleName('누띠 놀이터 계정으로 이어서')
+  })
+
+  it('이메일 폼을 펼쳤을 때만 쇼핑몰 계정과 별개라고 말한다', async () => {
+    /*
+      쇼핑몰 비밀번호를 실제로 **넣게 되는** 자리는 이메일 폼뿐입니다. 소셜 둘은 계정이
+      자동으로 갈려서 오해해도 손해가 없고(카카오로 들어오면 그냥 놀이터 계정이 생깁니다),
+      이메일만 「로그인하지 못했어요」로 끝납니다 — 그 사람은 자기가 비밀번호를 틀렸다고
+      생각하지 다른 서비스에 로그인하려 했다고는 생각하지 않습니다.
+
+      «펼치기 전에는 없다» 를 같이 세는 이유: 이 줄이 시트 머리로 올라가면 진입점 일곱 곳
+      모두에서 늘 보이는 문구가 하나 더 늘고, 그건 #257 이 걷어낸 반복으로 돌아가는 것입니다.
+    */
+    const user = userEvent.setup()
+    renderWithProviders(<AccountSheet onClose={vi.fn()} />)
+
+    expect(screen.queryByText(/쇼핑몰 계정과는 별개/)).not.toBeInTheDocument()
+
+    await openEmail(user)
+
+    expect(screen.getByText('누띠 쇼핑몰 계정과는 별개예요.')).toBeInTheDocument()
   })
 
   it('기존 계정으로 로그인하면 그 계정 본인 잔액이 뜬다 — 게스트 잔액이 아니라', async () => {
