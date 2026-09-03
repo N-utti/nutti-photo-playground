@@ -30,7 +30,7 @@ export default function BreedField({
   const selectValue = custom ? CUSTOM_BREED : value
 
   return (
-    <section className="mt-3 rounded-lg border border-rule bg-surface px-3 py-3">
+    <section className="mt-3 rounded-xl bg-surface px-3 py-3">
       <label htmlFor={id} className="text-sm font-semibold">
         견종
       </label>
@@ -50,7 +50,7 @@ export default function BreedField({
             onChange(next)
           }
         }}
-        className="mt-2 w-full rounded-lg border border-rule bg-paper px-3 py-2 text-sm"
+        className="mt-2 w-full rounded-xl border border-rule bg-paper px-3 py-2 text-sm"
       >
         <option value="">선택 안 함</option>
         {BREED_NAMES.map((name) => (
@@ -67,7 +67,7 @@ export default function BreedField({
           onChange={(event) => onChange(event.currentTarget.value)}
           maxLength={50}
           placeholder="예: 골든두들"
-          className="mt-2 w-full rounded-lg border border-rule bg-paper px-3 py-2 text-sm"
+          className="mt-2 w-full rounded-xl border border-rule bg-paper px-3 py-2 text-sm"
         />
       )}
     </section>

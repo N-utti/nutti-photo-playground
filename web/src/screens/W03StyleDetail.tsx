@@ -294,7 +294,7 @@ function SheetBody({
         그래서 태그 위, 만들기 버튼 앞에 둡니다.
       */}
       {style.uses_pet_name && (
-        <p className="mt-3 rounded-lg border border-rule bg-surface-2 px-3 py-2 text-sm text-ink-2">
+        <p className="mt-3 rounded-xl bg-surface-2 px-3 py-2 text-sm text-ink-2">
           <span className="font-semibold text-ink">아이 이름이 그림에 들어갑니다</span> — 저장된
           강아지로 만들면 그 이름이, 아니면 «{PET_NAME_FALLBACK}» 가 인쇄됩니다.
         </p>
@@ -431,7 +431,7 @@ function ExampleCarousel({ images, styleName }: { images: string[]; styleName: s
 function SheetError({ message, onClose }: { message: string; onClose: () => void }) {
   return (
     <div className="py-8 text-center">
-      <h2 id="style-sheet-title" className="text-base font-semibold">
+      <h2 id="style-sheet-title" className="text-lg font-bold">
         {message}
       </h2>
       <button

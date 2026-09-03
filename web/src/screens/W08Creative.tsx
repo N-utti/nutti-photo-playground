@@ -161,7 +161,7 @@ export default function W08Creative() {
 
   return (
     <div className="screen-min-h bg-paper pb-16">
-      <header className="sticky top-0 desktop:top-14 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
+      <header className="sticky top-0 desktop:top-14 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 py-3">
         <BackButton fallback="/upload" />
         <h1 className="text-base font-bold">직접 만들기</h1>
         {/* 데스크톱에서는 GNB 가 배지를 들고 있어 여기서는 내립니다 — 안 내리면 같은
@@ -172,13 +172,13 @@ export default function W08Creative() {
         </span>
       </header>
 
-      <main className="mx-auto w-full max-w-md px-4 py-4">
+      <main className="mx-auto w-full max-w-md px-5 py-4">
         {reuse.pending ? (
           // 재사용 재료를 서버에 묻는 중입니다. 여기서 "사진을 먼저 올려 주세요"를
           // 띄우면, 사진이 있는데도 없다고 말했다가 곧 뒤집는 화면이 됩니다.
           <p className="py-16 text-center text-sm text-ink-3">사진을 불러오는 중…</p>
         ) : !uploadId ? (
-          <div className="rounded-xl border border-rule bg-surface px-4 py-5">
+          <div className="rounded-xl bg-surface px-4 py-5">
             <p className="text-sm font-semibold">사진을 먼저 올려 주세요</p>
             <p className="mt-1 text-sm text-ink-2">
               직접 쓴 문장으로 만들려면 우리 애 사진이 먼저 필요해요.
@@ -242,12 +242,12 @@ export default function W08Creative() {
             </ul>
 
             {/* 노트3 — 결과 불만의 주된 원인을 입력 단계에서 미리 못박습니다. */}
-            <p className="mt-4 rounded-lg border border-rule bg-surface-2 px-3 py-2 text-xs text-ink-2">
+            <p className="mt-4 rounded-xl bg-surface px-3 py-2 text-xs text-ink-2">
               배경 · 의상 · 분위기는 바꿀 수 있어요. 품종이나 털색을 바꾸는 요청은 거절됩니다.
             </p>
 
             {rejection && (
-              <p role="alert" className="mt-2 rounded-lg bg-warn-soft px-3 py-2 text-sm text-warn">
+              <p role="alert" className="mt-2 rounded-xl bg-warn-soft px-3 py-2 text-sm text-warn">
                 {rejection}
               </p>
             )}

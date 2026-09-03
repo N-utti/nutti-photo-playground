@@ -65,7 +65,7 @@ export default function W01Landing() {
           상단 GNB(app/DesktopNav.tsx)에 있어서, 두 줄을 다 그리면 같은 링크가 위아래로
           겹칩니다. 모바일에는 GNB 가 없으므로 이 헤더가 그대로 남습니다 — 그래서
           아래 로그인 시트 상태도 계속 쓰입니다. */}
-      <header className="flex items-center gap-2 border-b border-rule bg-surface px-4 py-3 desktop:hidden">
+      <header className="flex items-center gap-2 border-b border-rule bg-surface px-5 py-3 desktop:hidden">
         {/*
           쇼핑몰 헤더에 걸린 것과 같은 NUTTi 워드마크입니다(출처·라이선스는
           public/brand/NOTICE.md). 서체로 흉내 내지 않고 로고 원본을 씁니다 —
@@ -134,7 +134,7 @@ export default function W01Landing() {
         <AccountSheet onClose={() => setLoginSheet(false)} />
       )}
 
-      <main className="mx-auto w-full max-w-(--container-canvas) px-4">
+      <main className="mx-auto w-full max-w-(--container-canvas) px-5">
         {/* 모바일은 헤드라인 → 슬라이더 → CTA 세로 순서, 데스크톱은 좌(문구·CTA)/우(슬라이더). */}
         {/* 데스크톱 세로 간격만 32px 입니다(가로는 48px 그대로). 헤드라인과 CTA 는 한
             덩어리로 읽혀야 하는 짝이라 48px 은 원래 넓었고, 줄이면 왼쪽 칸 높이가
@@ -197,7 +197,7 @@ export default function W01Landing() {
             지키려면 여기서 24px 을 내주는 게 맞습니다. 모바일과 같은 값이 됩니다. */}
         <section className="pt-10">
           <div className="flex items-baseline justify-between gap-2">
-            <h2 className="text-base font-bold">지금 인기 스타일</h2>
+            <h2 className="text-lg font-bold">지금 인기 스타일</h2>
             <Link to="/styles" className="text-sm text-ink-2 underline hover:text-brand">
               전체 →
             </Link>
@@ -209,7 +209,7 @@ export default function W01Landing() {
               {isPending
                 ? Array.from({ length: PREVIEW_COUNT }, (_, index) => (
                     <li key={index} className={index >= MOBILE_PREVIEW_COUNT ? 'hidden desktop:block' : undefined}>
-                      <div className="aspect-square animate-pulse rounded-lg bg-rule/60" />
+                      <div className="aspect-square animate-pulse rounded-xl bg-rule/60" />
                     </li>
                   ))
                 : popular.map((style, index) => (
@@ -247,7 +247,7 @@ function PreviewCard({ style }: { style: StyleCard }) {
   return (
     <Link
       to={`/styles/${style.id}`}
-      className="block overflow-hidden rounded-lg border border-rule bg-surface hover:border-brand-2"
+      className="block overflow-hidden rounded-xl border border-rule bg-surface hover:border-brand-2"
     >
       {/* 이름이 바로 아래 있으므로 이미지가 없을 때 자리 표시자에 글자를 넣지 않습니다. */}
       <Thumbnail
@@ -356,7 +356,7 @@ function BeforeAfterSlider() {
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerEnd}
       onPointerCancel={handlePointerEnd}
-      className="relative aspect-[4/3] w-full touch-pan-y overflow-hidden rounded-xl border border-rule bg-surface-2 select-none"
+      className="relative aspect-[4/3] w-full touch-pan-y overflow-hidden rounded-xl bg-surface-2 select-none"
     >
       <img
         src={HERO_AFTER}

@@ -170,7 +170,7 @@ export default function W06Result() {
 
   return (
     <div className="screen-min-h bg-canvas pb-16">
-      <header className="sticky top-0 desktop:top-14 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
+      <header className="sticky top-0 desktop:top-14 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 py-3">
         {/* 대기 화면(W-05)은 끝나는 순간 `replace` 로 여기 자리를 넘겼으므로,
             한 칸 뒤는 만들기를 시작한 화면입니다 — 끝난 진행 막대로 되돌아가지 않습니다. */}
         <BackButton fallback="/styles" />
@@ -186,7 +186,7 @@ export default function W06Result() {
         </span>
       </header>
 
-      <main className="mx-auto w-full max-w-md px-4 py-4">
+      <main className="mx-auto w-full max-w-md px-5 py-4">
         {job?.status === 'failed' ? (
           <FailurePanel job={job} />
         ) : job?.status === 'succeeded' ? (
@@ -233,7 +233,7 @@ function FailurePanel({ job }: { job: Job }) {
         alt="업로드한 사진"
         className="aspect-square w-full rounded-xl bg-canvas-2 object-cover"
       />
-      <div className="mt-3 rounded-lg border border-danger/30 bg-danger-soft px-3 py-3">
+      <div className="mt-3 rounded-xl border border-danger/30 bg-danger-soft px-3 py-3">
         <p className="text-sm font-semibold text-danger">{copy.title}</p>
         <p className="mt-0.5 text-sm text-ink-2">{copy.body}</p>
       </div>
@@ -349,7 +349,7 @@ function RemovedResultPanel({ job }: { job: Job }) {
         alt="업로드한 사진"
         className="aspect-square w-full rounded-xl bg-canvas-2 object-cover"
       />
-      <div className="mt-3 rounded-lg border border-rule bg-surface-2 px-3 py-3">
+      <div className="mt-3 rounded-xl bg-surface px-3 py-3">
         <p className="text-sm font-semibold">보관함에서 지운 사진이에요</p>
         <p className="mt-0.5 text-sm text-ink-2">
           지운 결과는 되돌릴 수 없어요. 사진은 그대로 있으니 다시 만들 수 있어요.
@@ -505,7 +505,7 @@ function ResultUnavailable({ sourceUrl, onRetry }: { sourceUrl: string; onRetry:
         alt="업로드한 사진"
         className="aspect-square w-full rounded-xl bg-canvas-2 object-cover"
       />
-      <div role="status" className="mt-3 rounded-lg border border-warn/30 bg-warn-soft px-3 py-3">
+      <div role="status" className="mt-3 rounded-xl border border-warn/30 bg-warn-soft px-3 py-3">
         <p className="text-sm font-semibold text-warn">결과 이미지를 불러오지 못했어요</p>
         <p className="mt-0.5 text-sm text-ink-2">
           만들기는 끝났어요 — 아래 버튼으로 다시 불러와 보세요.
@@ -513,7 +513,7 @@ function ResultUnavailable({ sourceUrl, onRetry }: { sourceUrl: string; onRetry:
         <button
           type="button"
           onClick={onRetry}
-          className="mt-2 rounded-lg border border-rule-strong bg-surface px-3 py-2 text-xs font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
+          className="mt-2 rounded-xl border border-rule-strong bg-surface px-3 py-2 text-xs font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
         >
           다시 불러오기
         </button>
@@ -1090,7 +1090,7 @@ function Regenerate({ job, label, hint }: { job: Job; label: string; hint?: stri
       {fields.length > 0 && (
         <section
           aria-label="스타일 옵션"
-          className="mt-3 rounded-xl border border-rule bg-surface px-3 py-2.5"
+          className="mt-3 rounded-xl bg-surface px-3 py-2.5"
         >
           <div className="flex items-baseline justify-between gap-2">
             {/* 두 칸짜리 스타일에서 `truncate` 는 뒤 칸의 값을 통째로 가립니다 —
@@ -1270,7 +1270,7 @@ function OtherStyles({ jobId }: { jobId: string }) {
   return (
     <section className="mt-8">
       <div className="flex items-baseline justify-between gap-2">
-        <h2 className="text-sm font-semibold">이 사진으로 다른 스타일</h2>
+        <h2 className="text-lg font-bold">이 사진으로 다른 스타일</h2>
         {/*
           여기 3장은 인기 섹션의 앞부분일 뿐입니다. 그 밖을 고르려면 카탈로그로
           나가야 하는데 `from_job` 없이 보내면 맥락이 끊겨 **같은 사진을 다시
@@ -1290,7 +1290,7 @@ function OtherStyles({ jobId }: { jobId: string }) {
             {/* from_job 이 있으면 W-04 가 업로드 단계를 건너뜁니다. */}
             <Link
               to={`/upload?style_id=${style.id}&from_job=${jobId}`}
-              className="block overflow-hidden rounded-lg border border-rule bg-surface hover:border-brand-2"
+              className="block overflow-hidden rounded-xl border border-rule bg-surface hover:border-brand-2"
             >
               <Thumbnail
                 src={style.thumbnail_url}

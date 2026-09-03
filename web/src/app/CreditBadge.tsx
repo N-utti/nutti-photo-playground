@@ -31,8 +31,13 @@ export function CreditBadge({ showUnit = false }: { showUnit?: boolean }) {
       // 크레딧은 이 앱의 화폐라 브랜드 골드(로고 i 위의 점 색)를 씁니다. 단,
       // **잔액을 아는 경우에만** 입니다 — `—` 를 금색으로 칠하면 규칙 2 가 무너져서
       // "모른다"가 다시 "있다"처럼 보입니다.
-      className={`ml-auto rounded-full border px-3 py-1 font-mono text-sm tabular-nums ${
-        balance === null ? 'border-rule bg-surface-2 text-ink-3' : 'border-gold bg-gold-soft'
+      //
+      // 테두리는 뺐습니다. 이 배지 바로 오른쪽이 «로그인» 버튼인데 그쪽도 테두리
+      // 두른 알약이라, 둘이 같은 무게로 나란히 서서 **무엇이 누르는 것인지** 흐려졌
+      // 습니다(랜딩·카탈로그 앱바). 배지는 상태 표시라 면(`bg-gold-soft`)만으로 충분
+      // 하고, 테두리는 누르는 쪽에만 남깁니다.
+      className={`ml-auto rounded-full px-3 py-1 font-mono text-sm tabular-nums ${
+        balance === null ? 'bg-surface-2 text-ink-3' : 'bg-gold-soft'
       }`}
     >
       <span aria-hidden>

@@ -98,7 +98,7 @@ export default function FloatingField({
             두 상태의 대비는 5.2:1 이라 WCAG 2.2 의 포커스 표시 기준(3:1)을 넘습니다.
             링을 끄는 건 이 칸뿐입니다. 버튼·링크는 공통 규칙 그대로입니다.
           */
-          className={`peer w-full rounded-lg border ${surfaceClass} px-3 py-3 text-sm leading-6 transition-colors duration-200 placeholder:text-ink-3 placeholder:opacity-0 focus-visible:outline-none focus:placeholder:opacity-100 ${
+          className={`peer w-full rounded-xl border ${surfaceClass} px-3 py-3 text-sm leading-6 transition-colors duration-200 placeholder:text-ink-3 placeholder:opacity-0 focus-visible:outline-none focus:placeholder:opacity-100 ${
             invalid ? 'border-danger' : 'border-rule-strong focus:border-brand'
           } ${inputClassName}`}
         />

@@ -39,7 +39,7 @@ export function StyleInputForm({
   onTouch: (label: string) => void
 }) {
   return (
-    <section className={framed ? 'mt-4 rounded-lg border border-rule bg-surface px-3 py-3' : 'mt-3'}>
+    <section className={framed ? 'mt-4 rounded-xl bg-surface px-3 py-3' : 'mt-3'}>
       {title && <h2 className="text-sm font-semibold">{title}</h2>}
       <div className={`space-y-4 ${title ? 'mt-1' : ''}`}>
         {fields.map((field) => (
@@ -166,7 +166,7 @@ function InputField({
           aria-describedby={[field.help ? helpId : null, error ? errorId : null]
             .filter(Boolean)
             .join(' ') || undefined}
-          className={`mt-2 w-full rounded-lg border bg-paper px-3 py-2 text-sm ${
+          className={`mt-2 w-full rounded-xl border bg-paper px-3 py-2 text-sm ${
             error ? 'border-danger' : 'border-rule'
           }`}
         />

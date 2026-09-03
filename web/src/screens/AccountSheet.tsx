@@ -146,6 +146,17 @@ export default function AccountSheet({
   const authorize = useAuthorizeRedirect()
   const localAuth = useLocalAuth()
   const [mode, setMode] = useState<'login' | 'register'>('login')
+  /*
+    이메일 폼은 접혀서 시작합니다.
+
+    예전에는 탭 둘 + 입력 둘 + 제출 버튼이 **항상** 펼쳐져 있어서, 소셜 두 개가 주
+    경로인데도 시트의 절반 넘게를 이메일이 차지했습니다(시트 높이 510px). 접으면
+    시트가 «수단 세 개» 라는 한 가지 질문만 던집니다.
+
+    이메일 사용자에게는 탭이 한 번 늘어납니다. 그 대가로 다수인 소셜 사용자가 매번
+    폼을 지나쳐 보지 않아도 됩니다.
+  */
+  const [emailOpen, setEmailOpen] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
@@ -196,7 +207,7 @@ export default function AccountSheet({
       >
         {done ? (
           <>
-            <h2 id="account-sheet-title" className="text-base font-bold">
+            <h2 id="account-sheet-title" className="text-lg font-bold">
               로그인됐어요
             </h2>
             {/*
@@ -224,9 +235,9 @@ export default function AccountSheet({
               옆에 「놀이터」가 붙어 한 덩어리지만, 여기서는 혼자 섭니다.
 
               `mt-2` 는 시트 안쪽 여백(`p-5` = 20px)에 8px 을 더해 28px 을 만듭니다. 아래로는
-              버튼 묶음의 `mt-6` 이 24px 을 냅니다 — **8px 이 아니라 24px 이어야 하는 이유**는
-              소셜 버튼끼리의 간격이 `space-y-2`(8px)이기 때문입니다. 로고 아래를 16px 로 두면
-              그 둘이 너무 가까워서 로고가 머리가 아니라 «버튼 목록의 첫 칸» 처럼 읽힙니다.
+              버튼 묶음의 `mt-6` 이 24px 을 냅니다 — **12px 이 아니라 24px 이어야 하는 이유**는
+              버튼끼리의 간격이 `space-y-3`(12px)이기 때문입니다. 로고 아래가 그와 같으면
+              로고가 머리가 아니라 «버튼 목록의 첫 칸» 처럼 읽힙니다.
             */}
             <img
               src="/brand/nutti-wordmark.svg"
@@ -249,7 +260,14 @@ export default function AccountSheet({
               OAuth 를 두 번 시작하는 것은 막아야 합니다. 못 누르는 티를 색으로 내지 않을
               뿐이고, 어차피 1초 안에 페이지가 넘어갑니다.
             */}
-            <div className="mt-6 space-y-2">
+            {/*
+              버튼 높이 52px = `py-3.5`(14px) 두 번 + `text-base` 의 행간 24px.
+
+              44px 이었습니다. WCAG 의 탭 타깃 **하한**이지 목표가 아니고, 무엇보다 같은
+              앱의 주 버튼(W-01 「사진 올리고 무료로 1장 만들기」)이 이미 52px 이라 로그인만
+              작을 근거가 없었습니다. 레이블도 그 버튼과 같은 16px 로 맞춥니다.
+            */}
+            <div className="mt-6 space-y-3">
               {SOCIAL.map((social) => {
                 const busy = authorize.isPending && authorize.variables === social.provider
                 return (
@@ -259,7 +277,7 @@ export default function AccountSheet({
                     disabled={authorize.isPending}
                     aria-busy={busy}
                     onClick={() => startSocial(social.provider)}
-                    className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold ${busy ? 'opacity-50' : ''} ${social.className}`}
+                    className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-base font-semibold ${busy ? 'opacity-50' : ''} ${social.className}`}
                   >
                     {/*
                       `gap-2` = 8px 입니다. 네이버가 가운데 정렬일 때 규정한 그 값이고
@@ -272,6 +290,13 @@ export default function AccountSheet({
                       `alt=""` 는 장식이라는 뜻입니다. 바로 옆 레이블이 이미 «카카오»·
                       «네이버» 라고 말하므로, 대체 텍스트를 넣으면 스크린리더가 회사
                       이름을 두 번 읽습니다.
+
+                      **버튼을 52px 로 키우면서도 심볼은 그대로 뒀습니다.** 키우고 싶은
+                      쪽이 자연스럽지만 카카오 심볼이 래스터(36×34 PNG)라 그럴 수 없습니다 —
+                      18px 로 두면 2배 화면에서 36 device px, 즉 원본과 1:1 입니다. 21px 로
+                      올리면 42px 을 36px 에서 늘리는 셈이라 흐려집니다. 네이버는 벡터라
+                      키울 수 있지만 혼자 키우면 위쪽 주석의 잉크 면적 균형(18 대 16)이
+                      깨져서 네이버만 커 보입니다. 둘 다 각 사 가이드의 하한 이상입니다.
                     */}
                     <img
                       src={social.symbol}
@@ -283,6 +308,29 @@ export default function AccountSheet({
                   </button>
                 )
               })}
+
+              {/*
+                이메일도 **같은 스택의 버튼 한 개**입니다 — 여기어때 로그인 화면과 같은
+                구성이고, 시트가 던지는 질문을 «수단을 고르세요» 하나로 만듭니다.
+
+                누르면 이 버튼이 사라지고 그 자리에 폼이 섭니다. 사라지는 트리거에
+                `aria-expanded` 를 달지 않는 이유는 그 값이 **항상 false 로만 읽히기**
+                때문입니다(펼친 순간 버튼이 없어짐). 대신 펼쳐진 첫 칸으로 포커스를
+                옮겨(`autoFocus`) 스크린리더가 새로 생긴 것을 읽게 합니다.
+
+                세로 여백만 `py-3.5`(14px)가 아니라 **13px** 입니다. 이 버튼에는 테두리가
+                있어서 위아래 1px 씩이 높이에 더해지고, 그대로 두면 소셜 둘은 52px 인데
+                이것만 54px 이 됩니다. 13 + 24(행간) + 13 + 2(테두리) = 52 로 맞춥니다.
+              */}
+              {!emailOpen && (
+                <button
+                  type="button"
+                  onClick={() => setEmailOpen(true)}
+                  className="w-full rounded-xl border border-rule-strong px-4 py-[13px] text-base font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
+                >
+                  이메일로 계속하기
+                </button>
+              )}
             </div>
 
             {authorize.isError && (
@@ -293,93 +341,107 @@ export default function AccountSheet({
               </p>
             )}
 
-            <div className="my-4 flex items-center gap-3 text-xs text-ink-3">
-              <span className="h-px flex-1 bg-rule" />
-              또는 이메일로
-              <span className="h-px flex-1 bg-rule" />
-            </div>
+            {emailOpen && (
+              <>
+                <div className="my-4 flex items-center gap-3 text-xs text-ink-3">
+                  <span className="h-px flex-1 bg-rule" />
+                  또는 이메일로
+                  <span className="h-px flex-1 bg-rule" />
+                </div>
 
-            {/* 탭이 아니라 한 폼 + 모드 전환입니다 — 입력한 이메일을 유지한 채 넘어갑니다. */}
-            <div role="tablist" aria-label="이메일 로그인 방식" className="flex gap-1 text-sm">
-              {(['login', 'register'] as const).map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  role="tab"
-                  aria-selected={mode === value}
-                  onClick={() => {
-                    setMode(value)
-                    setFormError(null)
-                    localAuth.reset()
-                  }}
-                  className={`flex-1 rounded-lg px-3 py-2 font-semibold ${
-                    mode === value
-                      ? 'bg-brand text-paper'
-                      : 'border border-rule text-ink-2 hover:border-brand-2 hover:text-brand'
-                  }`}
-                >
-                  {value === 'login' ? '로그인' : '가입'}
-                </button>
-              ))}
-            </div>
+                {/* 탭이 아니라 한 폼 + 모드 전환입니다 — 입력한 이메일을 유지한 채 넘어갑니다. */}
+                <div role="tablist" aria-label="이메일 로그인 방식" className="flex gap-1 text-sm">
+                  {(['login', 'register'] as const).map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      role="tab"
+                      aria-selected={mode === value}
+                      onClick={() => {
+                        setMode(value)
+                        setFormError(null)
+                        localAuth.reset()
+                      }}
+                      className={`flex-1 rounded-xl px-3 py-2 font-semibold ${
+                        mode === value
+                          ? 'bg-brand text-paper'
+                          : 'border border-rule text-ink-2 hover:border-brand-2 hover:text-brand'
+                      }`}
+                    >
+                      {value === 'login' ? '로그인' : '가입'}
+                    </button>
+                  ))}
+                </div>
 
-            <form onSubmit={submit} className="mt-3 space-y-2">
-              <FloatingField
-                label="이메일"
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.currentTarget.value)}
-                placeholder="example@email.com"
-                autoComplete="email"
-                maxLength={EMAIL_MAX}
-                required
-              />
-              <FloatingField
-                /*
+                <form onSubmit={submit} className="mt-3 space-y-2">
+                  <FloatingField
+                    label="이메일"
+                    type="email"
+                    /*
+                  펼쳐지면서 마운트되는 칸이라 `autoFocus` 가 «펼친 순간» 과 정확히
+                  같습니다. 시트는 이미 열려 있었고 사용자가 방금 「이메일로 계속하기」를
+                  눌렀으므로, 포커스를 빼앗는 게 아니라 누른 결과로 데려가는 것입니다.
+                */
+                    autoFocus
+                    value={email}
+                    onChange={(event) => setEmail(event.currentTarget.value)}
+                    placeholder="example@email.com"
+                    autoComplete="email"
+                    maxLength={EMAIL_MAX}
+                    required
+                  />
+                  <FloatingField
+                    /*
                   가입일 때만 길이를 라벨에 답니다. 로그인 칸에 «8자 이상» 이 붙으면
                   이미 만든 비밀번호에 대한 조건처럼 읽혀서 거짓말이 됩니다.
                 */
-                label={mode === 'register' ? `비밀번호 (${PASSWORD_MIN}자 이상)` : '비밀번호'}
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.currentTarget.value)}
-                autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
-                maxLength={PASSWORD_MAX}
-                required
-              />
+                    label={mode === 'register' ? `비밀번호 (${PASSWORD_MIN}자 이상)` : '비밀번호'}
+                    type="password"
+                    value={password}
+                    onChange={(event) => setPassword(event.currentTarget.value)}
+                    autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+                    maxLength={PASSWORD_MAX}
+                    required
+                  />
 
-              {/*
+                  {/*
                 이슈 #17 — MVP 에는 비밀번호 재설정도 이메일 인증도 없습니다. 가입 이메일의
                 소유를 증명할 방법이 없어 **분실 시 계정과 누적 크레딧을 되찾을 수단이
                 아예 없습니다**. 가입 버튼 위에 두는 이유: 누른 뒤에 알리면 고지가 아닙니다.
               */}
-              {mode === 'register' && (
-                <p className="rounded-lg border border-rule bg-surface-2 px-3 py-2 text-xs text-ink-2">
-                  지금은 비밀번호 찾기를 제공하지 않아요. 비밀번호를 잊으면 계정과 크레딧을
-                  되찾을 수 없으니 꼭 기억해 주세요.
-                </p>
-              )}
+                  {mode === 'register' && (
+                    <p className="rounded-xl bg-surface-2 px-3 py-2 text-xs text-ink-2">
+                      지금은 비밀번호 찾기를 제공하지 않아요. 비밀번호를 잊으면 계정과 크레딧을
+                      되찾을 수 없으니 꼭 기억해 주세요.
+                    </p>
+                  )}
 
-              <button
-                type="submit"
-                disabled={localAuth.isPending}
-                className="w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99] disabled:opacity-50"
-              >
-                {localAuth.isPending
-                  ? '처리 중…'
-                  : mode === 'register'
-                    ? '가입하고 시작하기'
-                    : '로그인'}
-              </button>
-            </form>
+                  <button
+                    type="submit"
+                    disabled={localAuth.isPending}
+                    className="w-full rounded-xl bg-brand px-4 py-3.5 text-base font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99] disabled:opacity-50"
+                  >
+                    {localAuth.isPending
+                      ? '처리 중…'
+                      : mode === 'register'
+                        ? '가입하고 시작하기'
+                        : '로그인'}
+                  </button>
+                </form>
 
-            {(formError || localAuth.isError) && (
-              <p role="alert" className="mt-2 text-center text-sm text-danger">
-                {formError ?? authErrorMessage(localAuth.error, mode)}
-              </p>
+                {(formError || localAuth.isError) && (
+                  <p role="alert" className="mt-2 text-center text-sm text-danger">
+                    {formError ?? authErrorMessage(localAuth.error, mode)}
+                  </p>
+                )}
+              </>
             )}
 
-            <button type="button" onClick={onClose} className="mt-2 w-full py-2 text-sm text-ink-3 hover:text-ink">
+            <button
+              type="button"
+              onClick={onClose}
+              className="mt-2 w-full py-2 text-sm text-ink-3 hover:text-ink"
+            >
               나중에 하기
             </button>
           </>

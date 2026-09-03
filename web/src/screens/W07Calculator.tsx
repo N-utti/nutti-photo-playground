@@ -47,16 +47,16 @@ export default function W07Calculator() {
 
   return (
     <div className="screen-min-h bg-paper pb-16">
-      <header className="sticky top-0 desktop:top-14 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
+      <header className="sticky top-0 desktop:top-14 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 py-3">
         <BackButton fallback="/styles" />
         <h1 className="text-base font-bold">간식량 계산기</h1>
       </header>
 
-      <main className="mx-auto w-full max-w-md px-4 py-4">
+      <main className="mx-auto w-full max-w-md px-5 py-4">
         {!petId && !jobId ? (
           // 쿼리가 없으면 서버에 물어볼 게 없습니다(useCalculatorLink 도 비활성).
           // 그래도 계산기로 가는 길 자체는 막지 않습니다 — 1단계부터 하면 됩니다.
-          <div className="rounded-xl border border-rule bg-surface px-4 py-5">
+          <div className="rounded-xl bg-surface px-4 py-5">
             <p className="text-sm font-semibold">어떤 강아지인지 알 수 없어요</p>
             <p className="mt-1 text-sm text-ink-2">
               결과 화면에서 넘어오면 만들 때 입력한 견종으로 2단계부터 시작할 수 있어요.
@@ -71,7 +71,7 @@ export default function W07Calculator() {
         ) : isPending ? (
           <div className="h-40 animate-pulse rounded-xl bg-rule/60" />
         ) : notFound ? (
-          <div className="rounded-xl border border-rule bg-surface px-4 py-5">
+          <div className="rounded-xl bg-surface px-4 py-5">
             <p className="text-sm font-semibold">그 강아지를 찾을 수 없어요</p>
             <p className="mt-1 text-sm text-ink-2">
               지웠거나 다른 계정에서 만든 강아지예요. 계산기는 1단계부터도 쓸 수 있어요.
@@ -94,7 +94,7 @@ export default function W07Calculator() {
             </div>
           </div>
         ) : isError ? (
-          <div className="rounded-xl border border-rule bg-surface px-4 py-5 text-center">
+          <div className="rounded-xl bg-surface px-4 py-5 text-center">
             <p className="text-sm text-ink-2">계산기 링크를 불러오지 못했어요.</p>
             <p className="mt-1 font-mono text-xs text-ink-3">{error.message}</p>
             <button
@@ -127,7 +127,7 @@ function HandoffCard({
   return (
     <>
       <div className="rounded-xl border border-rule-strong bg-surface-2 px-4 py-4">
-        <h2 className="text-base font-bold">{calculatorHeadline(link)}</h2>
+        <h2 className="text-lg font-bold">{calculatorHeadline(link)}</h2>
         <p className="mt-1 text-sm text-ink-2">{summary.text}</p>
 
         {/* 노트4 — 믹스견은 판별이 부정확합니다. 단정하면 신뢰를 잃으므로 출처를
@@ -137,7 +137,7 @@ function HandoffCard({
             아니라 **쓴 견종이 계산기 목록에 없어서 서버가 대신 넣은 값**일 수
             있습니다(FR-EDGE-11 — 응답만으로는 구분이 안 됩니다. `calculatorLink.ts`). */}
         {summary.kind !== 'unknown' && (
-          <p className="mt-2 rounded-lg bg-good-soft px-3 py-2 text-xs text-good">
+          <p className="mt-2 rounded-xl bg-good-soft px-3 py-2 text-xs text-good">
             {summary.kind === 'mixed'
               ? '계산기 1단계에서 견종을 직접 고를 수 있어요.'
               : '만들 때 입력한 값이에요. 다르면 계산기 1단계에서 바꿀 수 있어요.'}

@@ -82,7 +82,7 @@ function ActiveJobBar({ jobId }: { jobId: string }) {
     // 띄우려면 여기가 경로를 알아야 하는데, 그 조건문은 라우트가 늘 때마다 손대야 하고
     // 빠뜨려도 아무도 모릅니다(app/TabBar.tsx 가 화면에 붙이기로 한 것과 같은 이유).
     // 그래서 가장 두꺼운 쪽(탭바 + 안전영역)을 기준으로 한 번만 띄웁니다.
-    <div className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+4.5rem)] z-20 px-4">
+    <div className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+4.5rem)] z-20 px-5">
       {/* 초 단위로 바뀌는 숫자와 막대는 읽어 주지 않습니다(aria-hidden) — 1초마다
           말하는 라이브 영역은 안내가 아니라 방해입니다. 대신 단계 문구와 «완성됐어요»
           처럼 실제로 상태가 바뀔 때만 한 번 읽힙니다. */}
@@ -92,7 +92,7 @@ function ActiveJobBar({ jobId }: { jobId: string }) {
       >
         <Link
           to={running ? `/jobs/${jobId}/waiting` : `/jobs/${jobId}`}
-          className="flex min-w-0 flex-1 items-center gap-3 rounded-lg p-1 hover:bg-surface-2 motion-safe:active:scale-[0.99]"
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-xl p-1 hover:bg-surface-2 motion-safe:active:scale-[0.99]"
         >
           {/* 어느 사진인지가 «내 것»을 알아보는 유일한 단서입니다. 완성 전에는 흐리게 —
               W-05 가 원본을 블러로 깔아 둔 것과 같은 이유로, 결과를 미리 본 것 같은
@@ -100,7 +100,7 @@ function ActiveJobBar({ jobId }: { jobId: string }) {
           <Thumbnail
             src={thumbnail(job)}
             alt=""
-            className={`size-10 shrink-0 rounded-lg bg-surface-2 object-cover ${
+            className={`size-10 shrink-0 rounded-xl bg-surface-2 object-cover ${
               job.status === 'succeeded' ? '' : 'blur-[2px]'
             }`}
           />
@@ -143,7 +143,7 @@ function ActiveJobBar({ jobId }: { jobId: string }) {
           type="button"
           aria-label="상태 숨기기"
           onClick={() => forgetActiveJob(jobId)}
-          className="grid size-8 shrink-0 place-items-center rounded-lg text-ink-3 hover:bg-surface-2 hover:text-ink"
+          className="grid size-8 shrink-0 place-items-center rounded-xl text-ink-3 hover:bg-surface-2 hover:text-ink"
         >
           <svg
             width="16"

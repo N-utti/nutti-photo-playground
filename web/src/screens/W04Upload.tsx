@@ -399,7 +399,7 @@ export default function W04Upload() {
     // pb-24 — 모바일 하단 탭바가 마지막 줄을 덮지 않게(W-01·W-02·W-09 와 같은 값).
     // 데스크톱에는 탭바가 없어 원래 값 그대로입니다.
     <div className="screen-min-h bg-paper pb-24 desktop:pb-16">
-      <header className="sticky top-0 desktop:top-14 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
+      <header className="sticky top-0 desktop:top-14 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 py-3">
         {/* 확인 단계에서도 그냥 뒤로 갑니다 — 사진을 다시 고르는 길은 아래
             «다른 사진 고르기» 입니다(ConfirmPanel). ← 가 화면 안 단계를 되감으면
             같은 화살표가 어떤 때는 나가고 어떤 때는 안 나갑니다. */}
@@ -413,7 +413,7 @@ export default function W04Upload() {
         </span>
       </header>
 
-      <main className="mx-auto w-full max-w-md px-4 py-4">
+      <main className="mx-auto w-full max-w-md px-5 py-4">
         <StyleContext
           styleId={styleId}
           styleName={style?.name}
@@ -623,7 +623,7 @@ function SelectPanel({
       <SavedPets pets={pets} petId={petId} onSelectPet={onSelectPet} onAdd={onOpenPicker} />
 
       {/* 노트1 — 사후 환불보다 사전 안내가 쌉니다. */}
-      <p className="mt-5 rounded-lg border border-rule bg-surface px-3 py-2 text-sm text-ink-2">
+      <p className="mt-5 rounded-xl bg-surface px-3 py-2 text-sm text-ink-2">
         ✓ 정면 · 밝은 곳 · 얼굴이 큰 사진일수록 잘 나와요
       </p>
     </>
@@ -666,7 +666,7 @@ function SavedPets({
   return (
     <section className="mt-5">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold">저장된 강아지</h2>
+        <h2 className="text-lg font-bold">저장된 강아지</h2>
         {me?.kind === 'member' && (
           <Link
             to="/me"
@@ -830,7 +830,7 @@ function ConfirmPanel({
 
       {blocked ? (
         // FR-EDGE-07 — 부드러운 문구로 차단. 진행 버튼 자체를 내립니다.
-        <div className="mt-3 rounded-lg border border-danger/30 bg-danger-soft px-3 py-3">
+        <div className="mt-3 rounded-xl border border-danger/30 bg-danger-soft px-3 py-3">
           <p className="text-sm font-semibold text-danger">{blocked.message}</p>
         </div>
       ) : (
@@ -987,7 +987,7 @@ function WarningCard({ warning }: { warning: UploadIssue }) {
           : '그대로 진행해도 되지만, 밝은 사진이 결과가 더 좋습니다.'
 
   return (
-    <div className="mt-3 rounded-lg border border-warn/30 bg-warn-soft px-3 py-3">
+    <div className="mt-3 rounded-xl border border-warn/30 bg-warn-soft px-3 py-3">
       <p className="text-sm font-semibold text-warn">{warning.message}</p>
       {warning.code === 'HUMAN_FACE_DETECTED' ? (
         <p className="mt-0.5 text-sm text-ink-2">
@@ -1043,7 +1043,7 @@ function PetNameNotice({
   onPetSaved: (petId: string) => void
 }) {
   return (
-    <section className="mt-3 rounded-lg border border-rule bg-surface px-3 py-3">
+    <section className="mt-3 rounded-xl bg-surface px-3 py-3">
       {/*
         변수 뒤에 조사를 붙이지 않습니다. `«{petName}» 라는` 은 받침 없는 이름에서만
         맞고(«콩이» 라는 ✓) 받침이 있으면 틀립니다(«뽀식» 라는 ✗ → 뽀식이라는).
@@ -1102,7 +1102,7 @@ function SavePetForm({
         // 자리가 되고, 감싸는 카드가 `surface` 라 색도 같이 올라갑니다.
         variant === 'inline'
           ? 'mt-3 first:mt-0'
-          : 'mt-6 rounded-lg border border-rule bg-surface-2 p-3'
+          : 'mt-6 rounded-xl bg-surface p-3'
       }
       onSubmit={(event) => {
         event.preventDefault()
@@ -1122,12 +1122,12 @@ function SavePetForm({
           onChange={(event) => setName(event.currentTarget.value)}
           placeholder="이름 (예: 콩이)"
           maxLength={20}
-          className="min-w-0 flex-1 rounded-lg border border-rule bg-paper px-3 py-2 text-sm"
+          className="min-w-0 flex-1 rounded-xl border border-rule bg-paper px-3 py-2 text-sm"
         />
         <button
           type="submit"
           disabled={createPet.isPending || name.trim() === ''}
-          className="shrink-0 rounded-lg border border-rule-strong px-3 py-2 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
+          className="shrink-0 rounded-xl border border-rule-strong px-3 py-2 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
         >
           저장
         </button>

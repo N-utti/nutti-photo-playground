@@ -32,7 +32,7 @@ export default function WithdrawConfirm({ onClose }: { onClose: () => void }) {
     <ConfirmDialog title="정말 탈퇴할까요?" titleId="withdraw-title" onClose={onClose}>
       <p className="mt-1 text-sm text-ink-2">되돌릴 수 없어요. 아래를 먼저 확인해 주세요.</p>
 
-      <ul className="mt-3 space-y-2 rounded-lg border border-rule bg-surface-2 px-3 py-3 text-sm text-ink-2">
+      <ul className="mt-3 space-y-2 rounded-xl bg-surface-2 px-3 py-3 text-sm text-ink-2">
         <li>
           <span className="font-semibold text-ink">올린 사진과 만든 결과물이 즉시 지워져요.</span>{' '}
           다시 살릴 수 없으니 남기고 싶은 사진은 먼저 저장해 주세요.

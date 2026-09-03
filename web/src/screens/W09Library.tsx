@@ -156,7 +156,7 @@ export default function W09Library() {
         데스크톱에서 선택을 빠져나갈 길이 사라집니다.
       */}
       <header
-        className={`sticky top-0 desktop:top-14 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3 ${
+        className={`sticky top-0 desktop:top-14 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 py-3 ${
           selected ? '' : 'desktop:hidden'
         }`}
       >
@@ -193,7 +193,7 @@ export default function W09Library() {
         )}
       </header>
 
-      <main className="mx-auto w-full max-w-md px-4 py-4">
+      <main className="mx-auto w-full max-w-md px-5 py-4">
         {/*
           게스트 안내는 리셋된 경우에만 남았습니다.
 
@@ -235,7 +235,7 @@ export default function W09Library() {
         ) : memberOnly ? (
           <MemberOnlyNotice onLogin={() => setLoginSheet(true)} />
         ) : library.isError ? (
-          <div className="mt-4 rounded-xl border border-rule bg-surface px-4 py-5 text-center">
+          <div className="mt-4 rounded-xl bg-surface px-4 py-5 text-center">
             <p className="text-sm text-ink-2">보관함을 불러오지 못했어요.</p>
             <p className="mt-1 font-mono text-xs text-ink-3">{library.error.message}</p>
             <button
@@ -644,7 +644,7 @@ function SelectionBar({
 
   return (
     <>
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-rule bg-surface px-4 py-3">
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-rule bg-surface px-5 py-3">
         <div className="mx-auto flex w-full max-w-md gap-2">
           <button
             type="button"
@@ -766,7 +766,7 @@ function EmptyState({
 }) {
   if (filtered) {
     return (
-      <div className="mt-6 rounded-xl border border-rule bg-surface px-4 py-8 text-center">
+      <div className="mt-6 rounded-xl bg-surface px-4 py-8 text-center">
         <p className="text-sm text-ink-2">이 강아지로 만든 결과가 아직 없어요.</p>
         <button
           type="button"
@@ -780,7 +780,7 @@ function EmptyState({
   }
 
   return (
-    <div className="mt-6 rounded-xl border border-rule bg-surface px-4 py-8 text-center">
+    <div className="mt-6 rounded-xl bg-surface px-4 py-8 text-center">
       {/*
         리셋 뒤에는 «아직 없어요»가 거짓말이 됩니다 — 만든 적 있는 사람에게 그 문장은
         서비스가 잃어버린 일을 본인 착각으로 돌립니다. 이유·로그인 유도는 위 배너가
@@ -817,7 +817,7 @@ function EmptyState({
  */
 function MemberOnlyNotice({ onLogin }: { onLogin: () => void }) {
   return (
-    <div className="mt-4 rounded-xl border border-rule bg-surface px-4 py-5">
+    <div className="mt-4 rounded-xl bg-surface px-4 py-5">
       <p className="text-sm font-semibold">로그인하면 여기에 모여요</p>
       <p className="mt-1 text-sm text-ink-2">
         지금까지 만든 사진은 만들었던 브라우저에서 30일 동안 열 수 있어요. 보관함으로

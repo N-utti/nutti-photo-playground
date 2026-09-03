@@ -60,7 +60,7 @@ export default function ConfirmDialog({
         tabIndex={-1}
         className="relative w-full rounded-t-2xl bg-surface p-5 outline-none desktop:max-w-sm desktop:rounded-2xl"
       >
-        <h2 id={titleId} className="text-base font-bold">
+        <h2 id={titleId} className="text-lg font-bold">
           {title}
         </h2>
         {children}
