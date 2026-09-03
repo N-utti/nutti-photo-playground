@@ -41,13 +41,15 @@ import {
 } from '../api/queries'
 import { useGuestSessionReset } from '../app/guestSession'
 import { contextFromJob, withReuse } from '../app/reuseFromJob'
-import { InAppSaveGuide } from '../app/InAppSaveGuide'
-import { detectInAppBrowser, kakaoExternalOpenUrl } from '../app/inAppBrowser'
+import { detectInAppBrowser, externalOpenUrl } from '../app/inAppBrowser'
 import { saveImage, type SaveImageOutcome } from '../app/saveImage'
+import ShareFallbackSheet from '../app/ShareFallbackSheet'
 import {
-  canShareImage,
   fetchShareFile,
+  saveViaShareSheet,
+  shareCapability,
   shareImage,
+  shareLink,
   type ShareImageOutcome,
 } from '../app/shareImage'
 import { StyleInputForm } from '../app/StyleInputForm'
@@ -541,6 +543,8 @@ function ResultUnavailable({ sourceUrl, onRetry }: { sourceUrl: string; onRetry:
  * 그래서 **누른 뒤에** 부르고(한 번 받아 두면 두 버튼이 같이 씁니다), 그동안 버튼은
  * 자기 자리에서 «저장 중…»·«공유 시트 여는 중…» 으로 기다립니다.
  */
+const SHARE_TEXT = '누띠 사진 놀이터에서 만든 우리 아이 사진 🐾 @nutti_official'
+
 function ShareRow({ job }: { job: Job }) {
   const share = useShareJob(job.job_id)
   const [accountSheet, setAccountSheet] = useState(false)
@@ -557,9 +561,12 @@ function ShareRow({ job }: { job: Job }) {
     인스타그램(게시물/스토리/DM)이 바로 뜹니다. 저장 → 인스타 앱 → 갤러리 왕복을 없애는
     유일한 웹 경로입니다(app/shareImage.ts). 다만 시트에 뜨는 건 인스타그램만이 아니라
     카톡·메시지·에어드롭이기도 해서, 버튼은 «인스타에 올리기» 가 아니라 실제로 열리는
-    것의 이름인 «공유» 로 씁니다. 파일 공유가 안 되는 브라우저(데스크톱 대부분)에서는
-    아래 `shareSheetAvailable` 이 그 자리를 인스타그램 링크로 바꿉니다 — 눌러도 아무 일이
-    안 일어나는 버튼을 두지 않습니다.
+    것의 이름인 «공유» 로 씁니다.
+
+    **버튼은 어느 브라우저에서나 같습니다**(2026-09-03 결정 — 카톡 웹뷰에서 «인스타그램
+    열기» 로 바뀌어 있던 것을 사용자가 오동작으로 읽음). 갈리는 건 누른 뒤뿐입니다:
+    OS 시트에 파일(`files`) → OS 시트에 링크만(`link`, 파일 공유가 없는 일부 웹뷰) →
+    자체 시트(`none`, 데스크톱·카톡/인스타 웹뷰 — app/ShareFallbackSheet.tsx).
   */
   const [sharing, setSharing] = useState(false)
   const [shareOutcome, setShareOutcome] = useState<ShareImageOutcome | null>(null)
@@ -571,7 +578,10 @@ function ShareRow({ job }: { job: Job }) {
     state 가 아니라 ref 인 건 이 값이 화면에 아무것도 안 그리기 때문입니다.
   */
   const shareFile = useRef<File | null>(null)
-  const shareSheetAvailable = canShareImage()
+  const shareCap = shareCapability()
+  const shareSheetAvailable = shareCap === 'files'
+  // 자체 공유 시트가 열려 있으면 그 시트가 넘길 이미지 링크. 닫히면 null.
+  const [fallbackShareUrl, setFallbackShareUrl] = useState<string | null>(null)
   // 서버가 보는 상태를 씁니다 — 시트에서 로그인하면 캐시가 무효화되면서 이 줄이
   // 곧바로 회원으로 바뀝니다. localStorage 의 kind 는 값이 바뀌어도 리렌더가 없습니다.
   const { data: me } = useMe()
@@ -597,52 +607,54 @@ function ShareRow({ job }: { job: Job }) {
   /*
     저장은 두 갈래입니다.
 
-    **파일 공유가 되는 브라우저(사실상 모바일)** 는 공유 시트로 파일을 넘깁니다 — 웹이
-    사진 앱(갤러리)에 이미지를 넣는 유일한 경로가 시트의 「이미지 저장」이라서입니다.
-    iOS 에서 blob 다운로드는 갤러리가 아니라 파일 앱으로 떨어져서, 저장했는데 사진첩에
-    없다는 문의가 됩니다. 문구 없이 파일만 넘기는 이유는 shareImage 주석에 있습니다.
-    시트가 아예 못 열리면(failed) 아래 다운로드 경로로 물러납니다 — 파일로는 남습니다.
+    **iOS**(`saveViaShareSheet`) 는 공유 시트로 파일을 넘깁니다 — 웹이 사진 앱(갤러리)에
+    이미지를 넣는 유일한 경로가 시트의 「이미지 저장」이라서입니다. iOS 에서 blob
+    다운로드는 갤러리가 아니라 파일 앱으로 떨어져서, 저장했는데 사진첩에 없다는 문의가
+    됩니다. 문구 없이 파일만 넘기는 이유는 shareImage 주석에 있습니다. 시트가 아예 못
+    열리면(failed) 아래 다운로드 경로로 물러납니다 — 파일로는 남습니다.
 
-    **데스크톱** 은 앵커에 URL 을 그대로 물리지 않고 `saveImage` 를 지납니다. `download`
+    **Android·데스크톱** 은 앵커에 URL 을 그대로 물리지 않고 `saveImage` 를 지납니다
+    (Android 는 다운로드가 갤러리의 Download 앨범에 바로 보이고, 시트에는 «저장» 이 없어
+    되레 헷갈립니다 — 데스크톱은 시트가 있어도 저장할 곳이 없습니다). `download`
     속성이 같은 오리진에서만 먹어서, CDN 이 붙는 순간(app/storage.py `public_url`)
     «이미지 저장» 이 이미지로 이동이 되기 때문입니다 — 이슈 #77, 그리고 그 조건을 배포
     문서에 박은 PR #78. CORS 가 아직 안 열려 fetch 가 실패하면 예전 동작(새 탭)으로
     물러나고, 그때만 길게 눌러 저장하라고 안내합니다.
   */
-  async function handleSaveImage() {
-    /*
-      카카오톡·인스타 웹뷰는 시트도 다운로드도 없이 조용히 버립니다 — 성공한 척하지
-      않습니다(app/inAppBrowser.ts). 카카오톡은 공식 스킴으로 이미지를 외부 브라우저
-      (크롬 등)에 바로 열어 줍니다 — 결과 **페이지**가 아니라 **이미지 URL** 을 여는
-      이유는, 게스트 세션이 웹뷰 localStorage 에 갇혀 있어 페이지를 열면 결과 접근이
-      안 되기 때문입니다(share_image_url 은 인증 없는 공개 URL). 인스타그램은 대응
-      스킴이 없어 메뉴 안내가 최선입니다.
-    */
-    if (!shareSheetAvailable && inAppBrowser === 'instagram') {
-      setInAppGuide(true)
-      return
-    }
-    if (!shareSheetAvailable && inAppBrowser === 'kakaotalk') {
-      setSaving(true)
-      setExternalOpened(false)
-      try {
-        const url = await resolveShareUrl()
-        if (url === null) return
-        window.location.href = kakaoExternalOpenUrl(url)
-        setExternalOpened(true)
-      } finally {
-        setSaving(false)
-      }
-      return
-    }
-    setSaving(true)
+  /** 저장·공유의 안내줄이 서로 겹쳐 쌓이지 않게 — 누를 때마다 전부 지우고 시작합니다. */
+  function resetNotices() {
     setSaveOutcome(null)
     setShareOutcome(null)
     setInAppGuide(false)
+    setExternalOpened(false)
+  }
+
+  async function handleSaveImage() {
+    resetNotices()
+    setSaving(true)
     try {
       const url = await resolveShareUrl()
       if (url === null) return
-      if (shareSheetAvailable) {
+      const sheetSave = saveViaShareSheet()
+      /*
+        OS 시트로 저장이 안 되는 인앱 웹뷰(Android 카톡·인스타·네이버앱 …)는 다운로드도
+        조용히 버립니다 — 성공한 척하지 않고 이미지를 외부 브라우저(크롬 등)에 바로 엽니다
+        (app/inAppBrowser.ts). 결과 **페이지**가 아니라 **이미지 URL** 을 여는 이유는, 게스트
+        세션이 웹뷰 localStorage 에 갇혀 있어 페이지를 열면 결과 접근이 안 되기 때문입니다
+        (share_image_url 은 인증 없는 공개 URL). 나갈 방법이 없는 곳(인스타 iOS 구형)만
+        안내줄로 물러납니다.
+      */
+      if (!sheetSave && inAppBrowser !== null) {
+        const external = externalOpenUrl(inAppBrowser, url)
+        if (external === null) {
+          setInAppGuide(true)
+          return
+        }
+        window.location.href = external
+        setExternalOpened(true)
+        return
+      }
+      if (sheetSave) {
         if (shareFile.current === null) shareFile.current = await fetchShareFile(url, filename)
         if (shareFile.current !== null) {
           const outcome = await shareImage(shareFile.current)
@@ -663,27 +675,35 @@ function ShareRow({ job }: { job: Job }) {
     }
   }
 
-  async function handlePostToInstagram() {
+  async function handleShare() {
     // FR-W06-12 의 share_click 은 **공유 의도**를 셉니다 — 저장은 여기 안 셉니다.
     track({ event_type: 'share_click', properties: { job_id: job.job_id } })
+    resetNotices()
     setSharing(true)
-    setShareOutcome(null)
     try {
-      if (shareFile.current === null) {
-        const url = await resolveShareUrl()
-        // 사유는 아래 `share.error` 가 이미 적고 있습니다 — 여기서 또 말하지 않습니다.
-        if (url === null) return
-        shareFile.current = await fetchShareFile(url, filename)
+      if (shareCap === 'files') {
+        if (shareFile.current === null) {
+          const url = await resolveShareUrl()
+          // 사유는 아래 `share.error` 가 이미 적고 있습니다 — 여기서 또 말하지 않습니다.
+          if (url === null) return
+          shareFile.current = await fetchShareFile(url, filename)
+        }
+        const outcome =
+          shareFile.current === null ? 'failed' : await shareImage(shareFile.current, SHARE_TEXT)
+        setShareOutcome(outcome)
+        track({ event_type: 'share_sheet', properties: { job_id: job.job_id, outcome } })
+        return
       }
-      const outcome =
-        shareFile.current === null
-          ? 'failed'
-          : await shareImage(
-              shareFile.current,
-              '누띠 사진 놀이터에서 만든 우리 아이 사진 🐾 @nutti_official',
-            )
-      setShareOutcome(outcome)
-      track({ event_type: 'share_sheet', properties: { job_id: job.job_id, outcome } })
+      const url = await resolveShareUrl()
+      if (url === null) return
+      if (shareCap === 'link') {
+        const outcome = await shareLink(url, SHARE_TEXT)
+        setShareOutcome(outcome)
+        track({ event_type: 'share_sheet', properties: { job_id: job.job_id, outcome } })
+        return
+      }
+      // 시트가 없는 브라우저 — 자체 시트. share_sheet 는 OS 시트의 결과만 세므로 여기선 안 보냅니다.
+      setFallbackShareUrl(url)
     } finally {
       setSharing(false)
     }
@@ -691,42 +711,32 @@ function ShareRow({ job }: { job: Job }) {
 
   return (
     <>
-      {/*
-        인앱 웹뷰에서는 공유 시트도, 인스타 링크 이동도 성립하지 않아 두 번째 슬롯을
-        지우고 저장 버튼만 둡니다 — 웹뷰 안에 뜨는 «인스타그램 열기» 는 오동작으로
-        읽힙니다(2026-09-03 갤럭시 카톡 실측 제보).
-      */}
-      <div className={inAppBrowser === null ? 'mt-5 grid grid-cols-2 gap-2' : 'mt-5'}>
+      <div className="mt-5 grid grid-cols-2 gap-2">
         <button
           type="button"
           disabled={saving}
           onClick={() => void handleSaveImage()}
-          className="w-full rounded-xl border border-rule-strong bg-surface px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
+          className="rounded-xl border border-rule-strong bg-surface px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
         >
           {saving ? '저장 중…' : '이미지 저장'}
         </button>
-        {/* 공유가 주 버튼(노트3) — 위계는 그대로 두고 하는 일만 앞당겼습니다. */}
-        {inAppBrowser !== null ? null : shareSheetAvailable ? (
-          <button
-            type="button"
-            disabled={sharing}
-            onClick={() => void handlePostToInstagram()}
-            className="rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99] disabled:opacity-50"
-          >
-            {sharing ? '공유 시트 여는 중…' : '공유'}
-          </button>
-        ) : (
-          <a
-            href="https://www.instagram.com/"
-            target="_blank"
-            rel="noreferrer"
-            onClick={() => track({ event_type: 'share_click', properties: { job_id: job.job_id } })}
-            className="rounded-xl bg-brand px-4 py-3 text-center text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99]"
-          >
-            인스타그램 열기
-          </a>
-        )}
+        {/* 공유가 주 버튼(노트3). 어느 브라우저에서나 같은 버튼 — 갈래는 handleShare 안에서. */}
+        <button
+          type="button"
+          disabled={sharing}
+          onClick={() => void handleShare()}
+          className="rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99] disabled:opacity-50"
+        >
+          {sharing ? '공유 시트 여는 중…' : '공유'}
+        </button>
       </div>
+      {fallbackShareUrl !== null && (
+        <ShareFallbackSheet
+          imageUrl={fallbackShareUrl}
+          inAppBrowser={inAppBrowser}
+          onClose={() => setFallbackShareUrl(null)}
+        />
+      )}
 
       {/*
         저장이 끝난 뒤에만 다음 걸음을 답니다. 파일 공유가 안 되는 브라우저에서는
@@ -755,7 +765,17 @@ function ShareRow({ job }: { job: Job }) {
           저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.
         </p>
       )}
-      {inAppGuide && inAppBrowser !== null && <InAppSaveGuide browser={inAppBrowser} />}
+      {/*
+        나갈 스킴이 없는 웹뷰(인스타 iOS 구형). 메뉴로 외부 브라우저에 가면 게스트 세션이
+        따라가지 않아 결과가 안 열리니, 되는 길(「공유」의 링크 시트)을 먼저 말합니다.
+      */}
+      {inAppGuide && (
+        <p role="status" className="mt-2 text-center text-xs text-ink-3">
+          이 앱 안의 브라우저에서는 갤러리 저장이 막혀 있어요 — 「공유」로 링크를 보내 다른
+          데서 열거나, 오른쪽 위 메뉴(⋯) → 「외부 브라우저에서 열기」 뒤 저장해 주세요(로그인한
+          결과만 다시 열려요).
+        </p>
+      )}
       {externalOpened && (
         <p role="status" className="mt-2 text-center text-xs text-ink-3">
           외부 브라우저에 이미지를 열었어요 — 이미지를 길게 눌러 저장하면 갤러리에 들어가요.
@@ -768,7 +788,7 @@ function ShareRow({ job }: { job: Job }) {
       */}
       {shareOutcome === 'expired' && (
         <p role="alert" className="mt-2 text-center text-sm text-danger">
-          사진을 받는 사이에 공유 시트가 닫혔어요 — 한 번 더 눌러 주세요.
+          공유 시트가 열리기 전에 닫혔어요 — 한 번 더 눌러 주세요.
         </p>
       )}
       {shareOutcome === 'failed' && (

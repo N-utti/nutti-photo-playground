@@ -16,7 +16,13 @@
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fetchShareFile, shareImage } from './shareImage'
+import {
+  fetchShareFile,
+  saveViaShareSheet,
+  shareCapability,
+  shareImage,
+  shareLink,
+} from './shareImage'
 
 const URL_ = 'https://cdn.example.test/nutti.jpg'
 
@@ -151,6 +157,55 @@ describe('shareImage', () => {
       throw new DOMException('user gesture required', 'NotAllowedError')
     })
     expect(await shareImage(file, '우리 아이')).toBe('expired')
+  })
+
+  it('shareLink 는 파일 없이 링크만 싣는다 — 파일 공유가 없는 브라우저의 같은 버튼', async () => {
+    const payloads: ShareData[] = []
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      value: async (data: ShareData) => {
+        payloads.push(data)
+      },
+    })
+    expect(await shareLink('https://img.nutti.co.kr/r.jpg', '우리 아이')).toBe('shared')
+    expect(payloads[0]).toEqual({ url: 'https://img.nutti.co.kr/r.jpg', text: '우리 아이' })
+  })
+
+  it('shareCapability — share 없음 none · share 만 link · canShare(files) 까지 files', () => {
+    expect(shareCapability()).toBe('none')
+    Object.defineProperty(navigator, 'share', { configurable: true, value: async () => undefined })
+    expect(shareCapability()).toBe('link')
+    Object.defineProperty(navigator, 'canShare', { configurable: true, value: () => true })
+    try {
+      expect(shareCapability()).toBe('files')
+    } finally {
+      delete (navigator as { canShare?: unknown }).canShare
+    }
+  })
+
+  it('saveViaShareSheet — 시트가 파일까지 돼도 iOS 가 아니면 false (데스크톱·Android 는 다운로드)', () => {
+    Object.defineProperty(navigator, 'canShare', { configurable: true, value: () => true })
+    Object.defineProperty(navigator, 'share', { configurable: true, value: async () => undefined })
+    try {
+      expect(saveViaShareSheet()).toBe(false) // jsdom UA = 데스크톱
+      vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(
+        'Mozilla/5.0 (Linux; Android 14) Chrome/124.0 Mobile Safari/537.36',
+      )
+      expect(saveViaShareSheet()).toBe(false)
+      vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 Version/17.5 Mobile/15E148 Safari/604.1',
+      )
+      expect(saveViaShareSheet()).toBe(true)
+      // iPadOS 는 Macintosh UA — 터치 포인트로 가릅니다.
+      vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/17.5 Safari/605.1.15',
+      )
+      Object.defineProperty(navigator, 'maxTouchPoints', { configurable: true, value: 5 })
+      expect(saveViaShareSheet()).toBe(true)
+    } finally {
+      delete (navigator as { canShare?: unknown }).canShare
+      delete (navigator as { maxTouchPoints?: unknown }).maxTouchPoints
+    }
   })
 
   it('그 밖의 거절은 failed', async () => {

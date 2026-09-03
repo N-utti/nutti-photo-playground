@@ -42,7 +42,7 @@ import { useGuestSessionReset } from '../app/guestSession'
 import { saveImage } from '../app/saveImage'
 import { InAppSaveGuide } from '../app/InAppSaveGuide'
 import { detectInAppBrowser } from '../app/inAppBrowser'
-import { canShareImage, fetchShareFile, shareImage } from '../app/shareImage'
+import { fetchShareFile, saveViaShareSheet, shareImage } from '../app/shareImage'
 import type { LibraryItem, LibraryMonth } from '../api/types'
 import AccountSheet from './AccountSheet'
 
@@ -592,15 +592,15 @@ function SelectionBar({
   const disabled = items.length === 0 || pending || saving
 
   /*
-    저장도 W-06 과 같은 두 갈래입니다(그쪽 ShareRow 주석 참고) — 파일 공유가 되는
-    브라우저는 공유 시트로 넘겨야 사진 앱(갤러리)에 들어가고, blob 다운로드는 iOS 에서
-    파일 앱으로 떨어집니다. 여러 장은 한 시트에 한꺼번에 넘깁니다.
+    저장도 W-06 과 같은 갈래입니다(그쪽 ShareRow 주석 참고) — iOS 는 공유 시트로
+    넘겨야 사진 앱(갤러리)에 들어가고(blob 다운로드는 파일 앱으로 떨어짐), Android·
+    데스크톱은 다운로드. 여러 장은 한 시트에 한꺼번에 넘깁니다.
     ponytail: 상한(100장)까지 파일을 전부 메모리에 들고 시트를 여는 셈 — 시트가
     거절하면(failed) 아래 saveAll 다운로드로 물러나므로, 장수 상한 튜닝은 실측 문의가 오면.
   */
   async function handleSave() {
     // W-06 과 같은 이유 — 웹뷰에서는 성공한 척하지 않고 외부 브라우저로 안내합니다.
-    if (!canShareImage() && inAppBrowser !== null) {
+    if (!saveViaShareSheet() && inAppBrowser !== null) {
       setInAppGuide(true)
       return
     }
@@ -610,7 +610,7 @@ function SelectionBar({
     setSheetExpired(false)
     setInAppGuide(false)
     try {
-      if (canShareImage()) {
+      if (saveViaShareSheet()) {
         const key = items.map((item) => item.result_id).join(',')
         if (galleryFiles.current?.key !== key) {
           const files: File[] = []
@@ -686,7 +686,7 @@ function SelectionBar({
         )}
         {sheetExpired && (
           <p role="alert" className="mt-2 text-center text-sm text-danger">
-            사진을 받는 사이에 공유 시트가 닫혔어요 — 한 번 더 눌러 주세요.
+            공유 시트가 열리기 전에 닫혔어요 — 한 번 더 눌러 주세요.
           </p>
         )}
         {inAppGuide && inAppBrowser !== null && <InAppSaveGuide browser={inAppBrowser} />}

@@ -12,12 +12,13 @@
  * 사실을 알릴 자리조차 사라집니다.
  */
 
-import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
 import { Route, Routes } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { rememberDeletedJobs } from '../app/deletedResults'
+import { kakaoExternalOpenUrl } from '../app/inAppBrowser'
 import { renderWithProviders } from '../test/render'
 import { server } from '../test/server'
 import { events } from '../api/endpoints'
@@ -283,7 +284,7 @@ describe('W-06 · 저장·공유 버튼', () => {
     expect(screen.queryByText(/길게 눌러 저장/)).not.toBeInTheDocument()
   })
 
-  it('파일 공유가 되는 브라우저에서는 「이미지 저장」도 시트로 간다 — 갤러리에 넣는 유일한 길', async () => {
+  it('iOS 에서는 「이미지 저장」이 시트로 간다 — 갤러리에 넣는 유일한 길', async () => {
     /*
       iOS 에서 blob 다운로드는 사진 앱이 아니라 파일 앱으로 떨어집니다. 저장 버튼이
       공유 시트를 열어야(시트의 「이미지 저장」) 갤러리에 들어갑니다. 저장 의도이므로
@@ -291,33 +292,44 @@ describe('W-06 · 저장·공유 버튼', () => {
       입력창에 홍보 문구가 미리 채워집니다.
     */
     const user = userEvent.setup()
-    const shared: ShareData[] = []
-    Object.defineProperty(navigator, 'canShare', { configurable: true, value: () => true })
-    Object.defineProperty(navigator, 'share', {
-      configurable: true,
-      value: async (data: ShareData) => {
-        shared.push(data)
-      },
-    })
+    const restoreUa = withUserAgent(UA_IOS_SAFARI)
+    const sheet = withFileSheet()
     mockShare()
-    server.use(
-      http.get(SHARE_URL, () =>
-        HttpResponse.arrayBuffer(new Uint8Array([255, 216, 255]).buffer, {
-          headers: { 'Content-Type': 'image/jpeg' },
-        }),
-      ),
-    )
+    countImageFetches()
     try {
       renderResult(succeededJob())
 
       await user.click(await screen.findByRole('button', { name: '이미지 저장' }))
 
-      await waitFor(() => expect(shared).toHaveLength(1))
-      expect(shared[0].files?.[0]).toBeInstanceOf(File)
-      expect(shared[0]).not.toHaveProperty('text')
+      await waitFor(() => expect(sheet.shared).toHaveLength(1))
+      expect(sheet.shared[0].files?.[0]).toBeInstanceOf(File)
+      expect(sheet.shared[0]).not.toHaveProperty('text')
     } finally {
-      delete (navigator as { canShare?: unknown }).canShare
-      delete (navigator as { share?: unknown }).share
+      sheet.restore()
+      restoreUa()
+    }
+  })
+
+  it('데스크톱은 시트가 파일까지 돼도 「이미지 저장」이 다운로드다 — Windows 크롬·macOS 사파리가 이 모양', async () => {
+    /*
+      `canShare({files})` 는 데스크톱에서도 true 가 됩니다. 거기서 시트를 열면 Windows
+      공유 창에는 «저장» 항목이 없어 저장 버튼이 저장을 못 하게 됩니다(리뷰 2026-09-03).
+      갤러리 문제는 iOS 만의 것이라 `saveViaShareSheet` 가 iOS 에서만 시트를 씁니다.
+    */
+    const user = userEvent.setup()
+    const sheet = withFileSheet() // jsdom UA 는 데스크톱
+    mockShare()
+    const fetches = countImageFetches()
+    try {
+      renderResult(succeededJob())
+
+      await user.click(await screen.findByRole('button', { name: '이미지 저장' }))
+
+      await waitFor(() => expect(fetches()).toBe(1))
+      expect(sheet.shared).toHaveLength(0)
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    } finally {
+      sheet.restore()
     }
   })
 
@@ -412,7 +424,7 @@ describe('W-06 · 저장·공유 버튼', () => {
       await user.click(await screen.findByRole('button', { name: '공유' }))
 
       expect(await screen.findByRole('alert')).toHaveTextContent(
-        '사진을 받는 사이에 공유 시트가 닫혔어요 — 한 번 더 눌러 주세요.',
+        '공유 시트가 열리기 전에 닫혔어요 — 한 번 더 눌러 주세요.',
       )
       expect(imageFetches()).toBe(1)
 
@@ -475,19 +487,213 @@ describe('W-06 · 저장·공유 버튼', () => {
     }
   })
 
-  it('파일 공유가 안 되는 브라우저에는 「공유」를 두지 않는다', async () => {
+  it('OS 시트가 없는 브라우저에서도 「공유」는 같은 자리에 있고, 누르면 자체 공유 시트가 뜬다', async () => {
     /*
-      jsdom 기본값이 곧 데스크톱입니다(`navigator.canShare` 없음). 거기서 그 버튼을
-      그리면 눌러도 `unsupported` 로 끝나 아무 일도 안 일어납니다 — 눌러도 아무 일이
-      안 일어나는 버튼 대신, 실제로 갈 수 있는 인스타그램 링크를 둡니다.
+      jsdom 기본값이 곧 데스크톱입니다(`navigator.share` 없음). 예전엔 이 자리가
+      «인스타그램 열기» 링크였는데, 카톡 웹뷰에서 그걸 본 사용자가 «공유가 왜 없냐» 로
+      읽었습니다(2026-09-03). 버튼은 어디서나 같고 갈리는 건 누른 뒤입니다 — OS 시트가
+      없으면 인스타 열기·링크 복사를 담은 자체 시트(인앱 웹뷰에서만 외부 브라우저 열기가
+      더해짐). 카톡 보내기는 앱 키 없는 sharer 주소가 401 이라 없습니다.
     */
+    const user = userEvent.setup()
+    mockShare()
     renderResult(succeededJob())
 
-    expect(await screen.findByRole('link', { name: '인스타그램 열기' })).toHaveAttribute(
+    expect(screen.queryByRole('link', { name: '인스타그램 열기' })).not.toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: '공유' }))
+
+    expect(await screen.findByRole('dialog', { name: '공유' })).toBeInTheDocument()
+    // 카카오톡 보내기는 없습니다 — SDK 없는 sharer 주소는 앱 키 없이 401(2026-09-03 실측).
+    expect(screen.queryByRole('link', { name: /카카오톡/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /인스타그램 열기/ })).toHaveAttribute(
       'href',
       'https://www.instagram.com/',
     )
-    expect(screen.queryByRole('button', { name: '공유' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '이미지 링크 복사' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /외부 브라우저/ })).not.toBeInTheDocument()
+  })
+
+  it('파일은 못 넘기지만 navigator.share 는 있는 브라우저에서는 「공유」가 이미지 링크를 OS 시트로 넘긴다', async () => {
+    /*
+      일부 웹뷰가 이 모양입니다 — 시트는 있는데 파일은 못 받습니다. 파일 갈래(`files`)
+      로 취급하면 canShare 가 거절해 «failed» 가 되고, 시트 없음(`none`)으로 취급하면
+      되는 OS 시트를 안 씁니다. 가운데 갈래(`link`)가 있어야 합니다.
+    */
+    const user = userEvent.setup()
+    const shared: ShareData[] = []
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      value: async (data: ShareData) => {
+        shared.push(data)
+      },
+    })
+    mockShare()
+    try {
+      renderResult(succeededJob())
+
+      await user.click(await screen.findByRole('button', { name: '공유' }))
+
+      await waitFor(() => expect(shared).toHaveLength(1))
+      expect(shared[0].url).toBe(SHARE_URL)
+      expect(shared[0].files).toBeUndefined()
+      expect(shared[0].text).toMatch(/@nutti_official/)
+    } finally {
+      delete (navigator as { share?: unknown }).share
+    }
+  })
+
+  // ---- 인앱 웹뷰 갈래 (app/inAppBrowser.ts) — 실제 UA 에서 따온 값들 ----
+  const UA_IOS_SAFARI =
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 Version/17.5 Mobile/15E148 Safari/604.1'
+  const UA_KAKAO_ANDROID =
+    'Mozilla/5.0 (Linux; Android 15; SM-S938N Build/AP3A.240905.015.A2; wv) AppleWebKit/537.36 Chrome/137.0.7151.61 Mobile Safari/537.36 KAKAOTALK/25.4.3 (INAPP)'
+  const UA_KAKAO_IOS =
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 KAKAOTALK 10.8.0 (INAPP)'
+  const UA_INSTAGRAM_ANDROID =
+    'Mozilla/5.0 (Linux; Android 14; wv) AppleWebKit/537.36 Chrome/124.0 Mobile Safari/537.36 Instagram 334.0.0.42.95 Android'
+  const UA_INSTAGRAM_IOS_OLD =
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 13_7 like Mac OS X) AppleWebKit/605.1.15 Instagram 334.0.0.42.95'
+
+  function withUserAgent(ua: string): () => void {
+    const spy = vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(ua)
+    return () => spy.mockRestore()
+  }
+
+  /** 파일까지 되는 OS 시트를 세우고 payload 를 모읍니다. */
+  function withFileSheet(): { shared: ShareData[]; restore: () => void } {
+    const shared: ShareData[] = []
+    Object.defineProperty(navigator, 'canShare', { configurable: true, value: () => true })
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      value: async (data: ShareData) => {
+        shared.push(data)
+      },
+    })
+    return {
+      shared,
+      restore: () => {
+        delete (navigator as { canShare?: unknown }).canShare
+        delete (navigator as { share?: unknown }).share
+      },
+    }
+  }
+
+  it('카톡 Android 웹뷰(시트 없음)의 「이미지 저장」은 이미지 URL 을 외부 브라우저로 넘긴다', async () => {
+    /*
+      Android 웹뷰는 navigator.share 가 없고 blob 다운로드도 파일을 안 만듭니다(카톡은
+      «다운로드 중» 토스트만). 성공한 척 대신 공식 스킴으로 크롬에 이미지를 엽니다 —
+      페이지가 아니라 이미지인 이유는 게스트 세션이 웹뷰에 갇혀 있어서입니다.
+    */
+    const user = userEvent.setup()
+    const restoreUa = withUserAgent(UA_KAKAO_ANDROID)
+    mockShare()
+    const fetches = countImageFetches()
+    try {
+      renderResult(succeededJob())
+
+      await user.click(await screen.findByRole('button', { name: '이미지 저장' }))
+
+      expect(await screen.findByText(/외부 브라우저에 이미지를 열었어요/)).toBeInTheDocument()
+      // 웹뷰 안에서 blob 을 받아 봐야 버려집니다 — 받지도 않습니다.
+      expect(fetches()).toBe(0)
+      expect(screen.queryByText(/저장했어요/)).not.toBeInTheDocument()
+    } finally {
+      restoreUa()
+    }
+  })
+
+  it('인스타 Android 웹뷰도 같은 길(인텐트 URL)로 나간다', async () => {
+    const user = userEvent.setup()
+    const restoreUa = withUserAgent(UA_INSTAGRAM_ANDROID)
+    mockShare()
+    try {
+      renderResult(succeededJob())
+
+      await user.click(await screen.findByRole('button', { name: '이미지 저장' }))
+
+      expect(await screen.findByText(/외부 브라우저에 이미지를 열었어요/)).toBeInTheDocument()
+    } finally {
+      restoreUa()
+    }
+  })
+
+  it('나갈 스킴이 없는 웹뷰(인스타 iOS 구형, 시트 없음)는 안내줄로 물러난다', async () => {
+    const user = userEvent.setup()
+    const restoreUa = withUserAgent(UA_INSTAGRAM_IOS_OLD)
+    mockShare()
+    try {
+      renderResult(succeededJob())
+
+      await user.click(await screen.findByRole('button', { name: '이미지 저장' }))
+
+      expect(await screen.findByText(/오른쪽 위 메뉴\(⋯\)/)).toBeInTheDocument()
+      expect(screen.queryByText(/외부 브라우저에 이미지를 열었어요/)).not.toBeInTheDocument()
+    } finally {
+      restoreUa()
+    }
+  })
+
+  it('시트가 파일까지 되는 카톡 iOS 웹뷰에서는 「이미지 저장」이 kakaotalk:// 가 아니라 시트로 간다', async () => {
+    // 가드 순서 — 인앱 여부보다 «시트로 저장이 되는가» 가 먼저입니다. 뒤집으면 iOS 카톡
+    // 사용자 전부가 갤러리 대신 크롬으로 튕깁니다.
+    const user = userEvent.setup()
+    const restoreUa = withUserAgent(UA_KAKAO_IOS)
+    const sheet = withFileSheet()
+    mockShare()
+    countImageFetches()
+    try {
+      renderResult(succeededJob())
+
+      await user.click(await screen.findByRole('button', { name: '이미지 저장' }))
+
+      await waitFor(() => expect(sheet.shared).toHaveLength(1))
+      expect(sheet.shared[0].files?.[0]).toBeInstanceOf(File)
+      expect(sheet.shared[0]).not.toHaveProperty('text')
+      expect(screen.queryByText(/외부 브라우저에 이미지를 열었어요/)).not.toBeInTheDocument()
+    } finally {
+      sheet.restore()
+      restoreUa()
+    }
+  })
+
+  it('카톡 Android 웹뷰의 「공유」는 자체 시트 맨 위에 외부 브라우저 링크(이미지 URL)를 두고, 인스타 링크는 없다', async () => {
+    // 웹뷰 안의 instagram.com 은 인스타 안의 인스타 — 바로 그게 오동작으로 읽힌 버튼입니다.
+    const user = userEvent.setup()
+    const restoreUa = withUserAgent(UA_KAKAO_ANDROID)
+    mockShare()
+    try {
+      renderResult(succeededJob())
+
+      await user.click(await screen.findByRole('button', { name: '공유' }))
+
+      const dialog = await screen.findByRole('dialog', { name: '공유' })
+      const links = within(dialog).getAllByRole('link')
+      expect(links[0]).toHaveAccessibleName(/외부 브라우저에서 이미지 열기/)
+      expect(links[0]).toHaveAttribute('href', kakaoExternalOpenUrl(SHARE_URL))
+      expect(within(dialog).queryByRole('link', { name: /인스타그램 열기/ })).not.toBeInTheDocument()
+      expect(within(dialog).getByRole('button', { name: '닫기' })).toBeInTheDocument()
+    } finally {
+      restoreUa()
+    }
+  })
+
+  it('시트가 없는 브라우저의 「공유」는 share_click 만 세고 share_sheet 는 안 센다', async () => {
+    // share_sheet 는 OS 시트의 결과(outcome)를 세는 자리 — 자체 시트에는 그 값이 없습니다.
+    const user = userEvent.setup()
+    const beacon = vi.spyOn(events, 'track').mockResolvedValue(undefined)
+    mockShare()
+    try {
+      renderResult(succeededJob())
+
+      await user.click(await screen.findByRole('button', { name: '공유' }))
+      await screen.findByRole('dialog', { name: '공유' })
+
+      const types = beacon.mock.calls.map(([body]) => body.event_type)
+      expect(types.filter((type) => type === 'share_click')).toHaveLength(1)
+      expect(types).not.toContain('share_sheet')
+    } finally {
+      beacon.mockRestore()
+    }
   })
 
   it('게스트에게 보관함으로 가는 길을 남긴다', async () => {
@@ -620,7 +826,7 @@ describe('W-06 · 지워진 결과', () => {
     await screen.findByText('보관함에서 지운 사진이에요')
 
     expect(screen.queryByRole('button', { name: '이미지 저장' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: '인스타그램 열기' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '공유' })).not.toBeInTheDocument()
   })
 
   it('원본 사진과 «다시 만들기» 는 남긴다', async () => {
