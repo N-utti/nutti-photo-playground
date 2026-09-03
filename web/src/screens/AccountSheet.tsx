@@ -15,6 +15,7 @@ import { useLocation } from 'react-router'
 import { ApiError, isApiError } from '../api/client'
 import { useAuthorizeRedirect, useLocalAuth } from '../api/queries'
 import { rememberAuthReturn } from '../app/authReturn'
+import { authWelcomeBalance, authWelcomeMessage } from '../app/authWelcome'
 import FloatingField from '../app/FloatingField'
 import { formatRetryAfter } from '../app/retryAfter'
 import { useModalDialog } from '../app/useModalDialog'
@@ -134,14 +135,12 @@ export default function AccountSheet({
             <h2 id="account-sheet-title" className="text-base font-bold">
               로그인됐어요
             </h2>
-            <p className="mt-1 text-sm text-ink-2">
-              {done.merged
-                ? '이전에 만든 결과와 반려견 프로필을 이 계정으로 옮겼어요.'
-                : '지금까지 만든 결과가 이 계정에 그대로 남아 있어요.'}
-            </p>
-            <p className="mt-1 text-sm text-ink-2">
-              보유 크레딧 {Math.max(0, done.credit_balance)}개
-            </p>
+            {/*
+              문구는 소셜 로그인 모달과 한 벌입니다(app/authWelcome.ts). 같은 사건에
+              대한 같은 알림인데 여기만 손대면 앱이 두 가지로 말하게 됩니다.
+            */}
+            <p className="mt-1 text-sm text-ink-2">{authWelcomeMessage(done.merged)}</p>
+            <p className="mt-1 text-sm text-ink-2">{authWelcomeBalance(done.credit_balance)}</p>
             <button
               type="button"
               onClick={onClose}

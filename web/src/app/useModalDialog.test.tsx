@@ -23,6 +23,7 @@ import AccountSheet from '../screens/AccountSheet'
 import InsufficientCreditOverlay from '../screens/InsufficientCreditOverlay'
 import LogoutConfirm from '../screens/LogoutConfirm'
 import { renderWithProviders } from '../test/render'
+import { WelcomeDialog } from './AuthWelcomeDialog'
 
 /** 시트가 가리는 뒤 화면의 버튼. 402 를 낸 그 버튼 자리입니다. */
 const BEHIND = '다시 만들기 · 1 크레딧'
@@ -62,6 +63,19 @@ const CASES: Case[] = [
     name: '확인 창 (로그아웃)',
     sheet: (onClose) => <LogoutConfirm onClose={onClose} />,
     settled: '로그아웃할까요?',
+  },
+  {
+    /*
+      소셜 로그인 복귀 알림(app/AuthWelcomeDialog.tsx). 이건 사용자가 **연 적 없는**
+      창이라 가둠이 더 필요합니다 — 프로바이더에서 막 돌아온 참이라 포커스가 어디에
+      있는지 아무도 모르는 상태에서 뜹니다. 새는 순간 첫 Tab 이 뒤 화면의 아무 버튼으로
+      갑니다. 그 뒤 화면은 결과일 수도 있어서 «다시 만들기 · 1 크레딧» 이 그 자리입니다.
+    */
+    name: '로그인 알림',
+    sheet: (onClose) => (
+      <WelcomeDialog welcome={{ merged: true, creditBalance: 3 }} onClose={onClose} />
+    ),
+    settled: '로그인됐어요',
   },
 ]
 
