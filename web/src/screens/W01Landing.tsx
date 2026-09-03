@@ -21,6 +21,7 @@
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import { Link } from 'react-router'
 import { track } from '../app/analytics'
+import { BrandLockup } from '../app/BrandLockup'
 import { useMe, useStyles } from '../api/queries'
 import { memberLabel } from '../app/memberIdentity'
 import { TabBar } from '../app/TabBar'
@@ -67,26 +68,16 @@ export default function W01Landing() {
           아래 로그인 시트 상태도 계속 쓰입니다. */}
       <header className="flex items-center gap-2 border-b border-rule bg-surface px-5 py-3 desktop:hidden">
         {/*
-          쇼핑몰 헤더에 걸린 것과 같은 NUTTi 워드마크입니다(출처·라이선스는
-          public/brand/NOTICE.md). 서체로 흉내 내지 않고 로고 원본을 씁니다 —
-          커스텀 레터링이라 Ohsquare 로 조판하면 다른 글자가 됩니다.
-
-          alt 는 "누띠" 한 단어입니다. 뒤에 오는 "놀이터"와 이어져 스크린리더가
-          "누띠 놀이터"로 읽습니다. width/height 는 고유비(35:9) 그대로 — 로고가
-          늦게 와도 헤더가 밀리지 않게 자리를 미리 잡습니다.
-        */}
-        {/*
-          워드마크 + "놀이터"를 통째로 홈 링크로 묶습니다. 이 화면이 이미 `/` 라서
+          워드마크 + "놀이터"를 **통째로** 홈 링크로 묶습니다. 이 화면이 이미 `/` 라서
           누르면 제자리지만, 로고가 눌리는 게 웹의 관습이고 W-02 앱바 마크와도
           같은 규칙이 됩니다(그쪽은 실제로 여기로 옵니다).
 
-          img 하나가 아니라 둘 다 감싸는 이유는 접근성 이름입니다 — 링크 이름은
-          내용에서 계산되므로 이렇게 묶어야 "누띠 놀이터" 한 덩어리로 읽힙니다.
-          img 만 감싸면 "누띠" 링크 옆에 "놀이터"가 떨어져 나옵니다.
+          잠금 문구 자체(마크·「놀이터」·둘의 비율·접근성 이름)는 app/BrandLockup.tsx
+          에 있습니다 — GNB·로그인 시트와 같은 것을 써야 하고, 한 곳만 손대면 셋이
+          갈라집니다(실제로 시트가 그렇게 갈라져 있었습니다).
         */}
-        <Link to="/" className="-m-2 flex items-center gap-2 p-2 hover:opacity-70">
-          <img src="/brand/nutti-wordmark.svg" alt="누띠" width={70} height={18} className="h-3.5 w-auto" />
-          <span className="font-display text-base">놀이터</span>
+        <Link to="/" className="-m-2 flex p-2 hover:opacity-70">
+          <BrandLockup className="text-base" />
         </Link>
         {/*
           `nav aria-label="주요"` 였습니다. 스크린리더의 랜드마크 목록에 «주요» 라는

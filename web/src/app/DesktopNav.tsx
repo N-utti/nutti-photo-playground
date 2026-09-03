@@ -27,6 +27,7 @@
 import { Link, useLocation } from 'react-router'
 import { AccountEntry } from './AccountEntry'
 import { track } from './analytics'
+import { BrandLockup } from './BrandLockup'
 import { CreditBadge } from './CreditBadge'
 import { shopLink } from './externalLinks'
 import { TABS, isActive } from './navTabs'
@@ -51,15 +52,8 @@ export default function DesktopNav() {
           중복처럼 보이지만, 로고가 홈이라는 건 웹의 관습이라 여기 없으면 사람들이
           로고를 누르고 아무 일도 안 일어나는 경험을 합니다.
         */}
-        <Link to="/" className="-m-2 flex shrink-0 items-center gap-2 p-2 hover:opacity-70">
-          <img
-            src="/brand/nutti-wordmark.svg"
-            alt="누띠"
-            width={70}
-            height={18}
-            className="h-3.5 w-auto"
-          />
-          <span className="font-display text-base">놀이터</span>
+        <Link to="/" className="-m-2 flex shrink-0 p-2 hover:opacity-70">
+          <BrandLockup className="text-base" />
         </Link>
 
         <nav aria-label="주요 메뉴" className="flex items-center gap-1">

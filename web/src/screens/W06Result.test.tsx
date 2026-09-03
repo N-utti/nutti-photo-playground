@@ -838,7 +838,7 @@ describe('W-06 · 저장·공유 버튼', () => {
     await user.click(await screen.findByRole('button', { name: '로그인' }))
 
     expect(
-      await screen.findByRole('dialog', { name: '누띠 계정으로 이어서' }),
+      await screen.findByRole('dialog', { name: '누띠 놀이터 계정으로 이어서' }),
     ).toBeInTheDocument()
   })
 })
