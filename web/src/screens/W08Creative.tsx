@@ -60,7 +60,9 @@ const EXAMPLE_CHIPS = ['눈 오는 날 산책', '80년대 앨범 커버', '도�
  */
 function serverRejection(error: unknown): string | null {
   if (!isApiError(error, 'VALIDATION_ERROR')) return null
-  const detail = error.detail as { reason?: string } | undefined
+  const detail = error.detail as { reason?: string; message?: string } | undefined
+  // 보관함 「다시 만들기」로 온 사진이 지금 정책에 막힌 경우 — 서버 문구 그대로.
+  if (detail?.reason === 'source_blocked' && detail.message) return detail.message
   if (detail?.reason !== 'input_filter_blocked') return null
   return '품종 · 털색을 바꾸는 요청은 만들 수 없어요. 배경 · 의상 · 분위기로 바꿔 보세요. (크레딧은 차감되지 않았어요)'
 }

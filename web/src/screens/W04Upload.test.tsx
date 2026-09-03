@@ -15,7 +15,7 @@ import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
 import { Route, Routes } from 'react-router'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { renderWithProviders } from '../test/render'
 import { server } from '../test/server'
 import type { StyleDetail } from '../api/types'
@@ -100,6 +100,28 @@ async function uploadPhoto(container: HTMLElement) {
   // 목이 품질 체크 체감으로 700ms 를 씁니다(mocks/handlers.ts) — 기본 1초로는 아슬합니다.
   return screen.findByRole('button', { name: /이대로 만들기/ }, { timeout: 5000 })
 }
+
+describe('W-04 · 차단된 사진', () => {
+  afterEach(() => localStorage.removeItem('nutti.mock.scenario'))
+
+  it('차단되면 확인 단계로 넘어가지 않고 선택 화면에 문구만 띄운다', async () => {
+    localStorage.setItem('nutti.mock.scenario', 'upload:nodog-block')
+    mockStyle()
+    const { container } = renderUpload()
+    await screen.findByText('탭해서 사진 올리기')
+
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement
+    await userEvent.upload(input, new File(['x'], 'house.jpg', { type: 'image/jpeg' }))
+
+    expect(
+      await screen.findByRole('alert', {}, { timeout: 5000 }),
+    ).toHaveTextContent('강아지를 찾지 못했어요')
+    // 선택 화면이 그대로 — 사진 올리기 버튼과 저장된 강아지 목록이 남아 있습니다.
+    expect(screen.getByText('탭해서 사진 올리기')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '다른 사진 고르기' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /이대로 만들기/ })).not.toBeInTheDocument()
+  })
+})
 
 describe('W-04 · 그림에 들어가는 이름', () => {
   /*
