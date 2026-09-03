@@ -43,6 +43,29 @@
  */
 export type SaveImageOutcome = 'saved' | 'opened' | 'failed'
 
+/**
+ * `'opened'` 로 끝났을 때 «그래서 어떻게 저장하나» 를 답는 반쪽 문장.
+ *
+ * 이 갈래는 브라우저가 저장을 대신 해 주지 못한 경우라, 새 탭에서 **사용자가 직접**
+ * 저장해야 끝납니다. 그런데 그 «직접» 이 기기마다 다른 동작입니다 — 손가락은 길게
+ * 눌러 나오는 메뉴, 마우스는 오른쪽 클릭입니다. 한동안 어느 브라우저에서나 «길게 눌러
+ * 저장해 주세요» 라고 말하고 있었고, 마우스로 온 사람은 시키는 대로 눌러도 아무 일이
+ * 일어나지 않습니다 — 저장이 실패한 게 아니라 **안내가 틀린** 것이라 더 나쁩니다.
+ *
+ * 두 화면(W-06 결과 · W-09 보관함)이 같은 말을 해야 해서 여기 둡니다. 앞 반쪽(«새 탭에
+ * 열었어요»)은 한 장이냐 여러 장이냐에 따라 달라서 화면이 그대로 들고 있습니다.
+ *
+ * 무엇으로 가르나 — `(hover: hover)` 하나만 봅니다. index.css 가 hover·active 를 포인터
+ * 기기에만 거는 기준과 같은 것으로, 이유도 같습니다: 화면 폭으로 가르면 창을 좁힌
+ * 마우스 사용자가 «길게 누르라» 는 말을 듣고, `(pointer: fine)` 까지 요구하면 터치스크린
+ * 노트북에서 트랙패드를 쓰는 사람이 빠집니다.
+ */
+export function saveFromNewTabHint(): string {
+  return window.matchMedia('(hover: hover)').matches
+    ? '사진을 오른쪽 클릭해서 저장해 주세요.'
+    : '사진을 길게 눌러 저장해 주세요.'
+}
+
 export async function saveImage(url: string, filename: string): Promise<SaveImageOutcome> {
   let response: Response
   try {

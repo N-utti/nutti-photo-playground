@@ -19,7 +19,7 @@
  * `resetMockState` 가 이미 맡고 있습니다(test/mockReset.test.ts).
  */
 
-import { fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
 import { Route, Routes } from 'react-router'
@@ -376,5 +376,50 @@ describe('W-09 · 보관함', () => {
     expect(screen.getByRole('button', { name: '콩이' })).toHaveAttribute('aria-pressed', 'true')
     // 두 칩이 동시에 눌린 것처럼 보이면 어느 필터가 걸렸는지 화면만 보고는 알 수 없습니다.
     expect(screen.getByRole('button', { name: '전체' })).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  /*
+    길게 눌러 선택 (screens/W09Library.tsx `useLongPress`).
+
+    «길게 누르기» 는 손가락에 메뉴가 없어서 생긴 관용입니다. 마우스에는 그 관용이 없어서,
+    타일 위에서 버튼을 0.45초 누르고 있던 사람 — 느린 클릭, 드래그를 시작하려던 손 — 이
+    예고 없이 선택 모드로 들어갑니다. 마우스에서 막는 쪽과 손가락에서 되는 쪽을 **둘 다**
+    묻습니다: 막는 단언만 두면 롱프레스가 통째로 죽어도 초록불이라서, 다음 사람이 손가락
+    선택이 사라진 걸 모릅니다.
+
+    타이머를 앞으로 감아야 0.45초를 기다릴 수 있습니다. 화면이 뜨는 것까지는 진짜 시간으로
+    기다린 뒤에 갈아 끼웁니다 — 목 응답을 기다리는 동안 가짜 타이머를 물리면 그 대기가
+    스스로 흐르지 않습니다.
+  */
+  async function pressAndHold(pointerType: 'mouse' | 'touch') {
+    renderLibrary()
+    const tiles = await screen.findAllByRole('link', { name: /결과$/ })
+
+    vi.useFakeTimers()
+    try {
+      fireEvent.pointerDown(tiles[0], { pointerId: 1, pointerType, clientX: 0, clientY: 0 })
+      // 450ms 가 문턱입니다(LONG_PRESS_MS). 넉넉히 넘겨 «아직 이르다» 로 통과하지 않게.
+      act(() => vi.advanceTimersByTime(1_000))
+    } finally {
+      vi.useRealTimers()
+    }
+  }
+
+  /** 선택 모드에 들어갔는지는 아래 선택 바로 압니다 — 평소 화면에는 없는 줄입니다. */
+  const inSelectionMode = () => screen.queryByRole('button', { name: '삭제' }) !== null
+
+  it('손가락으로 타일을 길게 누르면 선택 모드로 들어간다', async () => {
+    await pressAndHold('touch')
+
+    expect(inSelectionMode()).toBe(true)
+  })
+
+  it('마우스로 타일을 누르고 있어도 선택 모드로 들어가지 않는다', async () => {
+    await pressAndHold('mouse')
+
+    expect(inSelectionMode()).toBe(false)
+    // 대신 데스크톱에는 목록 위 「선택」 버튼이 이미 있습니다 — 눌러야 나오는 것이 아니라
+    // 보이는 문입니다. (jsdom 은 미디어 쿼리를 안 계산해 모바일 자리와 둘 다 DOM 에 있습니다.)
+    expect(screen.getAllByRole('button', { name: '선택' }).length).toBeGreaterThan(0)
   })
 })

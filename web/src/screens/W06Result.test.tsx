@@ -284,6 +284,37 @@ describe('W-06 · 저장·공유 버튼', () => {
     expect(screen.queryByText(/길게 눌러 저장/)).not.toBeInTheDocument()
   })
 
+  it('응답이 아예 없어 새 탭으로 물러서면 저장하는 방법까지 안내한다', async () => {
+    /*
+      위 404 와 짝입니다. CORS 가 안 열린 버킷은 응답 자체가 없어서(`saveImage` 의
+      `catch`) 이미지는 멀쩡할 수 있고, 그때만 새 탭으로 물러섭니다 — 그러면 저장은
+      **사용자 손에** 넘어가므로 화면이 그 방법을 말해야 문장이 끝납니다.
+
+      어떻게 저장하는지는 손가락과 마우스가 다릅니다(app/saveImage.ts
+      `saveFromNewTabHint`). 여기서 세는 건 «화면이 그 반쪽 문장을 실제로 붙여
+      내보내는가» 이고, 갈리는 지점 자체는 app/saveImage.test.ts 가 둘 다 셉니다.
+      jsdom 은 `(hover: hover)` 에 false 로 답하므로 이 자리는 손가락 갈래입니다.
+    */
+    const user = userEvent.setup()
+    mockShare()
+    server.use(http.get(SHARE_URL, () => HttpResponse.error()))
+    // 새 탭 경로는 앵커를 실제로 누릅니다 — jsdom 이 내비게이션을 시도하지 않게 막습니다.
+    const clicked = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    try {
+      renderResult(succeededJob())
+
+      await user.click(await screen.findByRole('button', { name: '이미지 저장' }))
+
+      expect(
+        await screen.findByText('새 탭에 이미지를 열었어요. 사진을 길게 눌러 저장해 주세요.'),
+      ).toBeInTheDocument()
+      expect(clicked).toHaveBeenCalled()
+    } finally {
+      // 이 스파이가 남으면 뒤따르는 테스트의 앵커 클릭 수가 조용히 어긋납니다.
+      clicked.mockRestore()
+    }
+  })
+
   it('iOS 에서는 「이미지 저장」이 시트로 간다 — 갤러리에 넣는 유일한 길', async () => {
     /*
       iOS 에서 blob 다운로드는 사진 앱이 아니라 파일 앱으로 떨어집니다. 저장 버튼이
