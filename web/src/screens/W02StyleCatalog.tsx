@@ -158,7 +158,7 @@ export default function W02StyleCatalog() {
             있습니다 — 로고 마크, «스타일» 제목(GNB 의 켜진 탭이 같은 말을 합니다),
             크레딧 배지, 계정 아바타. 남길 게 없는 줄을 55px 짜리로 두면 그건 위치를
             알려 주는 게 아니라 같은 말을 두 번 하는 것입니다. */}
-        <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3 desktop:hidden">
+        <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 py-3 desktop:hidden">
           {/*
             앱바의 마크는 파비콘과 같은 발바닥입니다 — apple-touch-icon 으로 이미
             받아 둔 파일을 그대로 재사용하므로(index.html) 요청이 늘지 않습니다.
@@ -190,7 +190,7 @@ export default function W02StyleCatalog() {
         <nav
           ref={anchorBarRef}
           aria-label="섹션 바로가기"
-          className="sticky top-[57px] z-10 flex gap-2 overflow-x-auto border-b border-rule bg-paper/95 px-4 py-2 backdrop-blur desktop:top-14"
+          className="sticky top-[57px] z-10 flex gap-2 overflow-x-auto border-b border-rule bg-paper/95 px-5 py-2 backdrop-blur desktop:top-14"
         >
           {sectionNames.map((name, index) => (
             <a
@@ -208,7 +208,7 @@ export default function W02StyleCatalog() {
           ))}
         </nav>
 
-        <main className="mx-auto w-full max-w-(--container-canvas) px-4">
+        <main className="mx-auto w-full max-w-(--container-canvas) px-5">
           {reuse.context && <ReuseBanner context={reuse.context} />}
 
           {catalog.sections.map((section, index) => (
@@ -294,7 +294,7 @@ function ReuseBanner({ context }: { context: JobContext }) {
         <img
           src={context.sourceImageUrl}
           alt="다시 쓸 사진"
-          className="size-11 shrink-0 rounded-lg bg-surface-2 object-cover"
+          className="size-11 shrink-0 rounded-xl bg-surface-2 object-cover"
         />
       )}
       <p className="min-w-0 flex-1 text-sm">
@@ -313,7 +313,7 @@ function StyleCardItem({ style, reuseJobId }: { style: StyleCard; reuseJobId: st
   return (
     <Link
       to={withReuse(`/styles/${style.id}`, reuseJobId)}
-      className="block overflow-hidden rounded-lg border border-rule bg-surface hover:border-brand-2"
+      className="block overflow-hidden rounded-xl border border-rule bg-surface hover:border-brand-2"
     >
       <div className="relative">
         <Thumbnail
@@ -366,11 +366,11 @@ function StyleCardItem({ style, reuseJobId }: { style: StyleCard; reuseJobId: st
 
 function CatalogSkeleton() {
   return (
-    <div className="mx-auto w-full max-w-(--container-canvas) px-4 pt-6">
+    <div className="mx-auto w-full max-w-(--container-canvas) px-5 pt-6">
       <div className="h-6 w-24 rounded bg-rule" />
       <ul className="mt-3 grid grid-cols-2 gap-3 desktop:grid-cols-4">
         {Array.from({ length: 8 }, (_, i) => (
-          <li key={i} className="aspect-square animate-pulse rounded-lg bg-rule/60" />
+          <li key={i} className="aspect-square animate-pulse rounded-xl bg-rule/60" />
         ))}
       </ul>
     </div>

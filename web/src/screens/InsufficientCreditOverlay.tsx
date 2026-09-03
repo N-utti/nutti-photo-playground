@@ -67,7 +67,7 @@ export default function InsufficientCreditOverlay({
         tabIndex={-1}
         className="relative max-h-[85vh] w-full overflow-y-auto rounded-t-2xl bg-surface p-5 outline-none desktop:max-w-sm desktop:rounded-2xl"
       >
-        <h2 id="credit-overlay-title" className="text-base font-bold">
+        <h2 id="credit-overlay-title" className="text-lg font-bold">
           {enough ? '이제 만들 수 있어요' : '크레딧이 부족해요'}
         </h2>
         <p className="mt-1 text-sm text-ink-2">

@@ -164,7 +164,7 @@ export default function ShopLinkSheet({ onClose }: { onClose: () => void }) {
       >
         {done ? (
           <>
-            <h2 id="shop-link-sheet-title" className="text-base font-bold">
+            <h2 id="shop-link-sheet-title" className="text-lg font-bold">
               쇼핑몰 계정을 연동했어요
             </h2>
             {/*
@@ -196,7 +196,7 @@ export default function ShopLinkSheet({ onClose }: { onClose: () => void }) {
           </>
         ) : candidates ? (
           <>
-            <h2 id="shop-link-sheet-title" className="text-base font-bold">
+            <h2 id="shop-link-sheet-title" className="text-lg font-bold">
               연동할 쇼핑몰 계정을 골라 주세요
             </h2>
             <p className="mt-1 text-sm text-ink-2">
@@ -241,7 +241,7 @@ export default function ShopLinkSheet({ onClose }: { onClose: () => void }) {
           </>
         ) : (
           <>
-            <h2 id="shop-link-sheet-title" className="text-base font-bold">
+            <h2 id="shop-link-sheet-title" className="text-lg font-bold">
               쇼핑몰 계정 연동
             </h2>
             <p className="mt-1 text-sm text-ink-2">

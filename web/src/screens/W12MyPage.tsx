@@ -52,12 +52,12 @@ export default function W12MyPage() {
 
   return (
     <div className="screen-min-h bg-paper pb-16">
-      <header className="sticky top-0 desktop:top-14 z-20 flex items-center gap-3 border-b border-rule bg-surface px-4 py-3">
+      <header className="sticky top-0 desktop:top-14 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 py-3">
         <BackButton fallback={back} />
         <h1 className="text-base font-bold">마이페이지</h1>
       </header>
 
-      <main className="mx-auto w-full max-w-md px-4 py-4">
+      <main className="mx-auto w-full max-w-md px-5 py-4">
         {isPending ? (
           <div className="space-y-3">
             <div className="h-20 animate-pulse rounded-xl bg-rule/60" />
@@ -106,7 +106,7 @@ function GuestPanel() {
 
   return (
     <>
-      <section className="rounded-xl border border-rule bg-surface px-4 py-5 text-center">
+      <section className="rounded-xl bg-surface px-4 py-5 text-center">
         <p className="text-sm font-semibold">아직 로그인 전이에요</p>
         <p className="mt-1 text-sm text-ink-2">
           로그인하면 지금까지 만든 결과와 크레딧
@@ -155,7 +155,7 @@ function MemberSections({ me }: { me: Me }) {
 
 function AccountSection({ me }: { me: Me }) {
   return (
-    <section className="flex items-center gap-3 rounded-xl border border-rule bg-surface px-4 py-4">
+    <section className="flex items-center gap-3 rounded-xl bg-surface px-4 py-4">
       <span
         aria-hidden
         className="grid size-12 shrink-0 place-items-center rounded-full bg-surface-2 text-lg font-semibold ring-1 ring-rule-strong"
@@ -188,7 +188,7 @@ function CreditSection() {
   const balance = credits && !isError ? Math.max(0, credits.balance) : null
 
   return (
-    <section className="rounded-xl border border-rule bg-surface px-4 py-4">
+    <section className="rounded-xl bg-surface px-4 py-4">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold">보유 크레딧</h2>
         <span className="font-mono text-lg font-bold tabular-nums">{balance ?? '—'}</span>
@@ -199,13 +199,13 @@ function CreditSection() {
       <div className="mt-3 grid grid-cols-2 gap-2">
         <Link
           to="/credits"
-          className="rounded-lg border border-rule-strong px-3 py-2 text-center text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
+          className="rounded-xl border border-rule-strong px-3 py-2 text-center text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
         >
           크레딧 받기
         </Link>
         <Link
           to="/credits/ledger"
-          className="rounded-lg border border-rule px-3 py-2 text-center text-sm text-ink-2 hover:border-rule-strong hover:bg-surface-2 hover:text-ink"
+          className="rounded-xl border border-rule px-3 py-2 text-center text-sm text-ink-2 hover:border-rule-strong hover:bg-surface-2 hover:text-ink"
         >
           전체 보기
         </Link>
@@ -285,9 +285,9 @@ function PetSection() {
   const pets = data?.items ?? []
 
   return (
-    <section className="rounded-xl border border-rule bg-surface px-4 py-4">
+    <section className="rounded-xl bg-surface px-4 py-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold">내 강아지</h2>
+        <h2 className="text-lg font-bold">내 강아지</h2>
         {/* 프로필은 사진에서 만들어집니다(POST /v1/pets 가 upload_id 를 요구) — 그래서
             "추가"는 업로드 화면으로 보냅니다. */}
         <Link to="/upload" className="text-sm text-ink-2 underline hover:text-brand">
@@ -296,7 +296,7 @@ function PetSection() {
       </div>
 
       {isPending ? (
-        <div className="mt-3 h-12 animate-pulse rounded-lg bg-rule/60" />
+        <div className="mt-3 h-12 animate-pulse rounded-xl bg-rule/60" />
       ) : isError ? (
         <div className="mt-3 text-center">
           <p className="text-sm text-ink-2">강아지 목록을 불러오지 못했어요.</p>
@@ -327,14 +327,14 @@ function PetSection() {
               <button
                 type="button"
                 onClick={() => setRenaming(pet)}
-                className="rounded-lg border border-rule px-2.5 py-1 text-xs hover:border-rule-strong hover:bg-surface-2"
+                className="rounded-xl border border-rule px-2.5 py-1 text-xs hover:border-rule-strong hover:bg-surface-2"
               >
                 수정
               </button>
               <button
                 type="button"
                 onClick={() => setDeleting(pet)}
-                className="rounded-lg border border-rule px-2.5 py-1 text-xs text-danger hover:border-danger/40 hover:bg-danger-soft"
+                className="rounded-xl border border-rule px-2.5 py-1 text-xs text-danger hover:border-danger/40 hover:bg-danger-soft"
               >
                 삭제
               </button>
@@ -435,8 +435,8 @@ function ShopLinkSection({ me }: { me: Me }) {
   const orderAmount = useEarnAmount('order')
 
   return (
-    <section className="rounded-xl border border-rule bg-surface px-4 py-4">
-      <h2 className="text-sm font-semibold">쇼핑몰 계정 연동</h2>
+    <section className="rounded-xl bg-surface px-4 py-4">
+      <h2 className="text-lg font-bold">쇼핑몰 계정 연동</h2>
       {me.cafe24_linked ? (
         <p className="mt-1 text-sm text-ink-2">
           <span className="font-semibold text-good">✓ 연동됨</span> · 누띠에서 주문하면{' '}
@@ -470,7 +470,7 @@ function DangerSection() {
   const [withdrawConfirm, setWithdrawConfirm] = useState(false)
 
   return (
-    <section className="rounded-xl border border-rule bg-surface px-4 py-2">
+    <section className="rounded-xl bg-surface px-4 py-2">
       <button
         type="button"
         onClick={() => setLogoutConfirm(true)}

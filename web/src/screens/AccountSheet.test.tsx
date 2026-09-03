@@ -21,11 +21,24 @@ import { renderWithProviders } from '../test/render'
 import { server } from '../test/server'
 import AccountSheet from './AccountSheet'
 
+/**
+ * 이메일 폼을 펼칩니다.
+ *
+ * 시트는 소셜 버튼 둘 + 「이메일로 계속하기」로 시작하고 폼은 접혀 있습니다. 이미 펼쳐져
+ * 있으면(모드 전환 테스트처럼 한 번 펼친 뒤 계속 쓰는 경우) 아무것도 하지 않습니다 —
+ * 펼침은 한 번뿐이라 버튼이 사라져 있습니다.
+ */
+async function openEmail(user: ReturnType<typeof userEvent.setup>) {
+  const trigger = screen.queryByRole('button', { name: '이메일로 계속하기' })
+  if (trigger) await user.click(trigger)
+}
+
 /** 이메일·비밀번호를 채우고 제출합니다. 기본값은 클라이언트 검증을 통과하는 값입니다. */
 async function submitForm(
   user: ReturnType<typeof userEvent.setup>,
   { email = 'kong@nutti.co.kr', password = 'password123' } = {},
 ) {
+  await openEmail(user)
   await user.type(screen.getByLabelText('이메일'), email)
   await user.type(screen.getByLabelText(/비밀번호/), password)
   // 제출 버튼 문구는 모드에 따라 «로그인» / «가입하고 시작하기» 로 갈립니다.
@@ -86,6 +99,7 @@ describe('AccountSheet · 오류 문구', () => {
     const user = userEvent.setup()
     renderWithProviders(<AccountSheet onClose={vi.fn()} />)
 
+    await openEmail(user)
     await user.click(screen.getByRole('tab', { name: '가입' }))
     await submitForm(user)
 
@@ -151,6 +165,36 @@ describe('AccountSheet · 소셜 진행 표시', () => {
   })
 })
 
+describe('AccountSheet · 이메일은 접혀서 시작한다', () => {
+  it('열자마자 보이는 건 수단 세 개뿐이고, 눌러야 폼이 선다', async () => {
+    /*
+      접는 이유는 **주 경로가 소셜**이기 때문입니다. 예전에는 탭 둘 + 입력 둘 + 제출
+      버튼이 항상 펼쳐져 있어서 시트의 절반 넘게를 이메일이 먹었습니다.
+
+      되돌아가기 쉬운 종류라 여기서 잡습니다 — 폼을 항상 그리도록 고쳐도 다른 테스트는
+      전부 통과합니다(`openEmail` 이 버튼이 없으면 그냥 넘어가므로). 그러니 «처음에는
+      없다» 를 명시적으로 봅니다.
+
+      펼친 뒤 포커스가 이메일 칸에 있는지도 같이 봅니다. 펼침 버튼이 사라지는 구조라
+      `aria-expanded` 를 쓸 수 없어서, 새로 생긴 것을 스크린리더에 알리는 방법이
+      포커스 이동뿐입니다(AccountSheet 의 `autoFocus` 주석).
+    */
+    const user = userEvent.setup()
+    renderWithProviders(<AccountSheet onClose={vi.fn()} />)
+
+    expect(screen.queryByLabelText('이메일')).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: '가입' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '이메일로 계속하기' }))
+
+    const field = screen.getByLabelText('이메일')
+    expect(field).toBeInTheDocument()
+    expect(field).toHaveFocus()
+    // 펼침은 한 번뿐입니다 — 버튼이 남아 있으면 폼 위에 죽은 버튼이 서 있게 됩니다.
+    expect(screen.queryByRole('button', { name: '이메일로 계속하기' })).not.toBeInTheDocument()
+  })
+})
+
 describe('AccountSheet · 모드 전환', () => {
   it('가입으로 넘어가도 쓰던 이메일이 남는다', async () => {
     /*
@@ -160,6 +204,7 @@ describe('AccountSheet · 모드 전환', () => {
     const user = userEvent.setup()
     renderWithProviders(<AccountSheet onClose={vi.fn()} />)
 
+    await openEmail(user)
     await user.type(screen.getByLabelText('이메일'), 'kong@nutti.co.kr')
     await user.click(screen.getByRole('tab', { name: '가입' }))
 
@@ -183,6 +228,7 @@ describe('AccountSheet · 모드 전환', () => {
     await submitForm(user)
     await screen.findByText('이메일 또는 비밀번호가 맞지 않아요.')
 
+    await openEmail(user)
     await user.click(screen.getByRole('tab', { name: '가입' }))
 
     expect(screen.queryByText('이메일 또는 비밀번호가 맞지 않아요.')).not.toBeInTheDocument()
@@ -249,6 +295,7 @@ describe('AccountSheet · 병합하면 게스트 크레딧이 사라진다', () 
     const user = userEvent.setup()
     renderWithProviders(<AccountSheet onClose={vi.fn()} />)
 
+    await openEmail(user)
     await user.click(screen.getByRole('tab', { name: '가입' }))
     await submitForm(user, { email: 'new@nutti.co.kr' })
 

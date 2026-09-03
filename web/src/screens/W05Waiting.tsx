@@ -76,11 +76,11 @@ export default function W05Waiting() {
 
   return (
     <div className="screen-min-h bg-paper pb-16">
-      <header className="sticky top-0 desktop:top-14 z-20 flex items-center border-b border-rule bg-surface px-4 py-3">
+      <header className="sticky top-0 desktop:top-14 z-20 flex items-center border-b border-rule bg-surface px-5 py-3">
         <h1 className="text-base font-bold">만드는 중</h1>
       </header>
 
-      <main className="mx-auto w-full max-w-md px-4 py-4">
+      <main className="mx-auto w-full max-w-md px-5 py-4">
         {/* 원본은 흐리게 — 결과를 미리 본 것 같은 착각을 주지 않으면서 맥락은 남깁니다. */}
         {job?.source_image_url && (
           <img
@@ -142,7 +142,7 @@ export default function W05Waiting() {
             둘뿐입니다. 그래서 경고색을 쓰지 않고, 대신 사라진 남은 초 자리를 이
             안내가 대신 채웁니다. 알림은 여전히 약속하지 않습니다(FR-W05-04). */}
         {overdue && (
-          <div className="mt-3 rounded-lg border border-rule-strong bg-surface px-3 py-3">
+          <div className="mt-3 rounded-xl border border-rule-strong bg-surface px-3 py-3">
             <p className="text-sm font-semibold">예상보다 오래 걸리고 있어요</p>
             <p className="mt-0.5 text-sm text-ink-2">
               작업은 계속 진행 중이에요. 나가서 둘러봐도 화면 아래에 진행 상황이 따라가고,
@@ -177,13 +177,13 @@ export default function W05Waiting() {
         {/* 노트4 — 결과를 보기 전이라 광고 밀도는 W-06 보다 낮게. 카드 3장까지만. */}
         {popular && popular.sections[0]?.styles.length > 0 && (
           <section className="mt-8">
-            <h2 className="text-sm font-semibold">기다리는 동안</h2>
+            <h2 className="text-lg font-bold">기다리는 동안</h2>
             <ul className="mt-2 grid grid-cols-3 gap-3">
               {popular.sections[0].styles.slice(0, 3).map((style) => (
                 <li key={style.id}>
                   <Link
                     to={`/styles/${style.id}`}
-                    className="block overflow-hidden rounded-lg border border-rule bg-surface hover:border-brand-2"
+                    className="block overflow-hidden rounded-xl border border-rule bg-surface hover:border-brand-2"
                   >
                     <Thumbnail
                       src={style.thumbnail_url}

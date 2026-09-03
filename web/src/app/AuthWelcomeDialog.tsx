@@ -51,7 +51,7 @@ export function WelcomeDialog({ welcome, onClose }: { welcome: AuthWelcome; onCl
         tabIndex={-1}
         className="relative w-full rounded-t-2xl bg-surface p-5 outline-none desktop:max-w-sm desktop:rounded-2xl"
       >
-        <h2 id="auth-welcome-title" className="text-base font-bold">
+        <h2 id="auth-welcome-title" className="text-lg font-bold">
           로그인됐어요
         </h2>
         <p className="mt-1 text-sm text-ink-2">{authWelcomeMessage(welcome.merged)}</p>

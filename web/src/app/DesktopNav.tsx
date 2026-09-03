@@ -35,12 +35,15 @@ export default function DesktopNav() {
   const { pathname } = useLocation()
 
   return (
-    <header className="sticky top-0 z-20 hidden h-14 border-b border-rule bg-surface px-4 desktop:block">
+    <header className="sticky top-0 z-20 hidden h-14 border-b border-rule bg-surface px-5 desktop:block">
       {/*
         본문 컨테이너(`--container-canvas`)로 가운데 정렬하지 않습니다. 바로 아래
-        화면 앱바가 폭 전체를 쓰는 줄이라(`px-4`), GNB 만 1180px 안으로 모으면 두 줄이
+        화면 앱바가 폭 전체를 쓰는 줄이라(`px-5`), GNB 만 1180px 안으로 모으면 두 줄이
         붙어 있는데 왼쪽 끝이 서로 어긋납니다 — 1440px 에서 로고는 130px, 앱바의 ← 는
-        16px 에서 시작했습니다.
+        20px 에서 시작했습니다.
+
+        **이 값은 앱바를 따라가야 합니다.** 화면 앱바의 좌우 여백을 바꾸면 여기도 같이
+        바꾸세요 — 안 그러면 위아래 두 줄의 왼쪽 끝이 조용히 어긋납니다.
       */}
       <div className="flex h-full w-full items-center gap-6">
         {/*
@@ -68,7 +71,7 @@ export default function DesktopNav() {
                 to={tab.to}
                 aria-current={active ? 'page' : undefined}
                 // 지금 있는 탭은 hover 로 안 바뀝니다 — 탭바와 같은 규칙입니다.
-                className={`rounded-lg px-3 py-1.5 text-sm ${
+                className={`rounded-xl px-3 py-1.5 text-sm ${
                   active ? 'bg-brand-soft font-semibold text-brand' : 'text-ink-2 hover:text-ink'
                 }`}
               >
@@ -83,7 +86,7 @@ export default function DesktopNav() {
             target="_blank"
             rel="noreferrer"
             onClick={() => track({ event_type: 'shop_exit_click', properties: { from: 'gnb' } })}
-            className="rounded-lg px-3 py-1.5 text-sm text-ink-2 hover:text-ink"
+            className="rounded-xl px-3 py-1.5 text-sm text-ink-2 hover:text-ink"
           >
             누띠샵
           </a>

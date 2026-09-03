@@ -25,7 +25,7 @@ function Stub({ id, title, endpoints, phase }: StubProps) {
       <h1 className="mt-1 text-2xl font-bold">{title}</h1>
       <p className="mt-2 text-sm text-ink-2">아직 구현하지 않았습니다 · {phase}</p>
 
-      <div className="mt-6 rounded-lg border border-rule bg-surface p-4">
+      <div className="mt-6 rounded-xl bg-surface p-4">
         <p className="text-xs font-semibold text-ink-2">이 화면이 쓰는 API (05-api-spec §2)</p>
         <ul className="mt-2 space-y-1">
           {endpoints.map((endpoint) => (
