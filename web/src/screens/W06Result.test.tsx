@@ -748,14 +748,20 @@ describe('W-06 · 저장·공유 버튼', () => {
       을 눌렀는데 로그인을 요구하는 화면이 됩니다. 대신 안내 줄로 옮겼는데, 옮기다
       **잃어버리면** 게스트는 결과가 사라진다는 사실조차 모른 채 화면을 떠납니다.
       목 기본 세션이 게스트입니다(mocks/handlers.ts).
+
+      사실을 말하는 건 **이 안내 줄뿐**입니다 — 시트 머리는 로고 한 줄이라(screens/
+      AccountSheet.tsx) 예전처럼 시트 안에서 같은 말을 되풀이하지 않습니다. 그래서 줄
+      자체를 보고, 그 줄의 「로그인」이 시트를 여는 것까지 이어서 봅니다.
     */
     const user = userEvent.setup()
     renderResult(succeededJob())
 
+    expect(await screen.findByText(/하면 이 결과가 보관함에 남아요/)).toBeInTheDocument()
+
     await user.click(await screen.findByRole('button', { name: '로그인' }))
 
     expect(
-      await screen.findByText(/로그인하면 지금 결과가 보관함에 남고/),
+      await screen.findByRole('dialog', { name: '누띠 계정으로 이어서' }),
     ).toBeInTheDocument()
   })
 })

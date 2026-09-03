@@ -37,10 +37,7 @@ export function AccountEntry() {
           로그인
         </button>
         {loginSheet && (
-          <AccountSheet
-            onClose={() => setLoginSheet(false)}
-            description="로그인하면 만든 결과가 보관함에 쌓이고, 다른 기기에서도 열 수 있어요."
-          />
+          <AccountSheet onClose={() => setLoginSheet(false)} />
         )}
       </>
     )
