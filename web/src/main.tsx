@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider } from 'react-router'
 import { ApiError, ensureSession, openWhenSessionReady } from './api/client'
 import { startAnalytics } from './app/analytics'
+import { redeemHandoff, takeHandoffCode } from './app/handoff'
 import { captureInstagramCode } from './app/instagramCode'
 import { router, warmScreens } from './app/routes'
 import './index.css'
@@ -28,6 +29,13 @@ async function bootstrap() {
     (429·네트워크) 그 사이에 사용자가 나가 버릴 수 있습니다 — 그러면 «어디서 왔는지»가
     통째로 사라집니다. 측정 ID 가 비어 있으면 아무 일도 하지 않습니다(app/analytics.ts).
   */
+  /*
+    웹뷰에서 크롬으로 넘어온 주소(`?handoff=`)의 코드는 **GA4 보다 먼저** 주소에서 걷어 냅니다 —
+    `page_location` 에 살아 있는 자격증명이 실려 나가면 안 됩니다(app/handoff.ts). 소진은 아래
+    관문에서, 게스트 발급보다 먼저 합니다.
+  */
+  const handoffCode = takeHandoffCode()
+
   startAnalytics()
 
   // 목이 켜져 있으면 워커가 먼저 준비돼야 첫 요청(게스트 발급)을 가로챌 수 있습니다.
@@ -60,10 +68,17 @@ async function bootstrap() {
     실패(429)를 여기서 삼키는 이유는 전과 같습니다 — 발급이 막혀도 앱은 띄웁니다.
     사유는 RootLayout 배너가 설명합니다.
   */
+  /*
+    웹뷰에서 크롬으로 넘어온 주소(`?handoff=`)면 그 코드를 **게스트 발급보다 먼저** 소진해
+    같은 세션을 이어받습니다(app/handoff.ts). 순서가 뒤집히면 새 게스트가 먼저 앉아 결과가
+    안 열립니다. 코드가 없으면 즉시 지나갑니다.
+  */
   openWhenSessionReady(
-    ensureSession().catch((error: unknown) => {
-      console.error('게스트 세션 발급 실패', error)
-    }),
+    redeemHandoff(handoffCode)
+      .then(() => ensureSession())
+      .catch((error: unknown) => {
+        console.error('게스트 세션 발급 실패', error)
+      }),
   )
 
   createRoot(document.getElementById('root')!).render(

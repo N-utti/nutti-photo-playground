@@ -319,6 +319,8 @@ const state = {
   refreshToken: snapshot?.refreshToken ?? null,
   /** `/auth/me` 의 원본. 로그인·연동이 이 값을 바꾸므로 화면 분기가 실제로 움직입니다. */
   me: snapshot?.me ?? structuredClone(INITIAL_ME),
+  /** 소진된 핸드오프 코드 — 두 번째 소진은 401(서버와 같이 1회용). */
+  handoffUsed: new Set<string>(),
 }
 
 /**
@@ -346,6 +348,7 @@ export function resetMockState(): void {
   state.expiredToken = null
   state.refreshToken = null
   state.me = structuredClone(INITIAL_ME)
+  state.handoffUsed.clear()
 
   /*
     픽스처 배열은 **참조를 유지한 채** 내용만 갈아 끼웁니다(`splice`). 다른 모듈이
@@ -1112,6 +1115,30 @@ export const handlers = [
       { token: `mock-guest-jwt.${crypto.randomUUID()}`, member_id, kind: 'guest' },
       { status: 201 },
     )
+  }),
+
+  /*
+    세션 핸드오프(웹뷰 → 크롬). 목엔 브라우저가 하나뿐이라 «같은 세션» 은 곧 지금의
+    `state.me` — 코드는 member_id 를 품고, 소진하면 새 토큰 문자열만 돌려줍니다.
+    두 번째 소진은 401(서버와 같이 1회용).
+  */
+  http.post(`${BASE}/auth/handoff`, async () => {
+    await delay(80)
+    return HttpResponse.json({ code: `mock-handoff.${state.me.member_id}.${crypto.randomUUID()}`, expires_in: 120 })
+  }),
+  http.post(`${BASE}/auth/handoff/redeem`, async ({ request }) => {
+    await delay(120)
+    const { code } = (await request.json()) as { code?: string }
+    if (!code || !code.startsWith('mock-handoff.') || state.handoffUsed.has(code)) {
+      return apiError(401, 'UNAUTHORIZED', '코드가 유효하지 않습니다')
+    }
+    state.handoffUsed.add(code)
+    return HttpResponse.json({
+      token: `mock-${state.me.kind}-jwt.${crypto.randomUUID()}`,
+      refresh_token: state.me.kind === 'member' ? state.refreshToken : null,
+      member_id: state.me.member_id,
+      kind: state.me.kind,
+    })
   }),
 
   http.get(`${BASE}/auth/me`, () => HttpResponse.json({ ...state.me, credit_balance: state.credits.balance })),

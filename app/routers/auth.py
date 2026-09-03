@@ -19,8 +19,11 @@ from tortoise.transactions import in_transaction
 
 from app.auth import (
     DUMMY_PASSWORD_HASH,
+    HANDOFF_TTL_SECONDS,
+    create_handoff_code,
     create_state,
     create_token,
+    decode_handoff_code,
     get_current_member,
     hash_password,
     identity_from_authorization,
@@ -831,6 +834,75 @@ async def refresh(body: RefreshRequest, request: Request) -> RefreshResponse:
     return RefreshResponse(
         token=create_token(member.id, "member", member.token_version),
         refresh_token=refresh_token,
+    )
+
+
+# ---------------------------------------------------------------- 세션 핸드오프 (웹뷰 → 크롬)
+_HANDOFF_ISSUE_RATE_LIMIT = 30  # 회원당 시간당 발급 — 살아 있는 코드를 무한정 찍지 못하게
+_HANDOFF_REDEEM_IP_RATE_LIMIT = 120  # 통신사 NAT 뒤 공유 IP 라 넉넉히 — 실제 방어는 서명·1회용·120초
+_handoff_issue_requests: dict[str, deque[float]] = {}
+_handoff_redeem_requests: dict[str, deque[float]] = {}
+# jti → 만료 시각. 소진된 코드는 만료까지 기억한다 — 서명은 맞아도 두 번은 안 통한다.
+# ponytail: 프로세스 메모리 — api 컨테이너 1개 전제. 수평 확장 시 Redis/DB 로.
+_handoff_used: dict[str, float] = {}
+
+
+class HandoffResponse(BaseModel):
+    code: str
+    expires_in: int
+
+
+class HandoffRedeemRequest(BaseModel):
+    code: str = Field(max_length=1024)
+
+
+class HandoffRedeemResponse(BaseModel):
+    token: str
+    # 항상 null — URL 로 옮겨 온 자격증명에 30일 리프레시는 과하다(보안 리뷰 2026-09-03).
+    # 크롬 쪽 회원 세션은 액세스 토큰 수명(1h)이면 공유에 충분하고, 웹뷰 쪽 리프레시도 그대로 산다.
+    refresh_token: None = None
+    member_id: str
+    kind: Literal["guest", "member"]
+
+
+@router.post("/handoff", response_model=HandoffResponse)
+async def issue_handoff(member: Member = Depends(get_current_member)) -> HandoffResponse:
+    """지금 세션을 다른 브라우저로 옮길 1회용 코드(app/auth.py create_handoff_code)."""
+    _check_bucket(_handoff_issue_requests, str(member.id), _HANDOFF_ISSUE_RATE_LIMIT)
+    return HandoffResponse(
+        code=create_handoff_code(member.id, member.token_version),
+        expires_in=HANDOFF_TTL_SECONDS,
+    )
+
+
+@router.post("/handoff/redeem", response_model=HandoffRedeemResponse)
+async def redeem_handoff(body: HandoffRedeemRequest, request: Request) -> HandoffRedeemResponse:
+    client_ip = _client_ip(request)
+    _check_bucket(_handoff_redeem_requests, f"ip:{client_ip}", _HANDOFF_REDEEM_IP_RATE_LIMIT)
+    payload = decode_handoff_code(body.code)
+    now = time.monotonic()
+    # 만료 항목 정리는 커졌을 때만 — 매 요청 전체 스캔은 N1(#11)이 걷어낸 패턴
+    if len(_handoff_used) > 1000:
+        for used_jti, used_until in list(_handoff_used.items()):
+            if used_until <= now:
+                del _handoff_used[used_jti]
+    if payload["jti"] in _handoff_used:
+        logger.warning("auth handoff reused: ip=%s", client_ip)  # L2 — 코드 재사용(URL 유출) 흔적
+        raise unauthorized()
+    _handoff_used[payload["jti"]] = now + HANDOFF_TTL_SECONDS
+    try:
+        member_id = uuid.UUID(payload["sub"])
+    except ValueError as exc:
+        raise unauthorized() from exc
+    member = await Member.get_or_none(id=member_id, withdrawn_at=None, merged_into_id__isnull=True)
+    if member is None or member.token_version != payload["ver"]:
+        raise unauthorized()
+    if member.kind == MemberKind.MEMBER:
+        logger.info("auth handoff redeemed: member=%s ip=%s", member.id, client_ip)  # L2 — 회원 세션 이동 흔적
+    return HandoffRedeemResponse(
+        token=create_token(member.id, member.kind.value, member.token_version),
+        member_id=str(member.id),
+        kind=member.kind.value,
     )
 
 

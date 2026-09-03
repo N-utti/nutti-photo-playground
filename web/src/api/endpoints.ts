@@ -29,12 +29,28 @@ import type {
   StyleDetail,
   UploadResult,
   ClaimBody,
+  HandoffCode,
+  HandoffSession,
 } from './types'
 
 // ---------------------------------------------------------------- 인증
 
 export const auth = {
   guest: () => request<GuestSession>('/auth/guest', { method: 'POST' }),
+
+  /** 지금 세션을 다른 브라우저로 옮길 1회용 코드(app/handoff.ts). */
+  handoff: () => request<HandoffCode>('/auth/handoff', { method: 'POST' }),
+  /**
+   * 코드 소진 — 부팅 관문보다 먼저, 토큰 없이 부릅니다: 새 브라우저에는 토큰이 없거나
+   * (있어도) 다른 사람의 것이고, 이 응답이 곧 세션이 됩니다.
+   */
+  redeemHandoff: (code: string) =>
+    request<HandoffSession>('/auth/handoff/redeem', {
+      method: 'POST',
+      json: { code },
+      skipAuth: true,
+      _skipSessionGate: true,
+    }),
 
   /**
    * 로그인·연동 시작 (PR #21).

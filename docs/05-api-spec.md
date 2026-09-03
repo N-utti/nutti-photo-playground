@@ -333,6 +333,27 @@
 
 > `POST /v1/auth/kakao`(클라이언트 SDK 토큰 전달)는 이슈 #10 A안(서버 리다이렉트) 확정으로 **삭제**되었습니다.
 
+#### `POST /v1/auth/handoff` · `POST /v1/auth/handoff/redeem` — 세션을 다른 브라우저로 (2026-09-03)
+
+Android 인앱 웹뷰(카카오톡·인스타그램·네이버앱)에는 OS 공유 시트가 없어(크로미움이 WebView에서 Web Share를 켜지 않음) W-06 「공유」가 크롬으로 나가야 하는데, 게스트 세션이 웹뷰 `localStorage`에 갇혀 크롬에서는 결과가 열리지 않는다. 그래서 **120초·1회용 서명 코드**를 URL에 실어 나가고, 크롬에서 열린 SPA가 코드를 소진해 같은 세션의 토큰을 받는다.
+
+```json
+// POST /v1/auth/handoff  (Authorization: Bearer <게스트/회원 토큰>)
+// 200
+{ "code": "<JWT kind=handoff, jti, ver, exp 120s>", "expires_in": 120 }
+```
+```json
+// POST /v1/auth/handoff/redeem  (인증 없음, IP당 30회/h)
+{ "code": "…" }
+// 200 — refresh_token 은 **항상 null**: URL 로 옮겨 온 자격증명에 30일 리프레시는 과하다(보안 리뷰 2026-09-03).
+//       크롬 쪽 회원 세션은 액세스 수명(1h)까지, 웹뷰 쪽 리프레시는 그대로 산다.
+{ "token": "…", "refresh_token": null, "member_id": "…", "kind": "guest" }
+```
+
+- `401 UNAUTHORIZED`: 위조·만료·다른 종류의 토큰(액세스 토큰을 넣어도)·**두 번째 소진**·로그아웃 뒤(`token_version` 불일치)·탈퇴/병합 회원. 발급은 회원당 30회/h.
+- 도착한 브라우저에 **이미 회원이 로그인돼 있으면 코드를 소진하지 않는다**(링크 하나로 남의 세션을 덮어쓰는 고정 공격 차단) — 게스트 자리만 이어받는다.
+- 프론트: `web/src/app/handoff.ts` — 나갈 때 `/jobs/{job_id}?handoff=<code>&share=1`, 도착한 SPA가 부팅 관문보다 먼저 코드를 소진하고 `handoff`를 주소에서 지운다.
+
 #### `GET /v1/auth/me`
 
 ```json

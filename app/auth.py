@@ -53,6 +53,47 @@ def create_token(member_id: uuid.UUID, kind: str, version: int) -> str:
     )
 
 
+HANDOFF_TTL_SECONDS = 120
+
+
+def create_handoff_code(member_id: uuid.UUID, version: int) -> str:
+    """세션을 다른 브라우저로 **한 번** 옮기는 코드 — 인앱 웹뷰 → 크롬.
+
+    Android 웹뷰에는 OS 공유 시트가 없어(크로미움이 WebView 에선 Web Share 를 안 켬)
+    「공유」가 크롬으로 나가야 하는데, 게스트 세션이 웹뷰 localStorage 에 갇혀 크롬에서는
+    결과가 안 열린다. 그래서 짧은 서명 코드를 URL 에 실어 나가고 크롬이 소진해 같은
+    세션의 토큰을 받는다. 120초·1회용(jti, 소진 기록은 라우터). `ver` 는 액세스 토큰과 같은
+    token_version 이라 로그아웃 뒤엔 코드도 죽는다.
+    """
+    return jwt.encode(
+        {
+            "sub": str(member_id),
+            "kind": "handoff",
+            "ver": version,
+            "jti": secrets.token_urlsafe(16),
+            "exp": datetime.now(timezone.utc) + timedelta(seconds=HANDOFF_TTL_SECONDS),
+        },
+        settings.jwt_signing_key,
+        algorithm="HS256",
+    )
+
+
+def decode_handoff_code(code: str) -> dict:
+    """위조·만료·다른 종류의 토큰은 전부 401 — 액세스 토큰을 코드 자리에 넣어도 안 통한다."""
+    try:
+        payload = jwt.decode(
+            code,
+            settings.jwt_signing_key,
+            algorithms=["HS256"],
+            options={"require": ["sub", "kind", "exp", "jti", "ver"]},
+        )
+    except jwt.InvalidTokenError as exc:
+        raise unauthorized() from exc
+    if payload["kind"] != "handoff":
+        raise unauthorized()
+    return payload
+
+
 def create_admin_token(admin_id: int) -> str:
     return jwt.encode(
         {

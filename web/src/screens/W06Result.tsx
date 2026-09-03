@@ -42,7 +42,9 @@ import {
 import { useGuestSessionReset } from '../app/guestSession'
 import { contextFromJob, withReuse } from '../app/reuseFromJob'
 import { detectInAppBrowser, externalOpenUrl, tryLeaveTo } from '../app/inAppBrowser'
-import { kakaoShareAvailable, loadKakao, shareToKakao } from '../app/kakaoShare'
+import { auth } from '../api/endpoints'
+import { arrivedToShare, handoffUrl } from '../app/handoff'
+import { kakaoShareAvailable, loadKakao } from '../app/kakaoShare'
 import { downloadAttachment, saveImage, type SaveImageOutcome } from '../app/saveImage'
 import ShareFallbackSheet from '../app/ShareFallbackSheet'
 import {
@@ -556,6 +558,8 @@ function ShareRow({ job }: { job: Job }) {
   const inAppBrowser = detectInAppBrowser()
   // 첨부 주소로 다운로드를 시작한 직후 — 어디서 찾을지 안내.
   const [downloadStarted, setDownloadStarted] = useState(false)
+  // 웹뷰에서 «공유하려고» 크롬으로 넘어온 직후 — 다음 걸음이 「공유」 한 번이라는 것을 말합니다.
+  const [arrivedForShare] = useState(() => arrivedToShare() && inAppBrowser === null)
   /*
     «공유» 의 실체 — Web Share API 로 이미지 **파일**을 OS 공유 시트에 넘기면
     인스타그램(게시물/스토리/DM)이 바로 뜹니다. 저장 → 인스타 앱 → 갤러리 왕복을 없애는
@@ -714,14 +718,22 @@ function ShareRow({ job }: { job: Job }) {
         return
       }
       /*
-        카톡 웹뷰: OS 시트는 없지만 카카오 SDK 가 **친구 선택창**을 바로 엽니다 — 카톡으로
-        받은 링크에서 만든 사진을 카톡으로 다시 보내는 그 흐름입니다(app/kakaoShare.ts).
-        못 열면 아래 자체 시트로.
+        인앱 웹뷰(OS 시트 없음): **크롬으로 같은 화면을 들고 나갑니다** — 세션 핸드오프 코드를
+        결과 주소에 실어(app/handoff.ts) 카톡은 공식 스킴, 그 밖의 Android 웹뷰는 인텐트로.
+        크롬에서는 「공유」가 진짜 OS 시트(사진 첨부, 인스타 포함)를 엽니다 — 이게 웹이 낼 수
+        있는 «공유 누르면 공유 시트» 의 최대치입니다(2026-09-03 조사). 앱이 안 내보내면
+        (페이지가 그대로) 아래 자체 시트로 — 거기엔 카카오톡 보내기·링크 복사가 있습니다.
       */
-      if (inAppBrowser === 'kakaotalk' && kakaoShareAvailable()) {
-        if ((await shareToKakao(url)) === 'sent') {
-          track({ event_type: 'share_sheet', properties: { job_id: job.job_id, outcome: 'shared' } })
-          return
+      if (inAppBrowser !== null) {
+        try {
+          const { code } = await auth.handoff()
+          const external = externalOpenUrl(inAppBrowser, handoffUrl(code, job.job_id))
+          if (external !== null && (await tryLeaveTo(external))) {
+            track({ event_type: 'share_sheet', properties: { job_id: job.job_id, outcome: 'handoff' } })
+            return
+          }
+        } catch {
+          // 코드 발급 실패(만료된 세션 등) — 자체 시트로.
         }
       }
       /*
@@ -738,6 +750,11 @@ function ShareRow({ job }: { job: Job }) {
 
   return (
     <>
+      {arrivedForShare && (
+        <p role="status" className="mt-5 rounded-xl bg-surface-2 px-4 py-3 text-center text-sm">
+          크롬으로 넘어왔어요 — 이제 「공유」를 누르면 공유 시트가 떠요.
+        </p>
+      )}
       <div className="mt-5 grid grid-cols-2 gap-2">
         <button
           type="button"
