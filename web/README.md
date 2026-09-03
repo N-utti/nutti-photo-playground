@@ -637,7 +637,7 @@ W-06 이 그 404 에 걸려 있었습니다. `input_fields` 를 못 받으면 �
 | [#33](https://github.com/N-utti/nutti-photo-playground/issues/33) | 보관함 항목 `pet_id` 가 `null` 일 수 있는지 §3 에 없음 | W-09 강아지 필터 | 해결 (PR #51 — §3 에 `pet_id: uuid \| null` 명시). 삭제된 펫과 «펫 없이 만든 결과»를 클라이언트가 구분하지 않는 것도 확정이고, **삭제된 펫을 가리키는 `?pet_id=` 조회는 404 가 아니라 빈 목록**이라 W-09 는 그 필터를 «전체»로 걷습니다 |
 | [#41](https://github.com/N-utti/nutti-photo-playground/issues/41) | job 응답에 시작 시각(`created_at`) 없음 | W-05 FR-EDGE-02 판정 | 해결. 응답이 `queued_at`·`started_at`을 답하고 W-05가 **서버 우선**으로 잽니다(`useStartedAt`). 워커가 재시도할 때도 최초 `started_at`을 유지하므로 판정 기준이 재시도마다 리셋되지 않습니다(`app/worker.py` `lease_job`) |
 | [#71](https://github.com/N-utti/nutti-photo-playground/issues/71) | 스타일·펫 썸네일 URL이 `public_url()` 을 안 거쳐 로컬에서 404 | W-02 카탈로그·W-04 펫 목록 (목을 끈 로컬 한정) | 해결 (PR #74). 프론트는 무변경(`/media` dev proxy 는 PR #72 로 이미 있음) |
-| [#77](https://github.com/N-utti/nutti-photo-playground/issues/77) | 결과 이미지 스토리지에 CORS 헤더 없음 | — | **닫힘 (2026-09-01)** — R2 버킷 `nutti-media` 에 `AllowedOrigins=[https://play.nutti.co.kr]`·GET/HEAD 적용, `CDN_BASE_URL=https://img.nutti.co.kr`. 다만 **서버 CORS 는 필요조건이었지 충분조건이 아니었습니다**: 결과 `<img>` 가 `crossOrigin` 없이 받아 둔 무-CORS 응답을 브라우저 캐시가 재사용해 저장·공유가 계속 실패했고, PR #215 의 `cache: 'no-store'` 가 그 나머지 절반입니다(`app/saveImage.ts`·`app/shareImage.ts`, 두 파일의 테스트가 그 옵션을 못 박습니다). **`<a download>` 로 되돌리지 마세요** — CORS 는 fetch 를 허용할 뿐, 교차 출처에서 무시되는 `download` 속성을 되살리지 않습니다(PR #80). 로컬에서는 허용 오리진이 `play.nutti.co.kr` 하나뿐이라 항상 새 탭 폴백입니다 — **이 경로의 진짜 확인은 배포 오리진의 실기기에서만** 되고, 그 한 건이 아직 안 밟혔습니다 |
+| [#77](https://github.com/N-utti/nutti-photo-playground/issues/77) | 결과 이미지 스토리지에 CORS 헤더 없음 | — | **닫힘 (2026-09-01)** — R2 버킷 `nutti-media` 에 `AllowedOrigins=[https://play.nutti.co.kr]`·GET/HEAD 적용, `CDN_BASE_URL=https://img.nutti.co.kr`. 다만 **서버 CORS 는 필요조건이었지 충분조건이 아니었습니다**: 결과 `<img>` 가 `crossOrigin` 없이 받아 둔 무-CORS 응답을 브라우저 캐시가 재사용해 저장·공유가 계속 실패했고, PR #215 의 `cache: 'no-store'` 가 그 나머지 절반입니다(`app/saveImage.ts`·`app/shareImage.ts`, 두 파일의 테스트가 그 옵션을 못 박습니다). **여기 있던 「`<a download>` 로 되돌리지 마세요」는 PR #252 로 전제가 바뀌어 걷었습니다** — 서버가 `Content-Disposition` 을 실은 `download_url` 을 주기 시작해서, 지금 저장의 주 경로는 앵커이고 `download` 속성이 아니라 그 헤더로 저장됩니다(아래 「이미지 저장」 항목). CORS 가 `download` 속성을 되살리지 않는다는 사실 자체는 그대로지만, 이제 그 속성에 기대지 않습니다. **다만 공유(`app/shareImage.ts`)와 blob 폴백은 여전히 fetch 라 CORS 가 필요조건입니다.** 로컬에서는 허용 오리진이 `play.nutti.co.kr` 하나뿐이라 항상 폴백입니다 — **이 경로의 진짜 확인은 배포 오리진의 실기기에서만** 되고, 그 한 건이 아직 안 밟혔습니다 |
 | [#81](https://github.com/N-utti/nutti-photo-playground/issues/81) | job 응답에 `custom_prompt`·`credit_cost` 없음 | W-06 «다시 만들기» — W-08 커스텀 job 한정 | 해결 (PR #83). 커스텀 결과를 **다른 기기·링크로 열어도** 같은 문구·같은 비용으로 다시 만듭니다. 이 필드가 로컬 색인의 마지막 존재 이유였어서 `api/jobContext.ts` 를 호출부째 삭제했고, 맥락 조립은 `app/reuseFromJob.ts` `contextFromJob` 하나로 모였습니다. `credit_cost` 덕에 W-06 이 비용을 알아내려 스타일 상세를 따로 부르던 조회도 없어졌습니다 |
 | [#127](https://github.com/N-utti/nutti-photo-playground/issues/127) | job 응답에 `input_values` 없음 | W-06 «다시 만들기» — `input_fields` 를 가진 24종 한정 | 해결 (백엔드 PR #139 → 프론트 PR #143). `GET /v1/jobs/{id}` 가 `inputs` 를 답해 **지난 값 되살리기**까지 닫혔습니다 — 그전까지 열려 있던 건 이 절반뿐이었고, «말없이 기본값으로 바꾸는» 나머지 절반은 계약 없이 먼저 닫아 둔 상태였습니다. 합치는 순서가 규칙입니다: **기본값 → 지난번 값 → 이 화면에서 고친 값**(`screens/W06Result.tsx` `Regenerate`). `inputs` 를 그대로 폼 값으로 쓰지 않는 이유가 첫 항목입니다 — `default` 가 없는 `prefill` 칸은 서버가 저장하지 않아(`_resolve_input_values` 가 `continue`) `inputs` 에 **아예 없고**, 그 칸을 비운 채 두면 이름이 인쇄되는 스타일에서 폼이 «우리 아이» 라고 잘못 말합니다. 지금 스키마에 없는 라벨은 걸러 냅니다(`app/styleInputs.ts` `restoredInputValues`) — 운영이 job 이후에 칸을 바꾸면 `inputs` 에 없어진 라벨이 남습니다. 스타일 상세는 계속 부릅니다: `inputs` 는 「무엇으로 만들었나」만 답하고 「지금 무엇을 고를 수 있나」는 스키마 쪽에만 있습니다. 접힌 줄 아래 한 줄이 **지금 값의 출처**를 밝힙니다 — 계약 이전 job(`inputs: null`)은 «지난번 값은 불러올 수 없어 기본값이에요», 되살린 경우는 «지난번에 만든 값 그대로예요», 사용자가 고친 뒤에는 아무 말도 안 합니다 |
 | [#131](https://github.com/N-utti/nutti-photo-playground/issues/131) | 워커의 `[breed]` 치환이 항상 «강아지» 로 떨어짐 | W-04 확인 단계의 **견종** 칸 | 해결. 비전 견종 추정은 폐기했고, W-04 확인 단계에서 사용자가 계산기 40종 목록(`api/breeds.ts`)에서 고르거나 «직접 입력» 으로 씁니다(`screens/W04Upload.tsx` `BreedField`). 값은 `POST /v1/jobs` `breed` 로 나가 서버가 업로드·붙은 강아지에 적어 두고, 워커 `[breed]` 치환과 계산기 링크가 그 값을 읽습니다. 재사용 경로는 `GET /v1/jobs/{id}` 의 `breed` 로 미리 채웁니다 |
@@ -709,19 +709,40 @@ W-06 이 그 404 에 걸려 있었습니다. `input_fields` 를 못 받으면 �
   않는 것도 함께 확정됐습니다 — 둘 다 «전체»에서만 보입니다(`api/types.ts` 주석).
   삭제된 펫을 가리키는 `?pet_id=` 조회는 빈 목록이라, W-09 는 그 URL 필터를 복원하지 않고
   «전체»로 걷습니다(`screens/W09Library.tsx` 의 `petGone`).
-- ~~**이미지 저장은 같은 출처에서만 «저장»입니다.**~~ **프론트 몫은 닫혔습니다**
-  (이슈 #77 · PR #78). `<a download>` 가 교차 출처에서 무시되는 문제는 `app/saveImage.ts`
-  가 fetch → blob → `blob:` 로 우회합니다 — W-06 «이미지 저장»과 W-09 일괄 저장 둘 다
-  이 경로를 지납니다. **다만 그 우회는 이미지 응답의 `Access-Control-Allow-Origin` 에
-  기댑니다.** PR #78 이 그것을 `CDN_BASE_URL` 설정 시 필수 조건으로 배포 문서에 박아
-  뒀지만, 실제 R2/CDN 설정은 버킷 생성 시점의 운영 작업이라 **이슈 #77 은 열려 있습니다**.
-  CORS 없이 CDN 이 붙으면 저장은 예전처럼 «새 탭에 열기»로 물러나고, 화면이 그때만
-  길게 눌러 저장하라고 안내합니다. 백엔드 PR #112 가 그 운영 작업을 한 명령으로
-  줄여 뒀지만(`scripts/setup_r2_cors.py`), **버킷에 규칙이 걸린 것과 브라우저가 저장에
-  성공하는 것은 다른 사실입니다** — 사이에 CDN 캐시가 있습니다. 위 표의 #77 행에
-  확인 절차를 적어 뒀습니다. **이슈 #77 이 닫혀도 이 우회는 걷어내지 않습니다** —
-  CORS 는 `fetch` 를 허용할 뿐 교차 출처에서 무시되는 `download` 속성을 되살리지 않아서,
-  앵커로 되돌리면 #77 의 버그가 그대로 재발합니다.
+- ~~**이미지 저장은 같은 출처에서만 «저장»입니다.**~~ **닫혔습니다** — 다만 닫은 것은
+  PR #78 의 blob 우회가 아니라 **서버가 첨부 헤더를 붙여 준 것**입니다(PR #252).
+
+  경위를 적어 두는 이유는 이 항목이 오래도록 **「앵커로 되돌리지 마세요」라는 금지문**을
+  달고 있었고, 지금 주 경로가 바로 그 앵커이기 때문입니다. 전제가 바뀐 것이지 규칙을
+  어긴 것이 아닙니다.
+
+  - **예전**: 서버가 `Content-Disposition` 을 안 보냈습니다. 그래서 앵커로 저장하려면
+    `download` 속성에 기대야 했는데 그건 교차 출처에서 무시되므로, `app/saveImage.ts`
+    가 fetch → blob → `blob:` 로 우회하는 것이 유일한 길이었습니다. 그 우회는 이미지
+    응답의 `Access-Control-Allow-Origin` 에 기댔고, 그래서 이슈 #77(R2/CDN CORS)이
+    프론트의 문제였습니다.
+  - **지금**: `POST /jobs/{id}/share` 와 보관함 목록이 `download_url` 을 함께 줍니다 —
+    `Content-Disposition: attachment` 를 실은 1시간짜리 R2 presigned 주소입니다
+    (`app/storage.py` `DOWNLOAD_URL_TTL_SECONDS`). 앵커가 이제 **`download` 속성이
+    아니라 서버 헤더로** 저장합니다. 속성은 여전히 교차 출처에서 무시되지만 상관이
+    없어졌습니다.
+
+  이 변경의 이유는 CORS 가 아니라 **인앱 웹뷰**입니다. 카톡·인스타 Android 웹뷰는
+  `blob:` 다운로드를 조용히 버려서(«다운로드 중» 토스트만) 저장이 성공한 척만 했습니다.
+  응답 헤더 방식은 카카오 공식 FAQ 의 경로라 웹뷰에서도 파일이 떨어집니다.
+
+  **blob 경로는 걷어내지 않았습니다 — 폴백으로 남습니다**(`W06Result.tsx` ·
+  `W09Library.tsx` 의 `saveImage()` 호출). 웹뷰가 아니고 OS 공유 시트도 없는 브라우저가
+  그쪽으로 갑니다. 그래서 그 경로의 `cache: 'no-store'`(PR #215)도 그대로 필요합니다.
+
+  이슈 #77 은 **닫혔습니다**(2026-09-01, R2 버킷 CORS 적용). 저장의 주 경로가 CORS 에
+  기대지 않게 됐지만 공유(`app/shareImage.ts`)는 여전히 fetch 로 파일을 만들어야 해서
+  CORS 는 계속 필요조건입니다.
+
+  **아직 안 밟은 것**: `download_url` 이 목에서는 `share_image_url` 과 같은 값이라
+  (로컬에 R2 가 없음) **만료와 교차 오리진이 브라우저에서 재현되지 않습니다.** 실기기
+  실측이 필요한 자리이고, 특히 W-09 는 보관함 목록 캐시에서 URL 을 꺼내 쓰므로 오래
+  머문 탭에서 만료된 주소를 누를 수 있습니다(`refetchOnWindowFocus` 가 대개 막습니다).
 
 ## 실수하기 쉬운 지점
 
