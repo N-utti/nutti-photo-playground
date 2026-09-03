@@ -6,7 +6,7 @@
  * 고정합니다.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { detectInAppBrowser } from './inAppBrowser'
+import { detectInAppBrowser, kakaoExternalOpenUrl } from './inAppBrowser'
 
 function withUserAgent(ua: string): void {
   vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(ua)
@@ -29,6 +29,14 @@ describe('detectInAppBrowser', () => {
       'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/124.0 Instagram 334.0.0.42.95 Android',
     )
     expect(detectInAppBrowser()).toBe('instagram')
+  })
+
+  it('kakaoExternalOpenUrl 은 대상 URL 을 인코딩해 공식 스킴에 싣는다', () => {
+    // 쿼리가 있는 URL 을 인코딩 없이 실으면 스킴의 url= 파라미터가 거기서 끊깁니다.
+    const target = 'https://img.nutti.co.kr/results/a.jpg?x=1&y=2'
+    expect(kakaoExternalOpenUrl(target)).toBe(
+      `kakaotalk://web/openExternal?url=${encodeURIComponent(target)}`,
+    )
   })
 
   it('일반 브라우저는 null — 오탐이면 멀쩡한 저장 경로를 안내로 바꿔 버린다', () => {

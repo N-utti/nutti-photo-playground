@@ -42,7 +42,7 @@ import {
 import { useGuestSessionReset } from '../app/guestSession'
 import { contextFromJob, withReuse } from '../app/reuseFromJob'
 import { InAppSaveGuide } from '../app/InAppSaveGuide'
-import { detectInAppBrowser } from '../app/inAppBrowser'
+import { detectInAppBrowser, kakaoExternalOpenUrl } from '../app/inAppBrowser'
 import { saveImage, type SaveImageOutcome } from '../app/saveImage'
 import {
   canShareImage,
@@ -547,9 +547,11 @@ function ShareRow({ job }: { job: Job }) {
   const [saving, setSaving] = useState(false)
   // 'opened' 는 저장이 아니라 이미지가 새 탭에서 열렸다는 뜻입니다 — 그때만 안내합니다.
   const [saveOutcome, setSaveOutcome] = useState<SaveImageOutcome | null>(null)
-  // 카카오톡·인스타 웹뷰 — 저장이 조용히 죽는 곳이라 저장 대신 안내를 띄웁니다.
+  // 카카오톡·인스타 웹뷰 — 저장이 조용히 죽는 곳이라 저장을 밖으로 내보냅니다.
   const inAppBrowser = detectInAppBrowser()
   const [inAppGuide, setInAppGuide] = useState(false)
+  // 카카오톡 웹뷰에서 외부 브라우저로 이미지를 연 직후 — 길게 눌러 저장 안내.
+  const [externalOpened, setExternalOpened] = useState(false)
   /*
     «공유» 의 실체 — Web Share API 로 이미지 **파일**을 OS 공유 시트에 넘기면
     인스타그램(게시물/스토리/DM)이 바로 뜹니다. 저장 → 인스타 앱 → 갤러리 왕복을 없애는
@@ -610,10 +612,27 @@ function ShareRow({ job }: { job: Job }) {
   async function handleSaveImage() {
     /*
       카카오톡·인스타 웹뷰는 시트도 다운로드도 없이 조용히 버립니다 — 성공한 척하지
-      않고 저장이 되는 곳(외부 브라우저)으로 안내합니다(app/inAppBrowser.tsx).
+      않습니다(app/inAppBrowser.ts). 카카오톡은 공식 스킴으로 이미지를 외부 브라우저
+      (크롬 등)에 바로 열어 줍니다 — 결과 **페이지**가 아니라 **이미지 URL** 을 여는
+      이유는, 게스트 세션이 웹뷰 localStorage 에 갇혀 있어 페이지를 열면 결과 접근이
+      안 되기 때문입니다(share_image_url 은 인증 없는 공개 URL). 인스타그램은 대응
+      스킴이 없어 메뉴 안내가 최선입니다.
     */
-    if (!shareSheetAvailable && inAppBrowser !== null) {
+    if (!shareSheetAvailable && inAppBrowser === 'instagram') {
       setInAppGuide(true)
+      return
+    }
+    if (!shareSheetAvailable && inAppBrowser === 'kakaotalk') {
+      setSaving(true)
+      setExternalOpened(false)
+      try {
+        const url = await resolveShareUrl()
+        if (url === null) return
+        window.location.href = kakaoExternalOpenUrl(url)
+        setExternalOpened(true)
+      } finally {
+        setSaving(false)
+      }
       return
     }
     setSaving(true)
@@ -672,17 +691,22 @@ function ShareRow({ job }: { job: Job }) {
 
   return (
     <>
-      <div className="mt-5 grid grid-cols-2 gap-2">
+      {/*
+        인앱 웹뷰에서는 공유 시트도, 인스타 링크 이동도 성립하지 않아 두 번째 슬롯을
+        지우고 저장 버튼만 둡니다 — 웹뷰 안에 뜨는 «인스타그램 열기» 는 오동작으로
+        읽힙니다(2026-09-03 갤럭시 카톡 실측 제보).
+      */}
+      <div className={inAppBrowser === null ? 'mt-5 grid grid-cols-2 gap-2' : 'mt-5'}>
         <button
           type="button"
           disabled={saving}
           onClick={() => void handleSaveImage()}
-          className="rounded-xl border border-rule-strong bg-surface px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
+          className="w-full rounded-xl border border-rule-strong bg-surface px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
         >
           {saving ? '저장 중…' : '이미지 저장'}
         </button>
         {/* 공유가 주 버튼(노트3) — 위계는 그대로 두고 하는 일만 앞당겼습니다. */}
-        {shareSheetAvailable ? (
+        {inAppBrowser !== null ? null : shareSheetAvailable ? (
           <button
             type="button"
             disabled={sharing}
@@ -732,6 +756,11 @@ function ShareRow({ job }: { job: Job }) {
         </p>
       )}
       {inAppGuide && inAppBrowser !== null && <InAppSaveGuide browser={inAppBrowser} />}
+      {externalOpened && (
+        <p role="status" className="mt-2 text-center text-xs text-ink-3">
+          외부 브라우저에 이미지를 열었어요 — 이미지를 길게 눌러 저장하면 갤러리에 들어가요.
+        </p>
+      )}
       {/*
         사진을 받는 사이에 활성화 창이 지나 브라우저가 시트를 거절한 경우입니다. 사진은
         이미 손에 있으니(`shareFile`) 한 번 더 누르면 곧바로 뜹니다 — 저장하러 보내면
