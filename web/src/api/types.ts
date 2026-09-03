@@ -463,6 +463,13 @@ export interface CreateJobBody {
  */
 export interface ShareResult {
   share_image_url: string
+  /**
+   * «이미지 저장» 이 이동하는 **첨부(`Content-Disposition: attachment`) 주소** — 1시간짜리
+   * R2 presigned. 브라우저·인앱 웹뷰가 표시 대신 저장합니다. `blob:` 다운로드가 죽는 카톡·
+   * 인스타 Android 웹뷰에서도 파일이 떨어지는 유일한 웹 경로(카카오 InAppBrowser FAQ의 «응답
+   * 헤더» 방식, 2026-09-03). 로컬(R2 없음)에서는 `share_image_url` 과 같아 표시됩니다.
+   */
+  download_url: string
 }
 
 // ---------------------------------------------------------------- 계산기 연결
@@ -493,6 +500,8 @@ export interface LibraryItem {
   job_id: string
   result_id: string
   image_url: string
+  /** 일괄 «저장» 이 이동하는 첨부 주소 — `ShareResult.download_url` 과 같은 성질. */
+  download_url: string
   /**
    * §3 예시에는 값이 있는 경우만 나오지만 **null 이 될 수 있습니다**.
    *

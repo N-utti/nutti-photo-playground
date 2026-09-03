@@ -22,7 +22,7 @@ from app.models import (
     Style,
     StylePromptVersion,
 )
-from app.storage import public_url
+from app.storage import download_url, public_url
 
 logger = logging.getLogger(__name__)
 
@@ -329,4 +329,8 @@ async def share_result(
     )
     if result is None:
         raise _not_found()
-    return {"share_image_url": public_url(result.storage_key)}
+    return {
+        "share_image_url": public_url(result.storage_key),
+        # «이미지 저장» 이 이동하는 첨부 주소 — 웹뷰에서도 파일이 떨어진다(app/storage.py).
+        "download_url": download_url(result.storage_key, f"nutti-{job_id}.jpg"),
+    }

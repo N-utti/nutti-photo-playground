@@ -39,8 +39,7 @@ import { CreditBadge } from '../app/CreditBadge'
 import { TabBar } from '../app/TabBar'
 import { rememberDeletedJobs } from '../app/deletedResults'
 import { useGuestSessionReset } from '../app/guestSession'
-import { saveImage } from '../app/saveImage'
-import { InAppSaveGuide } from '../app/InAppSaveGuide'
+import { downloadAttachment, saveImage } from '../app/saveImage'
 import { detectInAppBrowser } from '../app/inAppBrowser'
 import { fetchShareFile, saveViaShareSheet, shareImage } from '../app/shareImage'
 import type { LibraryItem, LibraryMonth } from '../api/types'
@@ -580,9 +579,9 @@ function SelectionBar({
   const [failedCount, setFailedCount] = useState(0)
   // 갤러리 경로에서 활성화 만료로 시트가 거절된 경우 — 한 번 더 누르면 됩니다.
   const [sheetExpired, setSheetExpired] = useState(false)
-  // 카카오톡·인스타 웹뷰 — 저장이 조용히 죽는 곳이라 저장 대신 안내를 띄웁니다.
+  // 카카오톡·인스타 웹뷰 — blob 저장이 조용히 죽는 곳이라 첨부 주소로 한 장씩 내려받습니다.
   const inAppBrowser = detectInAppBrowser()
-  const [inAppGuide, setInAppGuide] = useState(false)
+  const [downloadCount, setDownloadCount] = useState(0)
   /*
     갤러리 경로에서 받아 둔 파일 묶음. 시트가 expired 로 닫혔을 때 이 캐시가 있어야
     두 번째 탭이 N 번의 fetch 없이 바로 뜹니다(W-06 의 shareFile ref 와 같은 이유).
@@ -599,16 +598,11 @@ function SelectionBar({
     거절하면(failed) 아래 saveAll 다운로드로 물러나므로, 장수 상한 튜닝은 실측 문의가 오면.
   */
   async function handleSave() {
-    // W-06 과 같은 이유 — 웹뷰에서는 성공한 척하지 않고 외부 브라우저로 안내합니다.
-    if (!saveViaShareSheet() && inAppBrowser !== null) {
-      setInAppGuide(true)
-      return
-    }
     setSaving(true)
     setOpened(false)
     setFailedCount(0)
     setSheetExpired(false)
-    setInAppGuide(false)
+    setDownloadCount(0)
     try {
       if (saveViaShareSheet()) {
         const key = items.map((item) => item.result_id).join(',')
@@ -635,6 +629,18 @@ function SelectionBar({
           }
           // 시트가 못 열리면(파일 묶음 거절 등) 예전 경로로 — 최소한 파일로는 남습니다.
         }
+      }
+      /*
+        웹뷰는 blob 을 버립니다 — W-06 과 같이 서버의 첨부 주소로 이동해 한 장씩 내려받습니다
+        (app/saveImage.ts downloadAttachment). 결과를 돌려받지 못하니 «시작했다» 까지만.
+      */
+      if (inAppBrowser !== null) {
+        for (const item of items) {
+          downloadAttachment(item.download_url, `nutti-${item.result_id}.jpg`)
+          await new Promise((resolve) => window.setTimeout(resolve, 300))
+        }
+        setDownloadCount(items.length)
+        return
       }
       const result = await saveAll(items)
       setOpened(result.opened)
@@ -689,7 +695,11 @@ function SelectionBar({
             공유 시트가 열리기 전에 닫혔어요 — 한 번 더 눌러 주세요.
           </p>
         )}
-        {inAppGuide && inAppBrowser !== null && <InAppSaveGuide browser={inAppBrowser} />}
+        {downloadCount > 0 && (
+          <p role="status" className="mt-2 text-center text-xs text-ink-3">
+            {downloadCount}장 다운로드를 시작했어요 — 갤러리의 다운로드 앨범이나 파일 앱에서 확인해 주세요.
+          </p>
+        )}
         {failedCount > 0 && (
           <p role="alert" className="mt-2 text-center text-sm text-danger">
             {failedCount}장은 저장하지 못했어요.

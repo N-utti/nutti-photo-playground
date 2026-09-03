@@ -227,7 +227,7 @@ describe('W-06 · 저장·공유 버튼', () => {
   function mockShare() {
     server.use(
       http.post(`*/v1/jobs/${JOB_ID}/share`, () =>
-        HttpResponse.json({ share_image_url: SHARE_URL }),
+        HttpResponse.json({ share_image_url: SHARE_URL, download_url: SHARE_URL }),
       ),
     )
   }
@@ -245,7 +245,7 @@ describe('W-06 · 저장·공유 버튼', () => {
     server.use(
       http.post(`*/v1/jobs/${JOB_ID}/share`, () => {
         sharePosts += 1
-        return HttpResponse.json({ share_image_url: SHARE_URL })
+        return HttpResponse.json({ share_image_url: SHARE_URL, download_url: SHARE_URL })
       }),
       http.get(SHARE_URL, () => {
         imageFetches += 1
@@ -578,14 +578,29 @@ describe('W-06 · 저장·공유 버튼', () => {
     }
   }
 
-  it('카톡 Android 웹뷰(시트 없음)의 「이미지 저장」은 이미지 URL 을 외부 브라우저로 넘긴다', async () => {
+  /** 이동식 다운로드가 어디로 갔는지 — 앵커 href 를 모읍니다(jsdom 은 이동을 못 하므로). */
+  function captureAnchorClicks(): { hrefs: string[]; restore: () => void } {
+    const hrefs: string[] = []
+    const spy = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(function (this: HTMLAnchorElement) {
+        hrefs.push(this.href)
+      })
+    return { hrefs, restore: () => spy.mockRestore() }
+  }
+
+  it.each([
+    ['카톡 Android', UA_KAKAO_ANDROID],
+    ['인스타 iOS 구형(시트 없음·탈출 불가)', UA_INSTAGRAM_IOS_OLD],
+  ])('%s 웹뷰의 「이미지 저장」은 첨부 주소로 그 자리에서 이동해 내려받는다', async (_name, ua) => {
     /*
-      Android 웹뷰는 navigator.share 가 없고 blob 다운로드도 파일을 안 만듭니다(카톡은
-      «다운로드 중» 토스트만). 성공한 척 대신 공식 스킴으로 크롬에 이미지를 엽니다 —
-      페이지가 아니라 이미지인 이유는 게스트 세션이 웹뷰에 갇혀 있어서입니다.
+      웹뷰는 navigator.share 가 없고 blob 다운로드도 파일을 안 만듭니다(카톡은 «다운로드 중»
+      토스트만). 응답 헤더로 오는 첨부(`download_url`)는 카카오 공식 FAQ 의 경로라 그 자리에서
+      이동합니다 — fetch 도 blob 도 없이.
     */
     const user = userEvent.setup()
-    const restoreUa = withUserAgent(UA_KAKAO_ANDROID)
+    const restoreUa = withUserAgent(ua)
+    const clicks = captureAnchorClicks()
     mockShare()
     const fetches = countImageFetches()
     try {
@@ -593,42 +608,37 @@ describe('W-06 · 저장·공유 버튼', () => {
 
       await user.click(await screen.findByRole('button', { name: '이미지 저장' }))
 
-      expect(await screen.findByText(/외부 브라우저에 이미지를 열었어요/)).toBeInTheDocument()
+      expect(await screen.findByText(/다운로드를 시작했어요/)).toBeInTheDocument()
+      expect(clicks.hrefs).toEqual([SHARE_URL])
       // 웹뷰 안에서 blob 을 받아 봐야 버려집니다 — 받지도 않습니다.
       expect(fetches()).toBe(0)
-      expect(screen.queryByText(/저장했어요/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/저장했어요$/)).not.toBeInTheDocument()
     } finally {
+      clicks.restore()
       restoreUa()
     }
   })
 
-  it('인스타 Android 웹뷰도 같은 길(인텐트 URL)로 나간다', async () => {
+  it('인스타 Android 웹뷰의 「이미지 저장」은 첨부 주소를 인텐트로 크롬에 넘기고, 안 나가면 그 자리에서 첨부 이동한다', async () => {
+    /*
+      인스타 웹뷰는 다운로드 리스너가 없어 첨부 응답에도 무반응일 수 있습니다(조사 2026-09-03).
+      대신 인텐트로 크롬을 열되 **첨부 주소**를 주면 크롬이 페이지 이동 없이 바로 내려받습니다
+      — 길게 눌러 저장할 필요가 없습니다.
+    */
     const user = userEvent.setup()
     const restoreUa = withUserAgent(UA_INSTAGRAM_ANDROID)
+    const clicks = captureAnchorClicks()
     mockShare()
     try {
       renderResult(succeededJob())
 
       await user.click(await screen.findByRole('button', { name: '이미지 저장' }))
 
-      expect(await screen.findByText(/외부 브라우저에 이미지를 열었어요/)).toBeInTheDocument()
+      // 인텐트로 먼저 나가 보고(jsdom 은 못 나감) 1.5초 뒤 그 자리에서 첨부 이동으로 물러납니다.
+      expect(await screen.findByText(/다운로드를 시작했어요/, {}, { timeout: 4000 })).toBeInTheDocument()
+      expect(clicks.hrefs).toEqual([SHARE_URL])
     } finally {
-      restoreUa()
-    }
-  })
-
-  it('나갈 스킴이 없는 웹뷰(인스타 iOS 구형, 시트 없음)는 안내줄로 물러난다', async () => {
-    const user = userEvent.setup()
-    const restoreUa = withUserAgent(UA_INSTAGRAM_IOS_OLD)
-    mockShare()
-    try {
-      renderResult(succeededJob())
-
-      await user.click(await screen.findByRole('button', { name: '이미지 저장' }))
-
-      expect(await screen.findByText(/오른쪽 위 메뉴\(⋯\)/)).toBeInTheDocument()
-      expect(screen.queryByText(/외부 브라우저에 이미지를 열었어요/)).not.toBeInTheDocument()
-    } finally {
+      clicks.restore()
       restoreUa()
     }
   })
@@ -649,7 +659,7 @@ describe('W-06 · 저장·공유 버튼', () => {
       await waitFor(() => expect(sheet.shared).toHaveLength(1))
       expect(sheet.shared[0].files?.[0]).toBeInstanceOf(File)
       expect(sheet.shared[0]).not.toHaveProperty('text')
-      expect(screen.queryByText(/외부 브라우저에 이미지를 열었어요/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/다운로드를 시작했어요/)).not.toBeInTheDocument()
     } finally {
       sheet.restore()
       restoreUa()

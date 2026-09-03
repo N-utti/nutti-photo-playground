@@ -8,7 +8,7 @@ from tortoise.expressions import Q
 from app.auth import get_current_member
 from app.common import KST, member_only, validation_error
 from app.models import GenerationResult, JobStatus, Member, MemberKind
-from app.storage import public_url
+from app.storage import download_url, public_url
 
 router = APIRouter(tags=["library"])
 
@@ -21,6 +21,8 @@ class LibraryItemResponse(BaseModel):
     job_id: str
     result_id: str
     image_url: str
+    # 일괄 «저장» 이 이동하는 첨부 주소 — 웹뷰에서도 파일이 떨어진다(app/storage.py).
+    download_url: str
     pet_id: str | None
     created_at: datetime
 
@@ -90,6 +92,7 @@ async def list_library(
                 "job_id": str(result.job_id),
                 "result_id": str(result.id),
                 "image_url": public_url(result.storage_key),
+                "download_url": download_url(result.storage_key, f"nutti-{result.id}.jpg"),
                 "pet_id": (
                     str(result.job.source_image.pet_profile_id)
                     if result.job.source_image.pet_profile_id

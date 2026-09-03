@@ -986,6 +986,7 @@ function librarySorted(): LibraryItem[] {
       job_id: job.id,
       result_id: `${job.id}:0`,
       image_url: placeholderImage('결과', '#F9E5EC', RESULT_SIZE),
+      download_url: placeholderImage('결과', '#F9E5EC', RESULT_SIZE),
       // 옛 저장분에는 이 필드가 없습니다(나중에 추가된 필드).
       pet_id: job.petId ?? null,
       created_at: new Date(job.createdAt).toISOString(),
@@ -1785,7 +1786,8 @@ export const handlers = [
     const result = jobResultsDeleted(jobId) ? undefined : job?.results?.[0]
     if (!result) return notFound()
 
-    return HttpResponse.json({ share_image_url: result.image_url })
+    // 목엔 R2 가 없어 첨부 주소가 표시 주소와 같습니다 — 서버의 로컬 폴백과 같은 모양.
+    return HttpResponse.json({ share_image_url: result.image_url, download_url: result.image_url })
   }),
 
   // ------------------------------------------------------------ 계산기 연결
