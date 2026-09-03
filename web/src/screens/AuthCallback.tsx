@@ -8,15 +8,20 @@
  *
  * 쇼핑몰(cafe24) 연동은 더 이상 여기로 오지 않습니다 — OAuth 가 아니라 SMS 인증번호
  * 2단계(ShopLinkSheet)라 페이지 이동이 없습니다.
+ *
+ * **성공은 여기서 그리지 않습니다.** 이 화면이 실제로 그리는 건 «확인 중» 과 실패
+ * 셋뿐이고, 로그인이 확정되면 곧바로 로그인 직전 화면으로 되돌린 뒤 알림만 그 위에
+ * 모달로 띄웁니다(app/authWelcome.ts 에 이유가 있습니다).
  */
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { startTransition, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { isApiError } from '../api/client'
 import { auth } from '../api/endpoints'
 import { adoptMemberSession } from '../api/queries'
 import { takeAuthReturn } from '../app/authReturn'
+import { announceAuthWelcome } from '../app/authWelcome'
 import type { SocialProvider } from '../api/types'
 
 type Provider = SocialProvider
@@ -73,7 +78,6 @@ export default function AuthCallback() {
   const [search] = useSearchParams()
   const client = useQueryClient()
   const navigate = useNavigate()
-  const [outcome, setOutcome] = useState<CallbackOutcome | null>(null)
   const [error, setError] = useState<unknown>(null)
 
   const provider = PROVIDERS.find((value) => value === params.provider) ?? null
@@ -86,13 +90,29 @@ export default function AuthCallback() {
     if (!provider || denied || !code || !state) return
     let alive = true
     runCallback(provider, code, state, client).then(
-      (result) => alive && setOutcome(result),
+      (result) => {
+        if (!alive) return
+        /*
+          둘을 `startTransition` 으로 묶습니다. 사용자에게는 «복귀 화면 + 그 위의 알림»
+          이 하나의 장면이지만, 알림은 평범한 setState 고 라우터 이동은 그렇지 않아서
+          그냥 나란히 부르면 **커밋이 갈립니다** — 아직 «확인 중…» 스피너가 떠 있는
+          위에 모달이 먼저 뜨고 뒤 화면이 나중에 갈리는 순간이 실제로 나옵니다.
+          한 전환 안에 넣으면 같은 커밋에 들어가 한 번만 움직입니다.
+
+          이동은 `replace` 입니다 — 콜백 주소를 히스토리에 남기면 뒤로가기가 이미 소비된
+          nonce 로 되돌아가 «로그인 정보가 만료됐어요» 를 띄웁니다.
+        */
+        startTransition(() => {
+          announceAuthWelcome({ merged: result.merged, creditBalance: result.creditBalance })
+          navigate(result.returnTo, { replace: true })
+        })
+      },
       (cause) => alive && setError(cause),
     )
     return () => {
       alive = false
     }
-  }, [provider, denied, code, state, client])
+  }, [provider, denied, code, state, client, navigate])
 
   const label = provider ? PROVIDER_LABEL[provider] : '로그인'
 
@@ -122,28 +142,24 @@ export default function AuthCallback() {
     return <CallbackFrame title={failureTitle(error)} body={failureBody(error)} />
   }
 
-  if (!outcome) {
-    return <CallbackFrame title={`${label} 확인 중…`} body="잠시만 기다려 주세요." pending />
-  }
+  /*
+    남는 건 «아직 확인 중» 하나입니다. 성공하면 위 effect 가 복귀 화면으로 이동시키므로
+    이 컴포넌트는 그대로 사라집니다 — 성공 카드를 그릴 자리가 없습니다.
 
+    이 대기 화면만 카드 껍데기(CallbackFrame)를 쓰지 않습니다. 저 껍데기는 실패 넷이
+    쓰는 모양이라, 정상 경로에서 스쳐 지나가는 이 한 순간까지 같은 카드로 그리면
+    «로그인하자마자 뭔가 떴다» 는 인상이 남습니다. 여기서 할 말은 기다리라는 것뿐입니다.
+  */
   return (
-    <CallbackFrame
-      title="로그인됐어요"
-      body={
-        outcome.merged
-          ? `이전에 만든 결과와 반려견 프로필을 이 계정으로 옮겼어요. (보유 ${Math.max(0, outcome.creditBalance)}개)`
-          : `지금까지 만든 결과가 이 계정에 그대로 남아 있어요. (보유 ${Math.max(0, outcome.creditBalance)}개)`
-      }
-      action={
-        <button
-          type="button"
-          onClick={() => navigate(outcome.returnTo, { replace: true })}
-          className="mt-4 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99]"
-        >
-          계속하기
-        </button>
-      }
-    />
+    <div className="flex screen-min-h items-center justify-center bg-paper px-4 py-16">
+      <p role="status" className="flex items-center gap-2 text-sm text-ink-2">
+        <span
+          aria-hidden
+          className="h-4 w-4 rounded-full border-2 border-rule-strong border-t-brand motion-safe:animate-spin"
+        />
+        {label} 확인 중…
+      </p>
+    </div>
   )
 }
 
@@ -161,31 +177,23 @@ function failureBody(error: unknown): string {
   return '잠시 뒤 다시 로그인해 주세요.'
 }
 
-function CallbackFrame({
-  title,
-  body,
-  pending = false,
-  action,
-}: {
-  title: string
-  body: string
-  pending?: boolean
-  action?: ReactNode
-}) {
+/**
+ * **막다른 길 전용 껍데기입니다.** 이제 여기 오는 건 넷 다 실패 — 알 수 없는 경로 ·
+ * 사용자 취소 · 잘린 주소 · 만료된 nonce — 이고, 넷 모두 이 화면에서 할 수 있는 일이
+ * 없어 「처음으로」 하나만 답니다. 성공을 이 모양으로 그리지 않는 이유가 그것입니다.
+ */
+function CallbackFrame({ title, body }: { title: string; body: string }) {
   return (
     <div className="flex screen-min-h items-center justify-center bg-paper px-4 py-16">
       <div className="w-full max-w-sm rounded-2xl border border-rule bg-surface p-5 text-center">
         <h1 className="text-base font-bold">{title}</h1>
         <p className="mt-2 text-sm text-ink-2">{body}</p>
-        {action}
-        {!pending && !action && (
-          <Link
-            to="/"
-            className="mt-4 block rounded-xl border border-rule-strong px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
-          >
-            처음으로
-          </Link>
-        )}
+        <Link
+          to="/"
+          className="mt-4 block rounded-xl border border-rule-strong px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
+        >
+          처음으로
+        </Link>
       </div>
     </div>
   )

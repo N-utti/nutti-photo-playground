@@ -107,6 +107,7 @@ localStorage.setItem('nutti.mock.scenario', 'refresh:429')     // 만료 + 회�
 localStorage.setItem('nutti.mock.scenario', 'session:lost')    // 재발급으로 안 풀리는 401 — 앱바 크레딧이 어느 화면에서나 부름
 localStorage.setItem('nutti.mock.scenario', 'guest:ratelimited') // 게스트 발급 429 (이슈 #15)
 localStorage.setItem('nutti.mock.scenario', 'auth:statefail')  // 소셜 콜백 state 검증 실패(401)
+localStorage.setItem('nutti.mock.scenario', 'auth:merge')      // 소셜 로그인이 **기존 계정으로 병합**(merged: true) — 복귀 알림이 「옮겼어요」로 갈리고 잔액도 게스트 것이 아닌 그 계정 값(3). 기본 목은 승격뿐이라 이 문장이 브라우저에서 안 떴습니다
 localStorage.setItem('nutti.mock.scenario', 'cafe24:linked')   // 카페24 연동 409 CAFE24_ALREADY_LINKED
 localStorage.removeItem('nutti.mock.scenario')              // 정상
 ```
@@ -196,7 +197,7 @@ job 째로 **404** 인 경우(«삭제한 결과입니다»)는 지운 게 이 �
 | `screens/W10Credits.test.tsx` | 못 불러온 잔액을 0으로 적어 "크레딧이 없다"고 단정하는 것(ADR-02) |
 | `screens/W12MyPage.test.tsx` | 히스토리 `state.from`을 믿고 「뒤로」가 **외부 사이트**로 나가는 것 · 부가 정보 실패에 계정 경고를 띄우는 것 |
 | `screens/AccountSheet.test.tsx` | 429에 "잠시 뒤"로 뭉개 사용자가 30초마다 다시 누르게 하는 것 · 모드를 바꿔도 앞의 오류가 남는 것 |
-| `screens/AuthCallback.test.tsx` | 콜백이 두 번 나가 **방금 받은 코드**가 만료됐다고 하는 것(1회용 nonce) |
+| `screens/AuthCallback.test.tsx` | 콜백이 두 번 나가 **방금 받은 코드**가 만료됐다고 하는 것(1회용 nonce) · 로그인에 성공한 사람을 **실패 화면과 같은 껍데기** 앞에 세워 두고 「계속하기」를 한 번 더 누르게 하는 것 |
 
 ### 시트를 새로 만들 때
 
@@ -295,6 +296,14 @@ src/
 한 벌을 씁니다. OAuth 복귀 지점은 `/auth/callback/:provider` (`screens/AuthCallback.tsx`) —
 **프로바이더 콘솔의 redirect_uri 가 이 주소**라 경로를 바꾸면 카카오·네이버·카페24 설정도
 같이 바꿔야 합니다.
+
+**그 복귀 지점은 화면을 그리지 않습니다.** 로그인이 확정되면 곧바로 로그인을 누른 화면으로
+되돌리고(`app/authReturn.ts`), 「로그인됐어요」는 그 위에 뜨는 모달이 됩니다
+(`app/AuthWelcomeDialog.tsx` · RootLayout 에 답니다). 콜백 화면에 남는 건 «확인 중» 스피너와
+실패 넷뿐입니다. 이렇게 가른 이유는 예전 성공 카드가 실패 화면과 **완전히 같은 껍데기**라,
+로그인에 성공한 사람이 빈 종이 위의 카드 한 장을 보고 «에러인가?» 하고 멈췄기 때문입니다.
+이메일 로그인은 원래 이러지 않았습니다 — 시트 안에서 문구만 바뀌고 뒤 화면이 그대로 서
+있었습니다. 두 경로의 문구는 `app/authWelcome.ts` 한 벌이므로 **한쪽만 고치지 마세요.**
 
 ## 진행 상황
 
