@@ -13,6 +13,14 @@
  */
 export type InAppBrowser = 'kakaotalk' | 'instagram'
 
+/**
+ * 카카오톡 웹뷰에서 외부 브라우저(기기 기본 — 보통 크롬/사파리)로 URL 을 여는 공식 스킴.
+ * 인스타그램에는 대응 스킴이 없어 메뉴 안내가 최선이다.
+ */
+export function kakaoExternalOpenUrl(target: string): string {
+  return `kakaotalk://web/openExternal?url=${encodeURIComponent(target)}`
+}
+
 export function detectInAppBrowser(): InAppBrowser | null {
   if (typeof navigator === 'undefined') return null
   const ua = navigator.userAgent
