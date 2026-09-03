@@ -26,9 +26,61 @@ const EMAIL_MAX = 254
 const PASSWORD_MIN = 8
 const PASSWORD_MAX = 128
 
-const SOCIAL: { provider: SocialProvider; label: string; className: string }[] = [
-  { provider: 'kakao', label: '카카오로 계속하기', className: 'bg-[#FEE500] text-[#191600] hover:brightness-95 motion-safe:active:scale-[0.99]' },
-  { provider: 'naver', label: '네이버로 계속하기', className: 'bg-[#03C75A] text-white hover:brightness-95 motion-safe:active:scale-[0.99]' },
+/**
+ * 소셜 버튼은 **두 회사의 디자인 가이드가 지배합니다** — 우리 판단이 들어갈 자리가
+ * 거의 없습니다. 색·심볼·간격이 전부 규정이고, 자산 출처는 `public/brand/NOTICE.md`.
+ *
+ * 심볼이 없던 동안 카카오 규정을 어기고 있었습니다 — 「심볼 없이 카카오 로그인 버튼을
+ * 구성할 수 없습니다」(카카오 로그인 디자인 가이드). 네이버도 로고를 필수로 봅니다.
+ *
+ * 지금 지키는 규정:
+ *   카카오 — 컨테이너 `#FEE500`, 심볼은 형태·비율·색 변경 불가. 심볼은 좌측 정렬
+ *            하거나 레이블과 함께 가운데 정렬할 수 있어(가이드) 가운데를 씁니다.
+ *   네이버 — 배경 `#03A94D`·로고·레이블 흰색(가이드 «지정 컬러» 표). 완성형 로고는
+ *            16px 이상, 가운데 정렬이면 로고–레이블 간격 8px.
+ *
+ * `#03C75A` 로 두고 있었는데 그건 **옛 스펙**입니다(2025-12 개정 애셋 기준 `#03A94D`).
+ * 문구는 둘 다 바꿔도 됩니다 — 네이버가 명시적으로 허용하고("문구는 변경이 가능해요"),
+ * 카카오도 레이블은 규정 대상이 아닙니다.
+ *
+ * **심볼 크기는 18px 과 16px 로 다릅니다.** 두 회사가 자기 버튼에서 쓰는 값이 그렇고
+ * (카카오 표준 버튼 45px 안의 심볼 18×17, 네이버 완성형 48px 안의 N 16×16 — 각 사
+ * 공식 애셋에서 실측), 눈으로도 그게 맞습니다.
+ *
+ * 처음엔 둘 다 18px 로 맞췄는데 네이버가 눈에 띄게 커 보였습니다. 상자가 같아도
+ * **잉크 면적이 다르기 때문**입니다 — 카카오는 말풍선이라 타원+꼬리로 상자의 68% 만
+ * 차고, 네이버 N 은 정사각을 79% 채웁니다. 같은 18px 이면 네이버 쪽 면적이 1.22배가
+ * 됩니다. 16px 로 내리면 0.97배로, 사실상 같아집니다.
+ *
+ * 그러니 이건 우리 취향 보정이 아니라 각 가이드의 자기 숫자로 돌아온 것입니다.
+ * 16px 은 네이버가 완성형에 규정한 **하한**이기도 해서 더 줄일 수는 없습니다.
+ */
+const SOCIAL: {
+  provider: SocialProvider
+  label: string
+  className: string
+  symbol: string
+  /** Tailwind 는 클래스 문자열을 정적으로 훑으므로 크기를 문자열로 들고 있어야 합니다. */
+  symbolClass: string
+}[] = [
+  {
+    provider: 'kakao',
+    label: '카카오로 계속하기',
+    // 레이블 #191919 는 카카오가 실제로 내려주는 버튼 PNG 에서 잰 값입니다. 가이드
+    // 본문은 «#000000 85%» 라고 적지만 그 둘이 어긋나고, 우리는 그 PNG 에서 심볼을
+    // 잘라 쓰므로 **같은 파일의 값**으로 맞춥니다 — 안 그러면 심볼만 더 진합니다.
+    className: 'bg-[#FEE500] text-[#191919] hover:brightness-95 motion-safe:active:scale-[0.99]',
+    symbol: '/brand/kakao-symbol.png',
+    // 36×34 자산을 절반으로 — 정확히 2배 자산이라 축소에 군더더기가 없습니다.
+    symbolClass: 'h-[17px] w-[18px]',
+  },
+  {
+    provider: 'naver',
+    label: '네이버로 계속하기',
+    className: 'bg-[#03A94D] text-white hover:brightness-95 motion-safe:active:scale-[0.99]',
+    symbol: '/brand/naver-symbol.svg',
+    symbolClass: 'h-4 w-4',
+  },
 ]
 
 /** 로그인 계열 실패를 사용자 언어로. 서버 message 는 영어라 그대로 보여줄 수 없습니다. */
@@ -177,8 +229,26 @@ export default function AccountSheet({
                     disabled={authorize.isPending}
                     aria-busy={busy}
                     onClick={() => startSocial(social.provider)}
-                    className={`w-full rounded-xl px-4 py-3 text-sm font-semibold ${busy ? 'opacity-50' : ''} ${social.className}`}
+                    className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold ${busy ? 'opacity-50' : ''} ${social.className}`}
                   >
+                    {/*
+                      `gap-2` = 8px 입니다. 네이버가 가운데 정렬일 때 규정한 그 값이고
+                      (카카오는 간격을 수치로 묶지 않습니다), 두 버튼을 같은 간격으로
+                      둡니다.
+
+                      심볼은 «이동 중…» 일 때도 남깁니다 — 같은 버튼이 상태만 바뀐
+                      것인데 로고가 사라지면 다른 버튼으로 갈아탄 것처럼 보입니다.
+
+                      `alt=""` 는 장식이라는 뜻입니다. 바로 옆 레이블이 이미 «카카오»·
+                      «네이버» 라고 말하므로, 대체 텍스트를 넣으면 스크린리더가 회사
+                      이름을 두 번 읽습니다.
+                    */}
+                    <img
+                      src={social.symbol}
+                      alt=""
+                      aria-hidden
+                      className={`shrink-0 ${social.symbolClass}`}
+                    />
                     {busy ? '이동 중…' : social.label}
                   </button>
                 )
