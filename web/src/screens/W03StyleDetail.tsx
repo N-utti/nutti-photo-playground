@@ -177,6 +177,18 @@ export default function W03StyleDetail() {
 
   const { data: style, isPending, error } = useStyleDetail(id)
 
+  /*
+    id 가 null 이면 `useStyleDetail` 은 `enabled: false` 라 **요청을 아예 보내지
+    않습니다**. 그런데 react-query 는 그 상태를 `isPending` 으로 내려 주므로, 아래에서
+    isPending 을 그대로 믿으면 시트가 스켈레톤에 영원히 멈춥니다 — 못 고르는 스타일을
+    두고 «곧 뜬다» 고 말하는 셈입니다(실측: /styles/lego · /styles/0 · /styles/-1).
+
+    서버가 없는 번호로 404 를 내려 줄 때와 사용자가 겪는 일은 같으므로(고를 수 없는
+    스타일), 요청을 못 보내는 이 경우도 같은 자리로 보냅니다. 아래 error 갈래가 이미
+    그 말을 하고 있어서 새 문구를 만들지 않습니다.
+  */
+  const unknownId = id === null
+
   // 재사용 맥락(FR-W06-07)은 시트를 닫아도 살아 있어야 합니다 — 여기서 떨어뜨리면
   // 뒤의 카탈로그가 갑자기 평소 모드로 바뀌어 사진을 다시 올리게 됩니다.
   const reuse = useReuseFromJob()
@@ -230,17 +242,17 @@ export default function W03StyleDetail() {
           <div className="h-1 w-10 rounded-full bg-rule" />
         </div>
 
-        {isPending ? (
-          <SheetSkeleton />
-        ) : error ? (
+        {unknownId || error ? (
           <SheetError
             message={
-              isApiError(error, 'NOT_FOUND')
+              unknownId || isApiError(error, 'NOT_FOUND')
                 ? '지금은 고를 수 없는 스타일이에요.'
                 : '스타일 정보를 불러오지 못했습니다.'
             }
             onClose={close}
           />
+        ) : isPending ? (
+          <SheetSkeleton />
         ) : (
           <SheetBody style={style} reuseJobId={reuse.jobId} reusing={reuse.context !== null} />
         )}

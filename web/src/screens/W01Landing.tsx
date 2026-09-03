@@ -88,7 +88,19 @@ export default function W01Landing() {
           <img src="/brand/nutti-wordmark.svg" alt="누띠" width={70} height={18} className="h-3.5 w-auto" />
           <span className="font-display text-base">놀이터</span>
         </Link>
-        <nav className="ml-auto flex items-center gap-4" aria-label="주요">
+        {/*
+          `nav aria-label="주요"` 였습니다. 스크린리더의 랜드마크 목록에 «주요» 라는
+          탐색 구역이 하나 더 서는데, 그 안에 있는 건 로그인 칩 하나뿐이고 세션이
+          아직 안 왔을 때는 **아무것도 없습니다** — 열었다가 비어 있는 구역이 됩니다
+          (2026-09-03 play.nutti.co.kr 실측). 라벨도 «주요» 로 끊겨 무엇의 주요인지
+          말하지 않았습니다.
+
+          아래 주석대로 여기 있던 유일한 탐색 링크(«스타일»)가 이미 빠졌으니, 남은
+          것은 계정으로 가는 문 하나입니다. 그건 탐색 구역이 아니라 그냥 헤더의 한
+          자리라서 `div` 로 되돌립니다. 이 화면의 탐색 랜드마크는 하단 탭바
+          (`aria-label="주요 메뉴"`) 하나로 충분합니다.
+        */}
+        <div className="ml-auto flex items-center gap-4">
           {/*
             여기 있던 «스타일» 링크를 지웠습니다. 데스크톱에만 보이는 링크였는데
             이 헤더 자체가 이제 모바일 전용이라, 두 조건이 겹쳐 **어떤 폭에서도 안
@@ -115,7 +127,7 @@ export default function W01Landing() {
               로그인
             </button>
           ) : null}
-        </nav>
+        </div>
       </header>
 
       {loginSheet && (
