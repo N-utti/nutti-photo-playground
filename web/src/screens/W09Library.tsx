@@ -39,7 +39,7 @@ import { CreditBadge } from '../app/CreditBadge'
 import { TabBar } from '../app/TabBar'
 import { rememberDeletedJobs } from '../app/deletedResults'
 import { useGuestSessionReset } from '../app/guestSession'
-import { downloadAttachment, saveImage } from '../app/saveImage'
+import { downloadAttachment, saveFromNewTabHint, saveImage } from '../app/saveImage'
 import { detectInAppBrowser } from '../app/inAppBrowser'
 import { fetchShareFile, saveViaShareSheet, shareImage } from '../app/shareImage'
 import type { LibraryItem, LibraryMonth } from '../api/types'
@@ -422,11 +422,22 @@ function Chip({
 // ---------------------------------------------------------------- 그리드 타일
 
 /**
- * 롱프레스 판정.
+ * 롱프레스 판정 — **손가락·펜에만** 답니다.
  *
  * `pointer*` 로 잡으면 터치·마우스·펜이 한 벌로 처리됩니다. 스크롤 중 오발동이 이
  * 화면에서 특히 잦아서(그리드는 세로로 길게 넘깁니다) 움직이면 즉시 취소하고,
  * 길게 눌러 선택이 걸린 뒤 따라오는 click 은 삼켜야 결과 상세로 튀지 않습니다.
+ *
+ * 마우스를 뺀 이유: «길게 눌러 선택» 은 손가락에 메뉴가 없어서 생긴 관용입니다.
+ * 마우스에는 그 관용이 없어서, 타일 위에서 버튼을 0.45초 누르고 있던 사람(느린
+ * 클릭·드래그를 시작하려던 손)이 예고 없이 선택 모드로 들어갑니다. 대신 데스크톱에는
+ * 목록 위 「선택」 버튼이 이미 있고(위 `desktop:flex`), 그게 눌러야 나오는 것이
+ * 아니라 보이는 문이라 더 낫습니다.
+ *
+ * 가르는 기준이 화면 폭이 아니라 **포인터 종류**인 건, 폭으로 자르면 터치스크린
+ * 노트북(≥1024px)에서 손가락 롱프레스를 같이 잃고 좁은 창에 마우스를 쓰는 경우는
+ * 그대로 남기 때문입니다 — index.css 의 `hover` 변형이 `(hover: hover)` 하나만 보는
+ * 것과 같은 이유입니다. 펜은 남깁니다(길게 눌러 메뉴는 펜의 관용입니다).
  */
 const LONG_PRESS_MS = 450
 const MOVE_TOLERANCE_PX = 10
@@ -448,6 +459,7 @@ function useLongPress(onLongPress: () => void) {
     handlers: {
       onPointerDown(event: React.PointerEvent) {
         fired.current = false
+        if (event.pointerType === 'mouse') return
         origin.current = { x: event.clientX, y: event.clientY }
         timer.current = window.setTimeout(() => {
           fired.current = true
@@ -677,9 +689,10 @@ function SelectionBar({
             삭제하지 못했어요. 잠시 뒤 다시 시도해 주세요.
           </p>
         )}
+        {/* 저장하는 방법은 포인터마다 다릅니다 — W-06 과 같은 문장을 씁니다. */}
         {opened && (
           <p className="mt-2 text-center text-xs text-ink-3">
-            일부는 새 탭에 열었어요 — 이미지를 길게 눌러 저장해 주세요.
+            일부는 새 탭에 열었어요. {saveFromNewTabHint()}
           </p>
         )}
         {sheetExpired && (

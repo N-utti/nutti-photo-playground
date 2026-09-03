@@ -15,7 +15,7 @@
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { saveImage } from './saveImage'
+import { saveFromNewTabHint, saveImage } from './saveImage'
 
 const URL_ = 'https://cdn.example.test/nutti.jpg'
 
@@ -99,5 +99,39 @@ describe('saveImage', () => {
     expect(clicked).toHaveLength(1)
     expect(clicked[0].target).toBe('_blank')
     expect(clicked[0].href).toBe(URL_)
+  })
+})
+
+/**
+ * 새 탭으로 물러선 뒤의 «그래서 어떻게 저장하나» (`saveFromNewTabHint`).
+ *
+ * 여기서 틀리면 저장이 실패하는 게 아니라 **안내가 거짓말**이 됩니다 — 마우스로 온
+ * 사람이 «길게 눌러 저장해 주세요» 를 읽고 이미지를 누르고 있으면, 아무 일도 안
+ * 일어나는 화면 앞에서 앱이 고장 난 줄 압니다. 저장 실패보다 알아채기 어렵습니다.
+ *
+ * 두 갈래를 다 세는 이유: jsdom 의 matchMedia 대역은 `(hover: hover)` 에 false 로
+ * 답하므로(test/setup.ts) 아무것도 꾸미지 않으면 **마우스 갈래가 영영 안 밟힙니다.**
+ */
+describe('saveFromNewTabHint', () => {
+  /** 이 질의에만 답을 정하고 나머지(min-width 등)는 setup 의 대역에 그대로 넘깁니다. */
+  function stubHover(matches: boolean) {
+    const real = window.matchMedia.bind(window)
+    vi.spyOn(window, 'matchMedia').mockImplementation((query: string) =>
+      query === '(hover: hover)'
+        ? ({ media: query, matches } as unknown as MediaQueryList)
+        : real(query),
+    )
+  }
+
+  it('마우스에는 오른쪽 클릭을 안내한다', () => {
+    stubHover(true)
+
+    expect(saveFromNewTabHint()).toBe('사진을 오른쪽 클릭해서 저장해 주세요.')
+  })
+
+  it('손가락에는 길게 누르기를 안내한다', () => {
+    stubHover(false)
+
+    expect(saveFromNewTabHint()).toBe('사진을 길게 눌러 저장해 주세요.')
   })
 })

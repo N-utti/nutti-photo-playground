@@ -82,7 +82,12 @@ function ActiveJobBar({ jobId }: { jobId: string }) {
     // 띄우려면 여기가 경로를 알아야 하는데, 그 조건문은 라우트가 늘 때마다 손대야 하고
     // 빠뜨려도 아무도 모릅니다(app/TabBar.tsx 가 화면에 붙이기로 한 것과 같은 이유).
     // 그래서 가장 두꺼운 쪽(탭바 + 안전영역)을 기준으로 한 번만 띄웁니다.
-    <div className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+4.5rem)] z-20 px-5">
+    //
+    // 다만 **데스크톱은 화면이 아니라 폭으로 갈립니다** — 탭바가 거기서는 어느 화면에도
+    // 없고(`desktop:hidden`, 상단 GNB 가 대신합니다) 안전영역도 0 입니다. 그런데도
+    // 72px 을 띄우고 있어서, 넓은 화면에서는 없는 탭바 자리만큼 바가 공중에 떠 있었습니다.
+    // 여기는 조건문이 라우트가 아니라 폭 하나라 늘어날 일이 없습니다.
+    <div className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+4.5rem)] z-20 px-5 desktop:bottom-5">
       {/* 초 단위로 바뀌는 숫자와 막대는 읽어 주지 않습니다(aria-hidden) — 1초마다
           말하는 라이브 영역은 안내가 아니라 방해입니다. 대신 단계 문구와 «완성됐어요»
           처럼 실제로 상태가 바뀔 때만 한 번 읽힙니다. */}

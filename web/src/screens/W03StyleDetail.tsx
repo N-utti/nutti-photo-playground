@@ -21,7 +21,7 @@
  * 아니라서 예고할 것이 없습니다 — 이름(`uses_pet_name`)과 같은 이유로 W-04 가 말합니다.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { isApiError } from '../api/client'
@@ -39,7 +39,7 @@ import type { FitTag, StyleDetail } from '../api/types'
 const FIT_MARK: Record<string, string> = { good: '◎', caution: '△' }
 
 /**
- * 손잡이를 잡아 내려서 닫기.
+ * 손잡이를 잡아 내려서 닫기 — **모바일 폭에서만** 있는 동작입니다.
  *
  * 시트 위에 손잡이 막대를 그려 두고 잡히지 않게 두면 그 자체가 거짓 예고입니다 —
  * «잡아 내릴 수 있다» 고 생긴 것이 안 움직이면 사용자는 앱이 멈춘 줄 압니다.
@@ -49,6 +49,9 @@ const FIT_MARK: Record<string, string> = { good: '◎', caution: '△' }
  *
  * **손잡이에서만** 시작합니다. 본문은 세로 스크롤 영역(`overflow-y-auto`)이라 거기서
  * 드래그를 받으면 스크롤하려던 손가락이 시트를 닫습니다.
+ *
+ * 데스크톱에는 손잡이 자체가 없으므로(`useIsDesktop`) 여기에 폭을 묻는 갈래가 따로
+ * 없습니다 — 안 그려진 것에서는 pointerdown 이 오지 않습니다.
  */
 
 /** 이만큼 내렸으면 «내려놓는 중» 으로 봅니다. 시트 최대 높이(85vh)의 1/6 남짓. */
@@ -60,6 +63,32 @@ const DISMISS_FLICK_DISTANCE = 24
 
 /** 화면 코드의 `motion-safe:` 와 같은 질문 — 여기서는 JS 로 물어야 합니다. */
 const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+/**
+ * 화면 코드의 `desktop:` 과 같은 질문 — 다만 여기서는 **안 그리기 위해** 묻습니다.
+ *
+ * `desktop:hidden` 으로 가리면 손잡이가 DOM 에는 남습니다. 화면에 없는 것에 포인터
+ * 핸들러와 `cursor-grab` 이 계속 달려 있는 셈이고, 다음 사람이 «데스크톱에도 손잡이가
+ * 있다» 고 읽습니다. 그래서 CSS 가 아니라 렌더 여부로 가릅니다.
+ *
+ * 구독해 두는 건 폭이 도중에 바뀌기 때문입니다 — 창 크기 조절·화면 분할·기기 회전에서
+ * 한 번 정한 값이 굳으면, 좁혔는데 손잡이가 없거나 넓혔는데 남아 있습니다.
+ *
+ * 1024px 은 `--breakpoint-desktop` 입니다(index.css). 미디어 쿼리 문자열에는 CSS 변수를
+ * 못 써서 값을 다시 적었습니다 — 한쪽만 바꾸면 손잡이와 시트 정렬이 조용히 어긋납니다.
+ */
+const DESKTOP_QUERY = '(min-width: 1024px)'
+
+function useIsDesktop() {
+  return useSyncExternalStore(
+    (onChange) => {
+      const query = window.matchMedia(DESKTOP_QUERY)
+      query.addEventListener('change', onChange)
+      return () => query.removeEventListener('change', onChange)
+    },
+    () => window.matchMedia(DESKTOP_QUERY).matches,
+  )
+}
 
 type DragState = {
   pointerId: number
@@ -88,12 +117,6 @@ function useDragToDismiss(sheet: { current: HTMLElement | null }, close: () => v
     (event: ReactPointerEvent) => {
       const element = sheet.current
       if (!element || release.current) return
-      /*
-        데스크톱(≥1024px)에서는 이게 바닥에 붙은 시트가 아니라 화면 한가운데 뜨는
-        대화상자입니다 — 아래로 «내려놓을» 가장자리가 없어서, 끌면 그냥 중앙에서
-        어긋납니다. 손잡이는 그대로 두되(모양은 시트 정체성) 드래그만 받지 않습니다.
-      */
-      if (window.matchMedia('(min-width: 1024px)').matches) return
       // 마우스는 왼쪽 버튼만. 오른쪽 클릭으로 시트가 끌려 내려가면 메뉴와 겹칩니다.
       if (event.pointerType === 'mouse' && event.button !== 0) return
 
@@ -209,6 +232,7 @@ export default function W03StyleDetail() {
   */
   const sheetRef = useModalDialog<HTMLDivElement>(close)
   const startDrag = useDragToDismiss(sheetRef, close)
+  const desktop = useIsDesktop()
 
   return (
     <div className="fixed inset-0 z-30 flex flex-col justify-end desktop:items-center desktop:justify-center">
@@ -226,21 +250,32 @@ export default function W03StyleDetail() {
         aria-modal="true"
         aria-labelledby="style-sheet-title"
         tabIndex={-1}
-        className="relative max-h-[85vh] w-full overflow-y-auto rounded-t-2xl bg-surface px-4 pt-2 pb-6 outline-none desktop:max-w-lg desktop:rounded-2xl desktop:pt-3"
+        className="relative max-h-[85vh] w-full overflow-y-auto rounded-t-2xl bg-surface px-4 pt-2 pb-6 outline-none desktop:max-w-lg desktop:rounded-2xl desktop:pt-4"
       >
         {/*
-          손잡이. 막대 자체는 4px 이라 손가락으로 못 잡으므로 잡는 판을 따로 둡니다 —
-          시트의 안쪽 여백을 도로 먹어(`-mx-4 -mt-2`) 위 가장자리까지 넓히고, `py-2` 로
-          다시 밀어 **막대의 위치와 아래 12px 여백은 예전 그대로** 둡니다.
+          손잡이 — 바닥에 붙은 시트일 때만 답니다.
+
+          데스크톱(≥1024px)에서 이건 시트가 아니라 화면 한가운데 뜨는 대화상자라
+          (`desktop:justify-center`) 아래로 «내려놓을» 가장자리가 없습니다. 그래서
+          드래그를 안 받고 있었는데, 그러면 막대만 남아 «잡아 내릴 수 있다» 고 생긴
+          것이 안 움직이는 상태가 됩니다 — 손잡이가 하지 말라던 바로 그 일입니다.
+          마우스에는 시트를 쓸어 내리는 관용도 없어서, 자리를 비우는 쪽이 맞습니다.
+          닫는 길은 스크림 · Escape · ← 로 그대로 있습니다.
+
+          막대 자체는 4px 이라 손가락으로 못 잡으므로 잡는 판을 따로 둡니다 — 시트의
+          안쪽 여백을 도로 먹어(`-mx-4 -mt-2`) 위 가장자리까지 넓히고, `py-2` 로 다시
+          밀어 **막대의 위치와 아래 12px 여백은 예전 그대로** 둡니다.
           `touch-none` 이 없으면 아래로 긋는 순간 브라우저가 스크롤로 가져갑니다.
         */}
-        <div
-          aria-hidden
-          onPointerDown={startDrag}
-          className="-mx-4 -mt-2 mb-1 flex cursor-grab touch-none justify-center px-4 py-2 active:cursor-grabbing desktop:cursor-default"
-        >
-          <div className="h-1 w-10 rounded-full bg-rule" />
-        </div>
+        {!desktop && (
+          <div
+            aria-hidden
+            onPointerDown={startDrag}
+            className="-mx-4 -mt-2 mb-1 flex cursor-grab touch-none justify-center px-4 py-2 active:cursor-grabbing"
+          >
+            <div className="h-1 w-10 rounded-full bg-rule" />
+          </div>
+        )}
 
         {unknownId || error ? (
           <SheetError

@@ -289,19 +289,22 @@ describe('W-03 시트 · 손잡이 드래그', () => {
     expect(dialog.style.transform).toBe('')
   })
 
-  it('데스크톱에서는 손잡이를 끌어도 움직이지 않는다', async () => {
+  it('데스크톱에는 손잡이가 아예 없다', async () => {
     setViewport(1280)
     const { dialog } = await renderLoaded()
 
     /*
       ≥1024px 에서 이건 바닥에 붙은 시트가 아니라 화면 한가운데 뜨는 대화상자입니다
-      (`desktop:items-center`). 아래로 «내려놓을» 가장자리가 없으므로, 끌면 닫히는 게
-      아니라 그냥 중앙에서 어긋나기만 합니다.
-    */
-    drag(handleOf(dialog), [40, 90, 140])
+      (`desktop:justify-center`). 아래로 «내려놓을» 가장자리가 없어서 예전에는 «끌어도
+      안 움직인다» 였는데, 그러면 «잡아 내릴 수 있다» 고 생긴 막대가 안 움직이는
+      상태로 남습니다 — 손잡이를 잡히게 만든 이유와 정반대입니다. 그래서 안 그립니다.
 
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
-    expect(dialog.style.transform).toBe('')
+      «그리지 않았다» 는 화면 첫 줄로 확인합니다. 손잡이가 남아 있으면 시트는 4px
+      막대로 시작하고, 없으면 곧바로 본문(제목 줄)으로 시작합니다.
+    */
+    expect(dialog.firstElementChild).toContainElement(
+      screen.getByRole('heading', { name: '레고 미니피겨' }),
+    )
   })
 
   it('본문을 끌어도 시트가 움직이지 않는다', async () => {

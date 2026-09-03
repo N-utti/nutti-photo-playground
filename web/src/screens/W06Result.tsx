@@ -45,7 +45,12 @@ import { detectInAppBrowser, externalOpenUrl, tryLeaveTo } from '../app/inAppBro
 import { auth } from '../api/endpoints'
 import { arrivedToShare, handoffUrl } from '../app/handoff'
 import { kakaoShareAvailable, loadKakao } from '../app/kakaoShare'
-import { downloadAttachment, saveImage, type SaveImageOutcome } from '../app/saveImage'
+import {
+  downloadAttachment,
+  saveFromNewTabHint,
+  saveImage,
+  type SaveImageOutcome,
+} from '../app/saveImage'
 import ShareFallbackSheet from '../app/ShareFallbackSheet'
 import {
   fetchShareFile,
@@ -814,9 +819,14 @@ function ShareRow({ job }: { job: Job }) {
             : '이미지를 저장했어요 — 인스타그램에서 올려 주세요'}
         </p>
       )}
+      {/*
+        저장하는 방법은 손가락이냐 마우스냐로 갈립니다(app/saveImage.ts
+        `saveFromNewTabHint`) — 여기서 «길게 눌러» 로 굳혀 두면 데스크톱에서 온 사람은
+        시키는 대로 눌러도 아무 일이 안 일어납니다.
+      */}
       {saveOutcome === 'opened' && (
         <p className="mt-2 text-center text-xs text-ink-3">
-          새 탭에 이미지를 열었어요 — 이미지를 길게 눌러 저장해 주세요.
+          새 탭에 이미지를 열었어요. {saveFromNewTabHint()}
         </p>
       )}
       {/*
