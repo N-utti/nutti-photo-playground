@@ -88,7 +88,7 @@ export default function JobUnavailable({
           <button
             type="button"
             onClick={() => setLoginSheet(true)}
-            className="mt-2 text-xs font-semibold text-ink-2 underline hover:text-brand"
+            className="mt-2 text-sm font-semibold text-ink-2 underline hover:text-brand"
           >
             로그인하기
           </button>

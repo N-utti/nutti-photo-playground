@@ -81,7 +81,7 @@ export function TabBar() {
                 aria-current={active ? 'page' : undefined}
                 // 지금 있는 탭은 hover 로 안 바뀝니다 — 이미 «여기» 라고 말하고 있는
                 // 것을 커서가 또 흔들면 어디에 있는지가 흐려집니다.
-                className={`flex flex-col items-center gap-0.5 py-2 text-[11px] ${
+                className={`flex flex-col items-center gap-0.5 py-2 text-xs ${
                   active ? 'font-semibold text-brand' : 'text-ink-3 hover:text-ink'
                 }`}
               >
@@ -103,7 +103,7 @@ export function TabBar() {
             onClick={() =>
               track({ event_type: 'shop_exit_click', properties: { from: 'tabbar' } })
             }
-            className="flex flex-col items-center gap-0.5 py-2 text-[11px] text-ink-3 hover:text-ink"
+            className="flex flex-col items-center gap-0.5 py-2 text-xs text-ink-3 hover:text-ink"
           >
             <BagIcon />
             누띠샵

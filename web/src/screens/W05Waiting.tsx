@@ -191,7 +191,7 @@ export default function W05Waiting() {
                       loading="lazy"
                       className="aspect-square w-full bg-surface-2 object-cover"
                     />
-                    <span className="block truncate px-2 py-1 text-xs">{style.name}</span>
+                    <span className="block truncate px-2 py-1 text-sm">{style.name}</span>
                   </Link>
                 </li>
               ))}

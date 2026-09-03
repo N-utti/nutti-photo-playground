@@ -258,7 +258,7 @@ function PreviewCard({ style }: { style: StyleCard }) {
         className="aspect-square w-full bg-surface-2 object-cover"
       />
       <div className="px-2 py-1.5">
-        <span className="block truncate text-xs font-semibold">{style.name}</span>
+        <span className="block truncate text-sm font-semibold">{style.name}</span>
       </div>
     </Link>
   )
