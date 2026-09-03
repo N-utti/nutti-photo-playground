@@ -85,6 +85,26 @@ export interface GuestSession {
   kind: 'guest'
 }
 
+/**
+ * 세션 핸드오프 — 인앱 웹뷰 → 크롬 (§3 `POST /v1/auth/handoff`, 2026-09-03).
+ *
+ * Android 웹뷰에는 OS 공유 시트가 없어 「공유」가 크롬으로 나가야 하는데, 게스트 세션이
+ * 웹뷰 localStorage 에 갇혀 크롬에서는 결과가 안 열립니다. 120초·1회용 코드를 URL 에
+ * 실어 나가고, 크롬에서 열린 SPA 가 소진해 같은 세션의 토큰을 받습니다(app/handoff.ts).
+ */
+export interface HandoffCode {
+  code: string
+  expires_in: number
+}
+
+export interface HandoffSession {
+  token: string
+  /** 항상 null — URL 로 옮겨 온 자격증명엔 리프레시를 주지 않습니다(크롬 쪽 회원은 액세스 1h). */
+  refresh_token: null
+  member_id: string
+  kind: 'guest' | 'member'
+}
+
 /** 로그인 수단 3종(ADR-11). 카페24는 로그인이 아니라 **연동**이라 여기 없습니다. */
 export type AuthProvider = 'kakao' | 'naver' | 'local'
 

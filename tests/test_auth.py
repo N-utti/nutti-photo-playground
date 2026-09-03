@@ -40,8 +40,11 @@ def client():
         auth_router._login_requests,
         auth_router._register_requests,
         auth_router._refresh_requests,
+        auth_router._handoff_redeem_requests,
+        auth_router._handoff_issue_requests,
     ):
         buckets.clear()
+    auth_router._handoff_used.clear()
     with TestClient(app) as test_client:
         test_client.portal.call(Tortoise.generate_schemas)
         yield test_client
@@ -1191,3 +1194,84 @@ def test_grant_credits_reraises_non_dedupe_integrity_error(
     member, ledger = client.portal.call(_member_and_ledger, member_id)
     assert member.credit_balance == 0
     assert ledger == []
+
+
+# ---------------------------------------------------------------- 세션 핸드오프 (웹뷰 → 크롬)
+
+
+def test_handoff_moves_guest_session_to_another_browser(client: TestClient):
+    """웹뷰에 갇힌 게스트 세션을 크롬이 이어받는다 — 같은 member_id, 유효한 새 토큰."""
+    guest = client.post("/v1/auth/guest").json()
+
+    issued = client.post("/v1/auth/handoff", headers={"Authorization": f"Bearer {guest['token']}"})
+    assert issued.status_code == 200
+    assert issued.json()["expires_in"] == 120
+
+    redeemed = client.post("/v1/auth/handoff/redeem", json={"code": issued.json()["code"]})
+    assert redeemed.status_code == 200
+    body = redeemed.json()
+    assert body["member_id"] == guest["member_id"]
+    assert body["kind"] == "guest"
+    assert body["refresh_token"] is None
+    me = client.get("/v1/auth/me", headers={"Authorization": f"Bearer {body['token']}"})
+    assert me.status_code == 200
+    assert me.json()["member_id"] == guest["member_id"]
+
+
+def test_handoff_code_is_single_use(client: TestClient):
+    """URL 에 실려 나가는 코드라 유출 시 피해를 한 번으로 — 두 번째 소진은 401."""
+    guest = client.post("/v1/auth/guest").json()
+    code = client.post(
+        "/v1/auth/handoff", headers={"Authorization": f"Bearer {guest['token']}"}
+    ).json()["code"]
+
+    assert client.post("/v1/auth/handoff/redeem", json={"code": code}).status_code == 200
+    assert client.post("/v1/auth/handoff/redeem", json={"code": code}).status_code == 401
+
+
+def test_handoff_rejects_access_token_and_forgery(client: TestClient):
+    """액세스 토큰을 코드 자리에 넣어도, 서명이 다른 코드도 401 — 코드 종류(kind)를 본다."""
+    guest = client.post("/v1/auth/guest").json()
+    assert client.post("/v1/auth/handoff/redeem", json={"code": guest["token"]}).status_code == 401
+    forged = jwt.encode(
+        {"sub": guest["member_id"], "kind": "handoff", "ver": 0, "jti": "x", "exp": 4102444800},
+        "not-the-signing-key",
+        algorithm="HS256",
+    )
+    assert client.post("/v1/auth/handoff/redeem", json={"code": forged}).status_code == 401
+
+
+def test_handoff_dies_with_logout(client: TestClient):
+    """코드는 token_version 을 물고 있어 로그아웃(버전 증가) 뒤엔 소진되지 않는다."""
+    member = _register_member(client, "handoff@example.com")
+    headers = {"Authorization": f"Bearer {member['token']}"}
+    code = client.post("/v1/auth/handoff", headers=headers).json()["code"]
+    assert client.post("/v1/auth/logout", headers=headers).status_code in (200, 204)
+
+    assert client.post("/v1/auth/handoff/redeem", json={"code": code}).status_code == 401
+
+
+def test_handoff_member_gets_access_only_and_keeps_webview_refresh(client: TestClient):
+    """URL 로 옮겨 온 자격증명엔 리프레시를 주지 않는다(보안 리뷰) — 웹뷰 쪽 리프레시는 그대로 산다."""
+    member = _register_member(client, "handoff2@example.com")
+    code = client.post(
+        "/v1/auth/handoff", headers={"Authorization": f"Bearer {member['token']}"}
+    ).json()["code"]
+
+    body = client.post("/v1/auth/handoff/redeem", json={"code": code}).json()
+    assert body["kind"] == "member"
+    assert body["refresh_token"] is None
+    assert client.get("/v1/auth/me", headers={"Authorization": f"Bearer {body['token']}"}).status_code == 200
+    assert client.post("/v1/auth/refresh", json={"refresh_token": member["refresh_token"]}).status_code == 200
+
+
+def test_handoff_code_expires(client: TestClient, monkeypatch):
+    """120초가 지난 코드는 서명이 맞아도 401."""
+    from app import auth as auth_module
+
+    guest = client.post("/v1/auth/guest").json()
+    monkeypatch.setattr(auth_module, "HANDOFF_TTL_SECONDS", -1)
+    code = client.post(
+        "/v1/auth/handoff", headers={"Authorization": f"Bearer {guest['token']}"}
+    ).json()["code"]
+    assert client.post("/v1/auth/handoff/redeem", json={"code": code}).status_code == 401

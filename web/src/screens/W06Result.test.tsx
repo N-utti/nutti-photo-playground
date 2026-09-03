@@ -676,7 +676,8 @@ describe('W-06 · 저장·공유 버튼', () => {
 
       await user.click(await screen.findByRole('button', { name: '공유' }))
 
-      const dialog = await screen.findByRole('dialog', { name: '공유' })
+      // 먼저 핸드오프 코드를 받아 크롬으로 나가 보고(jsdom 은 못 나감) 1.5초 뒤 자체 시트로.
+      const dialog = await screen.findByRole('dialog', { name: '공유' }, { timeout: 4000 })
       const links = within(dialog).getAllByRole('link')
       expect(links[0]).toHaveAccessibleName(/외부 브라우저에서 이미지 열기/)
       expect(links[0]).toHaveAttribute('href', kakaoExternalOpenUrl(SHARE_URL))
@@ -687,11 +688,48 @@ describe('W-06 · 저장·공유 버튼', () => {
     }
   })
 
-  it('카톡 웹뷰에서 카카오 JS 키가 있으면 「공유」가 자체 시트 없이 곧장 카카오톡 친구 선택창을 연다', async () => {
+  it('인앱 웹뷰의 「공유」는 핸드오프 코드를 받아 크롬으로 같은 화면을 들고 나간다 — 나갔으면 자체 시트를 띄우지 않는다', async () => {
     /*
-      카톡으로 받은 링크에서 만든 사진을 카톡으로 다시 보내는 흐름 — OS 시트가 없는 카톡
-      Android 웹뷰에서 SDK 가 유일한 «공유창» 입니다(app/kakaoShare.ts).
+      Android 웹뷰엔 OS 시트가 없어 크롬으로 나가야 하는데, 게스트 세션이 웹뷰에 갇혀
+      있어 그냥 나가면 결과가 안 열립니다. 코드를 주소에 실어 나가고 크롬이 소진합니다
+      (app/handoff.ts). «나갔다» 는 페이지가 가려졌는지로만 압니다.
     */
+    const user = userEvent.setup()
+    const restoreUa = withUserAgent(UA_INSTAGRAM_ANDROID)
+    const beacon = vi.spyOn(events, 'track').mockResolvedValue(undefined)
+    let handoffs = 0
+    server.use(
+      http.post('*/v1/auth/handoff', () => {
+        handoffs += 1
+        return HttpResponse.json({ code: 'mock-handoff.code', expires_in: 120 })
+      }),
+    )
+    mockShare()
+    try {
+      renderResult(succeededJob())
+
+      await user.click(await screen.findByRole('button', { name: '공유' }))
+      await waitFor(() => expect(handoffs).toBe(1))
+      // 크롬이 덮은 상황을 흉내냅니다.
+      Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' })
+      document.dispatchEvent(new Event('visibilitychange'))
+
+      await waitFor(
+        () =>
+          expect(
+            beacon.mock.calls.map(([body]) => body).filter((body) => body.event_type === 'share_sheet'),
+          ).toEqual([{ event_type: 'share_sheet', properties: { job_id: JOB_ID, outcome: 'handoff' } }]),
+        { timeout: 4000 },
+      )
+      expect(screen.queryByRole('dialog', { name: '공유' })).not.toBeInTheDocument()
+    } finally {
+      Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' })
+      beacon.mockRestore()
+      restoreUa()
+    }
+  })
+
+  it('카톡 웹뷰에서 못 나가면 자체 시트에 「카카오톡으로 보내기」(SDK)가 맨 위에 있다', async () => {
     vi.stubEnv('VITE_KAKAO_JS_KEY', 'js-key-test')
     const sent: Record<string, unknown>[] = []
     window.Kakao = {
@@ -701,24 +739,32 @@ describe('W-06 · 저장·공유 버튼', () => {
     }
     const user = userEvent.setup()
     const restoreUa = withUserAgent(UA_KAKAO_ANDROID)
-    const beacon = vi.spyOn(events, 'track').mockResolvedValue(undefined)
     mockShare()
     try {
       renderResult(succeededJob())
 
       await user.click(await screen.findByRole('button', { name: '공유' }))
+      const dialog = await screen.findByRole('dialog', { name: '공유' }, { timeout: 4000 })
+      const first = within(dialog).getAllByRole('button')[0]
+      expect(first).toHaveAccessibleName('카카오톡으로 보내기')
+      await user.click(first)
 
-      await waitFor(() => expect(sent).toHaveLength(1))
+      expect(sent).toHaveLength(1)
       expect((sent[0] as { content: { imageUrl: string } }).content.imageUrl).toBe(SHARE_URL)
-      expect(screen.queryByRole('dialog', { name: '공유' })).not.toBeInTheDocument()
-      expect(
-        beacon.mock.calls.map(([body]) => body).filter((body) => body.event_type === 'share_sheet'),
-      ).toEqual([{ event_type: 'share_sheet', properties: { job_id: JOB_ID, outcome: 'shared' } }])
     } finally {
-      beacon.mockRestore()
       restoreUa()
       delete window.Kakao
       vi.unstubAllEnvs()
+    }
+  })
+
+  it('크롬으로 넘어온 주소(?share=1)면 「공유」 한 번이 남았다고 말한다', async () => {
+    window.history.replaceState(null, '', `/jobs/${JOB_ID}?share=1`)
+    try {
+      renderResult(succeededJob())
+      expect(await screen.findByText(/이제 「공유」를 누르면 공유 시트가 떠요/)).toBeInTheDocument()
+    } finally {
+      window.history.replaceState(null, '', '/')
     }
   })
 
