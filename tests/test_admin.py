@@ -20,6 +20,7 @@ from app.models import (
     CreditReason,
     CustomPromptLog,
     GenerationJob,
+    JobStatus,
     Member,
     MemberKind,
     MetricEvent,
@@ -855,6 +856,10 @@ def test_admin_update_prompt_version_rejects_other_style_version(
         ),
         ("PATCH", "/v1/admin/styles/999999/prompt-versions/999999", {}),
         ("GET", "/v1/admin/custom-prompts/top", None),
+        ("GET", "/v1/admin/members", None),
+        ("GET", "/v1/admin/jobs", None),
+        ("GET", "/v1/admin/events", None),
+        ("GET", "/v1/admin/ledger", None),
         (
             "POST",
             "/v1/admin/custom-prompts/00000000-0000-0000-0000-000000000000/promote",
@@ -870,6 +875,54 @@ def test_admin_prompt_version_endpoints_reject_member_token(
     response = client.request(method, path, headers=member_headers, json=payload)
 
     assert response.status_code == 401
+
+
+def test_admin_members_and_logs_list_and_filter(client: TestClient):
+    headers = _admin_headers(client)
+    member_id = client.portal.call(_create_member, MemberKind.MEMBER, 5)
+    other_id = client.portal.call(_create_member, MemberKind.GUEST)
+
+    async def seed():
+        member = await Member.get(id=member_id)
+        member.email = "pup@example.com"
+        await member.save(update_fields=["email"])
+        source = await SourceImage.create(member=member, storage_key="uploads/x.jpg", quality_check={})
+        job = await GenerationJob.create(
+            member=member, source_image=source, idempotency_key=uuid.uuid4(), credit_cost=1,
+            status=JobStatus.FAILED, error_code="PROVIDER_ERROR",
+        )
+        await MetricEvent.create(event_type="share_click", member=member, job=job, meta={"channel": "kakao"})
+        await CreditLedger.create(
+            member=member, dedupe_key="seed", reason=CreditReason.CS_ADJUSTMENT, amount=5, balance_after=5
+        )
+
+    client.portal.call(seed)
+
+    members = client.get("/v1/admin/members?q=pup", headers=headers).json()
+    assert members["total"] == 1
+    assert members["items"][0]["id"] == member_id
+    assert members["items"][0]["job_count"] == 1
+    assert members["items"][0]["credit_balance"] == 5
+    everyone = client.get("/v1/admin/members", headers=headers).json()
+    assert {m["id"] for m in everyone["items"]} >= {member_id, other_id}
+    by_uuid = client.get(f"/v1/admin/members?q={other_id}", headers=headers).json()
+    assert [m["id"] for m in by_uuid["items"]] == [other_id]
+
+    jobs = client.get(f"/v1/admin/jobs?member_id={member_id}", headers=headers).json()["items"]
+    assert len(jobs) == 1
+    assert jobs[0]["status"] == "failed" and jobs[0]["error_code"] == "PROVIDER_ERROR"
+    assert jobs[0]["member_label"] == "pup@example.com"
+    assert client.get("/v1/admin/jobs?status=succeeded", headers=headers).json()["items"] == []
+    assert client.get(f"/v1/admin/jobs?member_id={other_id}", headers=headers).json()["items"] == []
+
+    events = client.get(f"/v1/admin/events?member_id={member_id}", headers=headers).json()["items"]
+    assert [e["event_type"] for e in events] == ["share_click"]
+    assert events[0]["meta"] == {"channel": "kakao"} and events[0]["job_id"] == jobs[0]["id"]
+
+    ledger = client.get(f"/v1/admin/ledger?member_id={member_id}", headers=headers).json()["items"]
+    assert [(row["reason"], row["amount"], row["balance_after"]) for row in ledger] == [("cs_adjustment", 5, 5)]
+
+    assert client.get("/v1/admin/jobs?member_id=nope", headers=headers).status_code == 400
 
 
 _SETTING_KEYS = [

@@ -1,5 +1,5 @@
 [사용법]
-1. ChatGPT에 반려동물 사진 1장을 첨부하세요 (앉은 전신샷 추천!)
+1. ChatGPT에 반려동물 사진 1장을 첨부하세요 (앉은 전신샷 추천!) — 인형이 아니라 우리 아이가 그대로 기계 안에 들어갑니다
 2. 아래 내용을 전부 복사해서 붙여넣기
 3. 기계 색만 골라서 적으면 완성!
    ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
@@ -15,45 +15,32 @@
 
 ──────────────────────
 
-Using the attached pet photo, create a photograph looking through the
-glass of a Japanese-style claw machine, where a plush doll of this exact
-pet sits among the prizes. Vertical 4:5 canvas.
+Using the attached pet photo, create a real photograph looking through
+the glass of a Japanese-style claw machine, where THIS EXACT PET — the
+real, living animal, not a toy — sits inside among the plush prizes as if
+it were the prize everyone is trying to win. Vertical 4:5 canvas.
 
-THE PLUSH — it is a toy, not a real dog
-The pet is rendered as a soft stuffed plush doll:
-- Chibi proportions: a big round head, small plump body, tiny stubby
-  legs, soft rounded paws
-- Made of short velvety plush fabric with a visible fuzzy nap, with
-  faint seam lines running along the head and body
-- Small glossy plastic safety eyes and a tiny embroidered nose and mouth
-  in dark thread
-- Slightly squishy and imperfect, gently dented where it presses against
-  the other toys
-- A small paper hang tag on a string attached to one ear
-
-MATCH THE REAL PET
-Keep it recognizable: the pet's actual coat colors as the plush fabric
-colors, markings recreated as separate fabric panels in the same
-positions, matching ear type and shape, matching coat length in the plush
-nap — fluffy for a long-haired pet, short and smooth for a short-haired
-one.
+THE PET — a real animal, photographed
+The pet is the real dog from the photo, alive and photorealistic:
+- Same face, same expression, same eyes and nose, same coat colors and
+  markings in the same positions, same ear shape, same coat length and
+  texture. Do not stylize, do not turn it into a plush, figurine, cartoon
+  or 3D render.
+- Real fur with individual strands catching the light, real wet nose,
+  real glossy eyes with natural catchlights
+- Sitting or lying comfortably front and center against the glass,
+  looking at the camera, in sharp focus — this is the hero
+- Natural size: it fills a good part of the machine, clearly bigger than
+  the plush toys around it
 
 THE MACHINE INTERIOR
-- The machine is filled with MANY COPIES OF THE SAME PLUSH — every single
-  toy inside is an identical doll of this one pet. There are no other
-  characters, no bears, no bunnies, no generic toys of any kind.
-- Roughly ten to fifteen identical plushes are piled up, filling the
-  frame from the bottom to the mid-height
-- One plush sits front and center against the glass, facing the camera
-  directly and in sharp focus — this is the hero
-- The others are arranged naturally at varied angles: some upright, some
-  tipped onto their side, some face down, some half-buried under the
-  others, a few facing away from the camera. Never a neat grid.
-- The ones further back are progressively softer and more out of focus,
-  and slightly dimmer, receding into the depth of the machine
-- Every copy is identical in color, markings and construction — same
-  fabric, same tag, same face. Consistency across all of them is
-  essential.
+- Around and behind the pet, a pile of soft generic plush toys in muted
+  pastel colors (simple round bears, bunnies, blobs) — plain and
+  understated so the real pet stands out. No plush that looks like the
+  pet, no characters, no branded toys.
+- The plushes are arranged naturally at varied angles, some half-buried,
+  never a neat grid. The ones further back are softer and out of focus,
+  slightly dimmer, receding into the depth of the machine
 - A metal three-pronged claw hangs from above, partly in frame at the top,
   slightly open, its cable running up out of view
 - The interior is lit by cool bright LED strips along the top edges
@@ -76,16 +63,19 @@ painted metal with a few small scuffs. Blurred neon arcade lighting in
 the reflection — pinks, blues and warm yellows.
 
 LIGHT AND CAMERA
-Shot close, straight through the glass at the plush's eye level, with a
-50mm lens. The plush in sharp focus, the toys behind it falling soft, the
-reflections adding depth. Cool interior LED light mixed with warm arcade
-glow. Fine grain, natural imperfect framing, no filters.
+Shot close, straight through the glass at the pet's eye level, with a
+50mm lens on a full-frame camera. The pet in sharp focus, the toys behind
+it falling soft, the reflections adding depth. Cool interior LED light
+mixed with warm arcade glow. Fine natural grain, true-to-life colors,
+natural imperfect framing, no filters.
 
 TEXT
 No text, letters, numbers, logos, prices or watermarks anywhere in the
 image.
 
 STYLE
-A real candid photograph taken at an arcade. Bright, playful and slightly
-wistful — the feeling of wanting something behind glass. It must look
-like an actual photo, never a digital illustration.
+A real candid photograph taken at an arcade — the kind of photo a friend
+would snap on a mirrorless camera and post without editing. Bright,
+playful and a little absurd: a real dog calmly sitting inside a claw
+machine. It must look like an actual photograph, never an illustration,
+render or plush-toy version of the pet.
