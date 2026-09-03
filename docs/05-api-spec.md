@@ -55,7 +55,7 @@
 | `ALREADY_MEMBER` | HTTP 에러 | 409 | 회원 토큰으로 register/login/소셜 authorize 호출 — 로그인 수단 추가는 MVP 미지원(이슈 #17) |
 | `MEMBER_ONLY` | HTTP 에러 | 403 | **유효한 게스트 토큰**으로 회원 전용 기능 접근(`POST /v1/credits/claim`·카페24 연동) — 401과 달리 토큰은 살아있으므로 클라이언트는 세션을 지우지 말고 로그인 시트를 띄움(이슈 #52) |
 | `CAT_DETECTED` | 리소스 필드값(`uploads.blocking_issue.code`) | — (본 요청은 200) | 고양이 감지 — 업로드 진행 차단(FR-EDGE-07) |
-| `NOT_A_DOG` | 리소스 필드값(`uploads.warnings[].code`) | — (200) | 강아지 미검출 — 경고만, 진행 허용(FR-EDGE-08) |
+| `NOT_A_DOG` | 리소스 필드값(`uploads.warnings[]` 또는 `blocking_issue`) | — (200) | 강아지 미검출 — `app_setting.no_dog_policy`(`block`/`warn`/`allow`, 기본 `block`)에 따라 차단 또는 경고(FR-EDGE-08) |
 | `MULTI_SUBJECT` | 리소스 필드값(`uploads.warnings[].code`) | — (200) | 여러 마리 감지(FR-EDGE-09) |
 | `QUALITY_WARNING` | 리소스 필드값(`uploads.warnings[].code`) | — (200) | 흐림/저조도 — 경고만, 진행 허용(`detail.issues`에 `blur`/`dark`) |
 | `HUMAN_FACE_DETECTED` | 리소스 필드값(`uploads.warnings[]` 또는 `blocking_issue`) | — (200) | 사람 얼굴 포함 — `app_setting.human_face_policy`(`warn`/`block`/`allow`)에 따라 경고 또는 차단(FR-EDGE-06) |
@@ -1260,7 +1260,7 @@ CS 대응 등 수동 조정. `dedupe_key`는 관리자가 사유별로 직접 �
 { "key": "human_face_policy", "value": "block", "updated_at": "2026-08-03T10:00:00+09:00" }
 ```
 필드는 [04-erd.md §2.13](04-erd.md) `app_setting` 컬럼과 동일. `404 NOT_FOUND`: 존재하지 않는 `key`.
-`key`는 서버가 아는 설정 키(`human_face_policy`, `custom_prompt_credit_cost`, `daily_free_amount`, `follow_ig_amount`, `link_account_amount`, `order_reward_amount`, `catalog_search_threshold`)만 허용. GET은 저장된 적 없는 키도 기본값으로 돌려주며 그 경우 `updated_at`은 `null`. `400 VALIDATION_ERROR`: `human_face_policy`는 `block`/`warn`/`allow`, 나머지는 0 이상 정수만.
+`key`는 서버가 아는 설정 키(`human_face_policy`, `no_dog_policy`, `custom_prompt_credit_cost`, `daily_free_amount`, `follow_ig_amount`, `link_account_amount`, `order_reward_amount`, `catalog_search_threshold`)만 허용. GET은 저장된 적 없는 키도 기본값으로 돌려주며 그 경우 `updated_at`은 `null`. `400 VALIDATION_ERROR`: `human_face_policy`·`no_dog_policy`는 `block`/`warn`/`allow`, 나머지는 0 이상 정수만.
 
 ---
 

@@ -169,7 +169,7 @@
 | FR-EDGE-05 | 주문 보상 후 주문 취소 | +20 전액 회수(음수 잔액 허용) | 회수 | P0 | `#states`, `07-decisions.md#Q3` |
 | FR-EDGE-06 | 사람 얼굴 포함 사진 | 경고 후 진행 허용 여부는 `human_face_policy`(block/warn/allow) 설정값을 따름 | 정책 의존 | P0 | `#states`, `07-decisions.md#Q6` |
 | FR-EDGE-07 | 고양이 사진 업로드 | 강아지 전용 안내(부드러운 문구) 후 차단 | 차단 시 미차감 | P1 | `#states` |
-| FR-EDGE-08 | 강아지가 없는 사진 | 업로드 단계에서 감지·경고, 진행은 허용 | 진행 시 차감 | P1 | `#states` |
+| FR-EDGE-08 | 강아지가 없는 사진 | 업로드 단계에서 감지. `no_dog_policy`(block/warn/allow, **기본 block**)를 따름 — block 이면 업로드 거부, warn 이면 경고 후 진행 허용 | block=차감 없음 / warn 진행 시 차감 | P1 | `#states`, `07-decisions.md#Q6` |
 | FR-EDGE-09 | 여러 마리가 찍힌 사진 | 대상 선택 UI 또는 "함께 변환" 안내 | 정상 차감 | P1 | `#states` |
 | FR-EDGE-10 | 견종 정보 없음(입력값 매칭 완전 실패) | 계산기 URL 파라미터를 비우고 1단계부터 시작 | — | P1 | `#states`, `#p07` |
 | FR-EDGE-11 | 입력 견종이 계산기 목록(40종, `app/breeds.py`)에 없음 | "믹스견"으로 폴백 | — | P1 | `#states`, `#p07`, `07-decisions.md#Q9` |

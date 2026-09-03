@@ -189,7 +189,7 @@ class UpdateSettingRequest(BaseModel):
     value: StrictInt | str
 
 
-_HUMAN_FACE_POLICIES = ("block", "warn", "allow")
+_POLICY_VALUES = ("block", "warn", "allow")
 # ponytail: 기본값 출처는 각 라우터 상수 — 단일 설정 모듈로 합치는 건 키가 더 늘 때
 _SETTING_DEFAULTS = {
     **_AMOUNT_DEFAULTS,
@@ -590,10 +590,10 @@ async def admin_update_setting(
     if key not in _SETTING_DEFAULTS:
         raise not_found("존재하지 않는 설정 키입니다")
     value = body.value
-    if key == "human_face_policy":
-        if value not in _HUMAN_FACE_POLICIES:
+    if key in _POLICY_DEFAULTS:
+        if value not in _POLICY_VALUES:
             raise validation_error(
-                "허용되지 않는 값입니다", {"field": "value", "allowed": list(_HUMAN_FACE_POLICIES)}
+                "허용되지 않는 값입니다", {"field": "value", "allowed": list(_POLICY_VALUES)}
             )
     elif not isinstance(value, int) or value < 0:
         raise validation_error("0 이상의 정수여야 합니다", {"field": "value"})

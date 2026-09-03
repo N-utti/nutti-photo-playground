@@ -98,7 +98,7 @@
 
     <section id="tab-settings">
       <div class="scroll"><table id="settings-table"></table></div>
-      <p class="muted">human_face_policy는 block/warn/allow, 나머지는 0 이상 정수. 저장 즉시 서비스에 반영된다.</p>
+      <p class="muted">*_policy(사람 얼굴·강아지 없음)는 block/warn/allow, 나머지는 0 이상 정수. 저장 즉시 서비스에 반영된다.</p>
     </section>
 
     <section id="tab-credits">
@@ -275,11 +275,11 @@ const loadSettings = guard(async () => {
   $('settings-table').innerHTML =
     '<tr><th>키</th><th>값</th><th>수정</th><th></th></tr>' +
     items.map((s, i) => `<tr><td>${esc(s.key)}</td>
-      <td>${s.key === 'human_face_policy'
+      <td>${s.key.endsWith('_policy')
         ? `<select id="st-${i}">${['block','warn','allow'].map(v => `<option ${v===s.value?'selected':''}>${v}</option>`).join('')}</select>`
         : `<input id="st-${i}" type="number" min="0" value="${s.value}" style="width:90px">`}</td>
       <td class="muted">${fmtDate(s.updated_at)}</td>
-      <td><button class="ghost" onclick="saveSetting('${esc(s.key)}',${i},${s.key==='human_face_policy'})">저장</button></td></tr>`).join('');
+      <td><button class="ghost" onclick="saveSetting('${esc(s.key)}',${i},${s.key.endsWith('_policy')})">저장</button></td></tr>`).join('');
 });
 const saveSetting = guard(async (key, i, isStr) => {
   const raw = $(`st-${i}`).value;

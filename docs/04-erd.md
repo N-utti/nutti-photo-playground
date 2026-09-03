@@ -387,7 +387,7 @@ erDiagram
 | `value` | JSONB | NOT NULL | |
 | `updated_at` | TIMESTAMPTZ | NOT NULL | |
 
-예시 키: `human_face_policy`(`block`/`warn`/`allow`, `07-decisions.md#Q6`), `custom_prompt_credit_cost`(기본 2), `daily_free_amount`(기본 1), `follow_ig_amount`(기본 2), `link_account_amount`(기본 3), `order_reward_amount`(기본 20), `catalog_search_threshold`(기본 100, W-02 검색 부활 모니터링 임계). **주의**: `order_reward_cutoff`는 여기 없음 — 회원별 값이라 `member.order_reward_cutoff` 컬럼에 있음(§2.1). 이름이 비슷해 혼동하기 쉬우므로 명시.
+예시 키: `human_face_policy`(`block`/`warn`/`allow`, `07-decisions.md#Q6`), `no_dog_policy`(같은 값, 기본 `block` — 강아지 미검출 차단, FR-EDGE-08), `custom_prompt_credit_cost`(기본 2), `daily_free_amount`(기본 1), `follow_ig_amount`(기본 2), `link_account_amount`(기본 3), `order_reward_amount`(기본 20), `catalog_search_threshold`(기본 100, W-02 검색 부활 모니터링 임계). **주의**: `order_reward_cutoff`는 여기 없음 — 회원별 값이라 `member.order_reward_cutoff` 컬럼에 있음(§2.1). 이름이 비슷해 혼동하기 쉬우므로 명시.
 
 ---
 
