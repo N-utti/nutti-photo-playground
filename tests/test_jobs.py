@@ -604,7 +604,9 @@ def test_share_result_returns_existing_result_public_url(client: TestClient):
 
     assert response.status_code == 200
     assert response.json() == {
-        "share_image_url": "https://cdn.nutti.test/results/succeeded.jpg"
+        "share_image_url": "https://cdn.nutti.test/results/succeeded.jpg",
+        # R2 가 없는 테스트 환경은 첨부 주소가 공개 주소로 물러난다 — 서명 자체는 test_storage.py
+        "download_url": "https://cdn.nutti.test/results/succeeded.jpg",
     }
 
 

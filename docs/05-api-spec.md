@@ -642,8 +642,13 @@
 ```
 ```json
 // 200
-{ "share_image_url": "https://cdn.nutti.co.kr/share/b3e13c4a-0.jpg" }
+{
+  "share_image_url": "https://cdn.nutti.co.kr/results/b3e13c4a-0.jpg",
+  "download_url": "https://<account>.r2.cloudflarestorage.com/nutti-media/results/b3e13c4a-0.jpg?X-Amz-...&response-content-disposition=attachment%3B%20filename%3D%22nutti-b3e13c4a.jpg%22"
+}
 ```
+
+`share_image_url`은 인증 없는 공개 주소(표시용). `download_url`은 **첨부(`Content-Disposition: attachment`) 헤더가 붙는 1시간짜리 presigned 주소** — «이미지 저장»이 이동하는 곳으로, 카카오톡·인스타그램 인앱 브라우저처럼 `blob:` 다운로드가 죽는 곳에서도 파일이 기기에 떨어진다(2026-09-03, 카카오 InAppBrowser FAQ의 «응답 헤더» 방식). 로컬(R2 없음)에서는 `share_image_url`과 같다.
 
 ---
 
@@ -704,6 +709,7 @@
           "job_id": "b3e13c4a-2f1e-4a3a-9b1e-1234567890ab",
           "result_id": "e5f6a7b8-...",
           "image_url": "https://cdn.nutti.co.kr/results/aaa1.jpg",
+          "download_url": "https://<account>.r2.cloudflarestorage.com/nutti-media/results/aaa1.jpg?X-Amz-...&response-content-disposition=attachment%3B%20filename%3D%22nutti-e5f6a7b8.jpg%22",
           "pet_id": "b6f9e6b0-...",
           "created_at": "2026-08-03T10:00:00+09:00"
         }

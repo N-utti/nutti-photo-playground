@@ -41,8 +41,8 @@ import {
 } from '../api/queries'
 import { useGuestSessionReset } from '../app/guestSession'
 import { contextFromJob, withReuse } from '../app/reuseFromJob'
-import { detectInAppBrowser, externalOpenUrl } from '../app/inAppBrowser'
-import { saveImage, type SaveImageOutcome } from '../app/saveImage'
+import { detectInAppBrowser, externalOpenUrl, tryLeaveTo } from '../app/inAppBrowser'
+import { downloadAttachment, saveImage, type SaveImageOutcome } from '../app/saveImage'
 import ShareFallbackSheet from '../app/ShareFallbackSheet'
 import {
   fetchShareFile,
@@ -61,7 +61,7 @@ import {
   restoredInputValues,
 } from '../app/styleInputs'
 import Thumbnail from '../app/Thumbnail'
-import type { Job, JobErrorCode } from '../api/types'
+import type { Job, JobErrorCode, ShareResult } from '../api/types'
 import AccountSheet from './AccountSheet'
 import InsufficientCreditOverlay from './InsufficientCreditOverlay'
 import JobUnavailable from './JobUnavailable'
@@ -551,11 +551,10 @@ function ShareRow({ job }: { job: Job }) {
   const [saving, setSaving] = useState(false)
   // 'opened' 는 저장이 아니라 이미지가 새 탭에서 열렸다는 뜻입니다 — 그때만 안내합니다.
   const [saveOutcome, setSaveOutcome] = useState<SaveImageOutcome | null>(null)
-  // 카카오톡·인스타 웹뷰 — 저장이 조용히 죽는 곳이라 저장을 밖으로 내보냅니다.
+  // 카카오톡·인스타 웹뷰 — blob 저장이 조용히 죽는 곳이라 첨부 주소로 내려받습니다.
   const inAppBrowser = detectInAppBrowser()
-  const [inAppGuide, setInAppGuide] = useState(false)
-  // 카카오톡 웹뷰에서 외부 브라우저로 이미지를 연 직후 — 길게 눌러 저장 안내.
-  const [externalOpened, setExternalOpened] = useState(false)
+  // 첨부 주소로 다운로드를 시작한 직후 — 어디서 찾을지 안내.
+  const [downloadStarted, setDownloadStarted] = useState(false)
   /*
     «공유» 의 실체 — Web Share API 로 이미지 **파일**을 OS 공유 시트에 넘기면
     인스타그램(게시물/스토리/DM)이 바로 뜹니다. 저장 → 인스타 앱 → 갤러리 왕복을 없애는
@@ -595,10 +594,10 @@ function ShareRow({ job }: { job: Job }) {
    * 실패는 `null` 로만 알립니다. 사유는 아래 `share.error` 가 이미 화면에 적고 있고,
    * 여기서 다시 던지면 처리되지 않은 rejection 이 됩니다.
    */
-  async function resolveShareUrl(): Promise<string | null> {
-    if (share.data) return share.data.share_image_url
+  async function resolveShare(): Promise<ShareResult | null> {
+    if (share.data) return share.data
     try {
-      return (await share.mutateAsync()).share_image_url
+      return await share.mutateAsync()
     } catch {
       return null
     }
@@ -625,33 +624,36 @@ function ShareRow({ job }: { job: Job }) {
   function resetNotices() {
     setSaveOutcome(null)
     setShareOutcome(null)
-    setInAppGuide(false)
-    setExternalOpened(false)
+    setDownloadStarted(false)
   }
 
   async function handleSaveImage() {
     resetNotices()
     setSaving(true)
     try {
-      const url = await resolveShareUrl()
-      if (url === null) return
+      const shared = await resolveShare()
+      if (shared === null) return
+      const url = shared.share_image_url
       const sheetSave = saveViaShareSheet()
       /*
-        OS 시트로 저장이 안 되는 인앱 웹뷰(Android 카톡·인스타·네이버앱 …)는 다운로드도
-        조용히 버립니다 — 성공한 척하지 않고 이미지를 외부 브라우저(크롬 등)에 바로 엽니다
-        (app/inAppBrowser.ts). 결과 **페이지**가 아니라 **이미지 URL** 을 여는 이유는, 게스트
-        세션이 웹뷰 localStorage 에 갇혀 있어 페이지를 열면 결과 접근이 안 되기 때문입니다
-        (share_image_url 은 인증 없는 공개 URL). 나갈 방법이 없는 곳(인스타 iOS 구형)만
-        안내줄로 물러납니다.
+        OS 시트로 저장이 안 되는 인앱 웹뷰는 `blob:` 다운로드를 조용히 버립니다. 그래서
+        fetch 없이 서버가 준 **첨부 주소**(`download_url`, Content-Disposition: attachment)를
+        씁니다 — 결과는 크롬에서 저장한 것과 같은 «갤러리에 파일 한 장» 입니다.
+          - 카카오톡: 그 자리에서 이동 — 응답 헤더 다운로드가 카카오 공식 경로(iOS·Android).
+          - 인스타그램·그 밖의 Android 웹뷰: 호스트 앱이 다운로드를 받아 주지 않을 수 있어
+            (WebView 는 리스너가 없으면 무반응) 첨부 주소를 **외부 브라우저로** 넘깁니다 —
+            크롬은 첨부 응답을 받으면 페이지 이동 없이 곧바로 내려받습니다(HTML 표준).
+          - 나갈 스킴이 없는 곳(인스타 iOS 구형)은 그 자리에서 이동을 시도합니다.
+        (2026-09-03 조사, app/inAppBrowser.ts · app/saveImage.ts)
       */
       if (!sheetSave && inAppBrowser !== null) {
-        const external = externalOpenUrl(inAppBrowser, url)
-        if (external === null) {
-          setInAppGuide(true)
-          return
+        const viaExternal =
+          inAppBrowser === 'kakaotalk' ? null : externalOpenUrl(inAppBrowser, shared.download_url)
+        // 인텐트를 안 받는 웹뷰(페이지가 그대로)면 그 자리에서 첨부 이동을 시도합니다.
+        if (viaExternal === null || !(await tryLeaveTo(viaExternal))) {
+          downloadAttachment(shared.download_url, filename)
         }
-        window.location.href = external
-        setExternalOpened(true)
+        setDownloadStarted(true)
         return
       }
       if (sheetSave) {
@@ -683,10 +685,10 @@ function ShareRow({ job }: { job: Job }) {
     try {
       if (shareCap === 'files') {
         if (shareFile.current === null) {
-          const url = await resolveShareUrl()
+          const shared = await resolveShare()
           // 사유는 아래 `share.error` 가 이미 적고 있습니다 — 여기서 또 말하지 않습니다.
-          if (url === null) return
-          shareFile.current = await fetchShareFile(url, filename)
+          if (shared === null) return
+          shareFile.current = await fetchShareFile(shared.share_image_url, filename)
         }
         const outcome =
           shareFile.current === null ? 'failed' : await shareImage(shareFile.current, SHARE_TEXT)
@@ -694,15 +696,20 @@ function ShareRow({ job }: { job: Job }) {
         track({ event_type: 'share_sheet', properties: { job_id: job.job_id, outcome } })
         return
       }
-      const url = await resolveShareUrl()
-      if (url === null) return
+      const shared = await resolveShare()
+      if (shared === null) return
+      const url = shared.share_image_url
       if (shareCap === 'link') {
         const outcome = await shareLink(url, SHARE_TEXT)
         setShareOutcome(outcome)
         track({ event_type: 'share_sheet', properties: { job_id: job.job_id, outcome } })
         return
       }
-      // 시트가 없는 브라우저 — 자체 시트. share_sheet 는 OS 시트의 결과만 세므로 여기선 안 보냅니다.
+      /*
+        시트가 없는 브라우저 — 자체 시트. Android 웹뷰의 인텐트 ACTION_SEND 는 진짜 공유
+        시트가 아니라 BROWSABLE 을 선언한 소수 앱만 뜨는 «연결 프로그램» 창이라(카톡·인스타·
+        메시지는 안 뜸, 2026-09-03 조사) 쓰지 않습니다. share_sheet 는 OS 시트의 결과만 셉니다.
+      */
       setFallbackShareUrl(url)
     } finally {
       setSharing(false)
@@ -766,19 +773,12 @@ function ShareRow({ job }: { job: Job }) {
         </p>
       )}
       {/*
-        나갈 스킴이 없는 웹뷰(인스타 iOS 구형). 메뉴로 외부 브라우저에 가면 게스트 세션이
-        따라가지 않아 결과가 안 열리니, 되는 길(「공유」의 링크 시트)을 먼저 말합니다.
+        이동식 다운로드는 결과를 돌려주지 않습니다 — 시작했다는 것까지만 말하고, 어디서
+        찾을지를 답니다(Android 는 갤러리의 다운로드 앨범, iOS 웹뷰는 파일 앱).
       */}
-      {inAppGuide && (
+      {downloadStarted && (
         <p role="status" className="mt-2 text-center text-xs text-ink-3">
-          이 앱 안의 브라우저에서는 갤러리 저장이 막혀 있어요 — 「공유」로 링크를 보내 다른
-          데서 열거나, 오른쪽 위 메뉴(⋯) → 「외부 브라우저에서 열기」 뒤 저장해 주세요(로그인한
-          결과만 다시 열려요).
-        </p>
-      )}
-      {externalOpened && (
-        <p role="status" className="mt-2 text-center text-xs text-ink-3">
-          외부 브라우저에 이미지를 열었어요 — 이미지를 길게 눌러 저장하면 갤러리에 들어가요.
+          다운로드를 시작했어요 — 갤러리의 다운로드 앨범이나 파일 앱에서 확인해 주세요.
         </p>
       )}
       {/*

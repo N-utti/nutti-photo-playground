@@ -492,6 +492,7 @@ export const libraryItems: LibraryItem[] = [
     job_id: 'b3e13c4a-2f1e-4a3a-9b1e-1234567890ab',
     result_id: 'e5f6a7b8-0000-4000-8000-000000000001',
     image_url: placeholderImage('결과 1', undefined, RESULT_SIZE),
+    download_url: placeholderImage('결과 1', undefined, RESULT_SIZE),
     pet_id: petList[0].id,
     created_at: '2026-08-03T10:00:00+09:00',
   },
@@ -509,6 +510,7 @@ export const libraryItems: LibraryItem[] = [
       job_id: `b3e13c4a-2f1e-4a3a-9b1e-${serial}`,
       result_id: `e5f6a7b8-0000-4000-8000-${serial}`,
       image_url: placeholderImage(`결과 ${index + 2}`, undefined, RESULT_SIZE),
+      download_url: placeholderImage(`결과 ${index + 2}`, undefined, RESULT_SIZE),
       pet_id: row.pet,
       created_at: `${row.day}T10:00:00+09:00`,
     }

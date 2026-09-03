@@ -165,6 +165,7 @@ def test_library_groups_by_kst_month_and_returns_item_fields(client: TestClient)
         "job_id": august_newer["job_id"],
         "result_id": august_newer["result_id"],
         "image_url": f"https://cdn.nutti.test/{august_newer['storage_key']}",
+        "download_url": f"https://cdn.nutti.test/{august_newer['storage_key']}",
         "pet_id": pet_id,
         "created_at": newer_item["created_at"],
     }

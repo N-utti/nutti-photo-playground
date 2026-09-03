@@ -9,9 +9,11 @@
  *   - **iOS** 웹뷰(WKWebView): `navigator.share` 는 iOS 12.2+, 파일 공유는 iOS 15+ 라
  *     보통은 OS 시트 경로를 그대로 탑니다. 여기 오는 건 시트가 없는 구형뿐입니다.
  *
- * 웹이 할 수 있는 일은 저장·공유가 되는 곳(외부 브라우저)으로 내보내는 것입니다.
- * 카카오톡은 공식 스킴, Android 웹뷰는 인텐트 URL 로 나갈 수 있고, 인스타그램 iOS 는
- * 2026-04 현재 믿을 만한 프로그램적 탈출이 없어 메뉴 경로를 말로 안내합니다.
+ * 웹이 할 수 있는 일 둘: ① 서버의 **첨부 주소**(`download_url`, Content-Disposition:
+ * attachment)로 이동 — 카카오톡의 공식 다운로드 경로(iOS·Android) ② 저장·공유가 되는 곳
+ * (외부 브라우저)으로 내보내기 — 카카오톡은 공식 스킴, Android 웹뷰는 인텐트 URL(인스타그램은
+ * 2024-10 이후 막았다는 보고가 있어 `tryLeaveTo` 로 확인 후 ①로 물러남), 인스타그램 iOS 는
+ * 2026-04 현재 믿을 만한 프로그램적 탈출이 없어 ①만 시도합니다.
  *
  * UA 스니핑이지만 카톡·인스타는 UA 에 자기 이름을 명시적으로 싣고, 나머지 Android 웹뷰는
  * `; wv)` 가 표준 표식이라 오탐보다 미탐이 문제인 자리입니다 — 미탐이면 예전처럼 조용히
@@ -29,8 +31,30 @@ export function detectInAppBrowser(): InAppBrowser | null {
   return null
 }
 
-function isAndroid(): boolean {
+export function isAndroid(): boolean {
   return typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent)
+}
+
+/**
+ * 스킴·인텐트로 나가 보고, 실제로 나갔는지(페이지가 가려졌는지)로 답합니다.
+ *
+ * 인텐트를 안 받는 웹뷰(인스타그램은 2024-10 이후 막았다는 보고가 있음)는 아무 일도 안
+ * 일어나고 페이지가 그대로 보입니다 — 그때 false 를 돌려 호출부가 다음 수를 두게 합니다.
+ * 1.5초는 앱 전환 애니메이션보다 넉넉한 값입니다.
+ */
+export function tryLeaveTo(url: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    let hidden = false
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') hidden = true
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    window.location.href = url
+    window.setTimeout(() => {
+      document.removeEventListener('visibilitychange', onVisibility)
+      resolve(hidden)
+    }, 1500)
+  })
 }
 
 /** 로컬(`/media/…` 상대 경로)에서도 스킴·인텐트에 실을 수 있게 절대 주소로. */

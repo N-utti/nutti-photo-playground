@@ -65,6 +65,19 @@ export async function saveImage(url: string, filename: string): Promise<SaveImag
 }
 
 /**
+ * 서버가 준 **첨부 주소**(`download_url`, `Content-Disposition: attachment`)로 이동해 저장합니다.
+ *
+ * fetch → blob 을 거치지 않는 이유가 이 함수의 존재 이유입니다 — 카톡·인스타 Android
+ * 웹뷰는 `blob:` 을 파일로 만들지 않지만(«다운로드 중» 토스트만 뜨고 끝), 응답 헤더로
+ * 오는 첨부는 카카오 공식 FAQ 가 안내하는 경로라 iOS·Android 웹뷰 모두 기기에 파일을
+ * 남깁니다(2026-09-03 조사). 그래서 «이미지 저장» 이 어느 브라우저에서나 같은 결과가 됩니다.
+ * 결과를 돌려주지 못하는 건 이동식 다운로드의 한계 — 시작했다는 것까지만 압니다.
+ */
+export function downloadAttachment(downloadUrl: string, filename: string): void {
+  clickAnchor(downloadUrl, filename)
+}
+
+/**
  * `newTab` 은 물러선 경로에서만 켭니다. 원본 URL 로 이동할 때 현재 탭이 이미지로
  * 바뀌면 만들던 흐름이 통째로 날아가기 때문입니다. blob 경로에서는 반대로 켜면
  * 안 됩니다 — 저장 대신 새 탭이 열리는 브라우저가 있습니다.
