@@ -751,7 +751,17 @@ function ShareRow({ job }: { job: Job }) {
   return (
     <>
       {arrivedForShare && (
-        <p role="status" className="mt-5 rounded-xl bg-surface-2 px-4 py-3 text-center text-sm">
+        /*
+          바탕이 `bg-surface-2`(크림 #F6F1E7) 였는데 이 화면의 바탕은 `bg-canvas`
+          (#F5F4F2)입니다. 둘의 명도 대비가 **1.02:1** 이라(1.0 이 «같은 색») 상자가
+          사실상 안 보였습니다 — 하필 이건 «크롬으로 넘어왔다» 를 알리는 상태 메시지라
+          눈에 띄어야 하는 자리입니다.
+
+          `surface-2` 는 **흰 면 위에서만** 조용한 상자로 작동합니다(index.css «면과
+          테두리»). 페이지 위에서는 흰 카드입니다 — 흰색 대 canvas 는 1.10:1 로,
+          레퍼런스(여기어때 #F5F7FA 대 흰색 = 1.07:1)와 같은 급입니다.
+        */
+        <p role="status" className="mt-5 rounded-xl bg-surface px-4 py-3 text-center text-sm">
           크롬으로 넘어왔어요 — 이제 「공유」를 누르면 공유 시트가 떠요.
         </p>
       )}
