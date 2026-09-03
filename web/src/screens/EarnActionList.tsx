@@ -481,8 +481,15 @@ function FollowIgCta({
           두 줄(«인스타 팔로우 +2» / «@nutti_official») **사이**에 걸쳐 어느 쪽과도 안
           맞습니다(실측 327~343, 두 줄의 경계가 337). 첫 줄에 맞춥니다 — 이 링크가 짝을
           이루는 것은 제목이지 그 아래 보조 문구가 아닙니다.
+
+          `after:` 는 탭 영역입니다. 글자 상자가 84×16 이라 세로가 WCAG 2.5.8(AA) 의
+          최소 24 를 못 넘깁니다 — 이 줄에서 «인스타 팔로우» 를 받으려면 반드시 먼저
+          눌러야 하는 링크인데(서버가 이 열기 시각으로 판정합니다) 손가락으로 16px 을
+          맞춰야 했습니다. 글자를 키우거나 padding 을 주면 바로 위에 적어 둔 «제목 첫
+          줄에 맞춘다» 가 깨지므로, BackButton 과 같은 수를 씁니다 — 보이는 상자는
+          그대로 두고 ::after 로 세로만 넓힙니다(레이아웃 영향 0, 결과 84×28).
         */
-        className="mt-0.5 shrink-0 self-start text-xs text-ink-3 underline hover:text-brand"
+        className="relative mt-0.5 shrink-0 self-start text-xs text-ink-3 underline after:absolute after:inset-x-0 after:-inset-y-1.5 after:content-[''] hover:text-brand"
       >
         {/*
           글자를 그대로 둡니다. 이 라벨은 **서버가 이름으로 부릅니다** — 400
