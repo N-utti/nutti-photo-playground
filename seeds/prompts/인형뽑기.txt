@@ -1,5 +1,5 @@
 [사용법]
-1. ChatGPT에 반려동물 사진 1장을 첨부하세요 (앉은 전신샷 추천!) — 우리 아이가 손바닥만 한 미니어처로 기계 안에 들어갑니다
+1. ChatGPT에 반려동물 사진 1장을 첨부하세요 (앉은 전신샷 추천!) — 우리 아이가 손바닥만 한 미니어처로, 기계 가득 들어갑니다
 2. 아래 내용을 전부 복사해서 붙여넣기
 3. 기계 색만 골라서 적으면 완성!
    ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
@@ -17,8 +17,9 @@
 
 Using the attached pet photo, create a real macro photograph looking
 through the glass of a small Japanese-style claw machine, where THIS
-EXACT PET appears as a palm-sized MINIATURE of itself, sitting among
-other tiny miniature prizes. Vertical 4:5 canvas.
+EXACT PET appears as a palm-sized MINIATURE of itself — and every other
+prize in the machine is another identical miniature of the same pet.
+Vertical 4:5 canvas.
 
 THE MINIATURE PET — the real dog, shrunk
 The pet is the real dog from the photo, alive and photorealistic, but
@@ -28,25 +29,27 @@ scaled down to the size of a capsule toy (about 6–8 cm tall):
   texture. Real fur with fine individual strands, real wet nose, real
   glossy eyes with tiny catchlights. Do not turn it into a plush, resin
   figurine, cartoon or 3D render — it is a living dog, just tiny.
-- Sitting front and center right behind the glass, looking at the
+- One sits front and center right behind the glass, looking at the
   camera, in sharp focus — this is the hero
-- Its tiny scale must read clearly: the claw above it is as big as its
-  whole body, the prize chute is a huge dark doorway beside it, a single
-  plush next to it is about its size
 
-THE OTHER PRIZES — miniatures too
-- Around and behind the pet, a pile of small capsule-toy prizes at the
-  same tiny scale: little plush blobs, mini bears and bunnies, small
-  wrapped gacha capsules, a few tiny toy figures — all in muted pastel
-  colors, plain and understated so the real pet stands out. Nothing that
-  looks like the pet, no characters, no branded toys, no readable text.
-- Arranged naturally at varied angles, some half-buried, never a neat
-  grid. Everything further back falls softly out of focus.
+THE OTHER PRIZES — the same pet, many times
+- The machine is filled with MANY COPIES OF THE SAME MINIATURE PET:
+  roughly ten to fifteen identical tiny versions of this one dog, piled
+  up from the bottom to mid-height. No other animals, no bears, no
+  bunnies, no capsules, no generic toys of any kind.
+- Every copy is the same living, photorealistic miniature dog — same
+  coat, same markings, same face — only the pose differs: some sitting,
+  some lying down, some curled up asleep, some half-buried under the
+  others, a few facing away or looking sideways. Never a neat grid.
+- The copies further back are progressively softer and out of focus and
+  slightly dimmer, receding into the depth of the machine. Consistency
+  across all of them is essential.
 
 THE MACHINE INTERIOR
-- A metal three-pronged claw hangs from above, partly in frame at the
-  top, slightly open, its cable running up out of view — oversized
-  compared to the tiny pet
+- A small metal three-pronged claw hangs from above, partly in frame at
+  the top, slightly open, its cable running up out of view. It is a
+  normal-looking claw — about the size of one miniature dog, not
+  oversized, not dominating the frame.
 - Cool bright LED strips along the top edges
 - The back wall is a flat colored panel with no readable text
 - The prize chute opening is visible at one lower corner, dark inside
@@ -66,13 +69,13 @@ painted metal with a few small scuffs. Blurred neon arcade lighting in
 the reflection — pinks, blues and warm yellows.
 
 LIGHT AND CAMERA
-Shot very close with a 100mm macro lens at the miniature pet's eye
-level, straight through the glass. Extremely shallow depth of field —
-the pet's face razor sharp, the prizes just behind it already melting
-into soft blur, the machine walls dissolving into bokeh. This tilt-shift,
-diorama-like depth is what sells the miniature scale. Cool interior LED
-light mixed with warm arcade glow. Fine natural grain, true-to-life
-colors, natural imperfect framing, no filters.
+Shot very close with a 100mm macro lens at the hero's eye level,
+straight through the glass. Shallow depth of field — the hero's face
+razor sharp, the copies just behind it already softening, the machine
+walls dissolving into bokeh. This diorama-like depth is what sells the
+miniature scale. Cool interior LED light mixed with warm arcade glow.
+Fine natural grain, true-to-life colors, natural imperfect framing, no
+filters.
 
 TEXT
 No text, letters, numbers, logos, prices or watermarks anywhere in the
@@ -81,6 +84,7 @@ image.
 STYLE
 A real macro photograph taken at an arcade — the kind of photo a friend
 would snap on a mirrorless camera and post without editing. Bright,
-playful and a little magical: the real dog, tiny as a toy, waiting behind
-the glass to be won. It must look like an actual photograph, never an
-illustration, render, figurine or plush-toy version of the pet.
+playful and a little magical: a whole machine full of tiny living copies
+of this one dog, waiting behind the glass to be won. It must look like an
+actual photograph, never an illustration, render, figurine or plush-toy
+version of the pet.
