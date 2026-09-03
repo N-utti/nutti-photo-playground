@@ -23,7 +23,9 @@ _DARK_THRESHOLD = 60
 # ponytail: OpenCV 없이 FIND_EDGES 분산으로 Laplacian 분산을 근사한다. 선명/흐림 개발
 # 샘플 수 장을 눈대중 비교해 100을 초기 경계로 잡았고, 파일럿 오탐 데이터가 쌓이면 조정한다.
 _BLUR_VARIANCE_THRESHOLD = 100.0
-_POLICY_DEFAULTS = {"human_face_policy": "warn"}
+# 두 키 모두 block/warn/allow. no_dog 기본값이 block 인 이유: 강아지 없는 사진은 헛생성($0.05)만 낳고,
+# 경고로 두면 실서버에서 아무도 안 읽었다(2026-09-03 PO 결정, FR-EDGE-08 개정).
+_POLICY_DEFAULTS = {"human_face_policy": "warn", "no_dog_policy": "block"}
 
 
 class BlockingIssue(BaseModel):
@@ -129,11 +131,11 @@ is_dog/is_cat은 해당 동물이 명확히 보이는지, multi_subject는 동�
         return None
 
 
-async def _human_face_policy() -> str:
+async def _policy(key: str) -> str:
     rows = await AppSetting.filter(key__in=_POLICY_DEFAULTS).all()
     values = {**_POLICY_DEFAULTS, **{row.key: row.value for row in rows}}
-    policy = values["human_face_policy"]
-    return policy if policy in {"block", "warn", "allow"} else "warn"
+    policy = values[key]
+    return policy if policy in {"block", "warn", "allow"} else _POLICY_DEFAULTS[key]
 
 
 @router.post("/uploads", response_model=UploadResponse)
@@ -185,7 +187,7 @@ async def upload_photo(
 
     warnings = []
     if vision_values["human_face"]:
-        policy = await _human_face_policy()
+        policy = await _policy("human_face_policy")
         if policy == "block":
             return _blocked("HUMAN_FACE_DETECTED", "사람 얼굴이 포함된 사진은 사용할 수 없어요.")
         if policy == "warn":
@@ -198,13 +200,17 @@ async def upload_photo(
             )
 
     if checked and not vision_values["is_dog"]:
-        warnings.append(
-            {
-                "code": "NOT_A_DOG",
-                "message": "강아지가 잘 보이지 않아요",
-                "detail": None,
-            }
-        )
+        policy = await _policy("no_dog_policy")
+        if policy == "block":
+            return _blocked("NOT_A_DOG", "강아지를 찾지 못했어요. 강아지가 잘 보이는 사진을 골라주세요.")
+        if policy == "warn":
+            warnings.append(
+                {
+                    "code": "NOT_A_DOG",
+                    "message": "강아지가 잘 보이지 않아요",
+                    "detail": None,
+                }
+            )
     if vision_values["multi_subject"]:
         warnings.append(
             {

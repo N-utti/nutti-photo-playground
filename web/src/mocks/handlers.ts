@@ -48,6 +48,7 @@ import {
   uploadHumanFaceWarned,
   uploadMultiSubject,
   uploadNoDog,
+  uploadNoDogBlocked,
   uploadOk,
   uploadWarned,
 } from './fixtures'
@@ -1457,6 +1458,7 @@ export const handlers = [
     const uploads: Record<string, UploadResult> = {
       'upload:warn': uploadWarned,
       'upload:nodog': uploadNoDog,
+      'upload:nodog-block': uploadNoDogBlocked,
       'upload:multi': uploadMultiSubject,
       'upload:face': uploadHumanFaceWarned,
       'upload:face-block': uploadHumanFaceBlocked,

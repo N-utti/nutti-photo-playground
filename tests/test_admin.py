@@ -879,6 +879,7 @@ _SETTING_KEYS = [
     "follow_ig_amount",
     "human_face_policy",
     "link_account_amount",
+    "no_dog_policy",
     "order_reward_amount",
 ]
 
@@ -932,6 +933,7 @@ def test_admin_update_setting_persists_and_feeds_consumers(client: TestClient):
     [
         ("human_face_policy", "ban", 400),
         ("human_face_policy", 1, 400),
+        ("no_dog_policy", "ban", 400),
         ("order_reward_amount", -1, 400),
         ("order_reward_amount", "20", 400),
         ("order_reward_amount", True, 400),

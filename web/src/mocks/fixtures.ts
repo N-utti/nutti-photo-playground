@@ -324,7 +324,11 @@ export const uploadWarned: UploadResult = {
   ],
 }
 
-/** FR-EDGE-08 · 강아지가 없는 사진 — 경고만, 진행 허용. */
+/**
+ * FR-EDGE-08 · 강아지가 없는 사진 — `app_setting.no_dog_policy` 가 가르는 한 코드의 두 얼굴.
+ * 실서버 기본값은 `block`(2026-09-03 개정) 이라 아래 Blocked 쪽이 평소 모습이고,
+ * 이 warn 변형은 운영자가 정책을 `warn` 으로 내렸을 때의 화면입니다.
+ */
 export const uploadNoDog: UploadResult = {
   upload_id: 'c1d2e3f4-0000-4000-8000-00000000ed08',
   image_url: placeholderImage('업로드 원본', undefined, SOURCE_SIZE),
@@ -366,6 +370,16 @@ export const uploadHumanFaceBlocked: UploadResult = {
   blocking_issue: {
     code: 'HUMAN_FACE_DETECTED',
     message: '사람 얼굴이 담긴 사진은 지금 만들 수 없어요. 강아지만 나온 사진을 골라주세요.',
+  },
+  warnings: [],
+}
+
+export const uploadNoDogBlocked: UploadResult = {
+  upload_id: null,
+  image_url: null,
+  blocking_issue: {
+    code: 'NOT_A_DOG',
+    message: '강아지를 찾지 못했어요. 강아지가 잘 보이는 사진을 골라주세요.',
   },
   warnings: [],
 }

@@ -96,11 +96,11 @@ async def _create_pet(member_id: str) -> PetProfile:
     return await PetProfile.create(member_id=member_id, name="콩이")
 
 
-async def _set_policy(policy: str) -> None:
-    await AppSetting.create(key="human_face_policy", value={"seed": True})
+async def _set_policy(policy: str, key: str = "human_face_policy") -> None:
+    await AppSetting.create(key=key, value={"seed": True})
     await Tortoise.get_connection("default").execute_query(
         "UPDATE app_setting SET value = ? WHERE key = ?",
-        [json.dumps(policy), "human_face_policy"],
+        [json.dumps(policy), key],
     )
 
 
@@ -200,6 +200,36 @@ def test_human_face_policy_branches(
         assert body["upload_id"] is not None
         assert body["blocking_issue"] is None
         assert "HUMAN_FACE_DETECTED" not in warning_codes
+
+
+def test_no_dog_blocks_by_default(client: TestClient, monkeypatch: pytest.MonkeyPatch):
+    _mock_vision(monkeypatch, _vision(is_dog=False))
+    session = _guest(client)
+
+    response = client.post("/v1/uploads", headers=_headers(session), files=_files())
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["upload_id"] is None
+    assert body["blocking_issue"]["code"] == "NOT_A_DOG"
+    assert client.portal.call(_source_count) == 0
+
+
+@pytest.mark.parametrize("policy", ["warn", "allow"])
+def test_no_dog_policy_warn_and_allow_let_upload_through(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, policy: str
+):
+    _mock_vision(monkeypatch, _vision(is_dog=False))
+    client.portal.call(_set_policy, policy, "no_dog_policy")
+    session = _guest(client)
+
+    response = client.post("/v1/uploads", headers=_headers(session), files=_files())
+
+    body = response.json()
+    assert body["upload_id"] is not None
+    assert body["blocking_issue"] is None
+    codes = {warning["code"] for warning in body["warnings"]}
+    assert ("NOT_A_DOG" in codes) == (policy == "warn")
 
 
 def test_rejects_unsupported_type_oversized_file_and_decompression_bomb(

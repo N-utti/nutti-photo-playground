@@ -53,7 +53,7 @@ export type ErrorCode =
  */
 export type IssueCode =
   | 'CAT_DETECTED' // 차단
-  | 'NOT_A_DOG' // 경고
+  | 'NOT_A_DOG' // app_setting.no_dog_policy 에 따라 차단(기본) 또는 경고
   | 'MULTI_SUBJECT' // 경고
   | 'QUALITY_WARNING' // 경고
   | 'HUMAN_FACE_DETECTED' // app_setting.human_face_policy 에 따라 경고 또는 차단
