@@ -336,7 +336,7 @@ function EarnCta({ row, claiming, onClaim, onRedeem, onLinkAccount, onLogin, mem
       <button
         type="button"
         onClick={onLogin}
-        className="shrink-0 rounded-xl border border-rule-strong px-3 py-2 text-xs font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
+        className="shrink-0 rounded-xl border border-rule-strong px-3 py-2 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
       >
         {row.cta ?? '로그인'}
       </button>
@@ -352,7 +352,7 @@ function EarnCta({ row, claiming, onClaim, onRedeem, onLinkAccount, onLogin, mem
         target="_blank"
         rel="noreferrer"
         onClick={() => track({ event_type: 'shop_exit_click', properties: { from: 'W-10' } })}
-        className="shrink-0 rounded-xl bg-brand px-3 py-2 text-xs font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99]"
+        className="shrink-0 rounded-xl bg-brand px-3 py-2 text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99]"
       >
         {row.cta ?? '쇼핑몰 →'}
       </a>
@@ -360,7 +360,9 @@ function EarnCta({ row, claiming, onClaim, onRedeem, onLinkAccount, onLogin, mem
   }
 
   if (row.status === 'done') {
-    return <span className="shrink-0 text-xs font-semibold text-ink-3">완료</span>
+    // 버튼이 서던 자리라 버튼과 같은 14px 입니다 — 상태만 바뀌었는데 글자가 작아지면
+    // 줄 오른쪽 끝이 상태에 따라 들쭉날쭉해 보입니다.
+    return <span className="shrink-0 text-sm font-semibold text-ink-3">완료</span>
   }
 
   /*
@@ -377,7 +379,7 @@ function EarnCta({ row, claiming, onClaim, onRedeem, onLinkAccount, onLogin, mem
         type="button"
         onClick={onLinkAccount}
         disabled={!memberKnown}
-        className="shrink-0 rounded-xl border border-rule-strong px-3 py-2 text-xs font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
+        className="shrink-0 rounded-xl border border-rule-strong px-3 py-2 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
       >
         {row.cta ?? '연동하기'}
       </button>
@@ -386,7 +388,7 @@ function EarnCta({ row, claiming, onClaim, onRedeem, onLinkAccount, onLogin, mem
 
   // 노트4 — daily 는 오늘 이미 받았으면 '내일 다시'. 받을 수 있는 척하면 안 됩니다.
   if (row.status === 'tomorrow') {
-    return <span className="shrink-0 text-xs text-ink-3">{row.cta ?? '내일 다시'}</span>
+    return <span className="shrink-0 text-sm text-ink-3">{row.cta ?? '내일 다시'}</span>
   }
 
   if (!isClaimable(row.action)) return null
@@ -402,7 +404,7 @@ function EarnCta({ row, claiming, onClaim, onRedeem, onLinkAccount, onLogin, mem
         type="button"
         onClick={() => onClaim({ action })}
         disabled={claiming}
-        className="rounded-xl border border-rule-strong px-3 py-2 text-xs font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
+        className="rounded-xl border border-rule-strong px-3 py-2 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
       >
         {claiming ? '받는 중…' : (row.cta ?? '받기')}
       </button>
@@ -525,7 +527,7 @@ function FollowIgCta({
           value={username}
           onChange={(event) => setUsername(event.currentTarget.value)}
           maxLength={31}
-          className="min-w-0 flex-1 rounded-xl border border-rule bg-paper px-2 py-1.5 text-xs"
+          className="min-w-0 flex-1 rounded-xl border border-rule bg-paper px-2 py-1.5 text-sm"
         />
         <button
           type="button"
@@ -551,7 +553,7 @@ function FollowIgCta({
             들어가서(카운트다운도 실측 96) 폭이 흔들리지 않지만, 고정폭으로 박아 두면
             글자가 하나만 길어져도 눌립니다.
           */
-          className="min-w-24 shrink-0 rounded-xl border border-rule-strong px-3 py-2 text-xs font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
+          className="min-w-24 shrink-0 rounded-xl border border-rule-strong px-3 py-2 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
         >
           {/* 남은 초를 적습니다 — 비활성 버튼만 두면 «왜 안 눌리지» 가 됩니다. */}
           {claiming ? '받는 중…' : waitLeft > 0 ? `${waitLeft}초 후 받기` : (row.cta ?? '받기')}
@@ -577,14 +579,14 @@ function FollowIgCta({
           value={code}
           onChange={(event) => setCode(event.currentTarget.value.toUpperCase())}
           maxLength={16}
-          className="min-w-0 flex-1 rounded-xl border border-rule bg-paper px-2 py-1.5 font-mono text-xs"
+          className="min-w-0 flex-1 rounded-xl border border-rule bg-paper px-2 py-1.5 font-mono text-sm"
         />
         <button
           type="button"
           onClick={() => onRedeem(code.trim())}
           disabled={claiming || !codeValid}
           /* 위 «받기» 와 같은 폭(min-w-24). 이유는 그쪽 주석. */
-          className="min-w-24 shrink-0 rounded-xl border border-rule-strong px-3 py-2 text-xs font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
+          className="min-w-24 shrink-0 rounded-xl border border-rule-strong px-3 py-2 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
         >
           코드로 받기
         </button>

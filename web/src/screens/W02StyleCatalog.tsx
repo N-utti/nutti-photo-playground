@@ -343,7 +343,13 @@ function StyleCardItem({ style, reuseJobId }: { style: StyleCard; reuseJobId: st
         )}
       </div>
       <div className="flex items-center justify-between gap-2 px-2 py-1.5">
-        <span className="truncate text-sm font-semibold">{style.name}</span>
+        {/*
+          16px/700 입니다. 여기어때의 **상품 카드**(가격이 붙는 카드) 제목이 그 값이고
+          (메타 11 · 제목 16 · 가격 18), 이 카드가 우리의 그것입니다 — 크레딧을 주고
+          고르는 대상이니까요. 3열로 늘어놓는 미리보기 카드(랜딩·대기·결과)는 역할이
+          «둘러보기» 라 14px 입니다 — 그쪽은 여기어때의 목적지 타일(14/500)에 해당합니다.
+        */}
+        <span className="truncate text-base font-bold">{style.name}</span>
         {/*
           비용이 «1» 이라는 벌거벗은 숫자였습니다 — 무엇의 1 인지 카드 어디에도 없고,
           지금 시드는 39 종이 전부 1 이라 39 칸에 같은 숫자만 떠 있었습니다. 스크린리더

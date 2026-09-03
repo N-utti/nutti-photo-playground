@@ -146,7 +146,7 @@ function SessionBanner() {
         type="button"
         onClick={() => void retry()}
         disabled={retrying}
-        className="mt-2 rounded-xl bg-brand px-3 py-2 text-xs font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99] disabled:opacity-50"
+        className="mt-2 rounded-xl bg-brand px-3 py-2 text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99] disabled:opacity-50"
       >
         {retrying ? '시작하는 중…' : memberLost ? '계속하기' : '새로 시작하기'}
       </button>
@@ -194,7 +194,7 @@ function RefreshThrottledBanner({ seconds }: { seconds: number | null }) {
         type="button"
         onClick={() => void retry()}
         disabled={retrying}
-        className="mt-2 rounded-xl bg-brand px-3 py-2 text-xs font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99] disabled:opacity-50"
+        className="mt-2 rounded-xl bg-brand px-3 py-2 text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99] disabled:opacity-50"
       >
         {retrying ? '시도하는 중…' : '다시 시도'}
       </button>

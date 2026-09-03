@@ -513,7 +513,7 @@ function ResultUnavailable({ sourceUrl, onRetry }: { sourceUrl: string; onRetry:
         <button
           type="button"
           onClick={onRetry}
-          className="mt-2 rounded-xl border border-rule-strong bg-surface px-3 py-2 text-xs font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
+          className="mt-2 rounded-xl border border-rule-strong bg-surface px-3 py-2 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
         >
           다시 불러오기
         </button>
@@ -1298,7 +1298,7 @@ function OtherStyles({ jobId }: { jobId: string }) {
                 loading="lazy"
                 className="aspect-square w-full bg-canvas-2 object-cover"
               />
-              <span className="block truncate px-2 py-1 text-xs">{style.name}</span>
+              <span className="block truncate px-2 py-1 text-sm">{style.name}</span>
             </Link>
           </li>
         ))}
