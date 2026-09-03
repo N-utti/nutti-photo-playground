@@ -565,3 +565,73 @@ async def test_postgres_workers_skip_locked_and_reclaim_expired():
     assert reclaimed is not None
     assert reclaimed["id"] == job.id
     assert (await GenerationJob.get(id=job.id)).attempt_count == 2
+
+
+async def test_worker_loop_runs_jobs_concurrently_up_to_limit(monkeypatch: pytest.MonkeyPatch):
+    """fal 대기(I/O) 동안 다른 잡을 집는다 — 4명이 동시에 눌러도 4번째가 4배를 기다리지 않는다."""
+    from app.settings import settings
+
+    monkeypatch.setattr(settings, "worker_concurrency", 3)
+    monkeypatch.setattr(worker, "POLL_INTERVAL_SECONDS", 0.01)
+    queue = [{"id": f"job-{i}"} for i in range(5)]
+    active = 0
+    peak = 0
+    done: list[str] = []
+
+    async def fetch_next_job():
+        return queue.pop(0) if queue else None
+
+    async def process_job(job, *, lease):
+        nonlocal active, peak
+        active += 1
+        peak = max(peak, active)
+        await asyncio.sleep(0.05)
+        active -= 1
+        done.append(job["id"])
+
+    monkeypatch.setattr(worker, "fetch_next_job", fetch_next_job)
+    monkeypatch.setattr(worker, "process_job", process_job)
+
+    loop_task = asyncio.create_task(worker.run_worker_loop())
+    for _ in range(200):
+        await asyncio.sleep(0.01)
+        if len(done) == 5:
+            break
+    loop_task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await loop_task
+
+    assert sorted(done) == [f"job-{i}" for i in range(5)]
+    assert peak == 3
+
+
+async def test_worker_loop_survives_a_crashed_slot(monkeypatch: pytest.MonkeyPatch, caplog):
+    from app.settings import settings
+
+    monkeypatch.setattr(settings, "worker_concurrency", 2)
+    monkeypatch.setattr(worker, "POLL_INTERVAL_SECONDS", 0.01)
+    queue = [{"id": "boom"}, {"id": "ok"}]
+    done: list[str] = []
+
+    async def fetch_next_job():
+        return queue.pop(0) if queue else None
+
+    async def process_job(job, *, lease):
+        if job["id"] == "boom":
+            raise RuntimeError("db went away")
+        done.append(job["id"])
+
+    monkeypatch.setattr(worker, "fetch_next_job", fetch_next_job)
+    monkeypatch.setattr(worker, "process_job", process_job)
+
+    loop_task = asyncio.create_task(worker.run_worker_loop())
+    for _ in range(100):
+        await asyncio.sleep(0.01)
+        if done:
+            break
+    loop_task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await loop_task
+
+    assert done == ["ok"]
+    assert "worker task crashed" in caplog.text

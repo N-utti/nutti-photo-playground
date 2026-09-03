@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     jwt_guest_expires_in: int = 2592000
     jwt_refresh_expires_in: int = 2592000
 
+    # 워커가 동시에 돌리는 생성 수. 생성은 fal 응답 대기(I/O)라 한 프로세스가 여러 장을 겹쳐 돌린다.
+    worker_concurrency: int = 4
     openai_api_key: str = ""
     openai_base_url: str | None = None
     openai_vision_model: str = "gpt-4o-mini"

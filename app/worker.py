@@ -15,6 +15,7 @@ ponytail: lease/처리 함수는 스텁. 실제 구현 시 채울 것 —
 import asyncio
 import base64
 import io
+import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -39,7 +40,9 @@ from app.settings import settings
 from app.storage import load_bytes, save_bytes
 
 POLL_INTERVAL_SECONDS = 2
-LEASE_SECONDS = 90
+# ponytail: 생성 타임아웃(300s)보다 길게 — 동시 슬롯이 아직 도는 잡을 「만료」로 다시 집어 두 번 생성하는 일을
+# 막는다. 대가는 워커가 죽었을 때 회수까지 6분. 하트비트 갱신이 필요해지면 그때 넣는다.
+LEASE_SECONDS = 360
 MAX_ATTEMPTS = 3
 
 # 코드베이스에서 raw SQL을 쓰는 유일한 지점(docs/06 §2.1) — 그 외 전 코드는 Tortoise
@@ -309,13 +312,26 @@ async def process_job(job: dict, *, lease: bool = True) -> None:
             await generation_job.save(update_fields=["status"])
 
 
+def _log_task_failure(task: asyncio.Task) -> None:
+    # process_job 은 생성 실패를 안에서 처리한다(환불·재시도). 여기 오는 건 DB 끊김 같은 예외 —
+    # 다른 슬롯을 죽이지 않고 로그만 남긴다.
+    if not task.cancelled() and task.exception() is not None:
+        logging.getLogger(__name__).exception("worker task crashed", exc_info=task.exception())
+
+
 async def run_worker_loop() -> None:
+    """빈 슬롯이 있으면 잡을 집어 동시에 돌린다(WORKER_CONCURRENCY). 슬롯이 꽉 찼거나 잡이 없으면 잠깐 쉰다."""
+    running: set[asyncio.Task] = set()
     while True:
-        job = await fetch_next_job()
-        if job is not None:
-            await process_job(job, lease=False)
-        else:
-            await asyncio.sleep(POLL_INTERVAL_SECONDS)
+        running = {task for task in running if not task.done()}
+        if len(running) < settings.worker_concurrency:
+            job = await fetch_next_job()
+            if job is not None:
+                task = asyncio.create_task(process_job(job, lease=False))
+                task.add_done_callback(_log_task_failure)
+                running.add(task)
+                continue
+        await asyncio.sleep(POLL_INTERVAL_SECONDS)
 
 
 async def main() -> None:
