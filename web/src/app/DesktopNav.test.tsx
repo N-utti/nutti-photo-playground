@@ -26,13 +26,18 @@ function gnb() {
 describe('데스크톱 GNB', () => {
   it.each([
     ['홈', '/'],
-    ['스타일', '/styles'],
     ['만들기', '/upload'],
     ['보관함', '/library'],
   ])('%s 은 %s 로 간다', (label, href) => {
     renderWithProviders(<DesktopNav />, { route: '/upload' })
 
     expect(gnb().getByRole('link', { name: label })).toHaveAttribute('href', href)
+  })
+
+  it('«스타일» 탭은 없다 — 홈이 곧 갤러리다', () => {
+    renderWithProviders(<DesktopNav />, { route: '/' })
+
+    expect(gnb().queryByRole('link', { name: '스타일' })).not.toBeInTheDocument()
   })
 
   it('누띠샵은 새 탭으로 나가고 GNB 출구로 표시된다', () => {

@@ -47,10 +47,9 @@ describe('하단 탭바', () => {
     },
   )
 
-  it('스타일 시트가 열려도 스타일 탭은 켜져 있다', () => {
-    // W-03 은 카탈로그 **위에** 뜨는 시트라 뒤 화면은 여전히 스타일입니다.
-    renderWithProviders(<TabBar />, { route: '/styles/101' })
+  it('«스타일» 탭은 없다 — 홈이 곧 갤러리라 따로 들어갈 탭이 없어졌다', () => {
+    renderWithProviders(<TabBar />, { route: '/' })
 
-    expect(tabbar().getByRole('link', { name: '스타일' })).toHaveAttribute('aria-current', 'page')
+    expect(tabbar().queryByRole('link', { name: '스타일' })).not.toBeInTheDocument()
   })
 })

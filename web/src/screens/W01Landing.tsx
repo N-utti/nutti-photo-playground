@@ -1,257 +1,308 @@
 /**
- * W-01 · 랜딩 (docs/wireframe-spec-v0.5.html#p01)
+ * W-01 · 홈 (원페이지 갤러리) — 옛 랜딩(W-01)과 스타일 카탈로그(W-02)를 한 장으로 합쳤습니다.
  *
- * 반영한 노트:
- *   1. 비교 슬라이더가 히어로 — 정적 이미지가 아니라 **드래그되는** before/after
- *   2. 가입 없이 1장 — 주 CTA 는 로그인 없이 바로 W-04 로 갑니다
- *   3. 누띠 브랜드를 헤더에 노출
- *   4. "강아지 전용"을 보조 문구에 명시
- *   5. 인기 스타일 프리뷰는 한 줄 — 모바일 3 / 데스크톱 5
+ * 왜 합쳤나: 스타일을 고르려고 «스타일 탭» 으로 한 번 더 들어가는 단계가 있었습니다.
+ * 이제 첫 화면이 곧 갤러리입니다 — 히어로(비교 슬라이더) 아래에 **중앙 정렬 카테고리
+ * 배지**로 필터를 걸고, 그 아래 그리드에서 바로 스타일을 고릅니다. 카드를 누르면
+ * `/styles/:styleId` 상세 시트가 이 화면 위에 뜹니다(이 화면이 그 라우트의 부모라,
+ * 시트가 떠도 뒤 그리드가 살아 있고 스크롤·필터가 보존됩니다).
  *
- * 로그인 진입점(FR-W01-05)은 PR #21 로 3종 authorize 가 200 `{authorize_url}` 이 되면서
- * 열렸습니다 — 그전에는 누르면 100% 401 이라 아예 빼 뒀습니다. 다만 **보조**입니다:
- * 주 CTA 는 여전히 로그인 없이 W-04 로 가고(노트2), 로그인은 헤더 구석에 둡니다.
+ * 옛 W-02 에서 그대로 가져온 계약(지우지 마세요):
+ *   - 카드 면적의 대부분이 예시 이미지 (리서치 인사이트2)
+ *   - 이름이 그림에 인쇄되는 스타일 배지 (`uses_pet_name`, 백엔드 #111)
+ *   - 크레딧 비용은 카드에 유지 · 앱바 배지와 같은 ◆ 기호
+ *   - 재사용 맥락(FR-W06-07)을 `from_job` 으로 나름 — 이때 히어로 대신 재사용 배너
+ *   - 커스텀 프롬프트(W-08)는 그리드에서 분리된 보조 진입점
  *
- * 빠진 것과 그 이유:
+ * 옛 W-01 에서 가져온 것:
+ *   - before/after 비교 슬라이더가 히어로 (FR-W01-01 — «내 애가 유지된다» 를 첫 3초에)
+ *   - 가입 없이 1장 — 주 CTA 는 로그인 없이 W-04 로 (노트2)
  *
- * - **"요금" 메뉴(FR-W01-07)**. 07-decisions.md errata E-04 가 v0.2 잔재로 판정하고
- *   제거 대상으로 확정했습니다(크레딧 판매 OFF).
+ * 바뀐 것: 옛 W-02 의 sticky 앵커칩(섹션 점프)을 **필터 배지**로 교체했습니다. 배지는
+ * 이제 나머지를 숨깁니다 — 「전체」가 기본이고, 카테고리를 누르면 그 섹션만 남습니다.
  */
 
-import { useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
-import { Link } from 'react-router'
+import { useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
+import { Link, Outlet, useMatch } from 'react-router'
 import { track } from '../app/analytics'
+import { AccountEntry } from '../app/AccountEntry'
 import { BrandLockup } from '../app/BrandLockup'
-import { useMe, useStyles } from '../api/queries'
-import { memberLabel } from '../app/memberIdentity'
+import { CreditBadge } from '../app/CreditBadge'
+import { customPromptLinkLabel, useCustomPromptCost } from '../app/customPromptCost'
+import { useReuseFromJob, withReuse, type JobContext } from '../app/reuseFromJob'
+import { useStyles } from '../api/queries'
 import { TabBar } from '../app/TabBar'
 import Thumbnail from '../app/Thumbnail'
 import type { StyleCard } from '../api/types'
-import AccountSheet from './AccountSheet'
 
 /**
- * 같은 강아지의 실제 원본/변환 한 쌍입니다 — 자리표시자 도형이던 `*.svg` 를 대체했고,
- * 출처와 가공 내역은 `public/hero/NOTICE.md` 에 있습니다.
- *
- * 둘 다 **4:3 · 1072×804** — 아래 프레임과 **같은 비**입니다. 원본은 둘 다 정사각이라
- * 프레임에 그냥 넣으면 `object-cover` 가 위아래를 잘라내는데, 그 자리를 브라우저에
- * 맡기면 하필 뛰는 강아지의 귀 끝과 앞발이 잘립니다. 그래서 크롭을 파일에 구워
- * 넣었습니다(어디를 어떻게 잘랐는지는 NOTICE.md). 비가 같으니 여기서는 더 깎이지
- * 않고, 두 사진의 눈높이도 크롭 단계에서 맞춰 뒀습니다.
+ * 같은 강아지의 실제 원본/변환 한 쌍입니다 — 출처·가공은 `public/hero/NOTICE.md`.
+ * 둘 다 4:3 · 1072×804 로 아래 프레임과 같은 비라 여기서 더 깎이지 않습니다.
  */
 const HERO_BEFORE = '/hero/before.webp'
 const HERO_AFTER = '/hero/after.webp'
 
-/** 모바일 3 / 데스크톱 5(FR-W01-04). 요청은 5개로 하고 모바일에서 뒤 2개를 숨깁니다. */
-const PREVIEW_COUNT = 5
-const MOBILE_PREVIEW_COUNT = 3
+/** null = 전체. 배지가 이 상태를 바꿉니다. */
+type Filter = string | null
 
 export default function W01Landing() {
-  const { data, isPending, isError } = useStyles({ section: 'popular', limit: PREVIEW_COUNT })
-  const { data: me } = useMe()
-  const [loginSheet, setLoginSheet] = useState(false)
-  const popular = data?.sections[0]?.styles ?? []
+  const { data: catalog, isPending, isError, error, refetch } = useStyles()
+
+  // 재사용 맥락(FR-W06-07). 이때는 히어로 대신 재사용 배너를 세우고, 카드 링크가
+  // `from_job` 을 이어받습니다 — 안 그러면 방금 쓴 사진을 다시 올리게 됩니다.
+  const reuse = useReuseFromJob()
+  const customPromptCost = useCustomPromptCost()
+
+  // 상세 시트(W-03)가 이 화면 위에 렌더됩니다. 떠 있는 동안 뒤 그리드는 탭 이동·
+  // 스크린리더 대상에서 빠져야 모달로서 성립합니다(아래 inert).
+  const sheetOpen = useMatch('/styles/:styleId') !== null
+
+  const [filter, setFilter] = useState<Filter>(null)
+
+  // catalog 를 dep 으로 둡니다 — `catalog?.sections ?? []` 를 매 렌더 새로 만들면
+  // 아래 두 useMemo 가 그 새 배열 때문에 매번 다시 도므로(참조가 바뀜) 메모가 무의미해집니다.
+  const sections = useMemo(() => catalog?.sections ?? [], [catalog])
+  const sectionNames = useMemo(() => sections.map((s) => s.name), [sections])
+
+  // 전체 = 모든 섹션의 스타일을 한 그리드로. 카테고리 = 그 섹션만.
+  const visible = useMemo<StyleCard[]>(() => {
+    if (filter === null) return sections.flatMap((s) => s.styles)
+    return sections.find((s) => s.name === filter)?.styles ?? []
+  }, [sections, filter])
 
   return (
-    // pb-24 — 아래 고정된 탭바가 페이지 마지막 줄을 덮지 않게 자리를 비웁니다
-    // (W-02·W-09 와 같은 값). 여백을 안 두면 "인기 스타일" 마지막 행이 탭바 뒤에
-    // 깔려 스크롤을 끝까지 내려도 안 보입니다.
-    //
-    // 데스크톱에는 탭바가 아예 없습니다(상단 GNB 로 갔습니다 — app/DesktopNav.tsx).
-    // 비켜 줄 것이 없으니 40px 은 순수한 아래 여백입니다.
-    <div className="screen-min-h bg-paper pb-24 desktop:pb-10">
-      {/* 노트3 — 이 사이트가 누띠의 것임을 처음부터 밝힙니다.
-
-          데스크톱에서는 내립니다. 이 줄이 들고 있던 셋(로고·«스타일»·로그인)이 전부
-          상단 GNB(app/DesktopNav.tsx)에 있어서, 두 줄을 다 그리면 같은 링크가 위아래로
-          겹칩니다. 모바일에는 GNB 가 없으므로 이 헤더가 그대로 남습니다 — 그래서
-          아래 로그인 시트 상태도 계속 쓰입니다. */}
-      <header className="flex items-center gap-2 border-b border-rule bg-surface px-5 py-3 desktop:hidden">
-        {/*
-          워드마크 + "놀이터"를 **통째로** 홈 링크로 묶습니다. 이 화면이 이미 `/` 라서
-          누르면 제자리지만, 로고가 눌리는 게 웹의 관습이고 W-02 앱바 마크와도
-          같은 규칙이 됩니다(그쪽은 실제로 여기로 옵니다).
-
-          잠금 문구 자체(마크·「놀이터」·둘의 비율·접근성 이름)는 app/BrandLockup.tsx
-          에 있습니다 — GNB·로그인 시트와 같은 것을 써야 하고, 한 곳만 손대면 셋이
-          갈라집니다(실제로 시트가 그렇게 갈라져 있었습니다).
-        */}
-        <Link to="/" className="-m-2 flex p-2 hover:opacity-70">
-          <BrandLockup className="text-base" />
-        </Link>
-        {/*
-          `nav aria-label="주요"` 였습니다. 스크린리더의 랜드마크 목록에 «주요» 라는
-          탐색 구역이 하나 더 서는데, 그 안에 있는 건 로그인 칩 하나뿐이고 세션이
-          아직 안 왔을 때는 **아무것도 없습니다** — 열었다가 비어 있는 구역이 됩니다
-          (2026-09-03 play.nutti.co.kr 실측). 라벨도 «주요» 로 끊겨 무엇의 주요인지
-          말하지 않았습니다.
-
-          아래 주석대로 여기 있던 유일한 탐색 링크(«스타일»)가 이미 빠졌으니, 남은
-          것은 계정으로 가는 문 하나입니다. 그건 탐색 구역이 아니라 그냥 헤더의 한
-          자리라서 `div` 로 되돌립니다. 이 화면의 탐색 랜드마크는 하단 탭바
-          (`aria-label="주요 메뉴"`) 하나로 충분합니다.
-        */}
-        <div className="ml-auto flex items-center gap-4">
-          {/*
-            여기 있던 «스타일» 링크를 지웠습니다. 데스크톱에만 보이는 링크였는데
-            이 헤더 자체가 이제 모바일 전용이라, 두 조건이 겹쳐 **어떤 폭에서도 안
-            그려지는** 줄이 됐습니다. 데스크톱에서 카탈로그로 가는 길은 GNB 의
-            «스타일» 탭이고, 모바일은 하단 탭바의 같은 칸입니다.
-          */}
-          {/*
-            FR-W01-05 로그인 칩. `/me` 가 오기 전에는 아무것도 그리지 않습니다 —
-            게스트로 깜빡였다가 "○○님"으로 바뀌면 회원이 매 방문마다 로그아웃된 것처럼
-            보입니다.
-          */}
-          {me?.kind === 'member' ? (
-            // 로그아웃·펫 관리·연동은 이제 마이페이지(W-12)의 것입니다. 랜딩 헤더는
-            // 그 문으로만 남습니다 — 이 라벨이 곧바로 로그아웃이던 임시 상태를 끝냅니다.
-            <Link to="/me" className="max-w-32 truncate text-sm text-ink-2 underline hover:text-brand">
-              {memberLabel(me)}
+    <>
+      <div inert={sheetOpen}>
+        {/* pb-24 — 아래 고정 탭바가 마지막 줄을 덮지 않게. 데스크톱은 탭바가 없어 순수 여백. */}
+        <div className="screen-min-h bg-paper pb-24 desktop:pb-10">
+          {/* 모바일 앱바 — 데스크톱은 상단 GNB(app/DesktopNav.tsx)가 같은 셋을 들어 내립니다.
+              숫자 = 크레딧 받기(W-10), 아바타 = 계정(W-12), 로고 = 홈. */}
+          <header className="flex items-center gap-3 border-b border-rule bg-surface px-5 py-3 desktop:hidden">
+            <Link to="/" className="-m-2 mr-auto flex p-2 hover:opacity-70">
+              <BrandLockup className="text-base" />
             </Link>
-          ) : me?.kind === 'guest' ? (
-            <button
-              type="button"
-              onClick={() => setLoginSheet(true)}
-              className="rounded-full border border-rule-strong px-3 py-1.5 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand"
-            >
-              로그인
-            </button>
-          ) : null}
+            <CreditBadge showUnit />
+            <AccountEntry />
+          </header>
+
+          <main className="mx-auto w-full max-w-(--container-canvas) px-5">
+            {/* 재사용 중이면 히어로를 숨깁니다 — 이미 사진이 있는 사람에게 «사진 올리고
+                무료로 1장» CTA 는 앞뒤가 안 맞습니다. 대신 재사용 배너를 세웁니다. */}
+            {reuse.context ? (
+              <ReuseBanner context={reuse.context} />
+            ) : (
+              <Hero />
+            )}
+
+            {/* 카테고리 배지 — 중앙 정렬(carat prompt-gallery 참고). 앵커 점프가 아니라
+                필터입니다: 「전체」가 기본, 카테고리를 누르면 그 섹션만 남습니다. */}
+            {!isError && (
+              <nav
+                aria-label="스타일 카테고리"
+                className="flex flex-wrap justify-center gap-2 pt-8 desktop:pt-10"
+              >
+                <FilterBadge label="전체" active={filter === null} onClick={() => setFilter(null)} />
+                {sectionNames.map((name) => (
+                  <FilterBadge
+                    key={name}
+                    label={name}
+                    active={filter === name}
+                    onClick={() => setFilter(name)}
+                  />
+                ))}
+              </nav>
+            )}
+
+            {/* 그리드 */}
+            <section className="pt-6">
+              {isPending ? (
+                <GridSkeleton />
+              ) : isError ? (
+                <div className="mx-auto max-w-md py-16 text-center">
+                  <p className="text-ink-2">스타일을 불러오지 못했습니다.</p>
+                  <p className="mt-1 font-mono text-xs text-ink-3">{error.message}</p>
+                  <button
+                    type="button"
+                    onClick={() => refetch()}
+                    className="mt-4 rounded-full border border-rule-strong px-4 py-2 text-sm hover:border-brand-2 hover:bg-surface-2 hover:text-brand"
+                  >
+                    다시 시도
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-baseline gap-2">
+                    <h2 className="text-lg font-bold">{filter ?? '전체 스타일'}</h2>
+                    <span className="font-mono text-xs text-ink-3">{visible.length}</span>
+                  </div>
+                  {/* 모바일 2열 / 데스크톱 4열 */}
+                  <ul className="mt-3 grid grid-cols-2 gap-3 desktop:grid-cols-4">
+                    {visible.map((style) => (
+                      <li key={style.id}>
+                        <StyleCardItem style={style} reuseJobId={reuse.jobId} />
+                      </li>
+                    ))}
+                  </ul>
+
+                  {/* W-08 보조 진입점 — 커스텀 프롬프트는 기본 그리드에서 분리합니다. */}
+                  <Link
+                    to={withReuse('/creative', reuse.jobId)}
+                    className="mt-6 mb-8 block rounded-xl border border-rule px-4 py-3 text-center text-sm text-ink-2 hover:border-rule-strong hover:bg-surface-2 hover:text-ink"
+                  >
+                    {customPromptLinkLabel(customPromptCost)}
+                  </Link>
+                </>
+              )}
+            </section>
+          </main>
+
+          <TabBar />
         </div>
-      </header>
+      </div>
 
-      {loginSheet && (
-        <AccountSheet onClose={() => setLoginSheet(false)} />
-      )}
+      {/* 상세 시트(W-03). 뒤 그리드는 위 inert 로 잠급니다. */}
+      <Outlet />
+    </>
+  )
+}
 
-      <main className="mx-auto w-full max-w-(--container-canvas) px-5">
-        {/* 모바일은 헤드라인 → 슬라이더 → CTA 세로 순서, 데스크톱은 좌(문구·CTA)/우(슬라이더). */}
-        {/* 데스크톱 세로 간격만 32px 입니다(가로는 48px 그대로). 헤드라인과 CTA 는 한
-            덩어리로 읽혀야 하는 짝이라 48px 은 원래 넓었고, 줄이면 왼쪽 칸 높이가
-            248→232 로 내려갑니다 — 아래 히어로 하한이 그 값을 따라갑니다. */}
-        <section className="grid gap-4 pt-6 desktop:grid-cols-2 desktop:items-center desktop:gap-x-12 desktop:gap-y-8 desktop:pt-10">
-          {/* 히어로만 display 서체를 씁니다. Ohsquare 는 굵고 둥글어서 큰 글씨에서만
-              브랜드로 읽히고, 앱바 h1(text-base)에 쓰면 밀도만 나빠집니다. */}
-          <h1 className="font-display text-3xl leading-tight desktop:col-start-1 desktop:row-start-1 desktop:self-end desktop:text-5xl">
-            우리 강아지를 레고로,
-            <br />
-            초상화로, 프라모델로
-          </h1>
+// ---------------------------------------------------------------- 히어로
 
-          {/*
-            데스크톱에서는 히어로 **폭을 남은 높이에서 역산**합니다. 프레임이 4:3 이라
-            폭을 정하면 높이가 따라오고, 그래서 첫 화면이 스크롤 없이 들어갑니다.
+function Hero() {
+  return (
+    <section className="grid gap-4 pt-6 desktop:grid-cols-2 desktop:items-center desktop:gap-x-12 desktop:gap-y-8 desktop:pt-10">
+      {/* 히어로만 display 서체. 큰 글씨에서만 브랜드로 읽힙니다. */}
+      <h1 className="font-display text-3xl leading-tight desktop:col-start-1 desktop:row-start-1 desktop:self-end desktop:text-5xl">
+        우리 강아지를 레고로,
+        <br />
+        초상화로, 프라모델로
+      </h1>
 
-            460px 은 히어로를 뺀 나머지의 합입니다 — GNB 56 + 이 구역 위 여백 40 +
-            인기 스타일 구역(위 여백 40 + 내용 284) + 아래 여백 40. 인기 스타일 카드는
-            폭이 넓을수록 커지므로 컨테이너가 꽉 찬 1180px 기준으로 잡았습니다. 그보다
-            좁은 데스크톱에서는 카드가 작아져 여유가 더 생깁니다.
+      {/* 데스크톱에서는 4:3 프레임 폭을 남은 높이에서 역산해 첫 화면이 스크롤 없이 들어오게 합니다. */}
+      <div className="desktop:col-start-2 desktop:row-span-2 desktop:row-start-1 desktop:mx-auto desktop:w-[min(100%,max(308px,(100dvh_-_520px)*4/3))]">
+        <BeforeAfterSlider />
+      </div>
 
-            높이 대신 폭에 거는 이유는 잘림입니다. 4:3 프레임에 `max-height` 를 걸면
-            폭은 그대로라 비가 어긋나고 `object-cover` 가 위아래를 잘라냅니다 — 하필
-            그 크롭은 파일에 구워 넣어 피해 둔 것입니다(HERO_BEFORE 주석).
-
-            308px 아래로는 안 줄입니다. 그게 왼쪽 칸(헤드라인 120 + 세로 간격 32 +
-            CTA 80 = 232)과 같은 높이라, 더 줄여도 행 높이는 왼쪽이 정하므로 페이지가
-            안 짧아지고 비교 슬라이더만 작아집니다.
-
-            그래서 이 페이지의 **최소 높이는 692px** 이고(460 + 232), 창이 그보다 낮으면
-            스크롤이 남습니다. 더 내리려면 헤드라인이나 인기 스타일 카드를 줄여야 합니다.
-          */}
-          <div className="desktop:col-start-2 desktop:row-span-2 desktop:row-start-1 desktop:mx-auto desktop:w-[min(100%,max(308px,(100dvh_-_460px)*4/3))]">
-            <BeforeAfterSlider />
-          </div>
-
-          {/* 데스크톱에서 왼쪽 두 행의 높이 합은 오른쪽 슬라이더(row-span-2)가 정합니다.
-              각 행이 기본값(center)이면 헤드라인과 CTA 가 자기 행 한가운데로 흩어져
-              사이가 화면 높이만큼 벌어집니다 — 헤드라인은 아래로, CTA 는 위로 붙여
-              가운데에서 만나게 합니다. 모바일(1열)에는 영향이 없습니다. */}
-          <div className="desktop:col-start-1 desktop:row-start-2 desktop:self-start desktop:w-fit">
-            {/* 노트2 — 조사한 모든 서비스가 가입을 먼저 요구했습니다. 여기서 웹의 우위를 씁니다. */}
-            <Link
-              to="/upload"
-              onClick={trackCtaClick}
-              className="block rounded-xl bg-brand px-5 py-3.5 text-center text-base font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99] desktop:inline-block desktop:px-7"
-            >
-              사진 올리고 무료로 1장 만들기
-            </Link>
-            {/* 노트4 — 고양이 보호자가 업로드했다가 실망하기 전에 여기서 말합니다. */}
-            <p className="mt-2 text-center text-sm text-ink-3 desktop:text-center">
-              가입 없이 · 전부 무료 · 강아지 전용
-            </p>
-          </div>
-        </section>
-
-        {/* 노트5 — 카탈로그를 암시하되 스크롤을 잡아먹지 않게 한 줄로 제한.
-            데스크톱 위 여백이 pt-16 이었는데, 그 «스크롤을 잡아먹지 않게» 를 실제로
-            지키려면 여기서 24px 을 내주는 게 맞습니다. 모바일과 같은 값이 됩니다. */}
-        <section className="pt-10">
-          <div className="flex items-baseline justify-between gap-2">
-            <h2 className="text-lg font-bold">지금 인기 스타일</h2>
-            <Link to="/styles" className="text-sm text-ink-2 underline hover:text-brand">
-              전체 →
-            </Link>
-          </div>
-
-          {/* 인기 목록이 실패해도 랜딩의 본 임무(CTA)는 살아 있어야 하므로 이 줄만 접습니다. */}
-          {!isError && (
-            <ul className="mt-3 grid grid-cols-3 gap-3 desktop:grid-cols-5">
-              {isPending
-                ? Array.from({ length: PREVIEW_COUNT }, (_, index) => (
-                    <li key={index} className={index >= MOBILE_PREVIEW_COUNT ? 'hidden desktop:block' : undefined}>
-                      <div className="aspect-square animate-pulse rounded-xl bg-rule/60" />
-                    </li>
-                  ))
-                : popular.map((style, index) => (
-                    <li
-                      key={style.id}
-                      className={index >= MOBILE_PREVIEW_COUNT ? 'hidden desktop:block' : undefined}
-                    >
-                      <PreviewCard style={style} />
-                    </li>
-                  ))}
-            </ul>
-          )}
-        </section>
-      </main>
-
-      {/* 탭바의 «홈» 이 여기로 옵니다 — 목적지에 탭바가 없으면 탭을 누른 순간 나머지
-          탭이 사라집니다(app/TabBar.tsx 주석). 헤더의 «스타일» 링크가 데스크톱에만
-          보이는 것도 이걸로 메워집니다 — 모바일에서 카탈로그로 가는 길이 히어로
-          CTA 아래 «전체 →» 하나였습니다. */}
-      <TabBar />
-    </div>
+      <div className="desktop:col-start-1 desktop:row-start-2 desktop:w-fit desktop:self-start">
+        {/* 노트2 — 조사한 모든 서비스가 가입을 먼저 요구했습니다. 여기서 웹의 우위를 씁니다. */}
+        <Link
+          to="/upload"
+          onClick={trackCtaClick}
+          className="block rounded-xl bg-brand px-5 py-3.5 text-center text-base font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99] desktop:inline-block desktop:px-7"
+        >
+          사진 올리고 무료로 1장 만들기
+        </Link>
+        {/* 노트4 — 고양이 보호자가 업로드했다가 실망하기 전에 여기서 말합니다. */}
+        <p className="mt-2 text-center text-sm text-ink-3">가입 없이 · 전부 무료 · 강아지 전용</p>
+      </div>
+    </section>
   )
 }
 
 /**
  * FR-W01-06 — 이 화면의 지표는 업로드 완료율이고, 그 **분모**가 이 클릭입니다.
- * 분자(업로드·job 생성)와 GA4 크로스도메인은 Phase 6 에서 한꺼번에 붙입니다.
  * 비콘 실패는 endpoints.ts 에서 삼키므로 이동을 막지 않습니다.
  */
 function trackCtaClick() {
   track({ event_type: 'landing_cta_click', properties: { screen: 'W-01' } })
 }
 
-function PreviewCard({ style }: { style: StyleCard }) {
+// ---------------------------------------------------------------- 배지 · 카드
+
+function FilterBadge({
+  label,
+  active,
+  onClick,
+}: {
+  label: string
+  active: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`shrink-0 rounded-full border px-4 py-1.5 text-sm font-semibold transition-colors ${
+        active
+          ? 'border-brand bg-brand text-paper'
+          : 'border-rule bg-surface text-ink-2 hover:border-brand-2 hover:text-brand'
+      }`}
+    >
+      {label}
+    </button>
+  )
+}
+
+/**
+ * 재사용 중임을 그리드 위에 못박습니다 — 배너가 없으면 «왜 업로드를 안 물어보지» 를
+ * 설명할 자리가 없습니다. 해제(다른 사진 쓰기)는 `from_job` 을 뗀 홈입니다.
+ */
+function ReuseBanner({ context }: { context: JobContext }) {
+  return (
+    <div className="mt-6 flex items-center gap-3 rounded-xl border border-brand-2 bg-brand-soft px-3 py-2.5">
+      {context.sourceImageUrl && (
+        <img
+          src={context.sourceImageUrl}
+          alt="다시 쓸 사진"
+          className="size-11 shrink-0 rounded-xl bg-surface-2 object-cover"
+        />
+      )}
+      <p className="min-w-0 flex-1 text-sm">
+        <span className="block font-semibold">올린 사진 그대로 만들어요</span>
+        <span className="block text-xs text-ink-2">스타일만 고르면 바로 확인 단계예요</span>
+      </p>
+      <Link to="/" className="shrink-0 text-xs text-ink-2 underline underline-offset-2 hover:text-brand">
+        다른 사진 쓰기
+      </Link>
+    </div>
+  )
+}
+
+/** 리서치 인사이트2 — 카드 면적의 대부분이 적용 예시 이미지. */
+function StyleCardItem({ style, reuseJobId }: { style: StyleCard; reuseJobId: string | null }) {
   return (
     <Link
-      to={`/styles/${style.id}`}
+      to={withReuse(`/styles/${style.id}`, reuseJobId)}
       className="block overflow-hidden rounded-xl border border-rule bg-surface hover:border-brand-2"
     >
-      {/* 이름이 바로 아래 있으므로 이미지가 없을 때 자리 표시자에 글자를 넣지 않습니다. */}
-      <Thumbnail
-        src={style.thumbnail_url}
-        alt={style.name}
-        loading="lazy"
-        decoding="async"
-        className="aspect-square w-full bg-surface-2 object-cover"
-      />
-      <div className="px-2 py-1.5">
-        <span className="block truncate text-sm font-semibold">{style.name}</span>
+      <div className="relative">
+        <Thumbnail
+          src={style.thumbnail_url}
+          alt={style.name}
+          loading="lazy"
+          decoding="async"
+          className="aspect-square w-full bg-surface-2 object-cover"
+        />
+        {/* 이름이 그림 안에 인쇄되는 스타일 (서버 `uses_pet_name` · 백엔드 #111). */}
+        {style.uses_pet_name && (
+          <span className="absolute bottom-1.5 left-1.5 rounded-full bg-ink/70 px-2 py-0.5 text-[11px] font-semibold text-paper">
+            이름 인쇄
+          </span>
+        )}
+      </div>
+      <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+        <span className="truncate text-base font-bold">{style.name}</span>
+        {/* 앱바 배지와 같은 ◆ 기호. 읽어 주는 말은 sr-only 로 온전히 남깁니다. */}
+        <span className="shrink-0 font-mono text-xs tabular-nums text-accent">
+          <span aria-hidden>◆ {style.credit_cost}</span>
+          <span className="sr-only">{style.credit_cost} 크레딧</span>
+        </span>
       </div>
     </Link>
+  )
+}
+
+function GridSkeleton() {
+  return (
+    <>
+      <div className="h-6 w-24 rounded bg-rule" />
+      <ul className="mt-3 grid grid-cols-2 gap-3 desktop:grid-cols-4">
+        {Array.from({ length: 8 }, (_, i) => (
+          <li key={i} className="aspect-square animate-pulse rounded-xl bg-rule/60" />
+        ))}
+      </ul>
+    </>
   )
 }
 
@@ -262,25 +313,12 @@ const clamp = (value: number) => Math.min(100, Math.max(0, value))
 /**
  * 노트1 · FR-W01-01 — "내 애가 유지된다"를 첫 3초에 증명하는 장치.
  *
- * 구현 메모:
- * - 프레임 **아무 데나** 눌러도 그 지점으로 이동합니다. 노브를 정확히 집게 만들면
- *   모바일에서 첫 시도가 실패하고, 그러면 이 장치가 정적 이미지와 구별되지 않습니다.
+ * - 프레임 아무 데나 눌러도 그 지점으로 이동합니다(노브를 정확히 집게 하면 모바일 첫 시도가 실패).
  * - `touch-action: pan-y` — 가로 드래그는 우리가 먹고 세로 스크롤은 브라우저에 넘깁니다.
- *   여기서 `none` 을 주면 히어로 위에서 손가락을 올렸을 때 페이지가 안 내려갑니다.
- * - 노브는 `role="slider"` 인 실제 버튼입니다. 포인터가 없는 입력(키보드·스위치)에서도
- *   비교가 가능해야 하고, 그게 이 화면의 유일한 인터랙션이라 대체 수단이 없습니다.
+ * - 노브는 `role="slider"` 인 실제 버튼입니다(키보드·스위치 입력에서도 비교 가능).
  */
 function BeforeAfterSlider() {
-  // 50 이 아니라 65 입니다 — **지금 두 사진에 맞춘 값**입니다. 원본에서 강아지 머리가
-  // 가로 35~66% 에 걸쳐 있어서, 반으로 가르면 분할선이 하필 얼굴을 관통해 «원본» 쪽에
-  // 몸통만 남습니다. 첫 화면에서 증명해야 하는 게 «내 애가 유지된다»인데(노트1) 정작
-  // 그 애 얼굴이 안 보이는 상태로 시작하는 셈입니다. 65 면 원본은 귀까지 온전합니다.
-  //
-  // 대신 오른쪽 35% 에는 하늘과 앞발만 들어옵니다. 두 사진 모두 주인공이 가운데라
-  // 어느 위치에서도 한쪽 얼굴은 잘립니다 — 여기서는 «누구인지»를 먼저 보여주는 쪽을
-  // 골랐고, 나는 모습은 끌어야 나옵니다.
-  //
-  // 사진을 갈아 끼우면 이 값도 다시 봐야 합니다(public/hero/NOTICE.md).
+  // 65 는 지금 두 사진에 맞춘 값입니다(사진을 갈면 다시 봐야 함 — public/hero/NOTICE.md).
   const [position, setPosition] = useState(65)
   const frameRef = useRef<HTMLDivElement>(null)
 
@@ -291,8 +329,6 @@ function BeforeAfterSlider() {
   }
 
   function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
-    // 먼저 위치를 옮기고 캡처를 잡습니다. 순서가 반대면 setPointerCapture 가 던지는
-    // 환경(합성 이벤트 등)에서 탭 한 번이 통째로 무시됩니다.
     moveToClientX(event.clientX)
     try {
       event.currentTarget.setPointerCapture(event.pointerId)
@@ -302,7 +338,6 @@ function BeforeAfterSlider() {
   }
 
   function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
-    // 캡처를 잡고 있을 때만 = 누른 채 끌 때만 따라갑니다(마우스 호버로는 안 움직임).
     if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
     moveToClientX(event.clientX)
   }
