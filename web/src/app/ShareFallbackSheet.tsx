@@ -14,10 +14,9 @@
  * 오동작으로 읽힙니다. 웹뷰에서 실제로 되는 건 «외부 브라우저에서 이미지 열기» 와 «링크
  * 복사» 둘이고, 크롬/사파리로 나가면 거기서는 OS 시트(파일)까지 다 됩니다.
  *
- * 카카오톡 보내기가 **없는** 이유: SDK 없이 쓰던 sharer.kakao.com 주소는 앱 키 없이
- * 401(InvalidAppKeyError, 2026-09-03 실측)이고, 모바일 kakaolink:// 스킴도 앱 키로 만든
- * 템플릿이 필요합니다. 붙이려면 카카오 JS SDK + JavaScript 키 + 도메인 등록이 필요해
- * 별건입니다.
+ * 「카카오톡으로 보내기」는 카카오 JS SDK(app/kakaoShare.ts)로 갑니다 — SDK 없는 sharer 주소는
+ * 앱 키 없이 401 이라(2026-09-03 실측) 키가 있을 때만(`kakaoShareAvailable`) 그립니다. 카톡
+ * 웹뷰 안에서는 시트를 거치지 않고 「공유」가 곧장 친구 선택창을 엽니다(W-06).
  *
  * iOS 는 여기 오지 않습니다(WKWebView 는 iOS 12.2+ 부터 `navigator.share` 가 있음) —
  * 그래서 인스타 iOS 메뉴 안내는 이 시트가 아니라 W-06 의 저장 안내줄에 있습니다.
@@ -28,6 +27,7 @@
 import { useState } from 'react'
 import ConfirmDialog from './ConfirmDialog'
 import { externalOpenUrl, type InAppBrowser } from './inAppBrowser'
+import { kakaoShareAvailable, shareToKakao } from './kakaoShare'
 
 const ITEM =
   'block w-full rounded-xl border border-rule-strong bg-surface px-4 py-3 text-center text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]'
@@ -42,7 +42,13 @@ export default function ShareFallbackSheet({
   onClose: () => void
 }) {
   const [copied, setCopied] = useState<'done' | 'failed' | null>(null)
+  const [kakaoFailed, setKakaoFailed] = useState(false)
   const external = inAppBrowser === null ? null : externalOpenUrl(inAppBrowser, imageUrl)
+
+  async function sendKakao() {
+    setKakaoFailed(false)
+    if ((await shareToKakao(imageUrl)) === 'failed') setKakaoFailed(true)
+  }
 
   async function copyLink() {
     try {
@@ -57,6 +63,11 @@ export default function ShareFallbackSheet({
   return (
     <ConfirmDialog title="공유" titleId="share-fallback-title" onClose={onClose} closeLabel="닫기">
       <div className="mt-3 space-y-2">
+        {kakaoShareAvailable() && (
+          <button type="button" onClick={() => void sendKakao()} className={ITEM}>
+            {kakaoFailed ? '카카오톡을 열지 못했어요 — 다시 눌러 주세요' : '카카오톡으로 보내기'}
+          </button>
+        )}
         {external !== null && (
           <a href={external} className={ITEM}>
             외부 브라우저에서 이미지 열기 — 길게 눌러 저장하거나 브라우저 메뉴로 공유해요

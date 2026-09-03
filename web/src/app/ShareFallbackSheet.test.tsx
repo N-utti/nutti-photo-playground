@@ -20,6 +20,8 @@ function withUserAgent(ua: string): void {
 
 afterEach(() => {
   vi.restoreAllMocks()
+  vi.unstubAllEnvs()
+  delete window.Kakao
 })
 
 describe('ShareFallbackSheet', () => {
@@ -34,6 +36,31 @@ describe('ShareFallbackSheet', () => {
     expect(screen.getByRole('button', { name: '이미지 링크 복사' })).toBeInTheDocument()
     // 배경(바깥 눌러 닫기)도 aria-label 이 «닫기» 라 창 안으로 좁혀 봅니다.
     expect(within(screen.getByRole('dialog')).getByRole('button', { name: '닫기' })).toBeInTheDocument()
+  })
+
+  it('카카오 JS 키가 있으면 「카카오톡으로 보내기」가 맨 위에 서고, 누르면 SDK 피드 카드로 보낸다', async () => {
+    vi.stubEnv('VITE_KAKAO_JS_KEY', 'js-key-test')
+    const sent: Record<string, unknown>[] = []
+    window.Kakao = {
+      init: () => undefined,
+      isInitialized: () => true,
+      Share: { sendDefault: (s: Record<string, unknown>) => void sent.push(s) },
+    }
+    const user = userEvent.setup()
+    render(<ShareFallbackSheet imageUrl={URL_} inAppBrowser="webview" onClose={vi.fn()} />)
+
+    const items = within(screen.getByRole('dialog')).getAllByRole('button')
+    expect(items[0]).toHaveAccessibleName('카카오톡으로 보내기')
+    await user.click(items[0])
+
+    expect(sent).toHaveLength(1)
+    expect((sent[0] as { content: { imageUrl: string } }).content.imageUrl).toBe(URL_)
+  })
+
+  it('카카오 JS 키가 없으면 「카카오톡으로 보내기」를 그리지 않는다', () => {
+    vi.stubEnv('VITE_KAKAO_JS_KEY', '')
+    render(<ShareFallbackSheet imageUrl={URL_} inAppBrowser={null} onClose={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: /카카오톡/ })).not.toBeInTheDocument()
   })
 
   it('카톡 웹뷰: 맨 위가 카카오 스킴(이미지 URL), 인스타 링크는 없다', () => {

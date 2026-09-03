@@ -42,6 +42,7 @@ import {
 import { useGuestSessionReset } from '../app/guestSession'
 import { contextFromJob, withReuse } from '../app/reuseFromJob'
 import { detectInAppBrowser, externalOpenUrl, tryLeaveTo } from '../app/inAppBrowser'
+import { kakaoShareAvailable, loadKakao, shareToKakao } from '../app/kakaoShare'
 import { downloadAttachment, saveImage, type SaveImageOutcome } from '../app/saveImage'
 import ShareFallbackSheet from '../app/ShareFallbackSheet'
 import {
@@ -581,6 +582,13 @@ function ShareRow({ job }: { job: Job }) {
   const shareSheetAvailable = shareCap === 'files'
   // 자체 공유 시트가 열려 있으면 그 시트가 넘길 이미지 링크. 닫히면 null.
   const [fallbackShareUrl, setFallbackShareUrl] = useState<string | null>(null)
+  /*
+    카카오 SDK(87KB)는 OS 시트가 없는 곳에서만 쓰이므로 그때만, 그리고 **누르기 전에**
+    내려받습니다 — 누른 뒤 내려받으면 PC 의 팝업 차단(제스처 밖 window.open)에 걸립니다.
+  */
+  useEffect(() => {
+    if (shareCap !== 'files' && kakaoShareAvailable()) void loadKakao().catch(() => undefined)
+  }, [shareCap])
   // 서버가 보는 상태를 씁니다 — 시트에서 로그인하면 캐시가 무효화되면서 이 줄이
   // 곧바로 회원으로 바뀝니다. localStorage 의 kind 는 값이 바뀌어도 리렌더가 없습니다.
   const { data: me } = useMe()
@@ -706,9 +714,21 @@ function ShareRow({ job }: { job: Job }) {
         return
       }
       /*
-        시트가 없는 브라우저 — 자체 시트. Android 웹뷰의 인텐트 ACTION_SEND 는 진짜 공유
-        시트가 아니라 BROWSABLE 을 선언한 소수 앱만 뜨는 «연결 프로그램» 창이라(카톡·인스타·
-        메시지는 안 뜸, 2026-09-03 조사) 쓰지 않습니다. share_sheet 는 OS 시트의 결과만 셉니다.
+        카톡 웹뷰: OS 시트는 없지만 카카오 SDK 가 **친구 선택창**을 바로 엽니다 — 카톡으로
+        받은 링크에서 만든 사진을 카톡으로 다시 보내는 그 흐름입니다(app/kakaoShare.ts).
+        못 열면 아래 자체 시트로.
+      */
+      if (inAppBrowser === 'kakaotalk' && kakaoShareAvailable()) {
+        if ((await shareToKakao(url)) === 'sent') {
+          track({ event_type: 'share_sheet', properties: { job_id: job.job_id, outcome: 'shared' } })
+          return
+        }
+      }
+      /*
+        시트가 없는 브라우저 — 자체 시트(카카오톡 보내기·외부 브라우저·링크 복사). Android
+        웹뷰의 인텐트 ACTION_SEND 는 진짜 공유 시트가 아니라 BROWSABLE 을 선언한 소수 앱만
+        뜨는 «연결 프로그램» 창이라(카톡·인스타·메시지는 안 뜸, 2026-09-03 조사) 쓰지
+        않습니다. share_sheet 는 OS 시트의 결과만 셉니다.
       */
       setFallbackShareUrl(url)
     } finally {

@@ -687,6 +687,41 @@ describe('W-06 · 저장·공유 버튼', () => {
     }
   })
 
+  it('카톡 웹뷰에서 카카오 JS 키가 있으면 「공유」가 자체 시트 없이 곧장 카카오톡 친구 선택창을 연다', async () => {
+    /*
+      카톡으로 받은 링크에서 만든 사진을 카톡으로 다시 보내는 흐름 — OS 시트가 없는 카톡
+      Android 웹뷰에서 SDK 가 유일한 «공유창» 입니다(app/kakaoShare.ts).
+    */
+    vi.stubEnv('VITE_KAKAO_JS_KEY', 'js-key-test')
+    const sent: Record<string, unknown>[] = []
+    window.Kakao = {
+      init: () => undefined,
+      isInitialized: () => true,
+      Share: { sendDefault: (s: Record<string, unknown>) => void sent.push(s) },
+    }
+    const user = userEvent.setup()
+    const restoreUa = withUserAgent(UA_KAKAO_ANDROID)
+    const beacon = vi.spyOn(events, 'track').mockResolvedValue(undefined)
+    mockShare()
+    try {
+      renderResult(succeededJob())
+
+      await user.click(await screen.findByRole('button', { name: '공유' }))
+
+      await waitFor(() => expect(sent).toHaveLength(1))
+      expect((sent[0] as { content: { imageUrl: string } }).content.imageUrl).toBe(SHARE_URL)
+      expect(screen.queryByRole('dialog', { name: '공유' })).not.toBeInTheDocument()
+      expect(
+        beacon.mock.calls.map(([body]) => body).filter((body) => body.event_type === 'share_sheet'),
+      ).toEqual([{ event_type: 'share_sheet', properties: { job_id: JOB_ID, outcome: 'shared' } }])
+    } finally {
+      beacon.mockRestore()
+      restoreUa()
+      delete window.Kakao
+      vi.unstubAllEnvs()
+    }
+  })
+
   it('시트가 없는 브라우저의 「공유」는 share_click 만 세고 share_sheet 는 안 센다', async () => {
     // share_sheet 는 OS 시트의 결과(outcome)를 세는 자리 — 자체 시트에는 그 값이 없습니다.
     const user = userEvent.setup()
