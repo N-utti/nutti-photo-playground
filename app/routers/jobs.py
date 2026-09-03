@@ -22,6 +22,7 @@ from app.models import (
     Style,
     StylePromptVersion,
 )
+from app.routers.uploads import source_blocking_issue
 from app.storage import download_url, public_url
 
 logger = logging.getLogger(__name__)
@@ -166,6 +167,10 @@ async def create_job(
     source = await SourceImage.filter(id=upload_id, member_id=member.id).first()
     if source is None:
         raise _not_found()
+    # 보관함 「다시 만들기」는 업로드 검사를 건너뛰므로 같은 판정을 여기서 한 번 더(차감 전).
+    blocked = await source_blocking_issue(source)
+    if blocked is not None:
+        raise validation_error(blocked["message"], detail={"reason": "source_blocked", **blocked})
     breed = (body.breed or "").strip()
     if breed:
         # ponytail: 컬럼명 breed_estimate 는 비전 시절 유산 — 이제 사용자 입력 라벨만 담는다.

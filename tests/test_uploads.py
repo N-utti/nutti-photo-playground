@@ -135,6 +135,7 @@ def test_normal_upload_saves_image(
         "no_dog": False,
         "cat": False,
         "human_face": False,
+        "vision_checked": True,
     }
     assert (tmp_path / body["image_url"].removeprefix("/media/")).is_file()
 
@@ -287,6 +288,8 @@ def test_missing_openai_key_skips_vision_without_not_a_dog_warning(
     assert response.status_code == 200
     assert response.json()["upload_id"] is not None
     assert "NOT_A_DOG" not in {warning["code"] for warning in response.json()["warnings"]}
+    source = client.portal.call(_source, response.json()["upload_id"])
+    assert source.quality_check["vision_checked"] is False
 
 
 def test_guest_expiry_is_copied_to_source_image(

@@ -11,7 +11,7 @@ from app.auth import get_current_member
 from app.common import not_found, unauthorized, validation_error
 from app.models import AppSetting, Member, MemberKind, PetProfile, SourceImage
 from app.settings import settings
-from app.storage import public_url, save_bytes
+from app.storage import load_bytes, public_url, save_bytes
 
 router = APIRouter(tags=["uploads"])
 
@@ -53,13 +53,51 @@ class _VisionResult(BaseModel):
     human_face: bool
 
 
-def _blocked(code: str, message: str) -> dict:
+def _vision_fields(vision: _VisionResult | None) -> dict[str, bool]:
+    # 비전이 꺼져 있거나 실패하면 전부 False + vision_checked=False — 판정 안 함을 남긴다.
     return {
-        "upload_id": None,
-        "image_url": None,
-        "blocking_issue": {"code": code, "message": message},
-        "warnings": [],
+        "multi_subject": bool(vision and vision.multi_subject),
+        "no_dog": bool(vision and not vision.is_dog),
+        "cat": bool(vision and vision.is_cat),
+        "human_face": bool(vision and vision.human_face),
+        "vision_checked": vision is not None,
     }
+
+
+def _blocking_issue(check: dict, policies: dict[str, str]) -> dict | None:
+    """quality_check 값 + 정책 → 차단 사유. 업로드와 재생성(POST /v1/jobs)이 같은 판정을 쓴다."""
+    if check.get("cat"):
+        return {"code": "CAT_DETECTED", "message": "누띠는 강아지 전용이에요. 다른 사진을 골라주세요."}
+    if check.get("human_face") and policies["human_face_policy"] == "block":
+        return {"code": "HUMAN_FACE_DETECTED", "message": "사람 얼굴이 포함된 사진은 사용할 수 없어요."}
+    if check.get("no_dog") and policies["no_dog_policy"] == "block":
+        return {
+            "code": "NOT_A_DOG",
+            "message": "강아지를 찾지 못했어요. 강아지가 잘 보이는 사진을 골라주세요.",
+        }
+    return None
+
+
+async def source_blocking_issue(source: SourceImage) -> dict | None:
+    """보관함 「다시 만들기」도 업로드와 같은 차단을 받는다.
+
+    비전을 켜기 전에 올라간 사진(`vision_checked` 없음)은 여기서 한 번 검사해 적어 둔다 —
+    그 시절 quality_check 는 전부 False 라 「검사 안 함」과 「강아지 맞음」을 구분할 수 없다.
+    """
+    check = source.quality_check or {}
+    if not check.get("vision_checked") and settings.openai_api_key:
+        try:
+            vision = await _analyze_vision(await load_bytes(source.storage_key))
+        except Exception:
+            vision = None
+        if vision is None:
+            return None
+        check = {**check, **_vision_fields(vision)}
+        source.quality_check = check
+        await source.save(update_fields=["quality_check"])
+    if not check.get("vision_checked"):
+        return None
+    return _blocking_issue(check, await _policies())
 
 
 def _process_image(data: bytes) -> tuple[Image.Image, bytes]:
@@ -131,11 +169,13 @@ is_dog/is_cat은 해당 동물이 명확히 보이는지, multi_subject는 동�
         return None
 
 
-async def _policy(key: str) -> str:
+async def _policies() -> dict[str, str]:
     rows = await AppSetting.filter(key__in=_POLICY_DEFAULTS).all()
-    values = {**_POLICY_DEFAULTS, **{row.key: row.value for row in rows}}
-    policy = values[key]
-    return policy if policy in {"block", "warn", "allow"} else _POLICY_DEFAULTS[key]
+    stored = {row.key: row.value for row in rows}
+    return {
+        key: stored[key] if stored.get(key) in {"block", "warn", "allow"} else default
+        for key, default in _POLICY_DEFAULTS.items()
+    }
 
 
 @router.post("/uploads", response_model=UploadResponse)
@@ -166,52 +206,31 @@ async def upload_photo(
         raise validation_error("올바른 이미지 파일이 아닙니다") from exc
 
     quality = _quality_check(image)
-    vision = await _analyze_vision(jpeg_bytes)
-    checked = vision is not None
-    vision_values = vision.model_dump() if vision else {
-        "is_dog": False,
-        "is_cat": False,
-        "multi_subject": False,
-        "human_face": False,
-    }
-    quality_check = {
-        **quality,
-        "multi_subject": vision_values["multi_subject"],
-        "no_dog": checked and not vision_values["is_dog"],
-        "cat": vision_values["is_cat"],
-        "human_face": vision_values["human_face"],
-    }
+    quality_check = {**quality, **_vision_fields(await _analyze_vision(jpeg_bytes))}
+    policies = await _policies()
 
-    if vision_values["is_cat"]:
-        return _blocked("CAT_DETECTED", "누띠는 강아지 전용이에요. 다른 사진을 골라주세요.")
+    blocked = _blocking_issue(quality_check, policies)
+    if blocked is not None:
+        return {"upload_id": None, "image_url": None, "blocking_issue": blocked, "warnings": []}
 
     warnings = []
-    if vision_values["human_face"]:
-        policy = await _policy("human_face_policy")
-        if policy == "block":
-            return _blocked("HUMAN_FACE_DETECTED", "사람 얼굴이 포함된 사진은 사용할 수 없어요.")
-        if policy == "warn":
-            warnings.append(
-                {
-                    "code": "HUMAN_FACE_DETECTED",
-                    "message": "사람 얼굴이 함께 보여요",
-                    "detail": None,
-                }
-            )
-
-    if checked and not vision_values["is_dog"]:
-        policy = await _policy("no_dog_policy")
-        if policy == "block":
-            return _blocked("NOT_A_DOG", "강아지를 찾지 못했어요. 강아지가 잘 보이는 사진을 골라주세요.")
-        if policy == "warn":
-            warnings.append(
-                {
-                    "code": "NOT_A_DOG",
-                    "message": "강아지가 잘 보이지 않아요",
-                    "detail": None,
-                }
-            )
-    if vision_values["multi_subject"]:
+    if quality_check["human_face"] and policies["human_face_policy"] == "warn":
+        warnings.append(
+            {
+                "code": "HUMAN_FACE_DETECTED",
+                "message": "사람 얼굴이 함께 보여요",
+                "detail": None,
+            }
+        )
+    if quality_check["no_dog"] and policies["no_dog_policy"] == "warn":
+        warnings.append(
+            {
+                "code": "NOT_A_DOG",
+                "message": "강아지가 잘 보이지 않아요",
+                "detail": None,
+            }
+        )
+    if quality_check["multi_subject"]:
         warnings.append(
             {
                 "code": "MULTI_SUBJECT",

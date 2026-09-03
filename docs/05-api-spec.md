@@ -576,6 +576,8 @@ Android 인앱 웹뷰(카카오톡·인스타그램·네이버앱)에는 OS 공�
 }
 ```
 
+`400 VALIDATION_ERROR` + `detail.reason: "source_blocked"`: 업로드가 아니라 **재생성 시점**에 사진이 막힌 경우(보관함 「다시 만들기」·`latest_upload_id` 스킵 경로). 비전 검사 전에 올라간 사진(`quality_check.vision_checked` 없음)은 이때 한 번 검사해 적어 두고, 이후엔 저장된 판정만 본다. `detail` 에 업로드와 같은 `code`(`CAT_DETECTED`/`NOT_A_DOG`/`HUMAN_FACE_DETECTED`)·`message` 가 실린다. 차감 전에 막히므로 크레딧 변동 없음.
+
 #### `GET /v1/jobs/{job_id}`
 
 `style_id`·`upload_id`·`pet_id`(이슈 #9 A안): 이 job을 만든 재료 참조. W-06 "다시 만들기"(같은 재료 + 새 Idempotency-Key)와 "이 사진으로 다른 스타일"(같은 `upload_id` + 다른 `style_id`)이 이 세 필드로 `POST /v1/jobs`를 재조립합니다(FR-W06-04·FR-W06-07). 커스텀 프롬프트 job은 `style_id: null`, 펫 프로필이 연결되지 않은 이미지는 `pet_id: null`.

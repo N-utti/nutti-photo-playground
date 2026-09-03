@@ -25,6 +25,7 @@ from app.models import (
     StyleStatus,
 )
 from app.routers import auth as auth_router
+from app.routers import uploads as uploads_router
 from app.settings import settings
 
 
@@ -365,6 +366,81 @@ def test_input_filter_logs_block_without_charging_or_creating_job(client: TestCl
         "input_filter_blocked": True,
         "reason": "breed_color_change",
     }
+
+
+async def _set_quality_check(upload_id: str, check: dict) -> None:
+    await SourceImage.filter(id=upload_id).update(quality_check=check)
+
+
+async def _quality_check(upload_id: str) -> dict:
+    return (await SourceImage.get(id=upload_id)).quality_check
+
+
+def test_create_job_blocks_source_checked_without_dog_without_calling_vision(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    member_id, upload_id, headers = _session(client)
+    client.portal.call(_set_quality_check, upload_id, {"vision_checked": True, "no_dog": True})
+
+    async def must_not_run(_jpeg: bytes):
+        raise AssertionError("이미 판정된 사진은 비전을 다시 부르지 않는다")
+
+    monkeypatch.setattr(uploads_router, "_analyze_vision", must_not_run)
+    client.portal.call(_create_style, 1)
+    style_id = 1
+
+    response = _post_job(client, headers, upload_id, style_id=style_id)
+
+    assert response.status_code == 400
+    detail = response.json()["error"]["detail"]
+    assert detail["reason"] == "source_blocked"
+    assert detail["code"] == "NOT_A_DOG"
+    assert client.portal.call(_job_and_generation_entry_counts, member_id) == (3, 0, 0)
+
+
+def test_create_job_checks_legacy_source_once_and_persists(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    """비전 켜기 전 업로드(vision_checked 없음)는 재생성 시점에 한 번 검사하고 적어 둔다."""
+    _, upload_id, headers = _session(client)
+    monkeypatch.setattr(settings, "openai_api_key", "test-key")
+    calls: list[bytes] = []
+
+    async def load(_key: str) -> bytes:
+        return b"jpeg"
+
+    async def analyze(jpeg: bytes):
+        calls.append(jpeg)
+        return uploads_router._VisionResult(
+            is_dog=False, is_cat=False, multi_subject=False, human_face=False
+        )
+
+    monkeypatch.setattr(uploads_router, "load_bytes", load)
+    monkeypatch.setattr(uploads_router, "_analyze_vision", analyze)
+    client.portal.call(_create_style, 1)
+    style_id = 1
+
+    first = _post_job(client, headers, upload_id, style_id=style_id)
+    second = _post_job(client, headers, upload_id, style_id=style_id)
+
+    assert first.status_code == second.status_code == 400
+    assert calls == [b"jpeg"]
+    check = client.portal.call(_quality_check, upload_id)
+    assert check["vision_checked"] is True and check["no_dog"] is True
+
+
+def test_create_job_lets_legacy_source_through_when_vision_is_off(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    _, upload_id, headers = _session(client)
+    monkeypatch.setattr(settings, "openai_api_key", "")
+    client.portal.call(_create_style, 1)
+    style_id = 1
+
+    response = _post_job(client, headers, upload_id, style_id=style_id)
+
+    assert response.status_code == 202
+    assert "vision_checked" not in client.portal.call(_quality_check, upload_id)
 
 
 def test_create_rejects_foreign_upload_and_missing_or_retired_style(client: TestClient):

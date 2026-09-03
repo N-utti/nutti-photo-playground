@@ -271,9 +271,17 @@ export default function W04Upload() {
       { file, petId },
       {
         onSuccess: (result) => {
+          if (result.blocking_issue) {
+            /*
+              차단은 선택 화면에 남아 문구만 보여 줍니다. 확인 단계로 넘어가면 사진도
+              없이(서버가 image_url 을 안 줍니다) 빨간 카드 하나만 남아 «화면이 사라진»
+              것처럼 보였습니다(실서버 제보). 파일 오류와 같은 자리, 같은 모양입니다.
+            */
+            setFileError(result.blocking_issue.message)
+            return
+          }
           setUpload(result)
-          // 차단된 업로드는 upload_id 가 없어 복원해 봐야 쓸 데가 없습니다.
-          if (result.upload_id) writeUploadDraft({ styleId, petId, upload: result })
+          writeUploadDraft({ styleId, petId, upload: result })
         },
       },
     )
@@ -375,6 +383,12 @@ export default function W04Upload() {
           navigate(`/jobs/${job_id}/waiting`)
         },
         onError: (error) => {
+          const blocked = sourceBlocked(error)
+          if (blocked) {
+            // 보관함 「다시 만들기」 사진이 지금 정책에 막힌 경우 — 업로드 차단과 같은 카드로.
+            setUpload({ ...upload, blocking_issue: blocked })
+            return
+          }
           if (isApiError(error, 'INSUFFICIENT_CREDIT')) {
             const detail = error.detail as { required?: number; balance?: number } | undefined
             setInsufficient({
@@ -428,7 +442,11 @@ export default function W04Upload() {
           // 서버에서 400 으로 되돌려보내는 길이었습니다 — 못 쓰는 파일은 애초에 회색으로.
           accept={ACCEPTED_TYPES.join(',')}
           className="hidden"
-          onChange={(event) => handleFile(event.currentTarget.files?.[0])}
+          onChange={(event) => {
+            handleFile(event.currentTarget.files?.[0])
+            // 같은 파일을 다시 골라도 change 가 나게 — 차단된 뒤 그 사진을 또 시도할 수 있습니다.
+            event.currentTarget.value = ''
+          }}
         />
 
         {confirming ? (
@@ -961,6 +979,18 @@ function ConfirmPanel({
       )}
     </>
   )
+}
+
+/**
+ * `POST /v1/jobs` 400 `detail.reason === 'source_blocked'` — 사진이 업로드 검사가 아니라
+ * 재생성 시점에 막힌 경우(비전 켜기 전 사진, 또는 그 사이 바뀐 정책). 서버가 업로드와
+ * 같은 `code`/`message` 를 detail 에 실어 줍니다.
+ */
+function sourceBlocked(error: unknown): NonNullable<UploadResult['blocking_issue']> | null {
+  if (!isApiError(error, 'VALIDATION_ERROR')) return null
+  const detail = error.detail as { reason?: string; code?: string; message?: string } | undefined
+  if (detail?.reason !== 'source_blocked' || !detail.code || !detail.message) return null
+  return { code: detail.code as UploadIssue['code'], message: detail.message }
 }
 
 function WarningCard({ warning }: { warning: UploadIssue }) {
