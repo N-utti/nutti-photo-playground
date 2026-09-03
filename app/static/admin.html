@@ -270,7 +270,8 @@ const loadVersions = guard(async () => {
       </td></tr>`).join('') || '<tr><td>버전 없음</td></tr>';
   pvItems = items;
   // 처음 열면 active 버전(없으면 최신)의 전문을 편집창에 실어 둔다 — 빈 창에 새로 쓰는 게 아니라 있는 것 위에 고친다.
-  if (!pvEditing || !items.some(v => v.id === pvEditing)) editVersion((items.find(v => v.status === 'active') || items[0] || {}).id);
+  // 저장 직후엔 새 버전(pvEditing)을, 처음 열면 active(없으면 최신)를 — 제목·상태 배지가 표와 같은 것을 가리키게.
+  editVersion(items.some(v => v.id === pvEditing) ? pvEditing : (items.find(v => v.status === 'active') || items[0] || {}).id);
 });
 let pvItems = [], pvEditing = null;
 function editVersion(vid) {
