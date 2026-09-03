@@ -245,12 +245,18 @@ export default function AccountSheet({
               때문입니다(마크 14px → 21px). 크기는 한 값으로만 정합니다 — 마크와 「놀이터」의
               비율은 잠금 문구가 스스로 지킵니다.
 
-              `mt-2` 는 시트 안쪽 여백(`p-5` = 20px)에 8px 을 더해 28px 을 만듭니다. 아래로는
-              버튼 묶음의 `mt-6` 이 24px 을 냅니다 — **12px 이 아니라 24px 이어야 하는 이유**는
-              버튼끼리의 간격이 `space-y-3`(12px)이기 때문입니다. 로고 아래가 그와 같으면
-              로고가 머리가 아니라 «버튼 목록의 첫 칸» 처럼 읽힙니다.
+              위아래 여백은 **로고를 머리로 세우려고** 넉넉히 줍니다. `mt-10` 은 시트 안쪽
+              여백(`p-5` = 20px)에 40px 을 더해 60px 을 만듭니다 — 예전 28px(`mt-2`)에서는
+              워드마크가 둥근 상단 모서리에 붙어 갑갑했습니다. 아래로는 버튼 묶음의 `mt-8` 이
+              32px 을 냅니다. **12px 이 아니라 32px 이어야 하는 이유**는 버튼끼리의 간격이
+              `space-y-3`(12px)이기 때문입니다 — 로고 아래가 그와 같으면 로고가 머리가 아니라
+              «버튼 목록의 첫 칸» 처럼 읽힙니다. 위(60px)를 아래(32px)보다 크게 둬서 로고가
+              위로 떠 있지 않고 시트 머리로 앉게 합니다.
+
+              **카드 패딩(`p-5`)은 건드리지 않습니다.** 갑갑함의 원인은 좌우가 아니라 로고의
+              세로 여백이었고, 패딩을 키우면 옆구리까지 같이 벌어집니다.
             */}
-            <BrandLockup decorative className="mt-2 justify-center text-2xl" />
+            <BrandLockup decorative className="mt-10 justify-center text-2xl" />
             {description && <p className="mt-3 text-center text-sm text-ink-2">{description}</p>}
 
             {/*
@@ -271,7 +277,7 @@ export default function AccountSheet({
               앱의 주 버튼(W-01 「사진 올리고 무료로 1장 만들기」)이 이미 52px 이라 로그인만
               작을 근거가 없었습니다. 레이블도 그 버튼과 같은 16px 로 맞춥니다.
             */}
-            <div className="mt-6 space-y-3">
+            <div className="mt-8 space-y-3">
               {SOCIAL.map((social) => {
                 const busy = authorize.isPending && authorize.variables === social.provider
                 return (
