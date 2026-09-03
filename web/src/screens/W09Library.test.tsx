@@ -23,7 +23,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
 import { Route, Routes } from 'react-router'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { wasDeletedHere } from '../app/deletedResults'
 import { mockAsMember } from '../mocks/handlers'
 import { renderWithProviders } from '../test/render'
@@ -90,6 +90,41 @@ describe('W-09 · 보관함', () => {
 
     // 무한 그리드는 사방이 똑같아서 자기 결과를 못 찾게 만듭니다 — 묶기는 서버가 합니다.
     expect(await screen.findByText('2026년 8월')).toBeInTheDocument()
+  })
+
+  it('카톡 웹뷰에서 「저장」은 내려받지 않고 외부 브라우저 안내를 띄운다', async () => {
+    /*
+      Android 웹뷰는 blob 다운로드를 조용히 버립니다(app/inAppBrowser.ts). 여러 장을
+      하나씩 밖으로 열 수는 없어 보관함 페이지를 여는 링크를 주는데, 거기선 로그인이
+      한 번 더 필요하다는 것도 같이 말합니다 — 숨기면 «열었는데 비어 있다» 가 됩니다.
+    */
+    const user = userEvent.setup()
+    const ua = vi
+      .spyOn(navigator, 'userAgent', 'get')
+      .mockReturnValue(
+        'Mozilla/5.0 (Linux; Android 15; wv) AppleWebKit/537.36 Chrome/137.0 Mobile Safari/537.36 KAKAOTALK/25.4.3 (INAPP)',
+      )
+    const clicked = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    try {
+      renderLibrary()
+      await screen.findByText('2026년 8월')
+      await selectFirstItem(user)
+
+      await user.click(screen.getByRole('button', { name: '저장' }))
+
+      expect(
+        await screen.findByText(/카카오톡 브라우저에서는 갤러리 저장이 막혀 있어요/),
+      ).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: '외부 브라우저에서 보관함 열기' })).toHaveAttribute(
+        'href',
+        expect.stringContaining('kakaotalk://web/openExternal?url='),
+      )
+      expect(screen.getByText(/로그인이 한 번 더 필요해요/)).toBeInTheDocument()
+      expect(clicked).not.toHaveBeenCalled()
+    } finally {
+      ua.mockRestore()
+      clicked.mockRestore()
+    }
   })
 
   it('필터를 바꾸면 선택이 풀린다', async () => {

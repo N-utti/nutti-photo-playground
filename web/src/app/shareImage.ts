@@ -3,8 +3,9 @@
  *
  * 인스타그램은 웹에서 대신 게시할 방법이 없습니다(공개 게시 API 없음). 남은 길은 둘인데,
  * «저장 → 인스타 앱 → 갤러리에서 다시 찾기» 는 왕복이 길고, Web Share API 로 파일을 넘기면
- * iOS·Android 의 공유 시트에 인스타그램(게시물/스토리/DM)이 바로 뜹니다. 데스크톱 브라우저는
- * 파일 공유를 대부분 못 하므로 `canShareImage()` 가 false 면 화면이 기존 저장·열기로 물러납니다.
+ * iOS·Android 의 공유 시트에 인스타그램(게시물/스토리/DM)이 바로 뜹니다.
+ *
+ * `shareCapability()` 가 'none' 이면 화면이 자체 시트(app/ShareFallbackSheet)로 물러납니다.
  *
  * 이미지는 `saveImage` 와 같은 이유로 fetch → blob 을 거칩니다(다른 오리진의 CDN 파일을
  * File 로 만들려면 CORS 가 열려 있어야 함 — 이슈 #77, deploy 문서 §1-3).
@@ -29,7 +30,23 @@
  */
 export type ShareImageOutcome = 'shared' | 'cancelled' | 'expired' | 'failed'
 
-/** 이 브라우저가 이미지 파일을 공유 시트로 넘길 수 있는지 — 렌더 시점에 버튼을 보일지 정합니다. */
+/**
+ * «이미지 저장» 을 OS 시트로 보낼지 — **iOS 에서만** true.
+ *
+ * iOS 는 blob 다운로드가 사진 앱이 아니라 파일 앱으로 떨어지고, 시트에는 「이미지 저장」이
+ * 내장돼 있습니다. Android 는 반대입니다 — 다운로드가 갤러리(Download 앨범)에 바로 보이고
+ * 시트에는 «저장» 항목이 없어 되레 헷갈립니다. 데스크톱도 조심할 자리입니다: Windows
+ * 크롬/엣지·macOS 사파리는 `canShare({files})` 가 true 라, 이 가드가 없으면 저장이 공유
+ * 창으로 바뀝니다(리뷰 2026-09-03). iPadOS 는 Macintosh UA 를 쓰므로 터치 포인트로 가릅니다.
+ */
+export function saveViaShareSheet(): boolean {
+  if (typeof navigator === 'undefined') return false
+  const ua = navigator.userAgent
+  const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)
+  return ios && canShareImage()
+}
+
+/** 이 브라우저가 이미지 파일을 공유 시트로 넘길 수 있는지 — 「공유」의 파일 갈래를 정합니다. */
 export function canShareImage(): boolean {
   if (typeof navigator === 'undefined' || typeof navigator.canShare !== 'function') return false
   try {
@@ -62,12 +79,36 @@ export async function fetchShareFile(url: string, filename: string): Promise<Fil
  * 받아 둔 파일을 공유 시트로 넘깁니다. **여기에는 `await` 가 하나뿐이라야 합니다** — 앞에
  * 뭘 더 붙이면 위에서 설명한 활성화 창 문제가 되돌아옵니다.
  */
-export async function shareImage(file: File | File[], text?: string): Promise<ShareImageOutcome> {
+export function shareImage(file: File | File[], text?: string): Promise<ShareImageOutcome> {
   const files = Array.isArray(file) ? file : [file]
+  // text 를 안 받으면 payload 에도 싣지 않습니다 — «저장» 의도로 시트를 열 때(갤러리 경로)
+  // 메신저에 홍보 문구가 미리 채워지는 것을 막습니다. 배열은 W-09 일괄 저장이 씁니다.
+  return runShare(text === undefined ? { files } : { files, text })
+}
+
+/**
+ * 파일은 못 넘기지만 `navigator.share` 자체는 있는 브라우저용 — 이미지 **링크**를 OS
+ * 시트로 넘깁니다. 인스타 게시물로는 못 가지만 카톡·메시지 전송은 되고, 무엇보다
+ * 버튼이 브라우저마다 다른 얼굴을 하지 않습니다(2026-09-03 «어디서든 같은 기능» 결정).
+ */
+export function shareLink(url: string, text: string): Promise<ShareImageOutcome> {
+  return runShare({ url, text })
+}
+
+/**
+ * 이 브라우저의 공유 능력 — 화면이 「공유」 버튼의 갈래를 정합니다.
+ * `files` OS 시트에 파일 · `link` OS 시트에 링크만 · `none` 자체 시트(app/ShareFallbackSheet).
+ */
+export type ShareCapability = 'files' | 'link' | 'none'
+
+export function shareCapability(): ShareCapability {
+  if (typeof navigator === 'undefined' || typeof navigator.share !== 'function') return 'none'
+  return canShareImage() ? 'files' : 'link'
+}
+
+async function runShare(data: ShareData): Promise<ShareImageOutcome> {
   try {
-    // text 를 안 받으면 payload 에도 싣지 않습니다 — «저장» 의도로 시트를 열 때(갤러리 경로)
-    // 메신저에 홍보 문구가 미리 채워지는 것을 막습니다. 배열은 W-09 일괄 저장이 씁니다.
-    await navigator.share(text === undefined ? { files } : { files, text })
+    await navigator.share(data)
     return 'shared'
   } catch (error) {
     if (!(error instanceof DOMException)) return 'failed'

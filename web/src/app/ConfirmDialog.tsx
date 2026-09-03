@@ -26,12 +26,15 @@ export default function ConfirmDialog({
   titleId,
   onClose,
   children,
+  closeLabel,
 }: {
   title: string
   /** `aria-labelledby` 가 가리킬 제목 id. 한 화면에 창이 둘 이상이면 서로 달라야 합니다. */
   titleId: string
   onClose: () => void
   children: ReactNode
+  /** 닫기 버튼 문구. 확인 창은 «취소», 항목을 고르는 시트(공유)는 «닫기». */
+  closeLabel?: string
 }) {
   const dialogRef = useModalDialog<HTMLDivElement>(onClose)
 
@@ -62,7 +65,7 @@ export default function ConfirmDialog({
         </h2>
         {children}
         <button type="button" onClick={onClose} className="mt-2 w-full py-2 text-sm text-ink-3 hover:text-ink">
-          취소
+          {closeLabel ?? '취소'}
         </button>
       </div>
     </div>
