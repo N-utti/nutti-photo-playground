@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -10,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from tortoise import Tortoise
 
+from app.monitor import run_monitor_loop
 from app.routers import admin, auth, credits, events, jobs, library, pets, results, styles, uploads, webhooks
 from app.settings import settings
 
@@ -24,7 +26,11 @@ async def lifespan(app: FastAPI):
         _enable_global_fallback=True,
     )
     logger.info("trust_proxy=%s guest_rate_limit_per_hour=%s", settings.trust_proxy, settings.guest_rate_limit_per_hour)
+    # 운영 감시(app/monitor.py) — 웹훅이 없어도 돌며 로그에 남긴다. 테스트 앱은 lifespan 을 타지 않는다.
+    monitor = asyncio.create_task(run_monitor_loop()) if settings.monitor_enabled else None
     yield
+    if monitor is not None:
+        monitor.cancel()
     await Tortoise.close_connections()
 
 

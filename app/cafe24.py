@@ -46,7 +46,8 @@ async def alert_admin(text: str) -> None:
         return
     try:
         async with httpx.AsyncClient(timeout=10) as client:
-            await client.post(settings.admin_alert_slack_webhook_url, json={"text": text})
+            # "text" 는 슬랙, "content" 는 디스코드 — 서로 모르는 키는 무시하므로 한 페이로드로 둘 다.
+            await client.post(settings.admin_alert_slack_webhook_url, json={"text": text, "content": text})
     except httpx.HTTPError:
         logger.exception("Slack alert failed")
 

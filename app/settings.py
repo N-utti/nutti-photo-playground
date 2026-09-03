@@ -61,7 +61,10 @@ class Settings(BaseSettings):
     naver_client_secret: str = ""
     naver_redirect_uri: str = ""
 
+    # 슬랙 incoming webhook 또는 디스코드 webhook URL — 둘 다 같은 페이로드로 받는다(app/cafe24.alert_admin).
     admin_alert_slack_webhook_url: str = ""
+    # 5분 주기 운영 감시(app/monitor.py). 로컬 개발·테스트에서 끄는 용도.
+    monitor_enabled: bool = True
     sentry_dsn: str = ""
     ga4_measurement_id: str = ""
 

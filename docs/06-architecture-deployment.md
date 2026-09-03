@@ -271,7 +271,8 @@ AWS 표준 아웃바운드 요율(프리티어 소진 후 일반적으로 알려
 - **헬스체크**: FastAPI `/healthz` 엔드포인트 + Docker Compose healthcheck. 같은 Compose 스택에 **Uptime Kuma**(자체 호스팅, 무료)를 추가해 외부에서 주기적으로 헬스체크하고 다운 시 Slack Webhook으로 알림.
 - **애플리케이션 로그**: 구조화 JSON 로그를 stdout으로 출력, Docker의 `json-file` 로깅 드라이버(크기 제한 rotate 설정)로 수집. 로그 집계 시스템(Loki 등)은 필요해지면 추가(YAGNI).
 - **에러 트래킹**: Sentry 무료 티어로 FastAPI·워커 예외 캡처(`SENTRY_DSN`).
-- **알림 채널 통합**: 카페24 토큰 갱신 실패(§6.1), 백업 실패(§8), 헬스체크 다운(본 절) 모두 동일한 `ADMIN_ALERT_SLACK_WEBHOOK_URL`로 통합 — 채널을 여러 개 만들지 않습니다.
+- **알림 채널 통합**: 카페24 토큰 갱신 실패(§6.1), 백업 실패(§8), 헬스체크 다운(본 절) 모두 동일한 `ADMIN_ALERT_SLACK_WEBHOOK_URL`로 통합 — 채널을 여러 개 만들지 않습니다. 슬랙·디스코드 웹훅 둘 다 같은 페이로드로 받습니다.
+- **운영 감시(2026-09-03, `app/monitor.py`)**: api 프로세스가 5분마다 §2.5 신호를 잽니다 — queued 5분 초과 · processing 리스 만료(워커 사망) · 실패-미환불(24h) · 가용 메모리 < 300MB · 디스크 여유 < 10%. 임계를 넘으면 위 웹훅으로 「🚨 항목: 다음 손」을, 풀리면 「✅ 해소」를 보냅니다. 같은 항목은 1시간마다 재알림. 웹훅이 비어 있으면 WARNING 로그만. `MONITOR_ENABLED=false` 로 끕니다(테스트·로컬).
 
 ---
 
