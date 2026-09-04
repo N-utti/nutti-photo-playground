@@ -40,10 +40,14 @@ import { useCredits } from '../api/queries'
  * 예전에는 골드(`gold-soft`)였는데, 배지가 실제로 얹히는 흰 앱바 위에서 **1.10:1**
  * 이라 알약이 아예 보이지 않았습니다(index.css 「액센트 세이지」).
  *
- * 테두리는 여전히 없습니다. 누르는 것이 됐으니 두르고 싶어지지만, 이 배지 바로
- * 오른쪽이 «로그인» 버튼이고 그쪽이 테두리 두른 알약입니다 — 둘이 같은 무게로 나란히
- * 서면 **무엇이 무엇인지** 다시 흐려집니다(랜딩·카탈로그 앱바). 눌린다는 표시는 커서가
- * 올라왔을 때의 테두리 한 겹과 눌리는 순간의 살짝 줄어듦으로 냅니다.
+ * 테두리는 **어느 상태에서도 없습니다.** 누르는 것이 됐으니 두르고 싶어지지만, 이 배지
+ * 바로 오른쪽이 «로그인» 버튼이고 그쪽이 테두리 두른 알약입니다 — 둘이 같은 무게로
+ * 나란히 서면 **무엇이 무엇인지** 다시 흐려집니다(랜딩·카탈로그 앱바).
+ *
+ * 한동안 hover 에서만 테두리(ring)를 한 겹 둘렀는데, 그건 위 문장을 hover 에서 어기는
+ * 것이었습니다 — 커서가 올라간 순간 이 배지가 옆 버튼과 같은 꼴이 됩니다. 눌린다는
+ * 표시는 이제 **면이 진해지는 것**과 눌리는 순간의 살짝 줄어듦으로 냅니다(아래
+ * PRESSABLE · 주 버튼 `bg-brand hover:bg-brand-deep` 과 같은 규칙).
  */
 const PILL = 'ml-auto rounded-full px-3 py-1 font-mono text-sm tabular-nums'
 
@@ -56,7 +60,7 @@ const PILL = 'ml-auto rounded-full px-3 py-1 font-mono text-sm tabular-nums'
  * 아바타·로그인 버튼과 겹치지 않습니다.
  */
 const PRESSABLE =
-  "relative motion-safe:active:scale-[0.99] hover:ring-1 after:absolute after:inset-x-0 after:-inset-y-2 after:content-['']"
+  "relative motion-safe:active:scale-[0.99] transition-colors after:absolute after:inset-x-0 after:-inset-y-2 after:content-['']"
 
 export function CreditBadge({ showUnit = false }: { showUnit?: boolean }) {
   const { data, isPending, isError } = useCredits()
@@ -102,8 +106,21 @@ export function CreditBadge({ showUnit = false }: { showUnit?: boolean }) {
   return (
     <Link
       to="/credits"
+      /*
+        hover 는 **면을 진하게** 합니다 — 테두리(ring)를 새로 두르던 것을 바꿨습니다.
+        이 배지는 면이 있는 알약이라, 커서가 올라갈 때만 테두리가 생기면 옆에 선
+        «로그인» 버튼(테두리 두른 알약)과 같은 꼴이 됩니다. 위 PILL 주석이 «테두리는
+        없다» 고 적어 둔 그 이유가 hover 에서 되살아났던 셈입니다. 채워진 것은 면으로
+        반응한다 — 이 앱의 주 버튼(`bg-brand hover:bg-brand-deep`)과 같은 규칙입니다.
+
+        모르는 상태(`—`)는 면과 **글자를 함께** 옮깁니다. `ink-3` 는 paper 위에서 이미
+        하한(4.91:1)이라 면만 진하게 하면 AA 아래로 떨어집니다(index.css 「글자」).
+        `rule` 위의 `ink-2` 는 5.65:1 로 오히려 또렷해집니다.
+      */
       className={`${PILL} ${tone} ${PRESSABLE} ${
-        balance === null ? 'hover:ring-rule-strong' : 'hover:ring-accent'
+        balance === null
+          ? 'hover:bg-rule hover:text-ink-2'
+          : 'hover:bg-accent-soft-deep'
       }`}
     >
       {face}

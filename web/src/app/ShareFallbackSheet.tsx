@@ -30,7 +30,7 @@ import { externalOpenUrl, type InAppBrowser } from './inAppBrowser'
 import { kakaoShareAvailable, shareToKakao } from './kakaoShare'
 
 const ITEM =
-  'block w-full rounded-xl border border-rule-strong bg-surface px-4 py-3 text-center text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]'
+  'block w-full rounded-xl bg-rule px-4 py-3 text-center text-sm font-semibold hover:bg-rule-strong hover:text-brand motion-safe:active:scale-[0.99]'
 
 export default function ShareFallbackSheet({
   imageUrl,

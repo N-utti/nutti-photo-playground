@@ -25,7 +25,7 @@ export default function W10Ledger() {
 
   return (
     <div className="screen-min-h bg-paper pb-16">
-      <header className="sticky top-0 desktop:top-14 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 py-3">
+      <header className="sticky top-0 desktop:top-16 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 desktop:px-7 py-3">
         {/* A 고정이었습니다. 402 오버레이에서 내역만 열고 돌아갈 때 A 를 지나치는 게
             싫어서였는데, 그 경우 사용자가 있던 곳은 생성 화면입니다 — 거기로 돌려보내는
             게 맞습니다. `/credits` 는 이제 뒤가 없을 때의 폴백입니다. */}
@@ -33,7 +33,7 @@ export default function W10Ledger() {
         <h1 className="text-base font-bold">받은 내역</h1>
       </header>
 
-      <main className="mx-auto w-full max-w-md px-5 py-4">
+      <main className="mx-auto w-full max-w-md px-5 desktop:px-7 py-4">
         {isPending && (
           <ul className="space-y-2">
             {Array.from({ length: 5 }, (_, index) => (
@@ -49,7 +49,7 @@ export default function W10Ledger() {
             <button
               type="button"
               onClick={() => refetch()}
-              className="mt-3 rounded-full border border-rule-strong px-4 py-2 text-sm hover:border-brand-2 hover:bg-surface-2 hover:text-brand"
+              className="mt-3 rounded-full border border-rule-strong px-4 py-2 text-sm hover:border-brand-2 hover:bg-brand-soft hover:text-brand"
             >
               다시 시도
             </button>
@@ -92,7 +92,7 @@ export default function W10Ledger() {
             type="button"
             onClick={() => void fetchNextPage()}
             disabled={isFetchingNextPage}
-            className="mt-4 w-full rounded-xl border border-rule-strong px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
+            className="mt-4 w-full rounded-xl bg-rule px-4 py-3 text-sm font-semibold hover:bg-rule-strong hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
           >
             {isFetchingNextPage ? '불러오는 중…' : '더 보기'}
           </button>

@@ -32,7 +32,7 @@ export function AccountEntry() {
         <button
           type="button"
           onClick={() => setLoginSheet(true)}
-          className="rounded-full border border-rule-strong px-3 py-1.5 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand"
+          className="rounded-full border border-rule-strong px-3 py-1.5 text-sm font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand"
         >
           로그인
         </button>

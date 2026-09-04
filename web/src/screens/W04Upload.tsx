@@ -50,7 +50,6 @@ import {
 } from '../app/styleInputs'
 // 폼 자체는 W-06 «다시 만들기» 와 함께 씁니다 — 같은 칸을 같은 규칙으로 그려야 합니다.
 import { StyleInputForm } from '../app/StyleInputForm'
-import { TabBar } from '../app/TabBar'
 import Thumbnail from '../app/Thumbnail'
 import { clearUploadDraft, readUploadDraft, writeUploadDraft } from '../api/uploadDraft'
 import BreedField from '../app/BreedField'
@@ -410,10 +409,9 @@ export default function W04Upload() {
   const blocked = upload?.blocking_issue ?? null
 
   return (
-    // pb-24 — 모바일 하단 탭바가 마지막 줄을 덮지 않게(W-01·W-02·W-09 와 같은 값).
-    // 데스크톱에는 탭바가 없어 원래 값 그대로입니다.
-    <div className="screen-min-h bg-paper pb-24 desktop:pb-16">
-      <header className="sticky top-0 desktop:top-14 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 py-3">
+    // 하단 탭바가 없어졌으므로(마이페이지로 통합) pb 는 순수 여백입니다.
+    <div className="screen-min-h bg-paper pb-16">
+      <header className="sticky top-0 desktop:top-16 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 desktop:px-7 py-3">
         {/* 확인 단계에서도 그냥 뒤로 갑니다 — 사진을 다시 고르는 길은 아래
             «다른 사진 고르기» 입니다(ConfirmPanel). ← 가 화면 안 단계를 되감으면
             같은 화살표가 어떤 때는 나가고 어떤 때는 안 나갑니다. */}
@@ -427,7 +425,7 @@ export default function W04Upload() {
         </span>
       </header>
 
-      <main className="mx-auto w-full max-w-md px-5 py-4">
+      <main className="mx-auto w-full max-w-md px-5 desktop:px-7 py-4">
         <StyleContext
           styleId={styleId}
           styleName={style?.name}
@@ -507,19 +505,6 @@ export default function W04Upload() {
         />
       )}
 
-      {/*
-        탭바(모바일 전용). 이 화면은 «만들기» 탭이 **가리키는 목적지**인데 여기에 탭바가
-        없어서, 탭을 누른 순간 탭 목록이 통째로 사라졌습니다.
-
-        빼 뒀던 이유는 만들기 흐름 한복판에 나가는 문 셋을 여는 것이었습니다(TabBar.tsx).
-        그 판단은 W-05·W-06 에 그대로 남습니다 — 거기는 크레딧이 **이미 나간** 뒤이고
-        결과를 기다리는 중이라 문을 넓힐 이유가 없습니다. 여기는 다릅니다: 사진을 고르기
-        전이든 확인 단계든 아직 아무것도 안 썼고, 대가로 치른 것은 «탭을 눌렀는데 탭이
-        사라진다» 는 확실한 어색함이었습니다.
-
-        데스크톱에는 안 나옵니다(`desktop:hidden`) — 그쪽은 상단 GNB 가 같은 일을 합니다.
-      */}
-      <TabBar />
     </div>
   )
 }
@@ -618,7 +603,7 @@ function SelectPanel({
         type="button"
         onClick={onOpenPicker}
         disabled={uploading}
-        className="group grid aspect-[4/3] w-full place-items-center rounded-xl border-2 border-dashed border-rule-strong bg-surface text-sm text-ink-2 transition duration-200 ease-out enabled:hover:border-brand-2 enabled:hover:bg-surface-2 enabled:hover:text-brand motion-safe:enabled:active:scale-[0.99]"
+        className="group grid aspect-[4/3] w-full place-items-center rounded-xl border-2 border-dashed border-rule-strong bg-surface text-sm text-ink-2 transition duration-200 ease-out enabled:hover:border-brand-2 enabled:hover:bg-brand-soft enabled:hover:text-brand motion-safe:enabled:active:scale-[0.99]"
       >
         {uploading ? (
           // 올라가는 동안은 화면이 멈춘 게 아니라는 신호만 줍니다. 여기서 카메라를
@@ -858,7 +843,7 @@ function ConfirmPanel({
       <button
         type="button"
         onClick={onPickAnother}
-        className="mt-4 w-full rounded-xl border border-rule-strong bg-surface px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
+        className="mt-4 w-full rounded-xl bg-rule px-4 py-3 text-sm font-semibold hover:bg-rule-strong hover:text-brand motion-safe:active:scale-[0.99]"
       >
         다른 사진 고르기
       </button>
@@ -1157,7 +1142,7 @@ function SavePetForm({
         <button
           type="submit"
           disabled={createPet.isPending || name.trim() === ''}
-          className="shrink-0 rounded-xl border border-rule-strong px-3 py-2 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
+          className="shrink-0 rounded-xl border border-rule-strong px-3 py-2 text-sm font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
         >
           저장
         </button>

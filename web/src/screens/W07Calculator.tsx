@@ -47,12 +47,12 @@ export default function W07Calculator() {
 
   return (
     <div className="screen-min-h bg-paper pb-16">
-      <header className="sticky top-0 desktop:top-14 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 py-3">
+      <header className="sticky top-0 desktop:top-16 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 desktop:px-7 py-3">
         <BackButton fallback="/styles" />
         <h1 className="text-base font-bold">간식량 계산기</h1>
       </header>
 
-      <main className="mx-auto w-full max-w-md px-5 py-4">
+      <main className="mx-auto w-full max-w-md px-5 desktop:px-7 py-4">
         {!petId && !jobId ? (
           // 쿼리가 없으면 서버에 물어볼 게 없습니다(useCalculatorLink 도 비활성).
           // 그래도 계산기로 가는 길 자체는 막지 않습니다 — 1단계부터 하면 됩니다.
@@ -63,7 +63,7 @@ export default function W07Calculator() {
             </p>
             <Link
               to="/styles"
-              className="mt-4 block rounded-xl border border-rule-strong px-4 py-3 text-center text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
+              className="mt-4 block rounded-xl border border-rule-strong px-4 py-3 text-center text-sm font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand motion-safe:active:scale-[0.99]"
             >
               사진부터 만들기
             </Link>
@@ -81,7 +81,7 @@ export default function W07Calculator() {
                   1단계로 나가는 길을 이미 답니다(위 «어떤 강아지인지 알 수 없어요»). */}
               <Link
                 to="/calculator"
-                className="block rounded-xl border border-rule-strong px-4 py-3 text-center text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
+                className="block rounded-xl bg-rule px-4 py-3 text-center text-sm font-semibold hover:bg-rule-strong hover:text-brand motion-safe:active:scale-[0.99]"
               >
                 계산기 1단계부터 하기
               </Link>
@@ -100,7 +100,7 @@ export default function W07Calculator() {
             <button
               type="button"
               onClick={() => refetch()}
-              className="mt-3 rounded-full border border-rule-strong px-4 py-2 text-sm hover:border-brand-2 hover:bg-surface-2 hover:text-brand"
+              className="mt-3 rounded-full border border-rule-strong px-4 py-2 text-sm hover:border-brand-2 hover:bg-brand-soft hover:text-brand"
             >
               다시 시도
             </button>

@@ -56,7 +56,7 @@ export default function JobUnavailable({
   const [loginSheet, setLoginSheet] = useState(false)
 
   return (
-    <div className="mx-auto max-w-md px-5 py-16 text-center">
+    <div className="mx-auto max-w-md px-5 desktop:px-7 py-16 text-center">
       <h1 className="text-xl font-bold">{copy.title}</h1>
       <p className="mt-2 text-sm text-ink-2">{copy.body}</p>
       {detail && <p className="mt-1 font-mono text-xs text-ink-3">{detail}</p>}

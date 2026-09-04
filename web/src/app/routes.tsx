@@ -10,6 +10,7 @@
 import { createBrowserRouter, type RouteObject } from 'react-router'
 import RootLayout from './RootLayout'
 import W01Landing from '../screens/W01Landing'
+import StylesRedirect from './StylesRedirect'
 
 /*
   랜딩(W-01)만 정적으로 들여옵니다. 나머지 열한 화면은 `lazy` 로 갈라 별도 청크가
@@ -50,18 +51,22 @@ export const routes: RouteObject[] = [
     // 세션 배너를 한 곳에서만 달기 위한 껍데기 라우트입니다(경로 없음).
     element: <RootLayout />,
     children: [
-      // 랜딩만 제목 없이 브랜드 이름 하나로 둡니다 — "누띠 사진 놀이터 · 누띠 사진 놀이터".
-      { path: '/', element: <W01Landing /> },
-      // W-03 은 W-02 의 **자식**입니다 — 시트가 떠도 뒤 그리드가 살아 있어야 하고
-      // (#p03 노트1), /styles/101 로 직접 들어와도 닫으면 탐색이 이어져야 합니다.
+      // 홈이 곧 원페이지 갤러리입니다(옛 W-01 랜딩 + W-02 카탈로그). 제목 없이
+      // 브랜드 이름 하나로 둡니다 — "누띠 사진 놀이터 · 누띠 사진 놀이터".
+      //
+      // W-03 상세 시트는 이 홈의 **자식**입니다(`/styles/:styleId`). 시트가 떠도 뒤
+      // 그리드가 살아 있어야 하고(#p03 노트1), 카드를 눌러 열 때 부모가 그대로라
+      // 스크롤·필터가 보존됩니다. `/styles/101` 로 직접 들어와도 닫으면 홈이 섭니다.
+      // 시트는 제목을 따로 갖지 않습니다 — 뒤 갤러리가 살아 있으므로 탭 제목까지
+      // 바뀌면 «다른 화면으로 갔다» 는 잘못된 신호가 됩니다.
       {
-        path: '/styles',
-        lazy: screen(() => import('../screens/W02StyleCatalog')),
-        handle: { title: '스타일' },
-        // 시트는 제목을 따로 갖지 않습니다 — 뒤의 카탈로그가 그대로 살아 있으므로
-        // 탭 제목까지 바뀌면 «다른 화면으로 갔다» 는 잘못된 신호가 됩니다.
-        children: [{ path: ':styleId', lazy: screen(() => import('../screens/W03StyleDetail')) }],
+        path: '/',
+        element: <W01Landing />,
+        children: [{ path: 'styles/:styleId', lazy: screen(() => import('../screens/W03StyleDetail')) }],
       },
+      // 옛 카탈로그 주소 — 홈으로 넘깁니다(위 StylesRedirect). `/styles/:styleId` 는
+      // 이 규칙보다 구체적인 홈의 자식이 먼저 잡으므로 상세 시트는 그대로 열립니다.
+      { path: '/styles', element: <StylesRedirect /> },
       // 스타일 맥락은 `?style_id=`. W-08(커스텀 프롬프트)도 스타일 없이 이 화면에 옵니다.
       { path: '/upload', lazy: screen(() => import('../screens/W04Upload')), handle: { title: '사진 올리기' } },
       // job_id 가 경로에 있어야 재방문 시 복원됩니다(Q7).

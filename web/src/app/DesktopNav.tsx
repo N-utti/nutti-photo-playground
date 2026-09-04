@@ -1,50 +1,88 @@
 /**
- * 데스크톱 상단 GNB — **모든 화면**에 붙는 유일한 내비입니다.
+ * 데스크톱 상단 GNB — **모든 화면**에 붙는 유일한 내비입니다. RootLayout 이 깝니다.
  *
- * 하단 탭바(app/TabBar.tsx)는 이제 모바일 전용이고, 그쪽은 세 화면(W-01·W-02·W-09)
- * 에만 붙습니다. 그 규칙을 데스크톱으로 그대로 가져오면 넓은 화면에서 만들기 흐름에
- * 들어간 순간 내비가 통째로 사라집니다 — 마우스에는 «뒤로» 제스처가 없어서, 남는
- * 길이 앱바의 ← 하나뿐입니다. 그래서 이건 RootLayout 이 깝니다.
+ * 이제 **로고 | 크레딧 · 계정** 뿐입니다. 가운데 탭 목록(홈·만들기·보관함)과 누띠샵을
+ * 걷어냈습니다 — 홈은 로고가 겸하고(원페이지 갤러리), 만들기는 스타일을 눌러 들어가며,
+ * 보관함은 회원 전용이라 마이페이지(W-12) 안으로, 누띠샵도 마이페이지의 작은 링크로
+ * 옮겼습니다. 모바일 하단 탭바는 통째로 없앴습니다(핀터레스트·carat 처럼 최소 내비).
  *
- * **탭바가 만들기 흐름을 피했던 이유는 여기서 다시 따지지 않습니다.** 하단 탭바를
- * W-04·W-05·W-06 에서 뺀 판단(TabBar.tsx 주석)은 «결제 직전에 나가는 문 셋» 이
- * 엄지 밑에 깔리는 것에 대한 것이었습니다. 상단 GNB 는 그 문이 없어지는 게 아니라
- * 위치가 달라지는 것이고, 데스크톱에서 상단 내비가 항상 있는 것은 웹의 기본값입니다.
- * 다만 전환율에 영향이 있다면 그건 이 화면이 아니라 GA4 에서 먼저 보일 것입니다.
+ * 크레딧·계정을 여기 하나로 모은 이유는 그대로입니다 — 배지가 앱바 여러 곳에 흩어져
+ * 위아래로 겹치던 것을 이 줄로 올리고 각 화면 앱바를 데스크톱에서 내렸습니다. 계정
+ * 진입점(마이페이지)도 여기 하나입니다.
  *
- * 목적지 목록은 TabBar 에서 가져옵니다 — 모바일과 데스크톱이 서로 다른 곳으로 갈 수
- * 있으면 그건 두 개의 앱입니다.
- *
- * 높이는 `h-14`(56px)로 **선언**합니다. 각 화면 앱바가 이 아래에 붙어 서려면
- * (`desktop:top-14`) 이 값을 알아야 하는데, 내용에 따라 알아서 정해지게 두면 언젠가
+ * 높이는 `h-16`(64px)로 **선언**합니다. 각 화면 앱바가 이 아래에 붙어 서려면
+ * (`desktop:top-16`) 이 값을 알아야 하는데, 내용에 따라 알아서 정해지게 두면 언젠가
  * 1px 씩 어긋나 앱바가 GNB 를 덮거나 그 아래 틈이 생깁니다.
  *
- * z 는 앱바와 같은 20 입니다. 둘은 세로로 만나지 않아서(GNB 는 top-0, 앱바는 top-14)
+ * **이 값을 바꾸면 세 곳을 같이 바꿔야 합니다** — 아홉 화면 앱바의 `desktop:top-16`,
+ * `index.css` 의 `screen-min-h`(창 높이에서 GNB 를 빼는 계산), 그리고 이 주석입니다.
+ * 56px 이었는데 레퍼런스(carat 62px · Pinterest 80px)보다 낮아 로고가 갑갑했습니다.
+ *
+ * z 는 앱바와 같은 20 입니다. 둘은 세로로 만나지 않아서(GNB 는 top-0, 앱바는 top-16)
  * 겹칠 일이 없고, 30 으로 올리면 시트·모달(z-30)이 GNB 를 못 덮어 모달 위로 나가는
  * 문이 다섯 개 열립니다.
  */
 
-import { Link, useLocation } from 'react-router'
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router'
 import { AccountEntry } from './AccountEntry'
-import { track } from './analytics'
 import { BrandLockup } from './BrandLockup'
 import { CreditBadge } from './CreditBadge'
-import { shopLink } from './externalLinks'
-import { TABS, isActive } from './navTabs'
 
 export default function DesktopNav() {
-  const { pathname } = useLocation()
+  /*
+    배경은 페이지와 같은 `bg-paper` 이고 테두리도 없습니다 — 헤더가 크림 배경 위로
+    뜨지 않고 녹아듭니다(핀터레스트·carat). 다만 배경색이 같아 **테두리가 없으면**,
+    스크롤한 순간 뒤 카드가 이 바 아래 끝에서 경계 없이 잘려 «떠 있는 크림 띠» 처럼
+    보입니다. 그래서 핀터레스트와 같은 방식으로 **스크롤됐을 때만** 옅은 그림자를 답니다
+    — 맨 위(히어로)에서는 분리할 게 없어 그림자도 없고, 내리는 순간에만 경계가 섭니다.
+
+    스크롤 위치를 rAF 로 접어 프레임당 한 번만 읽습니다(W-02 앵커바가 쓰던 것과 같은
+    이유). 8px 은 «살짝이라도 내렸다» 의 문턱입니다.
+  */
+  const [scrolled, setScrolled] = useState(false)
+  useEffect(() => {
+    let frame = 0
+    const read = () => {
+      frame = 0
+      setScrolled(window.scrollY > 8)
+    }
+    const schedule = () => {
+      if (frame === 0) frame = requestAnimationFrame(read)
+    }
+    read()
+    window.addEventListener('scroll', schedule, { passive: true })
+    return () => {
+      if (frame !== 0) cancelAnimationFrame(frame)
+      window.removeEventListener('scroll', schedule)
+    }
+  }, [])
 
   return (
-    <header className="sticky top-0 z-20 hidden h-14 border-b border-rule bg-surface px-5 desktop:block">
+    <header
+      /*
+        그림자는 200ms·ease-out 으로 켜고 끕니다. `<header>` 는 index.css 의 전역 전환
+        규칙(button · a[href] · [role=button])에 안 걸려서, 안 적으면 Tailwind 기본값
+        150ms·ease 로 돕니다 — 값이 어디서 오는지 모르는 채로 도는 셈입니다.
+
+        200ms 는 집안 값이고(`duration-200`), 타이밍은 전역 규칙과 같은 `ease-out` 입니다.
+        스크롤 문턱(8px) 근처에서 오갈 때 150ms 보다 덜 깜빡입니다.
+      */
+      className={`sticky top-0 z-20 hidden h-16 bg-paper px-5 desktop:px-7 transition-shadow duration-200 ease-out desktop:block ${
+        scrolled ? 'shadow-[0_2px_10px_-6px_rgba(51,46,42,0.35)]' : ''
+      }`}
+    >
       {/*
         본문 컨테이너(`--container-canvas`)로 가운데 정렬하지 않습니다. 바로 아래
-        화면 앱바가 폭 전체를 쓰는 줄이라(`px-5`), GNB 만 1180px 안으로 모으면 두 줄이
-        붙어 있는데 왼쪽 끝이 서로 어긋납니다 — 1440px 에서 로고는 130px, 앱바의 ← 는
-        20px 에서 시작했습니다.
+        화면 앱바가 폭 전체를 쓰는 줄이라(`px-5 desktop:px-7`), GNB 만 1180px 안으로
+        모으면 두 줄이 붙어 있는데 왼쪽 끝이 서로 어긋납니다 — 1440px 에서 로고는 130px,
+        앱바의 ← 는 20px 에서 시작했습니다.
 
         **이 값은 앱바를 따라가야 합니다.** 화면 앱바의 좌우 여백을 바꾸면 여기도 같이
-        바꾸세요 — 안 그러면 위아래 두 줄의 왼쪽 끝이 조용히 어긋납니다.
+        바꾸세요 — 안 그러면 위아래 두 줄의 왼쪽 끝이 조용히 어긋납니다. 지금 값은
+        모바일 20px · 데스크톱 28px 이고, 28px 은 레퍼런스 실측치입니다(carat 안쪽
+        컨테이너 28px · Pinterest 로고 28px). 모바일 20px 은 carat 과 같은 값이라
+        그대로 뒀습니다.
       */}
       <div className="flex h-full w-full items-center gap-6">
         {/*
@@ -52,50 +90,19 @@ export default function DesktopNav() {
           중복처럼 보이지만, 로고가 홈이라는 건 웹의 관습이라 여기 없으면 사람들이
           로고를 누르고 아무 일도 안 일어나는 경험을 합니다.
         */}
-        <Link to="/" className="-m-2 flex shrink-0 p-2 hover:opacity-70">
+        <Link to="/" className="-m-2 flex shrink-0 p-2">
           <BrandLockup className="text-base" />
         </Link>
 
-        <nav aria-label="주요 메뉴" className="flex items-center gap-1">
-          {TABS.map((tab) => {
-            const active = isActive(pathname, tab.to)
-            return (
-              <Link
-                key={tab.key}
-                to={tab.to}
-                aria-current={active ? 'page' : undefined}
-                // 지금 있는 탭은 hover 로 안 바뀝니다 — 탭바와 같은 규칙입니다.
-                className={`rounded-xl px-3 py-1.5 text-sm ${
-                  active ? 'bg-brand-soft font-semibold text-brand' : 'text-ink-2 hover:text-ink'
-                }`}
-              >
-                {tab.label}
-              </Link>
-            )
-          })}
-
-          {/* 누띠샵만 앱 밖입니다. 새 탭으로 여는 이유와 이벤트는 탭바와 같습니다. */}
-          <a
-            href={shopLink('gnb')}
-            target="_blank"
-            rel="noreferrer"
-            onClick={() => track({ event_type: 'shop_exit_click', properties: { from: 'gnb' } })}
-            className="rounded-xl px-3 py-1.5 text-sm text-ink-2 hover:text-ink"
-          >
-            누띠샵
-          </a>
-        </nav>
-
         {/*
-          데스크톱에서는 크레딧 배지도 계정 진입점도 **여기 하나**입니다.
+          가운데 탭 목록(홈·만들기·보관함)과 누띠샵을 걷어냈습니다 — 홈은 로고가
+          겸하고(원페이지 갤러리), 만들기는 스타일을 눌러 들어가며, 보관함은 마이페이지
+          안으로, 누띠샵도 마이페이지의 작은 링크로 옮겼습니다. GNB 는 이제 «로고 |
+          크레딧 · 계정» 뿐입니다(핀터레스트·carat 처럼 최소).
 
-          배지는 원래 앱바 다섯 곳(W-02·W-04·W-06·W-08·W-09)에 흩어져 있었고, 그래서
-          이 줄에 넣으면 같은 숫자가 위아래로 겹쳤습니다. 반대로 올려 놓고 앱바 쪽을
-          데스크톱에서 내렸습니다 — 그러지 않으면 탭 자체인 화면(스타일·보관함)의 앱바에
-          고유한 것이 배지 하나만 남아, 그 한 줄을 없앨 수가 없습니다.
-
-          계정 진입점은 처음부터 W-02 앱바 하나에만 있어서 나머지 화면에서는 마이페이지로
-          가는 문이 없었습니다.
+          데스크톱에서는 크레딧 배지도 계정 진입점도 **여기 하나**입니다. 배지는 원래
+          앱바 여러 곳에 흩어져 있었고 이 줄에 넣으면 겹쳤습니다 — 그래서 여기로 올리고
+          각 화면 앱바를 데스크톱에서 내렸습니다.
         */}
         <div className="ml-auto flex items-center gap-3">
           <CreditBadge showUnit />

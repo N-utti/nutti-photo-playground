@@ -16,12 +16,13 @@ import { describe, expect, it } from 'vitest'
 import { renderWithProviders } from '../test/render'
 import W01Landing from './W01Landing'
 
-describe('W-01 랜딩 · 탐색 랜드마크', () => {
-  it('탐색 구역은 하단 탭바 하나뿐이다', async () => {
+describe('W-01 홈 · 탐색 랜드마크', () => {
+  it('탐색 구역은 카테고리 필터 하나뿐이다 — 탭바를 걷어냈다', async () => {
     renderWithProviders(<W01Landing />, { route: '/' })
 
-    // 탭바가 서야 «하나뿐» 이 «아직 안 떴다» 와 구분됩니다.
-    await screen.findByRole('navigation', { name: '주요 메뉴' })
+    // 카테고리 배지가 유일한 탐색 구역입니다(carat 식 필터). 하단 탭바는 없어졌고,
+    // 계정 칩 같은 «빈 이름 구역» 이 하나라도 더 서면 이 개수가 어긋납니다.
+    await screen.findByRole('navigation', { name: '스타일 카테고리' })
     expect(screen.getAllByRole('navigation')).toHaveLength(1)
   })
 

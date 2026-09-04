@@ -34,9 +34,9 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { isApiError } from '../api/client'
 import { useDeleteLibraryItems, useLibrary, useMe, usePets } from '../api/queries'
+import BackButton from '../app/BackButton'
 import ConfirmDialog from '../app/ConfirmDialog'
 import { CreditBadge } from '../app/CreditBadge'
-import { TabBar } from '../app/TabBar'
 import { rememberDeletedJobs } from '../app/deletedResults'
 import { useGuestSessionReset } from '../app/guestSession'
 import { downloadAttachment, saveFromNewTabHint, saveImage } from '../app/saveImage'
@@ -143,7 +143,7 @@ export default function W09Library() {
   const selectedItems = items.filter((item) => selected?.has(item.result_id))
 
   return (
-    <div className="screen-min-h bg-canvas pb-24 desktop:pb-10">
+    <div className="screen-min-h bg-canvas pb-10">
       {/*
         데스크톱에서는 **평시에만** 내립니다.
 
@@ -156,7 +156,7 @@ export default function W09Library() {
         데스크톱에서 선택을 빠져나갈 길이 사라집니다.
       */}
       <header
-        className={`sticky top-0 desktop:top-14 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 py-3 ${
+        className={`sticky top-0 desktop:top-16 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 desktop:px-7 py-3 ${
           selected ? '' : 'desktop:hidden'
         }`}
       >
@@ -175,7 +175,10 @@ export default function W09Library() {
           </>
         ) : (
           <>
-            {/* 보관함은 탭 목적지라 뒤로가기가 없습니다(#p09) — 나가는 길은 아래 탭바입니다. */}
+            {/* 보관함은 더는 탭 목적지가 아니라 마이페이지(W-12)에서 들어옵니다 — 탭바가
+                없어졌으므로 여기서 나가는 길은 이 ← 입니다(없으면 모바일에서 갇힙니다).
+                히스토리가 없으면 마이페이지로 되돌립니다. */}
+            <BackButton fallback="/me" />
             <h1 className="text-base font-bold">보관함</h1>
             <div className="ml-auto flex items-center gap-3">
               {items.length > 0 && (
@@ -193,7 +196,7 @@ export default function W09Library() {
         )}
       </header>
 
-      <main className="mx-auto w-full max-w-md px-5 py-4">
+      <main className="mx-auto w-full max-w-md px-5 desktop:px-7 py-4">
         {/*
           게스트 안내는 리셋된 경우에만 남았습니다.
 
@@ -241,7 +244,7 @@ export default function W09Library() {
             <button
               type="button"
               onClick={() => library.refetch()}
-              className="mt-3 rounded-full border border-rule-strong px-4 py-2 text-sm hover:border-brand-2 hover:bg-surface-2 hover:text-brand"
+              className="mt-3 rounded-full border border-rule-strong px-4 py-2 text-sm hover:border-brand-2 hover:bg-brand-soft hover:text-brand"
             >
               다시 시도
             </button>
@@ -278,7 +281,7 @@ export default function W09Library() {
                 type="button"
                 onClick={() => void library.fetchNextPage()}
                 disabled={library.isFetchingNextPage}
-                className="mt-5 w-full rounded-xl border border-rule-strong px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
+                className="mt-5 w-full rounded-xl bg-rule px-4 py-3 text-sm font-semibold hover:bg-rule-strong hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
               >
                 {library.isFetchingNextPage ? '불러오는 중…' : '더 보기'}
               </button>
@@ -286,10 +289,6 @@ export default function W09Library() {
           </>
         )}
       </main>
-
-      {/* 선택 모드에서는 탭바를 내립니다 — 같은 자리를 선택 바가 쓰고, 무엇보다
-          "N장 고른 상태"로 다른 탭에 가면 그 선택이 갈 곳이 없습니다. */}
-      {!selected && <TabBar />}
 
       {selected && (
         <SelectionBar
@@ -380,7 +379,7 @@ function PetFilter({
       {selectedPet && (
         <Link
           to={`/calculator?pet_id=${encodeURIComponent(selectedPet.id)}`}
-          className="mt-2 flex items-center justify-between rounded-xl border border-rule bg-surface px-4 py-2.5 text-sm hover:border-rule-strong hover:bg-surface-2"
+          className="mt-2 flex items-center justify-between rounded-xl border border-rule bg-surface px-4 py-2.5 text-sm hover:border-rule-strong hover:bg-brand-soft"
         >
           이 강아지 간식량 계산하기
           <span aria-hidden className="text-ink-3">
@@ -656,13 +655,13 @@ function SelectionBar({
 
   return (
     <>
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-rule bg-surface px-5 py-3">
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-rule bg-surface px-5 desktop:px-7 py-3">
         <div className="mx-auto flex w-full max-w-md gap-2">
           <button
             type="button"
             disabled={disabled}
             onClick={() => void handleSave()}
-            className="flex-1 rounded-xl border border-rule-strong px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
+            className="flex-1 rounded-xl border border-rule-strong px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
           >
             {saving ? '저장 중…' : '저장'}
           </button>
@@ -784,7 +783,7 @@ function EmptyState({
         <button
           type="button"
           onClick={onClearFilter}
-          className="mt-3 rounded-full border border-rule-strong px-4 py-2 text-sm hover:border-brand-2 hover:bg-surface-2 hover:text-brand"
+          className="mt-3 rounded-full border border-rule-strong px-4 py-2 text-sm hover:border-brand-2 hover:bg-brand-soft hover:text-brand"
         >
           전체 보기
         </button>
@@ -839,7 +838,7 @@ function MemberOnlyNotice({ onLogin }: { onLogin: () => void }) {
       <button
         type="button"
         onClick={onLogin}
-        className="mt-4 w-full rounded-xl border border-rule-strong px-4 py-2.5 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
+        className="mt-4 w-full rounded-xl bg-rule px-4 py-2.5 text-sm font-semibold hover:bg-rule-strong hover:text-brand motion-safe:active:scale-[0.99]"
       >
         로그인하고 보관하기
       </button>
@@ -871,7 +870,7 @@ function GuestResetNotice({ onLogin }: { onLogin: () => void }) {
       <button
         type="button"
         onClick={onLogin}
-        className="mt-3 w-full rounded-xl border border-rule-strong px-4 py-2.5 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
+        className="mt-3 w-full rounded-xl bg-rule px-4 py-2.5 text-sm font-semibold hover:bg-rule-strong hover:text-brand motion-safe:active:scale-[0.99]"
       >
         로그인하고 보관하기
       </button>

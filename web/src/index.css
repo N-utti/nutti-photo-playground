@@ -211,6 +211,16 @@
                   의도한 것입니다. 눈에 걸려야 하는 유일한 면이니까요.
      accent-soft 위에 얹는 글자는 ink(10.40:1) 또는 ink-2(5.84:1).
 
+     accent-soft-deep  `accent-soft` 의 **hover 짝**입니다 — `brand`/`brand-deep` 과 같은
+                  관계이고, 채워진 것은 면을 진하게 해서 반응합니다. 색상·채도는 그대로
+                  두고 명도만 내렸습니다(accent-soft 와 같은 88° 계열). 위에 얹는 글자는
+                  ink 9.3:1 로 AA 를 넉넉히 넘습니다.
+
+                  이 값이 필요한 이유: 크레딧 배지는 **면이 있는** 알약이라 hover 에
+                  테두리(ring)를 새로 두르면 옆의 «로그인» 버튼(테두리 두른 알약)과 같은
+                  꼴이 됩니다 — 아래 CreditBadge 주석이 «테두리는 없다» 고 적어 둔 바로 그
+                  이유가 hover 에서 되살아났던 것입니다.
+
      쓰는 자리는 **화폐 표시 하나**입니다 — 크레딧 배지의 면, 그리고 어디에 있든
      `◆` 기호(app/CreditBadge.tsx · W02StyleCatalog.tsx). 액센트를 여러 뜻에 나눠
      주면 그 순간 액센트가 아니게 됩니다.
@@ -220,6 +230,7 @@
      가리킵니다. 채도와 쓰임이 둘 다 다릅니다. */
   --color-accent: #5f6f4d;
   --color-accent-soft: #dce6d1;
+  --color-accent-soft-deep: #ccdcbd;
 
   /* --- 바탕: 크림 (랜딩·카탈로그·마이페이지 등 대부분의 화면) ---
      페이지 바탕이 `paper` 이므로 `surface`(흰색)는 그 위로 **뜨고**
@@ -262,6 +273,15 @@
   --color-ink-3: #736a62; /* 4.91:1 AA — paper 위 보조 텍스트의 하한 (색면 위에서는 미달) */
 
   /* --- 경계선 --- */
+  /* 선이면서 **면**이기도 합니다.
+     `rule` 은 원래 테두리 색인데, 테두리 없는 보조 버튼의 면으로도 씁니다(rest `bg-rule`
+     · hover `bg-rule-strong`). 그 버튼들이 크림 페이지와 흰 카드 **양쪽**에 서기 때문입니다 —
+     `surface-2`(#f6f1e7)는 크림 위에서 1.04:1 이라 아예 안 보이고, `rule` 은 크림 위
+     1.24:1 · 흰 카드 위 1.33:1 로 둘 다 읽힙니다(Pinterest 의 보조 버튼 1.26:1 과 같은 세기).
+
+     위에 얹는 글자: rule 위 ink 9.9:1 · ink-2 5.65:1, rule-strong 위 ink 7.41:1 ·
+     brand 5.40:1 — 다만 **rule-strong 위의 ink-2 는 4.17:1 로 AA 미달**이라, hover 에서
+     면이 진해지는 버튼은 글자도 ink 나 brand 로 함께 옮겨야 합니다. */
   --color-rule: #e6ded2;
   --color-rule-strong: #cbbfae;
 
@@ -338,14 +358,14 @@ body {
    로 바뀌면서 높이가 더는 확정값이 아니게 됐고, 확정되지 않은 부모에 대한 백분율
    `min-height` 는 0 으로 계산됩니다 — 짧은 화면에서 바탕색이 창을 못 덮습니다.
 
-   3.5rem 은 GNB 의 `h-14` 입니다. 1024px 은 `--breakpoint-desktop` 이고, 미디어 쿼리
-   안에서는 그 변수를 못 써서 값을 다시 적었습니다 — 한쪽만 바뀌면 이 규칙이 조용히
-   빗나갑니다. */
+   4rem 은 GNB 의 `h-16` 입니다(app/DesktopNav.tsx). 1024px 은 `--breakpoint-desktop` 이고,
+   미디어 쿼리 안에서는 그 변수를 못 써서 값을 다시 적었습니다 — 한쪽만 바뀌면 이 규칙이
+   조용히 빗나갑니다. */
 @utility screen-min-h {
   min-height: 100dvh;
 
   @media (width >= 1024px) {
-    min-height: calc(100dvh - 3.5rem);
+    min-height: calc(100dvh - 4rem);
   }
 }
 
@@ -404,14 +424,22 @@ img {
    `<a>` 는 `href` 가 있는 것만 받습니다 — react-router 의 `<Link>` 는 `href` 를 내므로
    포함되고, 앵커 없는 `<a>` 는 누를 수 있는 게 아니라 빠집니다.
 
-   prefers-reduced-motion 에서는 `transform` 만 뺍니다. 그 설정이 막으려는 건 움직임
-   이지 색이 아니고, 색 전환까지 없애면 hover 가 «켜짐/꺼짐»으로 튀어서 더 거칩니다. */
+   **`translate`·`scale` 을 `transform` 과 함께 적어야 합니다.** Tailwind v4 는 `scale-95`
+   같은 유틸리티를 `transform` 이 아니라 **같은 이름의 독립 CSS 속성**으로 냅니다
+   (`scale: 0.95`). 그래서 `transform` 만 적어 두면 이 목록이 누름 축소를 하나도 못 잡고,
+   앱 전체의 `active:scale-[0.99]` 56 곳이 전환 없이 툭 튑니다 — 규칙은 있는데 아무 데도
+   안 걸리는 상태라 눈으로는 «원래 그런 것» 처럼 보입니다. v3 에서 옮겨 오며 조용히
+   끊어진 자리입니다.
+
+   prefers-reduced-motion 에서는 그 셋(`transform`·`translate`·`scale`)을 뺍니다. 그
+   설정이 막으려는 건 움직임이지 색이 아니고, 색 전환까지 없애면 hover 가 «켜짐/꺼짐»
+   으로 튀어서 더 거칩니다. */
 @layer base {
   button:not(:disabled),
   a[href],
   [role='button']:not([aria-disabled='true']) {
     transition-property: color, background-color, border-color, box-shadow, opacity, filter,
-      transform;
+      transform, translate, scale;
     transition-duration: 150ms;
     transition-timing-function: ease-out;
   }
@@ -443,4 +471,24 @@ img {
        그쪽이 이기고, outline 은 어차피 요소의 반경을 따라 그려집니다. */
     border-radius: 2px;
   }
+}
+
+/* 글자를 끌어 선택했을 때의 색. 포커스 링과 같은 이유로 손댑니다 — 브라우저 기본값이
+   파란색이라 이 팔레트에서 유일하게 튀는 색이 됩니다.
+
+   **연한 토큰(`brand-soft`·`accent-soft`)은 쓰지 않습니다.** 크림 페이지(`paper`) 위에서
+   1.2:1 남짓이라 어디까지 선택됐는지 안 보입니다 — 선택 표시는 «눈에 걸리는 것» 이
+   목적이라 은은하면 실패입니다. 그래서 면을 진하게 깔고 글자를 뒤집습니다
+   (`brand-2` 위 `paper` 4.97:1).
+
+   `accent`(세이지)를 쓰지 않는 것도 규칙입니다 — 그 색은 **화폐 표시 하나**에만 씁니다
+   (위 「액센트 세이지」). 선택 색까지 세이지로 칠하면 액센트가 아니게 됩니다.
+
+   `brand-2` 는 지금까지 «큰 글씨·아이콘·테두리» 용이었고 여기서 처음 **면**으로 쓰입니다.
+   선택은 글자 뒤에만 잠깐 깔리는 면이라 다른 면들과 경쟁하지 않습니다.
+
+   이미지에는 안 걸립니다(`::selection` 은 글자에만 적용). */
+::selection {
+  background: var(--color-brand-2);
+  color: var(--color-paper);
 }

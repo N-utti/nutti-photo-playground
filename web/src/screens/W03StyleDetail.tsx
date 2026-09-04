@@ -213,18 +213,19 @@ export default function W03StyleDetail() {
   const unknownId = id === null
 
   // 재사용 맥락(FR-W06-07)은 시트를 닫아도 살아 있어야 합니다 — 여기서 떨어뜨리면
-  // 뒤의 카탈로그가 갑자기 평소 모드로 바뀌어 사진을 다시 올리게 됩니다.
+  // 뒤의 갤러리가 갑자기 평소 모드로 바뀌어 사진을 다시 올리게 됩니다. 닫으면 홈(`/`)
+  // 으로 — 이제 이 시트의 부모가 홈 갤러리입니다(screens/W01Landing.tsx).
   const reuse = useReuseFromJob()
   const close = useCallback(
-    () => navigate(withReuse('/styles', reuse.jobId)),
+    () => navigate(withReuse('/', reuse.jobId)),
     [navigate, reuse.jobId],
   )
 
   /*
     포커스 이동 · Escape · 배경 스크롤 잠금을 여기서 손으로 하고 있었습니다. 셋은 맞게
-    돌았지만 **Tab 가둠이 없었습니다** — 뒤 화면을 못 만지게 막는 건 부모
-    W02StyleCatalog 의 `<div inert={sheetOpen}>` 이 대신 해 주고 있었고, 그건 이 시트가
-    그 라우트의 자식일 때만 성립하는 전제입니다(app/useModalDialog.ts 헤더).
+    돌았지만 **Tab 가둠이 없었습니다** — 뒤 화면을 못 만지게 막는 건 부모 홈 갤러리
+    (screens/W01Landing.tsx)의 `<div inert={sheetOpen}>` 이 대신 해 주고 있었고, 그건
+    이 시트가 그 라우트의 자식일 때만 성립하는 전제입니다(app/useModalDialog.ts 헤더).
 
     앱 안에 모달 처리가 두 갈래로 갈려 있으면 다음 사람이 어느 쪽을 베낄지 알 수
     없어서, 부모에 기대지 않고 혼자 서는 쪽으로 맞춥니다. 부모의 `inert` 는 그대로
@@ -472,7 +473,7 @@ function SheetError({ message, onClose }: { message: string; onClose: () => void
       <button
         type="button"
         onClick={onClose}
-        className="mt-4 rounded-full border border-rule-strong px-4 py-2 text-sm hover:border-brand-2 hover:bg-surface-2 hover:text-brand"
+        className="mt-4 rounded-full border border-rule-strong px-4 py-2 text-sm hover:border-brand-2 hover:bg-brand-soft hover:text-brand"
       >
         다른 스타일 보기
       </button>

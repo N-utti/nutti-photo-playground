@@ -32,8 +32,10 @@ import {
   usePets,
   useRenamePet,
 } from '../api/queries'
+import { track } from '../app/analytics'
 import BackButton from '../app/BackButton'
 import ConfirmDialog from '../app/ConfirmDialog'
+import { shopLink } from '../app/externalLinks'
 import FloatingField from '../app/FloatingField'
 import { creditAmountPhrase, linkAccountCtaLabel, useEarnAmount } from '../app/earnAmount'
 import { amountTone, reasonLabel, shortDate, signedAmount } from '../app/ledgerFormat'
@@ -52,12 +54,12 @@ export default function W12MyPage() {
 
   return (
     <div className="screen-min-h bg-paper pb-16">
-      <header className="sticky top-0 desktop:top-14 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 py-3">
+      <header className="sticky top-0 desktop:top-16 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 desktop:px-7 py-3">
         <BackButton fallback={back} />
         <h1 className="text-base font-bold">마이페이지</h1>
       </header>
 
-      <main className="mx-auto w-full max-w-md px-5 py-4">
+      <main className="mx-auto w-full max-w-md px-5 desktop:px-7 py-4">
         {isPending ? (
           <div className="space-y-3">
             <div className="h-20 animate-pulse rounded-xl bg-rule/60" />
@@ -124,7 +126,7 @@ function GuestPanel() {
 
       <Link
         to="/credits"
-        className="mt-3 flex items-center justify-between rounded-xl border border-rule bg-surface px-4 py-3 text-sm hover:border-rule-strong hover:bg-surface-2"
+        className="mt-3 flex items-center justify-between rounded-xl border border-rule bg-surface px-4 py-3 text-sm hover:border-rule-strong hover:bg-brand-soft"
       >
         크레딧 받기
         <span aria-hidden className="text-ink-3">
@@ -143,11 +145,63 @@ function MemberSections({ me }: { me: Me }) {
   return (
     <div className="space-y-3">
       <AccountSection me={me} />
+      {/* 보관함은 하단 탭바가 없어지면서 이리로 들어왔습니다 — 원래 회원 기능이라
+          (W-09: 게스트는 403) 회원 전용인 이 화면이 자연스러운 자리입니다. */}
+      <LibrarySection />
       <CreditSection />
       <PetSection />
       <ShopLinkSection me={me} />
+      {/* 누띠샵(쇼핑몰 방문)은 메인 내비에서 빠지고 여기 작은 링크로 남았습니다 —
+          위젯이 붙기 전까지의 유입구입니다. `쇼핑몰 계정 연동`(위)과는 다른 것: 저건
+          카페24 계정 묶기, 이건 쇼핑몰로 나가는 문입니다. */}
+      <ShopVisitLink />
       <DangerSection />
     </div>
+  )
+}
+
+// ---------------------------------------------------------------- 보관함 진입
+
+function LibrarySection() {
+  return (
+    <Link
+      to="/library"
+      className="flex items-center justify-between gap-3 rounded-xl bg-surface px-4 py-4 hover:bg-brand-soft"
+    >
+      <div className="min-w-0">
+        <h2 className="text-sm font-semibold">보관함</h2>
+        <p className="mt-1 text-xs text-ink-2">만든 사진을 모아 보고 저장해요</p>
+      </div>
+      <span aria-hidden className="shrink-0 text-ink-3">
+        →
+      </span>
+    </Link>
+  )
+}
+
+// ---------------------------------------------------------------- 누띠샵 방문 (쇼핑몰 유입)
+
+function ShopVisitLink() {
+  return (
+    <a
+      href={shopLink('mypage')}
+      target="_blank"
+      rel="noreferrer"
+      onClick={() => track({ event_type: 'shop_exit_click', properties: { from: 'mypage' } })}
+      className="flex items-center justify-between gap-3 rounded-xl bg-surface px-4 py-4 hover:bg-brand-soft"
+    >
+      {/* «더 둘러보기» 라고 쓰지 않습니다 — 이 앱은 스타일을 보여 주는 곳이라 그 «더» 가
+          «누띠샵에 스타일이 더 있다» 로 읽힙니다. 누띠샵은 강아지 수제간식 쇼핑몰이므로
+          파는 물건을 이름에 넣습니다(W-06 배너·홈 푸터와 같은 말). 효능 단정 표현 금지 —
+          FR-W06-11 · NFR-LEGAL-01. */}
+      <div className="min-w-0">
+        <h2 className="text-sm font-semibold">누띠샵</h2>
+        <p className="mt-1 text-xs text-ink-2">강아지 수제간식 보러가기</p>
+      </div>
+      <span aria-hidden className="shrink-0 text-ink-3">
+        ↗
+      </span>
+    </a>
   )
 }
 
@@ -199,13 +253,13 @@ function CreditSection() {
       <div className="mt-3 grid grid-cols-2 gap-2">
         <Link
           to="/credits"
-          className="rounded-xl border border-rule-strong px-3 py-2 text-center text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
+          className="rounded-xl border border-rule-strong px-3 py-2 text-center text-sm font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand motion-safe:active:scale-[0.99]"
         >
           크레딧 받기
         </Link>
         <Link
           to="/credits/ledger"
-          className="rounded-xl border border-rule px-3 py-2 text-center text-sm text-ink-2 hover:border-rule-strong hover:bg-surface-2 hover:text-ink"
+          className="rounded-xl border border-rule px-3 py-2 text-center text-sm text-ink-2 hover:border-rule-strong hover:bg-brand-soft hover:text-ink"
         >
           전체 보기
         </Link>
@@ -303,7 +357,7 @@ function PetSection() {
           <button
             type="button"
             onClick={() => refetch()}
-            className="mt-2 rounded-full border border-rule-strong px-4 py-1.5 text-sm hover:border-brand-2 hover:bg-surface-2 hover:text-brand"
+            className="mt-2 rounded-full border border-rule-strong px-4 py-1.5 text-sm hover:border-brand-2 hover:bg-brand-soft hover:text-brand"
           >
             다시 시도
           </button>
@@ -327,7 +381,7 @@ function PetSection() {
               <button
                 type="button"
                 onClick={() => setRenaming(pet)}
-                className="rounded-xl border border-rule px-2.5 py-1 text-xs hover:border-rule-strong hover:bg-surface-2"
+                className="rounded-xl border border-rule px-2.5 py-1 text-xs hover:border-rule-strong hover:bg-brand-soft"
               >
                 수정
               </button>
@@ -452,7 +506,7 @@ function ShopLinkSection({ me }: { me: Me }) {
           <button
             type="button"
             onClick={() => setLinkSheet(true)}
-            className="mt-3 w-full rounded-xl border border-rule-strong px-4 py-2.5 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
+            className="mt-3 w-full rounded-xl bg-rule px-4 py-2.5 text-sm font-semibold hover:bg-rule-strong hover:text-brand motion-safe:active:scale-[0.99]"
           >
             {linkAccountCtaLabel(linkAmount)}
           </button>

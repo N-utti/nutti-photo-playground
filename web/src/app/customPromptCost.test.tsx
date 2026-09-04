@@ -22,7 +22,7 @@ import { renderWithProviders } from '../test/render'
 import { server } from '../test/server'
 import { writeUploadDraft } from '../api/uploadDraft'
 import { initialCredits } from '../mocks/fixtures'
-import W02StyleCatalog from '../screens/W02StyleCatalog'
+import W01Landing from '../screens/W01Landing'
 import W04Upload from '../screens/W04Upload'
 import W08Creative from '../screens/W08Creative'
 
@@ -87,9 +87,9 @@ beforeEach(() => {
 })
 
 describe('커스텀 프롬프트 비용 · 서버가 말한 값', () => {
-  it('W-02 카탈로그 링크가 서버 값을 그대로 적는다', async () => {
+  it('홈 갤러리 링크가 서버 값을 그대로 적는다', async () => {
     mockCost(3)
-    renderWithProviders(<W02StyleCatalog />, { route: '/styles' })
+    renderWithProviders(<W01Landing />, { route: '/' })
 
     expect(
       await screen.findByRole('link', { name: '원하는 걸 직접 써서 만들기 · 3 크레딧' }),
@@ -120,14 +120,14 @@ describe('커스텀 프롬프트 비용 · 서버가 말한 값', () => {
 })
 
 describe('커스텀 프롬프트 비용 · 모를 때', () => {
-  it('W-02·W-04 링크는 모르는 동안 숫자를 지어내지 않는다', async () => {
+  it('홈·W-04 링크는 모르는 동안 숫자를 지어내지 않는다', async () => {
     /*
       로딩 중에 2 를 그려 두면 화면이 먼저 단정하고 나중에 정정합니다. 그 사이에
       누른 사람은 자기가 본 적 없는 값으로 결제합니다 — 비용이 빠진 라벨은 «모른다»
       로 읽히지만 틀린 숫자는 거짓말로 읽힙니다.
     */
     mockCreditsDown()
-    renderWithProviders(<W02StyleCatalog />, { route: '/styles' })
+    renderWithProviders(<W01Landing />, { route: '/' })
 
     const link = await screen.findByRole('link', { name: /직접 써서 만들기/ })
     expect(link).toHaveAccessibleName('원하는 걸 직접 써서 만들기')

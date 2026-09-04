@@ -124,7 +124,7 @@ function SessionBanner() {
   }
 
   return (
-    <div role="alert" className="border-b border-rule-strong bg-surface px-5 py-3 text-sm">
+    <div role="alert" className="border-b border-rule-strong bg-surface px-5 desktop:px-7 py-3 text-sm">
       <p className="font-semibold">
         {rateLimited
           ? '지금은 새로 시작할 수 없어요'
@@ -182,7 +182,7 @@ function RefreshThrottledBanner({ seconds }: { seconds: number | null }) {
   }
 
   return (
-    <div role="alert" className="border-b border-rule-strong bg-surface px-5 py-3 text-sm">
+    <div role="alert" className="border-b border-rule-strong bg-surface px-5 desktop:px-7 py-3 text-sm">
       <p className="font-semibold">지금은 로그인을 갱신할 수 없어요</p>
       <p className="mt-1 text-ink-2">
         {`같은 네트워크에서 갱신 요청이 너무 많았어요. 로그인은 그대로 살아 있으니 ${formatRetryAfter(seconds)} 다시 시도하면 이어서 쓸 수 있어요.`}

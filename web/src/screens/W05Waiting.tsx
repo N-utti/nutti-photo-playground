@@ -76,11 +76,11 @@ export default function W05Waiting() {
 
   return (
     <div className="screen-min-h bg-paper pb-16">
-      <header className="sticky top-0 desktop:top-14 z-20 flex items-center border-b border-rule bg-surface px-5 py-3">
+      <header className="sticky top-0 desktop:top-16 z-20 flex items-center border-b border-rule bg-surface px-5 desktop:px-7 py-3">
         <h1 className="text-base font-bold">만드는 중</h1>
       </header>
 
-      <main className="mx-auto w-full max-w-md px-5 py-4">
+      <main className="mx-auto w-full max-w-md px-5 desktop:px-7 py-4">
         {/* 원본은 흐리게 — 결과를 미리 본 것 같은 착각을 주지 않으면서 맥락은 남깁니다. */}
         {job?.source_image_url && (
           <img
@@ -159,7 +159,7 @@ export default function W05Waiting() {
           className={`mt-5 block rounded-xl px-4 py-3 text-center text-sm font-semibold motion-safe:active:scale-[0.99] ${
             overdue
               ? 'bg-brand text-paper hover:bg-brand-deep'
-              : 'border border-rule-strong bg-surface hover:border-brand-2 hover:bg-surface-2 hover:text-brand'
+              : 'border border-rule-strong bg-surface hover:border-brand-2 hover:bg-brand-soft hover:text-brand'
           }`}
         >
           나가서 둘러보기
