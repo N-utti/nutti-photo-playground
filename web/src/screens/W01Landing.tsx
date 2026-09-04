@@ -29,6 +29,7 @@ import { AccountEntry } from '../app/AccountEntry'
 import { BrandLockup } from '../app/BrandLockup'
 import { CreditBadge } from '../app/CreditBadge'
 import { customPromptLinkLabel, useCustomPromptCost } from '../app/customPromptCost'
+import { shopLink } from '../app/externalLinks'
 import { useReuseFromJob, withReuse, type JobContext } from '../app/reuseFromJob'
 import { useStyles } from '../api/queries'
 import Thumbnail from '../app/Thumbnail'
@@ -157,6 +158,32 @@ export default function W01Landing() {
                 </>
               )}
             </section>
+
+            {/*
+              누띠샵(쇼핑몰) 유입구 — 마이페이지 링크는 회원만 보므로, 게스트가 대다수인
+              이 놀이터에서 게스트도 보이는 자리가 여기입니다. 주 CTA(«무료로 1장»)와
+              경쟁하지 않게 갤러리 맨 아래 가벼운 링크로 둡니다. 위젯이 붙기 전까지의
+              게스트 유입 경로입니다.
+
+              재사용 흐름(`from_job`) 중에는 숨깁니다 — 히어로를 숨기는 것과 같은 이유로,
+              사진을 이어 만드는 한복판에 앱 밖으로 나가는 문을 열지 않습니다. GA4 는
+              `utm_content=home` 으로 마이페이지 유입과 갈라 셉니다.
+            */}
+            {!reuse.jobId && (
+              <footer className="pt-4 pb-10 text-center desktop:pb-4">
+                <a
+                  href={shopLink('home')}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() =>
+                    track({ event_type: 'shop_exit_click', properties: { from: 'home' } })
+                  }
+                  className="inline-flex items-center gap-1 text-sm text-ink-3 hover:text-brand"
+                >
+                  누띠샵에서 더 둘러보기 <span aria-hidden>↗</span>
+                </a>
+              </footer>
+            )}
           </main>
         </div>
       </div>

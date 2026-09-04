@@ -2,10 +2,10 @@
  * W-01 홈 (원페이지 갤러리) — 옛 랜딩 + 카탈로그를 합친 화면.
  *
  * 여기서 지키는 것:
- *   1. 하단 탭바가 붙는다 — 라우트가 아니라 화면이 직접 답니다(app/TabBar.tsx). 빠뜨려도
- *      아무 데서도 안 걸리는데, 탭을 누른 순간 나머지 탭이 사라집니다.
+ *   1. 하단 탭바가 없다 — 통째로 걷어냈습니다(보관함은 마이페이지로).
  *   2. 카테고리 배지가 그리드를 필터한다 — carat 식 중앙 배지. 「전체」가 기본.
  *   3. 카드의 «이름 인쇄» 배지·비용 표기 — 옛 W-02 에서 이어받은 계약(백엔드 #111).
+ *   4. 누띠샵 유입구가 게스트에게도 보이고, 재사용 흐름에서는 숨는다.
  */
 
 import { screen, within } from '@testing-library/react'
@@ -21,6 +21,29 @@ describe('W-01 홈 · 내비', () => {
     // 카테고리 필터가 뜬 뒤에 봐야 «없다» 가 «아직 안 그렸다» 와 구분됩니다.
     await screen.findByRole('navigation', { name: '스타일 카테고리' })
     expect(screen.queryByRole('navigation', { name: '주요 메뉴' })).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * 누띠샵 유입구. 마이페이지 링크는 회원만 보므로, 게스트가 대다수인 이 놀이터에서
+ * 게스트도 보이는 자리가 홈입니다. 재사용 흐름에서는 앱 밖으로 나가는 문을 열지 않게 숨깁니다.
+ */
+describe('W-01 홈 · 누띠샵 유입구', () => {
+  it('게스트에게도 보이고, 새 탭·utm_content=home 으로 나간다', async () => {
+    renderWithProviders(<W01Landing />, { route: '/' })
+
+    const shop = await screen.findByRole('link', { name: /누띠샵에서 더 둘러보기/ })
+    expect(shop).toHaveAttribute('target', '_blank')
+    // GA4 가 마이페이지 유입(utm_content=mypage)과 갈라 셀 수 있어야 합니다.
+    expect(shop.getAttribute('href')).toContain('utm_content=home')
+  })
+
+  it('재사용 흐름(from_job)에서는 숨긴다', async () => {
+    renderWithProviders(<W01Landing />, { route: '/?from_job=job-1' })
+
+    // 카테고리 필터가 뜬 뒤에 봐야 «숨김» 이 «아직 안 그렸다» 와 구분됩니다.
+    await screen.findByRole('navigation', { name: '스타일 카테고리' })
+    expect(screen.queryByRole('link', { name: /누띠샵에서 더 둘러보기/ })).not.toBeInTheDocument()
   })
 })
 

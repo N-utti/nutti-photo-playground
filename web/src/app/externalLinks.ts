@@ -15,7 +15,7 @@ export const NUTTI_SHOP_URL = 'https://nutti.co.kr'
  * 후자는 데스크톱 상단 GNB 입니다. 합쳐 두면 이 출구가 모바일에서 눌리는지 데스크톱에서
  * 눌리는지 GA4 에서 갈라볼 수 없고, 그건 이 링크를 어디에 둘지 정할 때 필요한 숫자입니다.
  */
-export type ShopExit = 'w06_result' | 'w10_credits' | 'tabbar' | 'gnb' | 'mypage'
+export type ShopExit = 'w06_result' | 'w10_credits' | 'tabbar' | 'gnb' | 'mypage' | 'home'
 
 /**
  * 쇼핑몰로 나가는 **레퍼럴 링크** (PO 요청 2026-09-01).
