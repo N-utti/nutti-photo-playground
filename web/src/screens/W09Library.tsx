@@ -244,7 +244,7 @@ export default function W09Library() {
             <button
               type="button"
               onClick={() => library.refetch()}
-              className="mt-3 rounded-full border border-rule-strong px-4 py-2 text-sm hover:border-brand-2 hover:bg-surface-2 hover:text-brand"
+              className="mt-3 rounded-full border border-rule-strong px-4 py-2 text-sm hover:border-brand-2 hover:bg-brand-soft hover:text-brand"
             >
               다시 시도
             </button>
@@ -281,7 +281,7 @@ export default function W09Library() {
                 type="button"
                 onClick={() => void library.fetchNextPage()}
                 disabled={library.isFetchingNextPage}
-                className="mt-5 w-full rounded-xl border border-rule-strong px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
+                className="mt-5 w-full rounded-xl border border-rule-strong px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
               >
                 {library.isFetchingNextPage ? '불러오는 중…' : '더 보기'}
               </button>
@@ -379,7 +379,7 @@ function PetFilter({
       {selectedPet && (
         <Link
           to={`/calculator?pet_id=${encodeURIComponent(selectedPet.id)}`}
-          className="mt-2 flex items-center justify-between rounded-xl border border-rule bg-surface px-4 py-2.5 text-sm hover:border-rule-strong hover:bg-surface-2"
+          className="mt-2 flex items-center justify-between rounded-xl border border-rule bg-surface px-4 py-2.5 text-sm hover:border-rule-strong hover:bg-brand-soft"
         >
           이 강아지 간식량 계산하기
           <span aria-hidden className="text-ink-3">
@@ -661,7 +661,7 @@ function SelectionBar({
             type="button"
             disabled={disabled}
             onClick={() => void handleSave()}
-            className="flex-1 rounded-xl border border-rule-strong px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
+            className="flex-1 rounded-xl border border-rule-strong px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
           >
             {saving ? '저장 중…' : '저장'}
           </button>
@@ -783,7 +783,7 @@ function EmptyState({
         <button
           type="button"
           onClick={onClearFilter}
-          className="mt-3 rounded-full border border-rule-strong px-4 py-2 text-sm hover:border-brand-2 hover:bg-surface-2 hover:text-brand"
+          className="mt-3 rounded-full border border-rule-strong px-4 py-2 text-sm hover:border-brand-2 hover:bg-brand-soft hover:text-brand"
         >
           전체 보기
         </button>
@@ -838,7 +838,7 @@ function MemberOnlyNotice({ onLogin }: { onLogin: () => void }) {
       <button
         type="button"
         onClick={onLogin}
-        className="mt-4 w-full rounded-xl border border-rule-strong px-4 py-2.5 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
+        className="mt-4 w-full rounded-xl border border-rule-strong px-4 py-2.5 text-sm font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand motion-safe:active:scale-[0.99]"
       >
         로그인하고 보관하기
       </button>
@@ -870,7 +870,7 @@ function GuestResetNotice({ onLogin }: { onLogin: () => void }) {
       <button
         type="button"
         onClick={onLogin}
-        className="mt-3 w-full rounded-xl border border-rule-strong px-4 py-2.5 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
+        className="mt-3 w-full rounded-xl border border-rule-strong px-4 py-2.5 text-sm font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand motion-safe:active:scale-[0.99]"
       >
         로그인하고 보관하기
       </button>

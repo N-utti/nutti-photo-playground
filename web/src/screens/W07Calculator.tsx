@@ -63,7 +63,7 @@ export default function W07Calculator() {
             </p>
             <Link
               to="/styles"
-              className="mt-4 block rounded-xl border border-rule-strong px-4 py-3 text-center text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
+              className="mt-4 block rounded-xl border border-rule-strong px-4 py-3 text-center text-sm font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand motion-safe:active:scale-[0.99]"
             >
               사진부터 만들기
             </Link>
@@ -81,7 +81,7 @@ export default function W07Calculator() {
                   1단계로 나가는 길을 이미 답니다(위 «어떤 강아지인지 알 수 없어요»). */}
               <Link
                 to="/calculator"
-                className="block rounded-xl border border-rule-strong px-4 py-3 text-center text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
+                className="block rounded-xl border border-rule-strong px-4 py-3 text-center text-sm font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand motion-safe:active:scale-[0.99]"
               >
                 계산기 1단계부터 하기
               </Link>
@@ -100,7 +100,7 @@ export default function W07Calculator() {
             <button
               type="button"
               onClick={() => refetch()}
-              className="mt-3 rounded-full border border-rule-strong px-4 py-2 text-sm hover:border-brand-2 hover:bg-surface-2 hover:text-brand"
+              className="mt-3 rounded-full border border-rule-strong px-4 py-2 text-sm hover:border-brand-2 hover:bg-brand-soft hover:text-brand"
             >
               다시 시도
             </button>

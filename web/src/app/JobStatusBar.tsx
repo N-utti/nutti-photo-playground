@@ -97,7 +97,7 @@ function ActiveJobBar({ jobId }: { jobId: string }) {
       >
         <Link
           to={running ? `/jobs/${jobId}/waiting` : `/jobs/${jobId}`}
-          className="flex min-w-0 flex-1 items-center gap-3 rounded-xl p-1 hover:bg-surface-2 motion-safe:active:scale-[0.99]"
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-xl p-1 hover:bg-brand-soft motion-safe:active:scale-[0.99]"
         >
           {/* 어느 사진인지가 «내 것»을 알아보는 유일한 단서입니다. 완성 전에는 흐리게 —
               W-05 가 원본을 블러로 깔아 둔 것과 같은 이유로, 결과를 미리 본 것 같은
@@ -148,7 +148,7 @@ function ActiveJobBar({ jobId }: { jobId: string }) {
           type="button"
           aria-label="상태 숨기기"
           onClick={() => forgetActiveJob(jobId)}
-          className="grid size-8 shrink-0 place-items-center rounded-xl text-ink-3 hover:bg-surface-2 hover:text-ink"
+          className="grid size-8 shrink-0 place-items-center rounded-xl text-ink-3 hover:bg-brand-soft hover:text-ink"
         >
           <svg
             width="16"

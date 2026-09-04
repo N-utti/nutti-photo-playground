@@ -159,7 +159,7 @@ export default function W05Waiting() {
           className={`mt-5 block rounded-xl px-4 py-3 text-center text-sm font-semibold motion-safe:active:scale-[0.99] ${
             overdue
               ? 'bg-brand text-paper hover:bg-brand-deep'
-              : 'border border-rule-strong bg-surface hover:border-brand-2 hover:bg-surface-2 hover:text-brand'
+              : 'border border-rule-strong bg-surface hover:border-brand-2 hover:bg-brand-soft hover:text-brand'
           }`}
         >
           나가서 둘러보기

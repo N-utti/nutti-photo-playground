@@ -190,7 +190,7 @@ function CallbackFrame({ title, body }: { title: string; body: string }) {
         <p className="mt-2 text-sm text-ink-2">{body}</p>
         <Link
           to="/"
-          className="mt-4 block rounded-xl border border-rule-strong px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
+          className="mt-4 block rounded-xl border border-rule-strong px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand motion-safe:active:scale-[0.99]"
         >
           처음으로
         </Link>

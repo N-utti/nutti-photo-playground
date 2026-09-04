@@ -139,7 +139,7 @@ export default function EarnActionList() {
         <button
           type="button"
           onClick={() => refetch()}
-          className="mt-3 rounded-full border border-rule-strong px-4 py-2 text-sm hover:border-brand-2 hover:bg-surface-2 hover:text-brand"
+          className="mt-3 rounded-full border border-rule-strong px-4 py-2 text-sm hover:border-brand-2 hover:bg-brand-soft hover:text-brand"
         >
           다시 시도
         </button>
@@ -336,7 +336,7 @@ function EarnCta({ row, claiming, onClaim, onRedeem, onLinkAccount, onLogin, mem
       <button
         type="button"
         onClick={onLogin}
-        className="shrink-0 rounded-xl border border-rule-strong px-3 py-2 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
+        className="shrink-0 rounded-xl border border-rule-strong px-3 py-2 text-sm font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand motion-safe:active:scale-[0.99]"
       >
         {row.cta ?? '로그인'}
       </button>
@@ -379,7 +379,7 @@ function EarnCta({ row, claiming, onClaim, onRedeem, onLinkAccount, onLogin, mem
         type="button"
         onClick={onLinkAccount}
         disabled={!memberKnown}
-        className="shrink-0 rounded-xl border border-rule-strong px-3 py-2 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
+        className="shrink-0 rounded-xl border border-rule-strong px-3 py-2 text-sm font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
       >
         {row.cta ?? '연동하기'}
       </button>
@@ -404,7 +404,7 @@ function EarnCta({ row, claiming, onClaim, onRedeem, onLinkAccount, onLogin, mem
         type="button"
         onClick={() => onClaim({ action })}
         disabled={claiming}
-        className="rounded-xl border border-rule-strong px-3 py-2 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
+        className="rounded-xl border border-rule-strong px-3 py-2 text-sm font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
       >
         {claiming ? '받는 중…' : (row.cta ?? '받기')}
       </button>
@@ -553,7 +553,7 @@ function FollowIgCta({
             들어가서(카운트다운도 실측 96) 폭이 흔들리지 않지만, 고정폭으로 박아 두면
             글자가 하나만 길어져도 눌립니다.
           */
-          className="min-w-24 shrink-0 rounded-xl border border-rule-strong px-3 py-2 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
+          className="min-w-24 shrink-0 rounded-xl border border-rule-strong px-3 py-2 text-sm font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
         >
           {/* 남은 초를 적습니다 — 비활성 버튼만 두면 «왜 안 눌리지» 가 됩니다. */}
           {claiming ? '받는 중…' : waitLeft > 0 ? `${waitLeft}초 후 받기` : (row.cta ?? '받기')}
@@ -586,7 +586,7 @@ function FollowIgCta({
           onClick={() => onRedeem(code.trim())}
           disabled={claiming || !codeValid}
           /* 위 «받기» 와 같은 폭(min-w-24). 이유는 그쪽 주석. */
-          className="min-w-24 shrink-0 rounded-xl border border-rule-strong px-3 py-2 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
+          className="min-w-24 shrink-0 rounded-xl border border-rule-strong px-3 py-2 text-sm font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
         >
           코드로 받기
         </button>

@@ -603,7 +603,7 @@ function SelectPanel({
         type="button"
         onClick={onOpenPicker}
         disabled={uploading}
-        className="group grid aspect-[4/3] w-full place-items-center rounded-xl border-2 border-dashed border-rule-strong bg-surface text-sm text-ink-2 transition duration-200 ease-out enabled:hover:border-brand-2 enabled:hover:bg-surface-2 enabled:hover:text-brand motion-safe:enabled:active:scale-[0.99]"
+        className="group grid aspect-[4/3] w-full place-items-center rounded-xl border-2 border-dashed border-rule-strong bg-surface text-sm text-ink-2 transition duration-200 ease-out enabled:hover:border-brand-2 enabled:hover:bg-brand-soft enabled:hover:text-brand motion-safe:enabled:active:scale-[0.99]"
       >
         {uploading ? (
           // 올라가는 동안은 화면이 멈춘 게 아니라는 신호만 줍니다. 여기서 카메라를
@@ -843,7 +843,7 @@ function ConfirmPanel({
       <button
         type="button"
         onClick={onPickAnother}
-        className="mt-4 w-full rounded-xl border border-rule-strong bg-surface px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
+        className="mt-4 w-full rounded-xl border border-rule-strong bg-surface px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand motion-safe:active:scale-[0.99]"
       >
         다른 사진 고르기
       </button>
@@ -1142,7 +1142,7 @@ function SavePetForm({
         <button
           type="submit"
           disabled={createPet.isPending || name.trim() === ''}
-          className="shrink-0 rounded-xl border border-rule-strong px-3 py-2 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
+          className="shrink-0 rounded-xl border border-rule-strong px-3 py-2 text-sm font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
         >
           저장
         </button>

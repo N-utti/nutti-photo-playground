@@ -222,7 +222,7 @@ export default function ShopLinkSheet({ onClose }: { onClose: () => void }) {
                       disabled={verify.isPending}
                       aria-busy={busy}
                       onClick={() => pick(shopMemberId)}
-                      className={`w-full rounded-xl border border-rule-strong px-4 py-3 text-left font-mono text-sm hover:border-brand-2 hover:bg-surface-2 hover:text-brand ${busy ? 'opacity-50' : ''}`}
+                      className={`w-full rounded-xl border border-rule-strong px-4 py-3 text-left font-mono text-sm hover:border-brand-2 hover:bg-brand-soft hover:text-brand ${busy ? 'opacity-50' : ''}`}
                     >
                       {shopMemberId}
                     </button>

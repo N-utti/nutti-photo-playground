@@ -43,7 +43,7 @@ export default function W10Credits() {
 
         <Link
           to="/credits/ledger"
-          className="mt-4 block rounded-xl border border-rule px-4 py-3 text-sm text-ink-2 hover:border-rule-strong hover:bg-surface-2 hover:text-ink"
+          className="mt-4 block rounded-xl border border-rule px-4 py-3 text-sm text-ink-2 hover:border-rule-strong hover:bg-brand-soft hover:text-ink"
         >
           받은 내역 보기
         </Link>

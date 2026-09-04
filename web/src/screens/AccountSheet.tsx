@@ -336,7 +336,7 @@ export default function AccountSheet({
                 <button
                   type="button"
                   onClick={() => setEmailOpen(true)}
-                  className="w-full rounded-xl border border-rule-strong px-4 py-[13px] text-base font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
+                  className="w-full rounded-xl border border-rule-strong px-4 py-[13px] text-base font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand motion-safe:active:scale-[0.99]"
                 >
                   이메일로 계속하기
                 </button>

@@ -528,7 +528,7 @@ function ResultUnavailable({ sourceUrl, onRetry }: { sourceUrl: string; onRetry:
         <button
           type="button"
           onClick={onRetry}
-          className="mt-2 rounded-xl border border-rule-strong bg-surface px-3 py-2 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
+          className="mt-2 rounded-xl border border-rule-strong bg-surface px-3 py-2 text-sm font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand motion-safe:active:scale-[0.99]"
         >
           다시 불러오기
         </button>
@@ -785,7 +785,7 @@ function ShareRow({ job }: { job: Job }) {
           type="button"
           disabled={saving}
           onClick={() => void handleSaveImage()}
-          className="rounded-xl border border-rule-strong bg-surface px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
+          className="rounded-xl border border-rule-strong bg-surface px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
         >
           {saving ? '저장 중…' : '이미지 저장'}
         </button>
@@ -1014,7 +1014,7 @@ function Regenerate({ job, label, hint }: { job: Job; label: string; hint?: stri
     return (
       <Link
         to={keepsPhoto ? withReuse('/styles', job.job_id) : '/styles'}
-        className="mt-2 block rounded-xl border border-rule px-4 py-3 text-center text-sm text-ink-2 hover:border-rule-strong hover:bg-surface-2 hover:text-ink"
+        className="mt-2 block rounded-xl border border-rule px-4 py-3 text-center text-sm text-ink-2 hover:border-rule-strong hover:bg-brand-soft hover:text-ink"
       >
         {keepsPhoto ? '이 사진으로 다른 스타일 고르기' : '다른 사진으로 만들기'}
       </Link>
@@ -1035,7 +1035,7 @@ function Regenerate({ job, label, hint }: { job: Job; label: string; hint?: stri
       <>
         <Link
           to={withReuse('/styles', job.job_id)}
-          className="mt-2 block rounded-xl border border-rule px-4 py-3 text-center text-sm text-ink-2 hover:border-rule-strong hover:bg-surface-2 hover:text-ink"
+          className="mt-2 block rounded-xl border border-rule px-4 py-3 text-center text-sm text-ink-2 hover:border-rule-strong hover:bg-brand-soft hover:text-ink"
         >
           이 사진으로 다른 스타일 고르기
         </Link>
@@ -1193,7 +1193,7 @@ function Regenerate({ job, label, hint }: { job: Job; label: string; hint?: stri
         // 스키마 조회가 **실패한** 경우도 같습니다 — 회수(404)는 위에서 이미 빠졌으니
         // 여기 남는 건 5xx·네트워크뿐이고, 그건 기다리면 풀립니다.
         disabled={createJob.isPending || schemaPending || schemaUnavailable}
-        className="mt-2 w-full rounded-xl border border-rule-strong bg-surface px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
+        className="mt-2 w-full rounded-xl border border-rule-strong bg-surface px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
       >
         {schemaPending
           ? '옵션 불러오는 중…'
@@ -1281,7 +1281,7 @@ function CalculatorBanner({ jobId }: { jobId: string }) {
           properties: { job_id: jobId, breed_code: link.breed_code },
         })
       }
-      className="mt-4 block rounded-xl border border-rule-strong bg-surface px-3 py-3 hover:border-rule-strong hover:bg-surface-2"
+      className="mt-4 block rounded-xl border border-rule-strong bg-surface px-3 py-3 hover:border-rule-strong hover:bg-brand-soft"
     >
       <span className="block text-sm font-semibold">{calculatorHeadline(link)}</span>
       <span className="mt-0.5 block text-xs text-ink-2">{estimateSummary(link).text}</span>

@@ -126,7 +126,7 @@ function GuestPanel() {
 
       <Link
         to="/credits"
-        className="mt-3 flex items-center justify-between rounded-xl border border-rule bg-surface px-4 py-3 text-sm hover:border-rule-strong hover:bg-surface-2"
+        className="mt-3 flex items-center justify-between rounded-xl border border-rule bg-surface px-4 py-3 text-sm hover:border-rule-strong hover:bg-brand-soft"
       >
         크레딧 받기
         <span aria-hidden className="text-ink-3">
@@ -166,7 +166,7 @@ function LibrarySection() {
   return (
     <Link
       to="/library"
-      className="flex items-center justify-between gap-3 rounded-xl bg-surface px-4 py-4 hover:bg-surface-2"
+      className="flex items-center justify-between gap-3 rounded-xl bg-surface px-4 py-4 hover:bg-brand-soft"
     >
       <div className="min-w-0">
         <h2 className="text-sm font-semibold">보관함</h2>
@@ -188,7 +188,7 @@ function ShopVisitLink() {
       target="_blank"
       rel="noreferrer"
       onClick={() => track({ event_type: 'shop_exit_click', properties: { from: 'mypage' } })}
-      className="flex items-center justify-between gap-3 rounded-xl bg-surface px-4 py-4 hover:bg-surface-2"
+      className="flex items-center justify-between gap-3 rounded-xl bg-surface px-4 py-4 hover:bg-brand-soft"
     >
       {/* «더 둘러보기» 라고 쓰지 않습니다 — 이 앱은 스타일을 보여 주는 곳이라 그 «더» 가
           «누띠샵에 스타일이 더 있다» 로 읽힙니다. 누띠샵은 강아지 수제간식 쇼핑몰이므로
@@ -253,13 +253,13 @@ function CreditSection() {
       <div className="mt-3 grid grid-cols-2 gap-2">
         <Link
           to="/credits"
-          className="rounded-xl border border-rule-strong px-3 py-2 text-center text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
+          className="rounded-xl border border-rule-strong px-3 py-2 text-center text-sm font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand motion-safe:active:scale-[0.99]"
         >
           크레딧 받기
         </Link>
         <Link
           to="/credits/ledger"
-          className="rounded-xl border border-rule px-3 py-2 text-center text-sm text-ink-2 hover:border-rule-strong hover:bg-surface-2 hover:text-ink"
+          className="rounded-xl border border-rule px-3 py-2 text-center text-sm text-ink-2 hover:border-rule-strong hover:bg-brand-soft hover:text-ink"
         >
           전체 보기
         </Link>
@@ -357,7 +357,7 @@ function PetSection() {
           <button
             type="button"
             onClick={() => refetch()}
-            className="mt-2 rounded-full border border-rule-strong px-4 py-1.5 text-sm hover:border-brand-2 hover:bg-surface-2 hover:text-brand"
+            className="mt-2 rounded-full border border-rule-strong px-4 py-1.5 text-sm hover:border-brand-2 hover:bg-brand-soft hover:text-brand"
           >
             다시 시도
           </button>
@@ -381,7 +381,7 @@ function PetSection() {
               <button
                 type="button"
                 onClick={() => setRenaming(pet)}
-                className="rounded-xl border border-rule px-2.5 py-1 text-xs hover:border-rule-strong hover:bg-surface-2"
+                className="rounded-xl border border-rule px-2.5 py-1 text-xs hover:border-rule-strong hover:bg-brand-soft"
               >
                 수정
               </button>
@@ -506,7 +506,7 @@ function ShopLinkSection({ me }: { me: Me }) {
           <button
             type="button"
             onClick={() => setLinkSheet(true)}
-            className="mt-3 w-full rounded-xl border border-rule-strong px-4 py-2.5 text-sm font-semibold hover:border-brand-2 hover:bg-surface-2 hover:text-brand motion-safe:active:scale-[0.99]"
+            className="mt-3 w-full rounded-xl border border-rule-strong px-4 py-2.5 text-sm font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand motion-safe:active:scale-[0.99]"
           >
             {linkAccountCtaLabel(linkAmount)}
           </button>

@@ -473,7 +473,7 @@ function SheetError({ message, onClose }: { message: string; onClose: () => void
       <button
         type="button"
         onClick={onClose}
-        className="mt-4 rounded-full border border-rule-strong px-4 py-2 text-sm hover:border-brand-2 hover:bg-surface-2 hover:text-brand"
+        className="mt-4 rounded-full border border-rule-strong px-4 py-2 text-sm hover:border-brand-2 hover:bg-brand-soft hover:text-brand"
       >
         다른 스타일 보기
       </button>
