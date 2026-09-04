@@ -341,6 +341,48 @@ describe('W-06 · 저장·공유 버튼', () => {
     }
   })
 
+  it('iOS 에서 시트로 넘긴 뒤에는 한 단계가 더 있다고 말하고, 시트를 닫았으면 아무 말도 안 한다', async () => {
+    /*
+      아이폰의 저장은 «누르면 끝» 이 아니라 시트에서 「이미지 저장」을 한 번 더 골라야
+      합니다. 데스크톱·웹뷰·실패 갈래에는 전부 문구가 있는데 이 갈래만 비어 있어서,
+      시트가 닫히고 나면 화면이 그대로인 «아무 일도 안 일어난» 모양이었습니다
+      (2026-09-04 아이폰 실측).
+
+      «저장했어요» 라고는 못 씁니다 — `navigator.share()` 는 사용자가 시트에서 무엇을
+      골랐는지 돌려주지 않습니다. 그렇다고 스스로 닫은 사람(`cancelled`)에게까지
+      말하면 취소가 성공처럼 보입니다. 그래서 두 갈래를 같이 봅니다.
+    */
+    const user = userEvent.setup()
+    const restoreUa = withUserAgent(UA_IOS_SAFARI)
+    let cancel = false
+    const restore = withShareSheet(() => {
+      if (cancel) throw new DOMException('share canceled', 'AbortError')
+    })
+    mockShare()
+    countImageFetches()
+    try {
+      renderResult(succeededJob())
+
+      await user.click(await screen.findByRole('button', { name: '이미지 저장' }))
+
+      expect(
+        await screen.findByText(
+          '사진을 공유 시트로 넘겼어요 — 시트에서 「이미지 저장」을 고르면 사진 앱에 들어가요.',
+        ),
+      ).toBeInTheDocument()
+
+      cancel = true
+      await user.click(screen.getByRole('button', { name: '이미지 저장' }))
+
+      await waitFor(() =>
+        expect(screen.queryByText(/공유 시트로 넘겼어요/)).not.toBeInTheDocument(),
+      )
+    } finally {
+      restore()
+      restoreUa()
+    }
+  })
+
   it('데스크톱은 시트가 파일까지 돼도 「이미지 저장」이 다운로드다 — Windows 크롬·macOS 사파리가 이 모양', async () => {
     /*
       `canShare({files})` 는 데스크톱에서도 true 가 됩니다. 거기서 시트를 열면 Windows

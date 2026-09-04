@@ -127,6 +127,69 @@ describe('W-09 · 보관함', () => {
     }
   })
 
+  it('아이폰에서 「저장」이 시트로 갔으면 몇 장을 넘겼는지 말하고, 시트를 닫았으면 아무 말도 안 한다', async () => {
+    /*
+      아이폰의 저장은 시트에서 한 번 더 골라야 끝납니다. 여기가 이 화면에서 제일 흔한
+      성공 갈래인데 여태 아무 문구도 없어서, 시트가 닫히면 선택 막대만 그대로 남아
+      «아무 일도 안 일어난» 모양이었습니다(2026-09-04 아이폰 실측).
+
+      **취소를 같이 봅니다.** `navigator.share()` 는 사용자가 시트에서 무엇을 골랐는지
+      돌려주지 않아 «저장했다» 고는 못 쓰는데, 그렇다고 스스로 닫은 사람에게까지
+      «넘겼어요» 라고 하면 취소가 성공처럼 보입니다. 말할 수 있는 건 `shared` 뿐입니다.
+    */
+    const user = userEvent.setup()
+    const ua = vi
+      .spyOn(navigator, 'userAgent', 'get')
+      .mockReturnValue(
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 Version/17.5 Mobile/15E148 Safari/604.1',
+      )
+    let cancel = false
+    Object.defineProperty(navigator, 'canShare', { configurable: true, value: () => true })
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      value: async () => {
+        if (cancel) throw new DOMException('share canceled', 'AbortError')
+      },
+    })
+    /*
+      픽스처의 `image_url` 은 `data:` URI 라 msw 에 핸들러로 등록할 수 없습니다(주소로
+      파싱하다 체인이 통째로 깨져 보관함 목록부터 못 뜹니다). 그래서 `data:` 만 가로채
+      JPEG 바이트를 돌려주고 나머지는 원래 fetch(=msw)로 흘려보냅니다 — 이 테스트가 보는
+      것은 이미지를 어떻게 받았는지가 아니라 **받은 뒤 무슨 말을 하는지** 입니다.
+    */
+    const realFetch = window.fetch
+    const fetchSpy = vi.spyOn(window, 'fetch').mockImplementation((input, init) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+      if (!url.startsWith('data:')) return realFetch(input, init)
+      return Promise.resolve(
+        new Response(new Uint8Array([255, 216, 255]), { headers: { 'Content-Type': 'image/jpeg' } }),
+      )
+    })
+    try {
+      renderLibrary()
+      await screen.findByText('2026년 8월')
+      await selectFirstItem(user)
+
+      await user.click(screen.getByRole('button', { name: '저장' }))
+
+      expect(await screen.findByText(/1장을 공유 시트로 넘겼어요/)).toBeInTheDocument()
+      // 다운로드 경로의 문구가 같이 뜨면 두 번 저장한 것처럼 읽힙니다.
+      expect(screen.queryByText(/다운로드를 시작했어요/)).not.toBeInTheDocument()
+
+      cancel = true
+      await user.click(screen.getByRole('button', { name: '저장' }))
+
+      await waitFor(() =>
+        expect(screen.queryByText(/공유 시트로 넘겼어요/)).not.toBeInTheDocument(),
+      )
+    } finally {
+      delete (navigator as { canShare?: unknown }).canShare
+      delete (navigator as { share?: unknown }).share
+      fetchSpy.mockRestore()
+      ua.mockRestore()
+    }
+  })
+
   it('필터를 바꾸면 선택이 풀린다', async () => {
     /*
       **이 파일의 핵심입니다.** 선택을 안 풀면 «콩이» 로 필터를 바꾼 뒤에도 앞서 고른

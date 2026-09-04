@@ -573,6 +573,13 @@ function ShareRow({ job }: { job: Job }) {
   const inAppBrowser = detectInAppBrowser()
   // 첨부 주소로 다운로드를 시작한 직후 — 어디서 찾을지 안내.
   const [downloadStarted, setDownloadStarted] = useState(false)
+  /*
+    아이폰에서 「이미지 저장」이 시트로 갔고 사용자가 거기서 무언가를 골랐다는 뜻입니다.
+    이 갈래만 여태 아무 말도 안 했습니다 — 데스크톱(`saved`·`opened`)·웹뷰
+    (`downloadStarted`)·실패는 전부 문구가 있는데 여기만 비어서, 누르면 시트가 닫히고
+    화면은 그대로인 «아무 일도 안 일어난» 모양이 됩니다(2026-09-04 아이폰 실측 참고).
+  */
+  const [handedToSheet, setHandedToSheet] = useState(false)
   // 웹뷰에서 «공유하려고» 크롬으로 넘어온 직후 — 다음 걸음이 「공유」 한 번이라는 것을 말합니다.
   const [arrivedForShare] = useState(() => arrivedToShare() && inAppBrowser === null)
   /*
@@ -652,6 +659,7 @@ function ShareRow({ job }: { job: Job }) {
     setSaveOutcome(null)
     setShareOutcome(null)
     setDownloadStarted(false)
+    setHandedToSheet(false)
   }
 
   async function handleSaveImage() {
@@ -695,7 +703,19 @@ function ShareRow({ job }: { job: Job }) {
             setShareOutcome('expired')
             return
           }
-          if (outcome !== 'failed') return
+          if (outcome !== 'failed') {
+            /*
+              **`shared` 일 때만 말합니다.** 시트를 그냥 닫은 것(`cancelled`)은 스스로
+              그만둔 것이라, 여기에 안내를 띄우면 방금 취소한 사람에게 뭔가 된 것처럼
+              말하는 셈입니다(아래 「공유」의 AbortError 와 같은 규칙).
+
+              그리고 «저장했다» 고는 못 씁니다 — `navigator.share()` 는 사용자가 시트에서
+              무엇을 골랐는지 돌려주지 않아서, 「이미지 저장」이 아니라 「복사」를 골랐어도
+              결과가 같습니다. 우리가 아는 사실은 «시트로 넘겼다» 까지입니다.
+            */
+            if (outcome === 'shared') setHandedToSheet(true)
+            return
+          }
         }
       }
       setSaveOutcome(await saveImage(url, filename))
@@ -848,6 +868,16 @@ function ShareRow({ job }: { job: Job }) {
       {saveOutcome === 'failed' && (
         <p role="alert" className="mt-2 text-center text-sm text-danger">
           저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.
+        </p>
+      )}
+      {/*
+        아이폰의 저장은 «누르면 끝» 이 아니라 시트에서 한 번 더 골라야 합니다. 그 한
+        단계를 말해 두지 않으면 시트를 닫아 버린 사람은 저장이 됐는지 알 수 없습니다.
+        문장이 «넘겼어요» 에서 멈추는 이유는 위 handleSaveImage 주석에 있습니다.
+      */}
+      {handedToSheet && (
+        <p role="status" className="mt-2 text-center text-xs text-ink-3">
+          사진을 공유 시트로 넘겼어요 — 시트에서 「이미지 저장」을 고르면 사진 앱에 들어가요.
         </p>
       )}
       {/*
