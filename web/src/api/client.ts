@@ -101,23 +101,28 @@ export const session = {
 export const GUEST_SESSION_RESET_EVENT = 'nutti:guest-session-reset'
 
 /**
- * 재발급으로 풀리지 않는 401(UNAUTHORIZED)이 왔을 때 발행됩니다.
+ * **회원** 세션이 재발급으로 풀리지 않는 401(UNAUTHORIZED)을 받았을 때 발행됩니다.
  *
  * 백엔드는 만료(TOKEN_EXPIRED)와 그 외 무효를 구분해서 내려줍니다(app/auth.py). 병합된
- * 게스트 토큰·kind 불일치·위조는 전부 UNAUTHORIZED 이고, 이건 새 토큰을 받아도 같은
- * 결과가 아니라 **다른 사람이 되는 것**이라 자동 재발급 대상이 아닙니다. 화면이 사용자
- * 의사를 물어야 하므로 여기서는 알리기만 합니다.
+ * 게스트 토큰·kind 불일치·위조는 전부 UNAUTHORIZED 이고, 새 토큰을 받아도 같은 결과가
+ * 아니라 **다른 사람이 되는 것**입니다. 회원의 리프레시 회전이 401 로 실패한 경우도
+ * 여기로 옵니다(PR #57).
  *
- * 회원의 리프레시 회전이 401 로 실패한 경우도 여기로 옵니다(PR #57). 게스트와 달리
- * 회원은 «새로 시작»이 아니라 **재로그인**이 답이라, 무엇이 끊겼는지 `detail.kind` 로
- * 함께 알립니다 — 안내 문구가 갈리기 때문입니다.
+ * **게스트는 여기로 오지 않습니다.** 예전에는 게스트도 같이 알리고 화면이 «새로
+ * 시작할까요?» 를 물었는데, 그건 선택지가 하나뿐인 질문이었습니다 — 그 토큰으로는
+ * 이전 결과를 어차피 못 열고, 되찾을 다른 방법도 없어서 사용자가 고를 수 있는 건
+ * «새로 시작» 뿐이었습니다. 지금은 `request()` 가 조용히 새 게스트로 갈아 끼우고
+ * 원요청을 다시 보냅니다. 자산이 갈렸다는 사실은 이미 `GUEST_SESSION_RESET_EVENT` 가
+ * 나르고, 그걸 화면이 «그 결과는 이제 못 연다» 로 설명합니다(app/guestSession.ts).
+ *
+ * **이건 «사용자에게 말하라» 는 신호가 아닙니다.** 받는 쪽이 하는 일은 게스트로
+ * 내려앉히고 캐시를 새로 세우는 것이고(app/sessionRecovery.tsx), 사용자가 보는 건
+ * 로그아웃된 앱입니다 — 상단의 계정 자리가 다시 «로그인» 이 되는 것이 안내를
+ * 대신합니다. 예전에는 여기서 전폭 배너가 떴는데, 로그인 화면으로 튕겨 보내는 대신
+ * 문장으로 통보한 셈이라 «내 결과가 날아갔다» 로 읽혔습니다. 실제로는 서버에
+ * 그대로 있고 다시 로그인하면 돌아옵니다.
  */
 export const SESSION_LOST_EVENT = 'nutti:session-lost'
-
-export interface SessionLostDetail {
-  /** 끊긴 세션의 종류. 판정 시점에 저장소는 이미 비어 있으므로 여기 실어 보냅니다. */
-  kind: 'guest' | 'member' | null
-}
 
 /**
  * 게스트 발급이 429 로 막혔을 때 발행됩니다.
@@ -206,7 +211,7 @@ interface RequestOptions {
 
    `ensureSession()` 이 실패해도(429) 관문은 **엽니다**. 여기서 막으면 발급 제한에
    걸린 사용자에게 영원히 로딩만 도는 화면이 남습니다 — 요청은 나가서 401 을 받고,
-   그 사유는 RootLayout 배너가 설명합니다.
+   그 사유는 RootLayout 의 세션 안내(app/SessionNotice.tsx)가 설명합니다.
 
    `null` 로 되돌리는 이유는 한 번 열린 관문을 다시 잠그지 않기 위해서입니다.
    이후의 만료·회전은 `request()` 의 401 경로가 따로 다룹니다. */
@@ -291,8 +296,9 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     // §1: 게스트는 재발급, 회원은 리프레시 회전(PR #57). 어느 쪽이든 1회만 재시도합니다.
     if (parsed.code === 'TOKEN_EXPIRED' && !options._retried) {
       if (kind === 'guest') {
-        await reissueGuestSession()
-        return request<T>(path, { ...options, _retried: true })
+        if (await recoverGuestSession(token)) {
+          return request<T>(path, { ...options, _retried: true })
+        }
       }
       if (kind === 'member') {
         if (sentRefresh && (await rotateMemberSession(sentRefresh))) {
@@ -304,14 +310,31 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
           «토큰이 만료되었습니다» 만 뜨고 다음 행동을 아무도 말해 주지 않습니다.
           끊긴 것으로 확정하고 재로그인을 안내합니다.
         */
-        if (!sentRefresh && !keepsSessionOn401(path)) dropSessionIfCurrent(kind, token)
+        if (!sentRefresh && !keepsSessionOn401(path)) dropSessionIfCurrent(token)
       }
     }
 
-    // 만료가 아닌 401 은 재발급으로 풀리지 않습니다. 서버가 거절한 토큰을 들고 있으면
-    // 이후 모든 요청이 같은 401 이므로 지우고, 다음 행동은 화면이 사용자에게 묻습니다.
+    // 만료가 아닌 401 은 그 토큰으로는 무엇도 안 된다는 뜻입니다 — 들고 있어 봐야
+    // 이후 모든 요청이 같은 401 이므로 여기서 갈라 놓습니다.
     if (parsed.code === 'UNAUTHORIZED' && token && !keepsSessionOn401(path)) {
-      dropSessionIfCurrent(kind, token)
+      if (kind === 'member') {
+        // 회원은 서버에 결과·크레딧이 그대로 있고, 되찾는 길이 재로그인 하나입니다.
+        // 그건 사용자만 할 수 있으므로 여기서는 접고 알리기만 합니다.
+        dropSessionIfCurrent(token)
+      } else if (!options._retried && (await recoverGuestSession(token))) {
+        // 게스트는 물어볼 것이 없습니다 — 이 토큰으로 이전 결과를 여는 길이 애초에
+        // 없어서, 「새로 시작할까요?」 는 선택지가 하나뿐인 질문이었습니다. 조용히
+        // 갈아 끼우고 원요청을 다시 보냅니다.
+        return request<T>(path, { ...options, _retried: true })
+      } else if (session.token === token) {
+        /*
+          갓 받은 게스트 토큰까지 거절당한 경우입니다. 세션 문제가 아니라 서버 쪽
+          고장이라 알릴 «다음 행동» 이 없습니다 — 재발급은 방금 해 봤습니다. 그래도
+          지우기는 합니다: 죽은 토큰을 남겨 두면 `ensureSession()` 이 «이미 있다» 며
+          지나가서, 새로고침해도 영영 같은 401 입니다.
+        */
+        session.clear()
+      }
     }
     throw parsed
   }
@@ -395,10 +418,10 @@ async function parseErrorBody(response: Response): Promise<ApiError> {
   )
 }
 
-/** 세션을 버리고 화면에 알립니다. 게스트·회원의 다음 행동이 달라 kind 를 함께 실어 보냅니다. */
-function dropSession(kind: 'guest' | 'member' | null): void {
+/** 회원 세션을 버리고 «다시 로그인해야 한다» 를 화면에 알립니다. */
+function dropSession(): void {
   session.clear()
-  window.dispatchEvent(new CustomEvent<SessionLostDetail>(SESSION_LOST_EVENT, { detail: { kind } }))
+  window.dispatchEvent(new CustomEvent(SESSION_LOST_EVENT))
 }
 
 /**
@@ -422,11 +445,27 @@ function dropSession(kind: 'guest' | 'member' | null): void {
  * `kind`·`sentRefresh` 주석). 지금 저장소에 다른 토큰이 있다는 건 그 사이 누군가
  * 세션을 갈아 끼웠다는 뜻이고, 그렇다면 이 401 은 **지금 세션의 소식이 아닙니다**.
  *
- * 게스트 재발급(`reissueGuestSession`)과 겹치는 창도 같은 이유로 함께 막힙니다.
+ * 게스트 재발급(`recoverGuestSession`)이 같은 판정을 쓰는 것도 같은 이유입니다.
  */
-function dropSessionIfCurrent(kind: 'guest' | 'member' | null, sentToken: string | null): void {
+function dropSessionIfCurrent(sentToken: string | null): void {
   if (session.token !== sentToken) return
-  dropSession(kind)
+  dropSession()
+}
+
+/**
+ * 게스트 세션을 조용히 새로 세웁니다. 갈아 끼웠으면 true — 호출부는 원요청을
+ * 한 번 더 보냅니다.
+ *
+ * `dropSessionIfCurrent` 와 **같은 판정을 먼저 겁니다**: 내가 보낸 토큰이 아직
+ * 저장소의 그 토큰일 때만 갈아 끼웁니다. 이 401 이 날아다니는 사이 사용자가
+ * 로그인했다면 저장소에는 이미 회원 토큰이 서 있고, 그걸 게스트로 덮으면 방금
+ * 로그인한 사람이 이유 없이 로그아웃됩니다 — 저쪽이 «지우지 않는» 창이 여기서는
+ * «덮어쓰지 않는» 창입니다.
+ */
+async function recoverGuestSession(sentToken: string | null): Promise<boolean> {
+  if (session.token !== sentToken) return false
+  await reissueGuestSession()
+  return true
 }
 
 /**
@@ -489,7 +528,7 @@ function rotateMemberSession(sentRefresh: string): Promise<boolean> {
         새 게스트까지 날립니다 — `dropSessionIfCurrent` 와 같은 이유, 같은 판정입니다.
       */
       if (isApiError(error) && error.status === 401 && session.refreshToken === sentRefresh) {
-        dropSession('member')
+        dropSession()
       }
       /*
         429 는 «지금만 안 된다» 중에서도 유일하게 **끝을 아는** 실패라 따로 알립니다
@@ -506,9 +545,9 @@ function rotateMemberSession(sentRefresh: string): Promise<boolean> {
 }
 
 /**
- * 막혔던 회전을 사용자 요청으로 한 번 더 시도합니다 (이슈 #11 R3 배너 전용).
+ * 막혔던 회전을 사용자 요청으로 한 번 더 시도합니다 (이슈 #11 R3 안내 전용).
  *
- * 세션 상실 배너의 «새로 시작하기» 와 **절대 같은 동작이면 안 됩니다** — 저쪽은
+ * 세션 상실 안내의 «계속하기» 와 **절대 같은 동작이면 안 됩니다** — 저쪽은
  * `session.clear()` 로 시작하는데, 여기서 그러면 아직 30일이 남은 멀쩡한 리프레시를
  * 버리는 것이라 «기다리면 풀릴 일» 이 «재로그인해야 할 일» 로 악화됩니다.
  */

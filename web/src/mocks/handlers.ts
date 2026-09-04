@@ -785,8 +785,13 @@ function expiredSession(request: Request): 'expired' | 'reissued' | null {
   if (token === state.expiredToken) return 'expired'
   // 만료 대상이 아닌 **회원** 토큰 = 회전이 성공한 같은 회원. 실서버는 member_id 가
   // 그대로라 크레딧도 보관함도 그대로이므로, 목도 아무 일 없었던 것처럼 통과시킵니다.
-  if (token.includes('mock-member-jwt.')) return null
+  if (isMemberToken(request)) return null
   return 'reissued'
+}
+
+/** 목이 발급한 회원 토큰인지. 게스트 토큰과 처리가 갈리는 자리마다 씁니다. */
+function isMemberToken(request: Request): boolean {
+  return (request.headers.get('Authorization') ?? '').includes('mock-member-jwt.')
 }
 
 /** 경과 시간으로 job 상태를 계산 — 타이머 없이 폴링만으로 진행이 보입니다. */
@@ -2022,10 +2027,18 @@ export const handlers = [
 
   // ------------------------------------------------------------ 크레딧
   http.get(`${BASE}/credits`, ({ request }) => {
-    // 만료가 아닌 401 — 병합된 게스트 토큰·kind 불일치(app/auth.py `get_current_member`).
-    // TOKEN_EXPIRED 와 달리 재발급으로 풀리지 않는다는 게 이 시나리오의 요점입니다.
-    // 앱바 크레딧 pill 이 어느 화면에서나 이걸 부르므로 여기에 겁니다.
-    if (scenario() === 'session:lost') {
+    /*
+      만료가 아닌 401 — 위조·kind 불일치·다른 기기 로그인(app/auth.py `get_current_member`).
+      TOKEN_EXPIRED 와 달리 재발급으로 풀리지 않는다는 게 이 시나리오의 요점입니다.
+      앱바 크레딧 pill 이 어느 화면에서나 이걸 부르므로 여기에 겁니다.
+
+      **회원 토큰에만** 겁니다. 게스트가 이걸 받으면 client.ts 가 조용히 새 게스트로
+      갈아 끼우는데, 목이 새 토큰에도 같은 401 을 주면 그건 «세션 상실» 이 아니라
+      «서버가 아무 토큰도 안 받는 고장» 을 그리는 것입니다. 그 상태로는 이 시나리오가
+      보여 주려던 것 — 회원이 로그아웃 상태로 내려앉는 복구(app/sessionRecovery.tsx) —
+      를 아무도 밟을 수 없습니다. 켜 두고 로그인하면 그 순간부터 재현됩니다.
+    */
+    if (scenario() === 'session:lost' && isMemberToken(request)) {
       return apiError(401, 'UNAUTHORIZED', '유효하지 않은 토큰입니다')
     }
 
