@@ -68,6 +68,21 @@ export default defineConfig({
      */
     host: true,
     /**
+     * vite 는 DNS 리바인딩을 막으려고 Host 헤더가 목록에 없는 요청을 403 으로 끊습니다.
+     * 점으로 시작하면 그 도메인과 하위 도메인 전부를 뜻합니다.
+     *
+     * `.ts.net` 을 여는 이유: 폰과 PC 가 **다른 공유기에 있으면** 위의 `host: true` 로
+     * 얻은 랜 주소가 소용없습니다(패킷이 통신사 망으로 나갔다 사라집니다). 그때는
+     * `tailscale serve` 로 https 주소를 붙여 실기기를 확인하는데, 그 주소의 Host 가
+     * 여기 없으면 403 만 돌아옵니다. tailnet 안에서만 도달하므로 공개 노출은 아닙니다.
+     *
+     * https 라는 점이 부수적으로 더 중요합니다 — 평문 http 의 랜 주소는 «보안 컨텍스트»가
+     * 아니라서 `crypto.randomUUID` 와 서비스워커가 통째로 없습니다. 목의 게스트 발급
+     * (mocks/handlers.ts)과 `api/idempotency.ts` 가 그 API 를 쓰므로, 랜 주소로는
+     * 화면만 뜨고 세션 발급이 500 으로 떨어집니다. https 면 그 갈래를 아예 안 밟습니다.
+     */
+    allowedHosts: ['.ts.net'],
+    /**
      * 목을 끄고(VITE_ENABLE_MOCKS=false) 로컬 백엔드에 붙일 때 쓰는 프록시.
      *
      * 이건 개발 중 CORS 회피 수단일 뿐이고 배포 환경에서는 성립하지 않습니다 —
