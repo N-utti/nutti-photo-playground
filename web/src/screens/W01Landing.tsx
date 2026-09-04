@@ -82,7 +82,7 @@ export default function W01Landing() {
               헤더가 뜨지 않고 배경에 녹습니다). 흰 `bg-surface` + 아래 테두리이던 때는 크림
               페이지 위로 흰 띠가 떠서 갤러리보다 헤더가 먼저 눈에 들어왔습니다. */}
           <header className="flex items-center gap-3 bg-paper px-5 py-3 desktop:hidden">
-            <Link to="/" className="-m-2 mr-auto flex p-2 hover:opacity-70">
+            <Link to="/" className="-m-2 mr-auto flex p-2">
               <BrandLockup className="text-base" />
             </Link>
             <CreditBadge showUnit />

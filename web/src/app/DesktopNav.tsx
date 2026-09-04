@@ -75,7 +75,7 @@ export default function DesktopNav() {
           중복처럼 보이지만, 로고가 홈이라는 건 웹의 관습이라 여기 없으면 사람들이
           로고를 누르고 아무 일도 안 일어나는 경험을 합니다.
         */}
-        <Link to="/" className="-m-2 flex shrink-0 p-2 hover:opacity-70">
+        <Link to="/" className="-m-2 flex shrink-0 p-2">
           <BrandLockup className="text-base" />
         </Link>
 
