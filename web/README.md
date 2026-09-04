@@ -104,7 +104,7 @@ localStorage.setItem('nutti.mock.scenario', 'ig:used')        // 인스타 DM �
 localStorage.setItem('nutti.mock.scenario', 'session:expired') // 액세스 만료 — 게스트는 재발급 → 404, 회원은 리프레시 회전으로 조용히 복구(PR #57)
 localStorage.setItem('nutti.mock.scenario', 'refresh:fail')    // 만료 + 회전 401 — 회원 재로그인 안내(다른 기기 로그인·30일 초과와 같은 코드)
 localStorage.setItem('nutti.mock.scenario', 'refresh:429')     // 만료 + 회전 429 — 공유 IP 에서 남이 태운 버킷에 걸린 회원(이슈 #11 R3). 세션은 살아 있고 기다리면 풀림
-localStorage.setItem('nutti.mock.scenario', 'session:lost')    // 재발급으로 안 풀리는 401 — 앱바 크레딧이 어느 화면에서나 부름
+localStorage.setItem('nutti.mock.scenario', 'session:lost')    // 재발급으로 안 풀리는 401 — **로그인한 뒤에** 켜야 재현됨(회원 토큰에만 걸립니다). 배너 없이 게스트로 내려앉는 게 정답
 localStorage.setItem('nutti.mock.scenario', 'guest:ratelimited') // 게스트 발급 429 (이슈 #15)
 localStorage.setItem('nutti.mock.scenario', 'auth:statefail')  // 소셜 콜백 state 검증 실패(401)
 localStorage.setItem('nutti.mock.scenario', 'auth:merge')      // 소셜 로그인이 **기존 계정으로 병합**(merged: true) — 복귀 알림이 「옮겼어요」로 갈리고 잔액도 게스트 것이 아닌 그 계정 값(3). 기본 목은 승격뿐이라 이 문장이 브라우저에서 안 떴습니다
@@ -263,6 +263,9 @@ src/
     styleInputs.ts  스타일별 입력값의 초기화·검증 — 서버 `_resolve_input_values` 의 사본
     StyleInputForm.tsx  그 칸을 그리는 폼. **두 화면이 같이 씁니다** (W-04 만들기 · W-06 다시 만들기)
     guestSession.ts 게스트 세션 초기화 감지 → 복원 실패 안내 분기 (이슈 #5)
+    sessionStatus.ts  세션이 평소와 다른 상태 셋. 「끊김」은 복구 신호, 나머지 둘만 안내
+    sessionRecovery.tsx  회원 세션이 끊기면 **말없이** 게스트로 내려앉힘 + 캐시 리셋
+    SessionNotice.tsx  앱이 스스로 못 고치는 둘(발급 429 · 갱신 429)만 화면 아래 카드로
     authReturn.ts   OAuth 왕복 동안 복귀 주소 보관 (sessionStorage, 내부 경로만)
     retryAfter.ts   429 Retry-After → 사람이 읽는 문구 (게스트 발급·로그인 공용)
 ```
