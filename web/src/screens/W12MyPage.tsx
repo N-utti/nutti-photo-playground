@@ -190,9 +190,13 @@ function ShopVisitLink() {
       onClick={() => track({ event_type: 'shop_exit_click', properties: { from: 'mypage' } })}
       className="flex items-center justify-between gap-3 rounded-xl bg-surface px-4 py-4 hover:bg-surface-2"
     >
+      {/* «더 둘러보기» 라고 쓰지 않습니다 — 이 앱은 스타일을 보여 주는 곳이라 그 «더» 가
+          «누띠샵에 스타일이 더 있다» 로 읽힙니다. 누띠샵은 강아지 수제간식 쇼핑몰이므로
+          파는 물건을 이름에 넣습니다(W-06 배너·홈 푸터와 같은 말). 효능 단정 표현 금지 —
+          FR-W06-11 · NFR-LEGAL-01. */}
       <div className="min-w-0">
         <h2 className="text-sm font-semibold">누띠샵</h2>
-        <p className="mt-1 text-xs text-ink-2">누띠 쇼핑몰에서 더 둘러보기</p>
+        <p className="mt-1 text-xs text-ink-2">강아지 수제간식 보러가기</p>
       </div>
       <span aria-hidden className="shrink-0 text-ink-3">
         ↗

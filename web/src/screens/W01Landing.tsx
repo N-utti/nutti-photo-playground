@@ -165,6 +165,13 @@ export default function W01Landing() {
               경쟁하지 않게 갤러리 맨 아래 가벼운 링크로 둡니다. 위젯이 붙기 전까지의
               게스트 유입 경로입니다.
 
+              **«더 둘러보기» 라고 쓰지 마세요.** 바로 위가 스타일 그리드라 그 «더» 가
+              «누띠샵에 스타일이 더 있다» 로 읽힙니다 — 누띠샵은 강아지 수제간식 쇼핑몰이라
+              누르는 순간 기대와 다른 것이 나오고, 그건 유입이 아니라 즉시 이탈입니다.
+              그래서 W-06 결과 배너와 **같은 말**로 파는 물건을 이름에 넣습니다
+              (screens/W06Result.tsx `SHOP_BANNER`). 효능(관절·면역 등) 단정 표현은 여기서도
+              금지입니다 — FR-W06-11 · NFR-LEGAL-01.
+
               재사용 흐름(`from_job`) 중에는 숨깁니다 — 히어로를 숨기는 것과 같은 이유로,
               사진을 이어 만드는 한복판에 앱 밖으로 나가는 문을 열지 않습니다. GA4 는
               `utm_content=home` 으로 마이페이지 유입과 갈라 셉니다.
@@ -180,7 +187,7 @@ export default function W01Landing() {
                   }
                   className="inline-flex items-center gap-1 text-sm text-ink-3 hover:text-brand"
                 >
-                  누띠샵에서 더 둘러보기 <span aria-hidden>↗</span>
+                  누띠 수제간식 보러가기 <span aria-hidden>↗</span>
                 </a>
               </footer>
             )}

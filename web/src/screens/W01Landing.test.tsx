@@ -32,7 +32,7 @@ describe('W-01 홈 · 누띠샵 유입구', () => {
   it('게스트에게도 보이고, 새 탭·utm_content=home 으로 나간다', async () => {
     renderWithProviders(<W01Landing />, { route: '/' })
 
-    const shop = await screen.findByRole('link', { name: /누띠샵에서 더 둘러보기/ })
+    const shop = await screen.findByRole('link', { name: /누띠 수제간식 보러가기/ })
     expect(shop).toHaveAttribute('target', '_blank')
     // GA4 가 마이페이지 유입(utm_content=mypage)과 갈라 셀 수 있어야 합니다.
     expect(shop.getAttribute('href')).toContain('utm_content=home')
@@ -43,7 +43,7 @@ describe('W-01 홈 · 누띠샵 유입구', () => {
 
     // 카테고리 필터가 뜬 뒤에 봐야 «숨김» 이 «아직 안 그렸다» 와 구분됩니다.
     await screen.findByRole('navigation', { name: '스타일 카테고리' })
-    expect(screen.queryByRole('link', { name: /누띠샵에서 더 둘러보기/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /누띠 수제간식 보러가기/ })).not.toBeInTheDocument()
   })
 })
 
