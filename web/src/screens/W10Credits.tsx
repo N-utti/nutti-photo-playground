@@ -23,12 +23,12 @@ export default function W10Credits() {
 
   return (
     <div className="screen-min-h bg-paper pb-16">
-      <header className="sticky top-0 desktop:top-16 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 py-3">
+      <header className="sticky top-0 desktop:top-16 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 desktop:px-7 py-3">
         <BackButton fallback="/styles" />
         <h1 className="text-base font-bold">크레딧 받기</h1>
       </header>
 
-      <main className="mx-auto w-full max-w-md px-5 py-4">
+      <main className="mx-auto w-full max-w-md px-5 desktop:px-7 py-4">
         <div className="flex items-center justify-between rounded-xl bg-surface px-4 py-3">
           <span className="text-sm font-semibold">보유 크레딧</span>
           <span className="font-mono text-lg font-bold tabular-nums">{balance ?? '—'}</span>

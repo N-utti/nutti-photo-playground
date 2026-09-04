@@ -411,7 +411,7 @@ export default function W04Upload() {
   return (
     // 하단 탭바가 없어졌으므로(마이페이지로 통합) pb 는 순수 여백입니다.
     <div className="screen-min-h bg-paper pb-16">
-      <header className="sticky top-0 desktop:top-16 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 py-3">
+      <header className="sticky top-0 desktop:top-16 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 desktop:px-7 py-3">
         {/* 확인 단계에서도 그냥 뒤로 갑니다 — 사진을 다시 고르는 길은 아래
             «다른 사진 고르기» 입니다(ConfirmPanel). ← 가 화면 안 단계를 되감으면
             같은 화살표가 어떤 때는 나가고 어떤 때는 안 나갑니다. */}
@@ -425,7 +425,7 @@ export default function W04Upload() {
         </span>
       </header>
 
-      <main className="mx-auto w-full max-w-md px-5 py-4">
+      <main className="mx-auto w-full max-w-md px-5 desktop:px-7 py-4">
         <StyleContext
           styleId={styleId}
           styleName={style?.name}

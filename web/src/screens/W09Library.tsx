@@ -156,7 +156,7 @@ export default function W09Library() {
         데스크톱에서 선택을 빠져나갈 길이 사라집니다.
       */}
       <header
-        className={`sticky top-0 desktop:top-16 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 py-3 ${
+        className={`sticky top-0 desktop:top-16 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 desktop:px-7 py-3 ${
           selected ? '' : 'desktop:hidden'
         }`}
       >
@@ -196,7 +196,7 @@ export default function W09Library() {
         )}
       </header>
 
-      <main className="mx-auto w-full max-w-md px-5 py-4">
+      <main className="mx-auto w-full max-w-md px-5 desktop:px-7 py-4">
         {/*
           게스트 안내는 리셋된 경우에만 남았습니다.
 
@@ -655,7 +655,7 @@ function SelectionBar({
 
   return (
     <>
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-rule bg-surface px-5 py-3">
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-rule bg-surface px-5 desktop:px-7 py-3">
         <div className="mx-auto flex w-full max-w-md gap-2">
           <button
             type="button"

@@ -85,7 +85,7 @@ export default function W01Landing() {
               높이 60px = `py-3.5`(14px) 두 번 + 내용 32px. 56px 이었는데 로고가 갑갑했습니다.
               데스크톱 GNB(64px)보다 낮은 건 의도입니다 — 모바일은 세로가 귀하고, 레퍼런스도
               모바일이 더 낮습니다(carat 52px). */}
-          <header className="flex items-center gap-3 bg-paper px-5 py-3.5 desktop:hidden">
+          <header className="flex items-center gap-3 bg-paper px-5 desktop:px-7 py-3.5 desktop:hidden">
             <Link to="/" className="-m-2 mr-auto flex p-2">
               <BrandLockup className="text-base" />
             </Link>
@@ -93,7 +93,7 @@ export default function W01Landing() {
             <AccountEntry />
           </header>
 
-          <main className="mx-auto w-full max-w-(--container-canvas) px-5">
+          <main className="mx-auto w-full max-w-(--container-canvas) px-5 desktop:px-7">
             {/* 재사용 중이면 히어로를 숨깁니다 — 이미 사진이 있는 사람에게 «사진 올리고
                 무료로 1장» CTA 는 앞뒤가 안 맞습니다. 대신 재사용 배너를 세웁니다. */}
             {reuse.context ? (

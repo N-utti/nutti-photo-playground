@@ -25,7 +25,7 @@ export default function W10Ledger() {
 
   return (
     <div className="screen-min-h bg-paper pb-16">
-      <header className="sticky top-0 desktop:top-16 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 py-3">
+      <header className="sticky top-0 desktop:top-16 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 desktop:px-7 py-3">
         {/* A 고정이었습니다. 402 오버레이에서 내역만 열고 돌아갈 때 A 를 지나치는 게
             싫어서였는데, 그 경우 사용자가 있던 곳은 생성 화면입니다 — 거기로 돌려보내는
             게 맞습니다. `/credits` 는 이제 뒤가 없을 때의 폴백입니다. */}
@@ -33,7 +33,7 @@ export default function W10Ledger() {
         <h1 className="text-base font-bold">받은 내역</h1>
       </header>
 
-      <main className="mx-auto w-full max-w-md px-5 py-4">
+      <main className="mx-auto w-full max-w-md px-5 desktop:px-7 py-4">
         {isPending && (
           <ul className="space-y-2">
             {Array.from({ length: 5 }, (_, index) => (

@@ -60,18 +60,21 @@ export default function DesktopNav() {
 
   return (
     <header
-      className={`sticky top-0 z-20 hidden h-16 bg-paper px-5 transition-shadow desktop:block ${
+      className={`sticky top-0 z-20 hidden h-16 bg-paper px-5 desktop:px-7 transition-shadow desktop:block ${
         scrolled ? 'shadow-[0_2px_10px_-6px_rgba(51,46,42,0.35)]' : ''
       }`}
     >
       {/*
         본문 컨테이너(`--container-canvas`)로 가운데 정렬하지 않습니다. 바로 아래
-        화면 앱바가 폭 전체를 쓰는 줄이라(`px-5`), GNB 만 1180px 안으로 모으면 두 줄이
-        붙어 있는데 왼쪽 끝이 서로 어긋납니다 — 1440px 에서 로고는 130px, 앱바의 ← 는
-        20px 에서 시작했습니다.
+        화면 앱바가 폭 전체를 쓰는 줄이라(`px-5 desktop:px-7`), GNB 만 1180px 안으로
+        모으면 두 줄이 붙어 있는데 왼쪽 끝이 서로 어긋납니다 — 1440px 에서 로고는 130px,
+        앱바의 ← 는 20px 에서 시작했습니다.
 
         **이 값은 앱바를 따라가야 합니다.** 화면 앱바의 좌우 여백을 바꾸면 여기도 같이
-        바꾸세요 — 안 그러면 위아래 두 줄의 왼쪽 끝이 조용히 어긋납니다.
+        바꾸세요 — 안 그러면 위아래 두 줄의 왼쪽 끝이 조용히 어긋납니다. 지금 값은
+        모바일 20px · 데스크톱 28px 이고, 28px 은 레퍼런스 실측치입니다(carat 안쪽
+        컨테이너 28px · Pinterest 로고 28px). 모바일 20px 은 carat 과 같은 값이라
+        그대로 뒀습니다.
       */}
       <div className="flex h-full w-full items-center gap-6">
         {/*

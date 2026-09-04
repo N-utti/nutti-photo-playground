@@ -163,7 +163,7 @@ export default function W08Creative() {
 
   return (
     <div className="screen-min-h bg-paper pb-16">
-      <header className="sticky top-0 desktop:top-16 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 py-3">
+      <header className="sticky top-0 desktop:top-16 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 desktop:px-7 py-3">
         <BackButton fallback="/upload" />
         <h1 className="text-base font-bold">직접 만들기</h1>
         {/* 데스크톱에서는 GNB 가 배지를 들고 있어 여기서는 내립니다 — 안 내리면 같은
@@ -174,7 +174,7 @@ export default function W08Creative() {
         </span>
       </header>
 
-      <main className="mx-auto w-full max-w-md px-5 py-4">
+      <main className="mx-auto w-full max-w-md px-5 desktop:px-7 py-4">
         {reuse.pending ? (
           // 재사용 재료를 서버에 묻는 중입니다. 여기서 "사진을 먼저 올려 주세요"를
           // 띄우면, 사진이 있는데도 없다고 말했다가 곧 뒤집는 화면이 됩니다.

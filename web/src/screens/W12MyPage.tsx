@@ -54,12 +54,12 @@ export default function W12MyPage() {
 
   return (
     <div className="screen-min-h bg-paper pb-16">
-      <header className="sticky top-0 desktop:top-16 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 py-3">
+      <header className="sticky top-0 desktop:top-16 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 desktop:px-7 py-3">
         <BackButton fallback={back} />
         <h1 className="text-base font-bold">마이페이지</h1>
       </header>
 
-      <main className="mx-auto w-full max-w-md px-5 py-4">
+      <main className="mx-auto w-full max-w-md px-5 desktop:px-7 py-4">
         {isPending ? (
           <div className="space-y-3">
             <div className="h-20 animate-pulse rounded-xl bg-rule/60" />

@@ -47,12 +47,12 @@ export default function W07Calculator() {
 
   return (
     <div className="screen-min-h bg-paper pb-16">
-      <header className="sticky top-0 desktop:top-16 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 py-3">
+      <header className="sticky top-0 desktop:top-16 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 desktop:px-7 py-3">
         <BackButton fallback="/styles" />
         <h1 className="text-base font-bold">간식량 계산기</h1>
       </header>
 
-      <main className="mx-auto w-full max-w-md px-5 py-4">
+      <main className="mx-auto w-full max-w-md px-5 desktop:px-7 py-4">
         {!petId && !jobId ? (
           // 쿼리가 없으면 서버에 물어볼 게 없습니다(useCalculatorLink 도 비활성).
           // 그래도 계산기로 가는 길 자체는 막지 않습니다 — 1단계부터 하면 됩니다.

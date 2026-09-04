@@ -87,7 +87,7 @@ function ActiveJobBar({ jobId }: { jobId: string }) {
     // 없고(`desktop:hidden`, 상단 GNB 가 대신합니다) 안전영역도 0 입니다. 그런데도
     // 72px 을 띄우고 있어서, 넓은 화면에서는 없는 탭바 자리만큼 바가 공중에 떠 있었습니다.
     // 여기는 조건문이 라우트가 아니라 폭 하나라 늘어날 일이 없습니다.
-    <div className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+4.5rem)] z-20 px-5 desktop:bottom-5">
+    <div className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+4.5rem)] z-20 px-5 desktop:px-7 desktop:bottom-5">
       {/* 초 단위로 바뀌는 숫자와 막대는 읽어 주지 않습니다(aria-hidden) — 1초마다
           말하는 라이브 영역은 안내가 아니라 방해입니다. 대신 단계 문구와 «완성됐어요»
           처럼 실제로 상태가 바뀔 때만 한 번 읽힙니다. */}
