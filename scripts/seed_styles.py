@@ -61,6 +61,49 @@ SECTION_MAP = {
     ],
 }
 
+# W-05 대기 화면 진행 문구(#256). 스타일마다 한 줄, 없으면 프론트가 「준비하는 중…」 폴백.
+PROGRESS_MESSAGE_BY_CODE = {
+    "3D_피규어": "피규어를 조각하는 중…",
+    "레고": "레고 블록을 쌓는 중…",
+    "프라모델": "부품을 조립하는 중…",
+    "인형뽑기": "집게를 내리는 중…",
+    "스노우볼": "눈을 흩뿌리는 중…",
+    "띠부씰": "스티커를 오리는 중…",
+    "이모티콘": "표정을 그리는 중…",
+    "미니분신": "미니 분신을 빚는 중…",
+    "우리아이굿즈샵": "굿즈를 진열하는 중…",
+    "사물코스튬": "코스튬을 입히는 중…",
+    "90년대가족사진관": "배경천을 펼치는 중…",
+    "조선시대": "갓끈을 매는 중…",
+    "르네상스초상화": "유화를 덧칠하는 중…",
+    "취업아이": "정장 매무새를 다듬는 중…",
+    "갸루": "액세서리를 다는 중…",
+    "입덕직캠": "카메라 초점을 맞추는 중…",
+    "견생네컷": "네 컷을 이어 붙이는 중…",
+    "거울셀카": "거울 각도를 잡는 중…",
+    "어릴적나와우리아이": "옛 사진첩을 넘기는 중…",
+    "반려견의인화": "사람 옷을 맞춰 입히는 중…",
+    "색연필드로잉": "색연필을 깎는 중…",
+    "하찮은크레파스": "크레파스를 쥐는 중…",
+    "메이플스토리": "캐릭터를 렌더링하는 중…",
+    "아이소메트릭방": "방을 한 칸씩 짓는 중…",
+    "우리아이라떼아트": "우유 거품을 올리는 중…",
+    "괴수": "도시를 뒤흔드는 중…",
+    "식빵": "식빵을 굽는 중…",
+    "찜질방": "양머리 수건을 마는 중…",
+    "청문회": "마이크를 켜는 중…",
+    "퐁퐁견": "거품을 내는 중…",
+    "호캉스": "룸서비스를 부르는 중…",
+    "영화관": "팝콘을 튀기는 중…",
+    "새벽에몰래": "불을 끄고 살금살금…",
+    "모래구멍": "모래를 파는 중…",
+    "수중샷": "물속으로 잠수하는 중…",
+    "반려견항공샷": "드론을 띄우는 중…",
+    "손바닥위반려견": "손바닥을 펴는 중…",
+    "왕코클로즈업": "코에 초점을 맞추는 중…",
+    "유리얼빡샷": "유리창에 얼굴을 붙이는 중…",
+}
+
 _SECTION_BY_CODE = {
     code: section for section, codes in SECTION_MAP.items() for code in codes
 }
@@ -116,6 +159,7 @@ async def seed_from_dir(dir_path: Path) -> dict[str, int]:
             update_fields = {
                 "input_fields": input_fields_by_code.get(code, []),
                 "avg_seconds": _AVG_SECONDS,
+                "progress_message": PROGRESS_MESSAGE_BY_CODE.get(code),
             }
             example_keys = await _seed_thumbnail(code)
             if example_keys is not None:
@@ -141,6 +185,7 @@ async def seed_from_dir(dir_path: Path) -> dict[str, int]:
             ),
             status=StyleStatus.PUBLIC,
             avg_seconds=_AVG_SECONDS,
+            progress_message=PROGRESS_MESSAGE_BY_CODE.get(code),
             input_fields=input_fields_by_code.get(code, []),
             example_keys=example_keys or [],
         )

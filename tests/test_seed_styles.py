@@ -83,6 +83,8 @@ async def test_seed_from_dir_creates_records_and_is_idempotent(tmp_path: Path):
     )
     assert styles["견생네컷"].input_fields == manifest["견생네컷"]
     assert styles["레고"].input_fields == []
+    assert styles["레고"].progress_message == "레고 블록을 쌓는 중…"
+    assert styles["미등록_스타일"].progress_message is None
     assert styles["미등록_스타일"].section == "일상 유머"
     assert styles["미등록_스타일"].sort_order == 39
     assert all(version.version == 1 for version in versions)
@@ -92,7 +94,7 @@ async def test_seed_from_dir_creates_records_and_is_idempotent(tmp_path: Path):
     prompt_version = next(version for version in versions if version.style_id == styles["3D_피규어"].id)
     assert prompt_version.prompt_text == "Draft [pet name] prompt"
 
-    await Style.filter(code="견생네컷").update(input_fields=[])
+    await Style.filter(code="견생네컷").update(input_fields=[], progress_message=None)
 
     second = await seed_from_dir(prompt_dir)
 
@@ -100,6 +102,7 @@ async def test_seed_from_dir_creates_records_and_is_idempotent(tmp_path: Path):
     refreshed = await Style.get(code="견생네컷")
     assert refreshed.input_fields == manifest["견생네컷"]
     assert refreshed.avg_seconds == 48
+    assert refreshed.progress_message == "네 컷을 이어 붙이는 중…"
     assert await Style.all().count() == 4
     assert await StylePromptVersion.all().count() == 4
 
