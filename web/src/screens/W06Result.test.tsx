@@ -697,6 +697,32 @@ describe('W-06 · 저장·공유 버튼', () => {
     }
   })
 
+  it('카톡 iOS 웹뷰의 「공유」는 파일만 넘기고 홍보 문구는 싣지 않는다', async () => {
+    /*
+      문구를 같이 실으면 카톡 시트가 사진을 버리고 링크만 싣습니다 — 2026-09-04 아이폰
+      카톡 인앱에서 같은 화면·같은 파일로 두 번 넘겨 본 결과입니다(W06Result.tsx 의 주석).
+      사파리 갈래(위 「공유가 이미지를 OS 시트로」)는 `@nutti_official` 이 실리는지를 보고
+      있으므로, 둘을 같이 두어야 «카톡에서만 뺀다» 가 지켜집니다.
+    */
+    const user = userEvent.setup()
+    const restoreUa = withUserAgent(UA_KAKAO_IOS)
+    const sheet = withFileSheet()
+    mockShare()
+    countImageFetches()
+    try {
+      renderResult(succeededJob())
+
+      await user.click(await screen.findByRole('button', { name: '공유' }))
+
+      await waitFor(() => expect(sheet.shared).toHaveLength(1))
+      expect(sheet.shared[0].files?.[0]).toBeInstanceOf(File)
+      expect(sheet.shared[0]).not.toHaveProperty('text')
+    } finally {
+      sheet.restore()
+      restoreUa()
+    }
+  })
+
   it('카톡 Android 웹뷰의 「공유」는 자체 시트 맨 위에 외부 브라우저 링크(이미지 URL)를 두고, 인스타 링크는 없다', async () => {
     // 웹뷰 안의 instagram.com 은 인스타 안의 인스타 — 바로 그게 오동작으로 읽힌 버튼입니다.
     const user = userEvent.setup()
