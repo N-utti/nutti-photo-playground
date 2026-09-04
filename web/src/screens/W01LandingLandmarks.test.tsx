@@ -17,15 +17,13 @@ import { renderWithProviders } from '../test/render'
 import W01Landing from './W01Landing'
 
 describe('W-01 홈 · 탐색 랜드마크', () => {
-  it('탐색 구역은 둘 — 카테고리 필터와 하단 탭바, 각자 이름이 있다', async () => {
+  it('탐색 구역은 카테고리 필터 하나뿐이다 — 탭바를 걷어냈다', async () => {
     renderWithProviders(<W01Landing />, { route: '/' })
 
-    // 탭바가 서야 개수가 «아직 안 떴다» 와 구분됩니다.
-    await screen.findByRole('navigation', { name: '주요 메뉴' })
-    // 카테고리 배지도 탐색 구역입니다(carat 식 필터). 계정 칩 같은 «빈 이름 구역» 이
-    // 하나라도 더 서면 이 개수가 어긋납니다.
+    // 카테고리 배지가 유일한 탐색 구역입니다(carat 식 필터). 하단 탭바는 없어졌고,
+    // 계정 칩 같은 «빈 이름 구역» 이 하나라도 더 서면 이 개수가 어긋납니다.
     await screen.findByRole('navigation', { name: '스타일 카테고리' })
-    expect(screen.getAllByRole('navigation')).toHaveLength(2)
+    expect(screen.getAllByRole('navigation')).toHaveLength(1)
   })
 
   it('로그인 칩을 탐색 구역으로 감싸지 않는다', async () => {

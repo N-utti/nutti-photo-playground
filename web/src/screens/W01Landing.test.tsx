@@ -14,12 +14,13 @@ import { describe, expect, it } from 'vitest'
 import { renderWithProviders } from '../test/render'
 import W01Landing from './W01Landing'
 
-describe('W-01 홈 · 탭바', () => {
-  it('하단 탭바를 단다 — 홈 탭의 목적지이기 때문', async () => {
+describe('W-01 홈 · 내비', () => {
+  it('하단 탭바가 없다 — 통째로 걷어냈다(보관함은 마이페이지로)', async () => {
     renderWithProviders(<W01Landing />, { route: '/' })
 
-    const tabbar = await screen.findByRole('navigation', { name: '주요 메뉴' })
-    expect(tabbar).toBeInTheDocument()
+    // 카테고리 필터가 뜬 뒤에 봐야 «없다» 가 «아직 안 그렸다» 와 구분됩니다.
+    await screen.findByRole('navigation', { name: '스타일 카테고리' })
+    expect(screen.queryByRole('navigation', { name: '주요 메뉴' })).not.toBeInTheDocument()
   })
 })
 

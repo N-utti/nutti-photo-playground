@@ -31,7 +31,6 @@ import { CreditBadge } from '../app/CreditBadge'
 import { customPromptLinkLabel, useCustomPromptCost } from '../app/customPromptCost'
 import { useReuseFromJob, withReuse, type JobContext } from '../app/reuseFromJob'
 import { useStyles } from '../api/queries'
-import { TabBar } from '../app/TabBar'
 import Thumbnail from '../app/Thumbnail'
 import type { StyleCard } from '../api/types'
 
@@ -73,8 +72,8 @@ export default function W01Landing() {
   return (
     <>
       <div inert={sheetOpen}>
-        {/* pb-24 — 아래 고정 탭바가 마지막 줄을 덮지 않게. 데스크톱은 탭바가 없어 순수 여백. */}
-        <div className="screen-min-h bg-paper pb-24 desktop:pb-10">
+        {/* 하단 탭바가 없어져(마이페이지로 통합) pb 는 순수 여백입니다. */}
+        <div className="screen-min-h bg-paper pb-10">
           {/* 모바일 앱바 — 데스크톱은 상단 GNB(app/DesktopNav.tsx)가 같은 셋을 들어 내립니다.
               숫자 = 크레딧 받기(W-10), 아바타 = 계정(W-12), 로고 = 홈.
 
@@ -159,8 +158,6 @@ export default function W01Landing() {
               )}
             </section>
           </main>
-
-          <TabBar />
         </div>
       </div>
 

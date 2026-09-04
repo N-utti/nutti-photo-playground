@@ -1,19 +1,14 @@
 /**
- * 데스크톱 상단 GNB — **모든 화면**에 붙는 유일한 내비입니다.
+ * 데스크톱 상단 GNB — **모든 화면**에 붙는 유일한 내비입니다. RootLayout 이 깝니다.
  *
- * 하단 탭바(app/TabBar.tsx)는 이제 모바일 전용이고, 그쪽은 세 화면(W-01·W-02·W-09)
- * 에만 붙습니다. 그 규칙을 데스크톱으로 그대로 가져오면 넓은 화면에서 만들기 흐름에
- * 들어간 순간 내비가 통째로 사라집니다 — 마우스에는 «뒤로» 제스처가 없어서, 남는
- * 길이 앱바의 ← 하나뿐입니다. 그래서 이건 RootLayout 이 깝니다.
+ * 이제 **로고 | 크레딧 · 계정** 뿐입니다. 가운데 탭 목록(홈·만들기·보관함)과 누띠샵을
+ * 걷어냈습니다 — 홈은 로고가 겸하고(원페이지 갤러리), 만들기는 스타일을 눌러 들어가며,
+ * 보관함은 회원 전용이라 마이페이지(W-12) 안으로, 누띠샵도 마이페이지의 작은 링크로
+ * 옮겼습니다. 모바일 하단 탭바는 통째로 없앴습니다(핀터레스트·carat 처럼 최소 내비).
  *
- * **탭바가 만들기 흐름을 피했던 이유는 여기서 다시 따지지 않습니다.** 하단 탭바를
- * W-04·W-05·W-06 에서 뺀 판단(TabBar.tsx 주석)은 «결제 직전에 나가는 문 셋» 이
- * 엄지 밑에 깔리는 것에 대한 것이었습니다. 상단 GNB 는 그 문이 없어지는 게 아니라
- * 위치가 달라지는 것이고, 데스크톱에서 상단 내비가 항상 있는 것은 웹의 기본값입니다.
- * 다만 전환율에 영향이 있다면 그건 이 화면이 아니라 GA4 에서 먼저 보일 것입니다.
- *
- * 목적지 목록은 TabBar 에서 가져옵니다 — 모바일과 데스크톱이 서로 다른 곳으로 갈 수
- * 있으면 그건 두 개의 앱입니다.
+ * 크레딧·계정을 여기 하나로 모은 이유는 그대로입니다 — 배지가 앱바 여러 곳에 흩어져
+ * 위아래로 겹치던 것을 이 줄로 올리고 각 화면 앱바를 데스크톱에서 내렸습니다. 계정
+ * 진입점(마이페이지)도 여기 하나입니다.
  *
  * 높이는 `h-14`(56px)로 **선언**합니다. 각 화면 앱바가 이 아래에 붙어 서려면
  * (`desktop:top-14`) 이 값을 알아야 하는데, 내용에 따라 알아서 정해지게 두면 언젠가
@@ -25,17 +20,12 @@
  */
 
 import { useEffect, useState } from 'react'
-import { Link, useLocation } from 'react-router'
+import { Link } from 'react-router'
 import { AccountEntry } from './AccountEntry'
-import { track } from './analytics'
 import { BrandLockup } from './BrandLockup'
 import { CreditBadge } from './CreditBadge'
-import { shopLink } from './externalLinks'
-import { TABS, isActive } from './navTabs'
 
 export default function DesktopNav() {
-  const { pathname } = useLocation()
-
   /*
     배경은 페이지와 같은 `bg-paper` 이고 테두리도 없습니다 — 헤더가 크림 배경 위로
     뜨지 않고 녹아듭니다(핀터레스트·carat). 다만 배경색이 같아 **테두리가 없으면**,
@@ -89,46 +79,15 @@ export default function DesktopNav() {
           <BrandLockup className="text-base" />
         </Link>
 
-        <nav aria-label="주요 메뉴" className="flex items-center gap-1">
-          {TABS.map((tab) => {
-            const active = isActive(pathname, tab.to)
-            return (
-              <Link
-                key={tab.key}
-                to={tab.to}
-                aria-current={active ? 'page' : undefined}
-                // 지금 있는 탭은 hover 로 안 바뀝니다 — 탭바와 같은 규칙입니다.
-                className={`rounded-xl px-3 py-1.5 text-sm ${
-                  active ? 'bg-brand-soft font-semibold text-brand' : 'text-ink-2 hover:text-ink'
-                }`}
-              >
-                {tab.label}
-              </Link>
-            )
-          })}
-
-          {/* 누띠샵만 앱 밖입니다. 새 탭으로 여는 이유와 이벤트는 탭바와 같습니다. */}
-          <a
-            href={shopLink('gnb')}
-            target="_blank"
-            rel="noreferrer"
-            onClick={() => track({ event_type: 'shop_exit_click', properties: { from: 'gnb' } })}
-            className="rounded-xl px-3 py-1.5 text-sm text-ink-2 hover:text-ink"
-          >
-            누띠샵
-          </a>
-        </nav>
-
         {/*
-          데스크톱에서는 크레딧 배지도 계정 진입점도 **여기 하나**입니다.
+          가운데 탭 목록(홈·만들기·보관함)과 누띠샵을 걷어냈습니다 — 홈은 로고가
+          겸하고(원페이지 갤러리), 만들기는 스타일을 눌러 들어가며, 보관함은 마이페이지
+          안으로, 누띠샵도 마이페이지의 작은 링크로 옮겼습니다. GNB 는 이제 «로고 |
+          크레딧 · 계정» 뿐입니다(핀터레스트·carat 처럼 최소).
 
-          배지는 원래 앱바 다섯 곳(W-02·W-04·W-06·W-08·W-09)에 흩어져 있었고, 그래서
-          이 줄에 넣으면 같은 숫자가 위아래로 겹쳤습니다. 반대로 올려 놓고 앱바 쪽을
-          데스크톱에서 내렸습니다 — 그러지 않으면 탭 자체인 화면(스타일·보관함)의 앱바에
-          고유한 것이 배지 하나만 남아, 그 한 줄을 없앨 수가 없습니다.
-
-          계정 진입점은 처음부터 W-02 앱바 하나에만 있어서 나머지 화면에서는 마이페이지로
-          가는 문이 없었습니다.
+          데스크톱에서는 크레딧 배지도 계정 진입점도 **여기 하나**입니다. 배지는 원래
+          앱바 여러 곳에 흩어져 있었고 이 줄에 넣으면 겹쳤습니다 — 그래서 여기로 올리고
+          각 화면 앱바를 데스크톱에서 내렸습니다.
         */}
         <div className="ml-auto flex items-center gap-3">
           <CreditBadge showUnit />

@@ -32,8 +32,10 @@ import {
   usePets,
   useRenamePet,
 } from '../api/queries'
+import { track } from '../app/analytics'
 import BackButton from '../app/BackButton'
 import ConfirmDialog from '../app/ConfirmDialog'
+import { shopLink } from '../app/externalLinks'
 import FloatingField from '../app/FloatingField'
 import { creditAmountPhrase, linkAccountCtaLabel, useEarnAmount } from '../app/earnAmount'
 import { amountTone, reasonLabel, shortDate, signedAmount } from '../app/ledgerFormat'
@@ -143,11 +145,59 @@ function MemberSections({ me }: { me: Me }) {
   return (
     <div className="space-y-3">
       <AccountSection me={me} />
+      {/* 보관함은 하단 탭바가 없어지면서 이리로 들어왔습니다 — 원래 회원 기능이라
+          (W-09: 게스트는 403) 회원 전용인 이 화면이 자연스러운 자리입니다. */}
+      <LibrarySection />
       <CreditSection />
       <PetSection />
       <ShopLinkSection me={me} />
+      {/* 누띠샵(쇼핑몰 방문)은 메인 내비에서 빠지고 여기 작은 링크로 남았습니다 —
+          위젯이 붙기 전까지의 유입구입니다. `쇼핑몰 계정 연동`(위)과는 다른 것: 저건
+          카페24 계정 묶기, 이건 쇼핑몰로 나가는 문입니다. */}
+      <ShopVisitLink />
       <DangerSection />
     </div>
+  )
+}
+
+// ---------------------------------------------------------------- 보관함 진입
+
+function LibrarySection() {
+  return (
+    <Link
+      to="/library"
+      className="flex items-center justify-between gap-3 rounded-xl bg-surface px-4 py-4 hover:bg-surface-2"
+    >
+      <div className="min-w-0">
+        <h2 className="text-sm font-semibold">보관함</h2>
+        <p className="mt-1 text-xs text-ink-2">만든 사진을 모아 보고 저장해요</p>
+      </div>
+      <span aria-hidden className="shrink-0 text-ink-3">
+        →
+      </span>
+    </Link>
+  )
+}
+
+// ---------------------------------------------------------------- 누띠샵 방문 (쇼핑몰 유입)
+
+function ShopVisitLink() {
+  return (
+    <a
+      href={shopLink('mypage')}
+      target="_blank"
+      rel="noreferrer"
+      onClick={() => track({ event_type: 'shop_exit_click', properties: { from: 'mypage' } })}
+      className="flex items-center justify-between gap-3 rounded-xl bg-surface px-4 py-4 hover:bg-surface-2"
+    >
+      <div className="min-w-0">
+        <h2 className="text-sm font-semibold">누띠샵</h2>
+        <p className="mt-1 text-xs text-ink-2">누띠 쇼핑몰에서 더 둘러보기</p>
+      </div>
+      <span aria-hidden className="shrink-0 text-ink-3">
+        ↗
+      </span>
+    </a>
   )
 }
 
