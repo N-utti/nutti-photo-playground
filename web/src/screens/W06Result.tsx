@@ -717,8 +717,19 @@ function ShareRow({ job }: { job: Job }) {
           if (shared === null) return
           shareFile.current = await fetchShareFile(shared.share_image_url, filename)
         }
+        /*
+          **카톡 웹뷰에서는 문구를 빼고 파일만 넘깁니다.** 같은 화면에서 같은 파일을 연달아
+          두 번 시트로 넘겨 본 결과입니다(2026-09-04 아이폰 카톡 인앱 실측): 「이미지 저장」
+          (파일만)은 시트에 JPEG 285KB 가 실렸는데, 바로 이어 누른 「공유」(파일+문구)는
+          사진 대신 놀이터 링크가 실렸습니다 — `shareFile` 을 물고 있어 파일은 같은 것이고,
+          두 호출 사이에 달라진 것은 `text` 하나뿐입니다. 사파리·네이버 인앱은 같은
+          payload 로 사진이 그대로 실립니다(같은 날 실측). 그래서 여기서만 뺍니다.
+
+          문구는 인스타 캡션용 홍보 글이라, 사진이 아예 안 실리는 것보다 잃을 것이 적습니다.
+        */
+        const text = inAppBrowser === 'kakaotalk' ? undefined : SHARE_TEXT
         const outcome =
-          shareFile.current === null ? 'failed' : await shareImage(shareFile.current, SHARE_TEXT)
+          shareFile.current === null ? 'failed' : await shareImage(shareFile.current, text)
         setShareOutcome(outcome)
         track({ event_type: 'share_sheet', properties: { job_id: job.job_id, outcome } })
         return
