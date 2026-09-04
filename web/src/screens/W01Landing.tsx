@@ -359,6 +359,15 @@ const clamp = (value: number) => Math.min(100, Math.max(0, value))
 function BeforeAfterSlider() {
   // 65 는 지금 두 사진에 맞춘 값입니다(사진을 갈면 다시 봐야 함 — public/hero/NOTICE.md).
   const [position, setPosition] = useState(65)
+  /*
+    «지금 잡고 있다» 를 CSS `:active` 가 아니라 상태로 듭니다.
+
+    드래그를 받는 것은 노브가 아니라 **프레임**이고(프레임 아무 데나 눌러도 노브가 그리로
+    옵니다), 누른 뒤에는 프레임이 포인터를 캡처합니다. 그래서 손가락이 노브 밖으로 나가는
+    순간 — 끌면 거의 항상 나갑니다 — `:active` 도 `:hover` 도 노브에서 떨어집니다.
+    잡은 표시가 끄는 도중에 꺼지면 그건 잡았다는 느낌의 반대입니다.
+  */
+  const [dragging, setDragging] = useState(false)
   const frameRef = useRef<HTMLDivElement>(null)
 
   function moveToClientX(clientX: number) {
@@ -369,6 +378,7 @@ function BeforeAfterSlider() {
 
   function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
     moveToClientX(event.clientX)
+    setDragging(true)
     try {
       event.currentTarget.setPointerCapture(event.pointerId)
     } catch {
@@ -382,6 +392,9 @@ function BeforeAfterSlider() {
   }
 
   function handlePointerEnd(event: PointerEvent<HTMLDivElement>) {
+    // 캡처 여부와 무관하게 끕니다 — 캡처가 실패한 환경(위 catch)에서도 손을 뗀 것은
+    // 사실이고, 여기서 안 끄면 잡은 표시가 화면에 남아 굳습니다.
+    setDragging(false)
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId)
     }
@@ -421,7 +434,11 @@ function BeforeAfterSlider() {
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerEnd}
       onPointerCancel={handlePointerEnd}
-      className="relative aspect-[4/3] w-full touch-pan-y overflow-hidden rounded-2xl bg-surface-2 select-none"
+      // 끄는 동안은 프레임 전체가 쥔 손입니다 — 손가락·커서가 노브를 벗어나도(끌면 거의
+      // 항상 벗어납니다) 잡고 있다는 표시가 끊기지 않습니다.
+      className={`relative aspect-[4/3] w-full touch-pan-y overflow-hidden rounded-2xl bg-surface-2 select-none ${
+        dragging ? 'cursor-grabbing' : ''
+      }`}
     >
       <img
         src={HERO_AFTER}
@@ -462,7 +479,26 @@ function BeforeAfterSlider() {
         aria-valuetext={`원본 ${rounded}%`}
         onKeyDown={handleKeyDown}
         style={{ left: `${position}%` }}
-        className="absolute top-1/2 grid size-11 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-rule-strong bg-paper text-sm text-ink-2 shadow-md hover:border-brand-2 hover:text-brand"
+        /*
+          잡은 동안의 표시 넷을 한꺼번에 겁니다 — 면이 브랜드 톤으로 물들고, 살짝 줄고,
+          그림자가 얕아져 «눌려 들어간» 것처럼 보이고, 커서가 쥔 손이 됩니다.
+
+          `left` 는 전환 대상이 아니라(index.css 의 목록에 없습니다) 손가락을 즉시
+          따라오고, `transform`(축소)만 150ms 로 부드럽게 붙습니다. 위치가 늦게 따라오면
+          그건 잡은 느낌이 아니라 느린 느낌입니다.
+
+          축소는 `motion-safe:` 안에 둡니다 — 움직임을 줄여 달라고 한 사람에게는 색과
+          그림자만으로 같은 말을 합니다(집안 규칙).
+
+          커서는 전역 규칙이 버튼에 깔아 둔 `pointer` 를 덮습니다(index.css 「커서」).
+          잡아 끄는 것에는 손가락표보다 쥔 손이 맞고, W-06 의 `type="range"` 가
+          `ew-resize` 를 자기 자리에서 지정한 것과 같은 예외입니다.
+        */
+        className={`absolute top-1/2 grid size-11 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border text-sm ${
+          dragging
+            ? 'cursor-grabbing border-brand-2 bg-brand-soft text-brand shadow-sm motion-safe:scale-95'
+            : 'cursor-grab border-rule-strong bg-paper text-ink-2 shadow-md hover:border-brand-2 hover:text-brand'
+        }`}
       >
         <span aria-hidden>↔</span>
       </button>
