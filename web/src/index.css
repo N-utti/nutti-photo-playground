@@ -338,14 +338,14 @@ body {
    로 바뀌면서 높이가 더는 확정값이 아니게 됐고, 확정되지 않은 부모에 대한 백분율
    `min-height` 는 0 으로 계산됩니다 — 짧은 화면에서 바탕색이 창을 못 덮습니다.
 
-   3.5rem 은 GNB 의 `h-14` 입니다. 1024px 은 `--breakpoint-desktop` 이고, 미디어 쿼리
-   안에서는 그 변수를 못 써서 값을 다시 적었습니다 — 한쪽만 바뀌면 이 규칙이 조용히
-   빗나갑니다. */
+   4rem 은 GNB 의 `h-16` 입니다(app/DesktopNav.tsx). 1024px 은 `--breakpoint-desktop` 이고,
+   미디어 쿼리 안에서는 그 변수를 못 써서 값을 다시 적었습니다 — 한쪽만 바뀌면 이 규칙이
+   조용히 빗나갑니다. */
 @utility screen-min-h {
   min-height: 100dvh;
 
   @media (width >= 1024px) {
-    min-height: calc(100dvh - 3.5rem);
+    min-height: calc(100dvh - 4rem);
   }
 }
 

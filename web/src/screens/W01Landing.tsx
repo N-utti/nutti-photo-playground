@@ -80,8 +80,12 @@ export default function W01Landing() {
 
               배경은 페이지와 **같은 `bg-paper`** 이고 테두리도 없습니다(핀터레스트·carat 처럼
               헤더가 뜨지 않고 배경에 녹습니다). 흰 `bg-surface` + 아래 테두리이던 때는 크림
-              페이지 위로 흰 띠가 떠서 갤러리보다 헤더가 먼저 눈에 들어왔습니다. */}
-          <header className="flex items-center gap-3 bg-paper px-5 py-3 desktop:hidden">
+              페이지 위로 흰 띠가 떠서 갤러리보다 헤더가 먼저 눈에 들어왔습니다.
+
+              높이 60px = `py-3.5`(14px) 두 번 + 내용 32px. 56px 이었는데 로고가 갑갑했습니다.
+              데스크톱 GNB(64px)보다 낮은 건 의도입니다 — 모바일은 세로가 귀하고, 레퍼런스도
+              모바일이 더 낮습니다(carat 52px). */}
+          <header className="flex items-center gap-3 bg-paper px-5 py-3.5 desktop:hidden">
             <Link to="/" className="-m-2 mr-auto flex p-2">
               <BrandLockup className="text-base" />
             </Link>

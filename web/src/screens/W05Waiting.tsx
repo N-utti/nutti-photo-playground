@@ -76,7 +76,7 @@ export default function W05Waiting() {
 
   return (
     <div className="screen-min-h bg-paper pb-16">
-      <header className="sticky top-0 desktop:top-14 z-20 flex items-center border-b border-rule bg-surface px-5 py-3">
+      <header className="sticky top-0 desktop:top-16 z-20 flex items-center border-b border-rule bg-surface px-5 py-3">
         <h1 className="text-base font-bold">만드는 중</h1>
       </header>
 

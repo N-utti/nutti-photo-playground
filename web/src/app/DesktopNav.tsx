@@ -10,11 +10,15 @@
  * 위아래로 겹치던 것을 이 줄로 올리고 각 화면 앱바를 데스크톱에서 내렸습니다. 계정
  * 진입점(마이페이지)도 여기 하나입니다.
  *
- * 높이는 `h-14`(56px)로 **선언**합니다. 각 화면 앱바가 이 아래에 붙어 서려면
- * (`desktop:top-14`) 이 값을 알아야 하는데, 내용에 따라 알아서 정해지게 두면 언젠가
+ * 높이는 `h-16`(64px)로 **선언**합니다. 각 화면 앱바가 이 아래에 붙어 서려면
+ * (`desktop:top-16`) 이 값을 알아야 하는데, 내용에 따라 알아서 정해지게 두면 언젠가
  * 1px 씩 어긋나 앱바가 GNB 를 덮거나 그 아래 틈이 생깁니다.
  *
- * z 는 앱바와 같은 20 입니다. 둘은 세로로 만나지 않아서(GNB 는 top-0, 앱바는 top-14)
+ * **이 값을 바꾸면 세 곳을 같이 바꿔야 합니다** — 아홉 화면 앱바의 `desktop:top-16`,
+ * `index.css` 의 `screen-min-h`(창 높이에서 GNB 를 빼는 계산), 그리고 이 주석입니다.
+ * 56px 이었는데 레퍼런스(carat 62px · Pinterest 80px)보다 낮아 로고가 갑갑했습니다.
+ *
+ * z 는 앱바와 같은 20 입니다. 둘은 세로로 만나지 않아서(GNB 는 top-0, 앱바는 top-16)
  * 겹칠 일이 없고, 30 으로 올리면 시트·모달(z-30)이 GNB 를 못 덮어 모달 위로 나가는
  * 문이 다섯 개 열립니다.
  */
@@ -56,7 +60,7 @@ export default function DesktopNav() {
 
   return (
     <header
-      className={`sticky top-0 z-20 hidden h-14 bg-paper px-5 transition-shadow desktop:block ${
+      className={`sticky top-0 z-20 hidden h-16 bg-paper px-5 transition-shadow desktop:block ${
         scrolled ? 'shadow-[0_2px_10px_-6px_rgba(51,46,42,0.35)]' : ''
       }`}
     >

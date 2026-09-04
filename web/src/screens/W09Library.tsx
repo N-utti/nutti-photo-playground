@@ -156,7 +156,7 @@ export default function W09Library() {
         데스크톱에서 선택을 빠져나갈 길이 사라집니다.
       */}
       <header
-        className={`sticky top-0 desktop:top-14 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 py-3 ${
+        className={`sticky top-0 desktop:top-16 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 py-3 ${
           selected ? '' : 'desktop:hidden'
         }`}
       >
