@@ -20,6 +20,9 @@
  *
  * 바뀐 것: 옛 W-02 의 sticky 앵커칩(섹션 점프)을 **필터 배지**로 교체했습니다. 배지는
  * 이제 나머지를 숨깁니다 — 「전체」가 기본이고, 카테고리를 누르면 그 섹션만 남습니다.
+ *
+ * 배지 아래에는 「인기 스타일로 시작하기」 진열대가 섭니다(아래 `PickedShelf`).
+ * 39종을 한 번에 들이밀지 않고 «여기서 시작하세요» 를 세 장으로 말하는 자리입니다.
  */
 
 import { useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
@@ -121,6 +124,10 @@ export default function W01Landing() {
               </nav>
             )}
 
+            {/* 「전체」일 때만 섭니다 — 카테고리를 골랐는데 그 위에 다른 카테고리 카드가
+                남아 있으면 방금 건 필터가 거짓말이 됩니다. */}
+            {!isError && filter === null && <PickedShelf reuseJobId={reuse.jobId} />}
+
             {/* 그리드 */}
             <section className="pt-6">
               {isPending ? (
@@ -143,8 +150,15 @@ export default function W01Landing() {
                     <h2 className="text-lg font-bold">{filter ?? '전체 스타일'}</h2>
                     <span className="font-mono text-xs text-ink-3">{visible.length}</span>
                   </div>
-                  {/* 모바일 2열 / 데스크톱 4열 */}
-                  <ul className="mt-4 grid grid-cols-2 gap-3 desktop:grid-cols-4 desktop:gap-4">
+                  {/* 모바일 2열 / 데스크톱 4열.
+                      이름을 붙인 이유는 위 진열대(`PickedShelf`)와 **같은 카드가 겹치기**
+                      때문입니다 — 겹침 자체는 의도지만(아래 PickedShelf), 그러면 화면에
+                      같은 이름의 링크가 둘이 됩니다. 목록에 이름이 있어야 «전체에서 찾은
+                      레고» 와 «진열대의 레고» 를 갈라 셀 수 있습니다(테스트·보조기기 둘 다). */}
+                  <ul
+                    aria-label="스타일 목록"
+                    className="mt-4 grid grid-cols-2 gap-3 desktop:grid-cols-4 desktop:gap-4"
+                  >
                     {visible.map((style) => (
                       <li key={style.id}>
                         <StyleCardItem style={style} reuseJobId={reuse.jobId} />
@@ -244,6 +258,86 @@ function Hero() {
  */
 function trackCtaClick() {
   track({ event_type: 'landing_cta_click', properties: { screen: 'W-01' } })
+}
+
+// ---------------------------------------------------------------- 진열대
+
+/** 진열대에 세우는 장수. 서버도 목도 `limit` 을 그대로 받습니다. */
+const SHELF_COUNT = 3
+
+/**
+ * 「인기 스타일로 시작하기」 — 39종 그리드 앞에 세 장만 먼저 세우는 진열대입니다.
+ *
+ * **「인기」는 아직 아무도 세지 않은 말입니다. 알고 쓰는 것입니다.** 데이터는
+ * `GET /v1/styles?section=popular` 에서 오는데, 그 `popular` 은 집계가 아닙니다 — 백엔드가
+ * «별도 컬럼/플래그 없이 `sort_order` 재사용» 이라고 적어 둔 대로(app/routers/styles.py)
+ * 운영이 W-11 에서 정한 **진열 순서**의 상위 N 개입니다. 그래서 지금 이 제목은 «많이 쓰인
+ * 것» 이 아니라 «우리가 앞에 둔 것» 을 가리킵니다. 사용량 집계가 붙기 전까지는 이 차이를
+ * 아는 채로 두세요 — 순위·«N명이 만들었어요» 같은 **수치를 여기 덧붙이면** 그 순간 세지도
+ * 않은 숫자를 말하게 됩니다. 백엔드에 집계가 생기면 그때 제목이 참말이 됩니다.
+ *
+ * **「둘러보기」·「구경하기」·「탐색하기」를 쓰지 마세요.** 셋 다 «많은 것 사이를 돌아다니기»
+ * 라서 세 장(`SHELF_COUNT`) 앞에 붙으면 말과 물건이 어긋납니다. 진열대를 열 장쯤으로
+ * 늘리는 날에는 그때 돌아다니는 말로 바꿔도 됩니다.
+ *
+ * 「시작하기」인 이유는 규모를 말하지 않기 때문입니다 — 세 장이든 열 장이든 «여기서
+ * 출발하세요» 는 참이고, 히어로 CTA(「사진 올리고 무료로 1장 만들기」)를 그냥 지나친
+ * 사람에게 주는 두 번째 진입로라 역할과도 맞습니다.
+ *
+ * 다만 이건 **제목이지 버튼이 아닙니다.** 문구가 행동을 부르는 꼴이라 더 조심해야 합니다 —
+ * 누를 것처럼 보이게 만들지 마세요(밑줄·화살표·테두리 금지). 누를 것은 아래 카드입니다.
+ *
+ * **`section: 'popular'` 을 꼭 서버에 물어야 합니다.** 이미 받아 둔 카탈로그의 앞 세 개를
+ * 잘라 쓰고 싶어지지만, 그건 «첫 번째 섹션의 상위» 라서 «전체의 상위» 와 다릅니다. 목이
+ * 그 함정을 주석으로 못박아 뒀습니다(mocks/handlers.ts `popular`) — 실서버에서 다른
+ * 스타일이 오는데 목에서는 아무 문제가 안 보이는 종류의 차이입니다.
+ *
+ * **아래 전체 그리드와 카드가 겹칩니다. 의도입니다.** 빼면 「전체 스타일 39」가 36 이
+ * 되어 이름과 숫자가 둘 다 거짓이 되고, 그 세 개를 찾던 사람이 전체에서 못 찾습니다.
+ * 대신 **크기로** 갈랐습니다 — 진열대는 모바일에서 가로로 흐르는 큰 카드(폭 60%, 다음
+ * 장이 잘려 보여 «옆에 더 있다» 가 읽힙니다), 데스크톱에서는 3열이라 전체 그리드(4열)보다
+ * 큽니다. 같은 격자에 같은 카드를 두 번 그리면 그건 구분이 아니라 버그로 보입니다.
+ */
+function PickedShelf({ reuseJobId }: { reuseJobId: string | null }) {
+  const { data, isPending } = useStyles({ section: 'popular', limit: SHELF_COUNT })
+  const picked = data?.sections[0]?.styles ?? []
+
+  // 실패하거나 비어 있으면 진열대 자체를 접습니다 — 홈의 주인공은 아래 그리드라,
+  // 빈 선반이나 오류 문구를 세워 두는 것보다 없는 편이 낫습니다. 다만 **도착 전에는**
+  // 접지 않습니다. 뒤늦게 끼어들면 이미 그리드를 보던 사람의 화면이 아래로 밀립니다.
+  if (!isPending && picked.length === 0) return null
+
+  return (
+    <section className="pt-8 desktop:pt-10">
+      <h2 className="text-lg font-bold">인기 스타일로 시작하기</h2>
+      {isPending ? (
+        <ul
+          aria-hidden
+          className="mt-4 flex gap-3 desktop:grid desktop:grid-cols-3 desktop:gap-4"
+        >
+          {Array.from({ length: SHELF_COUNT }, (_, i) => (
+            <li
+              key={i}
+              className="aspect-square w-[60%] shrink-0 animate-pulse rounded-2xl bg-rule/60 desktop:w-auto"
+            />
+          ))}
+        </ul>
+      ) : (
+        /* 가장자리까지 흘리려고 `main` 의 좌우 여백(px-5)을 되돌렸다가 안쪽으로 다시 줍니다 —
+           카드가 화면 끝에서 잘려야 «가로로 더 있다» 가 보입니다. 데스크톱은 격자라 원복. */
+        <ul
+          aria-label="인기 스타일"
+          className="mt-4 -mx-5 flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-1 desktop:mx-0 desktop:grid desktop:grid-cols-3 desktop:gap-4 desktop:overflow-visible desktop:px-0"
+        >
+          {picked.map((style) => (
+            <li key={style.id} className="w-[60%] shrink-0 snap-start desktop:w-auto">
+              <StyleCardItem style={style} reuseJobId={reuseJobId} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
 }
 
 // ---------------------------------------------------------------- 배지 · 카드
