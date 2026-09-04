@@ -60,7 +60,15 @@ export default function DesktopNav() {
 
   return (
     <header
-      className={`sticky top-0 z-20 hidden h-16 bg-paper px-5 desktop:px-7 transition-shadow desktop:block ${
+      /*
+        그림자는 200ms·ease-out 으로 켜고 끕니다. `<header>` 는 index.css 의 전역 전환
+        규칙(button · a[href] · [role=button])에 안 걸려서, 안 적으면 Tailwind 기본값
+        150ms·ease 로 돕니다 — 값이 어디서 오는지 모르는 채로 도는 셈입니다.
+
+        200ms 는 집안 값이고(`duration-200`), 타이밍은 전역 규칙과 같은 `ease-out` 입니다.
+        스크롤 문턱(8px) 근처에서 오갈 때 150ms 보다 덜 깜빡입니다.
+      */
+      className={`sticky top-0 z-20 hidden h-16 bg-paper px-5 desktop:px-7 transition-shadow duration-200 ease-out desktop:block ${
         scrolled ? 'shadow-[0_2px_10px_-6px_rgba(51,46,42,0.35)]' : ''
       }`}
     >
