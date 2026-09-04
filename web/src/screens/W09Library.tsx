@@ -586,6 +586,13 @@ function SelectionBar({
   const inAppBrowser = detectInAppBrowser()
   const [downloadCount, setDownloadCount] = useState(0)
   /*
+    아이폰에서 시트로 넘긴 장수. 여기만 여태 아무 말도 안 했습니다 — 데스크톱(`opened`)·
+    웹뷰(`downloadCount`)·만료·실패는 전부 문구가 있는데, 정작 제일 흔한 아이폰 성공
+    갈래가 비어 있어 시트가 닫히고 나면 선택 막대만 그대로 남습니다(2026-09-04 아이폰
+    실측에서 «완료 안내를 보지 못했다» 로 적힌 자리). W-06 과 같은 문장을 씁니다.
+  */
+  const [sheetCount, setSheetCount] = useState(0)
+  /*
     갤러리 경로에서 받아 둔 파일 묶음. 시트가 expired 로 닫혔을 때 이 캐시가 있어야
     두 번째 탭이 N 번의 fetch 없이 바로 뜹니다(W-06 의 shareFile ref 와 같은 이유).
     선택이 바뀌면 key 가 어긋나 다시 받습니다.
@@ -606,6 +613,7 @@ function SelectionBar({
     setFailedCount(0)
     setSheetExpired(false)
     setDownloadCount(0)
+    setSheetCount(0)
     try {
       if (saveViaShareSheet()) {
         const key = items.map((item) => item.result_id).join(',')
@@ -628,6 +636,9 @@ function SelectionBar({
           }
           if (outcome !== 'failed') {
             setFailedCount(failed)
+            // `shared` 일 때만 — 시트를 그냥 닫은 것(`cancelled`)에 «넘겼어요» 라고 하면
+            // 방금 그만둔 사람에게 뭔가 된 것처럼 말하는 셈입니다(W-06 과 같은 규칙).
+            if (outcome === 'shared') setSheetCount(files.length)
             return
           }
           // 시트가 못 열리면(파일 묶음 거절 등) 예전 경로로 — 최소한 파일로는 남습니다.
@@ -697,6 +708,12 @@ function SelectionBar({
         {sheetExpired && (
           <p role="alert" className="mt-2 text-center text-sm text-danger">
             공유 시트가 열리기 전에 닫혔어요 — 한 번 더 눌러 주세요.
+          </p>
+        )}
+        {sheetCount > 0 && (
+          <p role="status" className="mt-2 text-center text-xs text-ink-3">
+            {sheetCount}장을 공유 시트로 넘겼어요 — 시트에서 「이미지 저장」을 고르면 사진 앱에
+            들어가요.
           </p>
         )}
         {downloadCount > 0 && (
