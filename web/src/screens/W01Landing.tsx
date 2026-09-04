@@ -76,8 +76,12 @@ export default function W01Landing() {
         {/* pb-24 — 아래 고정 탭바가 마지막 줄을 덮지 않게. 데스크톱은 탭바가 없어 순수 여백. */}
         <div className="screen-min-h bg-paper pb-24 desktop:pb-10">
           {/* 모바일 앱바 — 데스크톱은 상단 GNB(app/DesktopNav.tsx)가 같은 셋을 들어 내립니다.
-              숫자 = 크레딧 받기(W-10), 아바타 = 계정(W-12), 로고 = 홈. */}
-          <header className="flex items-center gap-3 border-b border-rule bg-surface px-5 py-3 desktop:hidden">
+              숫자 = 크레딧 받기(W-10), 아바타 = 계정(W-12), 로고 = 홈.
+
+              배경은 페이지와 **같은 `bg-paper`** 이고 테두리도 없습니다(핀터레스트·carat 처럼
+              헤더가 뜨지 않고 배경에 녹습니다). 흰 `bg-surface` + 아래 테두리이던 때는 크림
+              페이지 위로 흰 띠가 떠서 갤러리보다 헤더가 먼저 눈에 들어왔습니다. */}
+          <header className="flex items-center gap-3 bg-paper px-5 py-3 desktop:hidden">
             <Link to="/" className="-m-2 mr-auto flex p-2 hover:opacity-70">
               <BrandLockup className="text-base" />
             </Link>
@@ -136,7 +140,7 @@ export default function W01Landing() {
                     <span className="font-mono text-xs text-ink-3">{visible.length}</span>
                   </div>
                   {/* 모바일 2열 / 데스크톱 4열 */}
-                  <ul className="mt-3 grid grid-cols-2 gap-3 desktop:grid-cols-4">
+                  <ul className="mt-4 grid grid-cols-2 gap-3 desktop:grid-cols-4 desktop:gap-4">
                     {visible.map((style) => (
                       <li key={style.id}>
                         <StyleCardItem style={style} reuseJobId={reuse.jobId} />
@@ -147,7 +151,7 @@ export default function W01Landing() {
                   {/* W-08 보조 진입점 — 커스텀 프롬프트는 기본 그리드에서 분리합니다. */}
                   <Link
                     to={withReuse('/creative', reuse.jobId)}
-                    className="mt-6 mb-8 block rounded-xl border border-rule px-4 py-3 text-center text-sm text-ink-2 hover:border-rule-strong hover:bg-surface-2 hover:text-ink"
+                    className="mt-6 mb-8 block rounded-2xl border border-rule px-4 py-3 text-center text-sm text-ink-2 hover:border-rule-strong hover:bg-surface-2 hover:text-ink"
                   >
                     {customPromptLinkLabel(customPromptCost)}
                   </Link>
@@ -188,7 +192,7 @@ function Hero() {
         <Link
           to="/upload"
           onClick={trackCtaClick}
-          className="block rounded-xl bg-brand px-5 py-3.5 text-center text-base font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99] desktop:inline-block desktop:px-7"
+          className="block rounded-2xl bg-brand px-5 py-3.5 text-center text-base font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99] desktop:inline-block desktop:px-7"
         >
           사진 올리고 무료로 1장 만들기
         </Link>
@@ -223,7 +227,7 @@ function FilterBadge({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`shrink-0 rounded-full border px-4 py-1.5 text-sm font-semibold transition-colors ${
+      className={`shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
         active
           ? 'border-brand bg-brand text-paper'
           : 'border-rule bg-surface text-ink-2 hover:border-brand-2 hover:text-brand'
@@ -264,15 +268,15 @@ function StyleCardItem({ style, reuseJobId }: { style: StyleCard; reuseJobId: st
   return (
     <Link
       to={withReuse(`/styles/${style.id}`, reuseJobId)}
-      className="block overflow-hidden rounded-xl border border-rule bg-surface hover:border-brand-2"
+      className="group block overflow-hidden rounded-2xl border border-rule bg-surface transition-shadow hover:border-brand-2 hover:shadow-md"
     >
-      <div className="relative">
+      <div className="relative overflow-hidden">
         <Thumbnail
           src={style.thumbnail_url}
           alt={style.name}
           loading="lazy"
           decoding="async"
-          className="aspect-square w-full bg-surface-2 object-cover"
+          className="aspect-square w-full bg-surface-2 object-cover motion-safe:transition-transform motion-safe:duration-200 motion-safe:group-hover:scale-[1.04]"
         />
         {/* 이름이 그림 안에 인쇄되는 스타일 (서버 `uses_pet_name` · 백엔드 #111). */}
         {style.uses_pet_name && (
@@ -382,7 +386,7 @@ function BeforeAfterSlider() {
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerEnd}
       onPointerCancel={handlePointerEnd}
-      className="relative aspect-[4/3] w-full touch-pan-y overflow-hidden rounded-xl bg-surface-2 select-none"
+      className="relative aspect-[4/3] w-full touch-pan-y overflow-hidden rounded-2xl bg-surface-2 select-none"
     >
       <img
         src={HERO_AFTER}

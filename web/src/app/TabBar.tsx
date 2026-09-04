@@ -55,7 +55,6 @@ import { TABS, isActive, type TabKey } from './navTabs'
 /** 아이콘은 탭바만 씁니다(GNB 는 글자만) — 그래서 목적지 목록이 아니라 여기 있습니다. */
 const ICONS: Record<TabKey, () => React.ReactElement> = {
   home: HomeIcon,
-  styles: GridIcon,
   create: CameraIcon,
   library: PhotoStackIcon,
 }
@@ -140,17 +139,6 @@ function HomeIcon() {
     <svg {...iconProps}>
       <path d="M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z" />
       <path d="M9.5 20v-5.5h5V20" />
-    </svg>
-  )
-}
-
-function GridIcon() {
-  return (
-    <svg {...iconProps}>
-      <rect x="3" y="3" width="7.5" height="7.5" rx="1.5" />
-      <rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5" />
-      <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5" />
-      <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5" />
     </svg>
   )
 }

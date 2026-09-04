@@ -24,6 +24,7 @@
  * 문이 다섯 개 열립니다.
  */
 
+import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import { AccountEntry } from './AccountEntry'
 import { track } from './analytics'
@@ -35,8 +36,40 @@ import { TABS, isActive } from './navTabs'
 export default function DesktopNav() {
   const { pathname } = useLocation()
 
+  /*
+    배경은 페이지와 같은 `bg-paper` 이고 테두리도 없습니다 — 헤더가 크림 배경 위로
+    뜨지 않고 녹아듭니다(핀터레스트·carat). 다만 배경색이 같아 **테두리가 없으면**,
+    스크롤한 순간 뒤 카드가 이 바 아래 끝에서 경계 없이 잘려 «떠 있는 크림 띠» 처럼
+    보입니다. 그래서 핀터레스트와 같은 방식으로 **스크롤됐을 때만** 옅은 그림자를 답니다
+    — 맨 위(히어로)에서는 분리할 게 없어 그림자도 없고, 내리는 순간에만 경계가 섭니다.
+
+    스크롤 위치를 rAF 로 접어 프레임당 한 번만 읽습니다(W-02 앵커바가 쓰던 것과 같은
+    이유). 8px 은 «살짝이라도 내렸다» 의 문턱입니다.
+  */
+  const [scrolled, setScrolled] = useState(false)
+  useEffect(() => {
+    let frame = 0
+    const read = () => {
+      frame = 0
+      setScrolled(window.scrollY > 8)
+    }
+    const schedule = () => {
+      if (frame === 0) frame = requestAnimationFrame(read)
+    }
+    read()
+    window.addEventListener('scroll', schedule, { passive: true })
+    return () => {
+      if (frame !== 0) cancelAnimationFrame(frame)
+      window.removeEventListener('scroll', schedule)
+    }
+  }, [])
+
   return (
-    <header className="sticky top-0 z-20 hidden h-14 border-b border-rule bg-surface px-5 desktop:block">
+    <header
+      className={`sticky top-0 z-20 hidden h-14 bg-paper px-5 transition-shadow desktop:block ${
+        scrolled ? 'shadow-[0_2px_10px_-6px_rgba(51,46,42,0.35)]' : ''
+      }`}
+    >
       {/*
         본문 컨테이너(`--container-canvas`)로 가운데 정렬하지 않습니다. 바로 아래
         화면 앱바가 폭 전체를 쓰는 줄이라(`px-5`), GNB 만 1180px 안으로 모으면 두 줄이
