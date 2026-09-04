@@ -155,7 +155,7 @@ export default function W01Landing() {
                   {/* W-08 보조 진입점 — 커스텀 프롬프트는 기본 그리드에서 분리합니다. */}
                   <Link
                     to={withReuse('/creative', reuse.jobId)}
-                    className="mt-6 mb-8 block rounded-2xl border border-rule px-4 py-3 text-center text-sm text-ink-2 hover:border-rule-strong hover:bg-brand-soft hover:text-ink"
+                    className="mt-6 mb-8 block rounded-2xl bg-rule px-4 py-3 text-center text-sm text-ink-2 hover:bg-rule-strong hover:text-ink"
                   >
                     {customPromptLinkLabel(customPromptCost)}
                   </Link>

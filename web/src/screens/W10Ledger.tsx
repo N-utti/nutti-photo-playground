@@ -92,7 +92,7 @@ export default function W10Ledger() {
             type="button"
             onClick={() => void fetchNextPage()}
             disabled={isFetchingNextPage}
-            className="mt-4 w-full rounded-xl border border-rule-strong px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
+            className="mt-4 w-full rounded-xl bg-rule px-4 py-3 text-sm font-semibold hover:bg-rule-strong hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
           >
             {isFetchingNextPage ? '불러오는 중…' : '더 보기'}
           </button>

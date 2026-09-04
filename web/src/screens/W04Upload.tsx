@@ -843,7 +843,7 @@ function ConfirmPanel({
       <button
         type="button"
         onClick={onPickAnother}
-        className="mt-4 w-full rounded-xl border border-rule-strong bg-surface px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand motion-safe:active:scale-[0.99]"
+        className="mt-4 w-full rounded-xl bg-rule px-4 py-3 text-sm font-semibold hover:bg-rule-strong hover:text-brand motion-safe:active:scale-[0.99]"
       >
         다른 사진 고르기
       </button>

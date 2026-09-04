@@ -506,7 +506,7 @@ function ShopLinkSection({ me }: { me: Me }) {
           <button
             type="button"
             onClick={() => setLinkSheet(true)}
-            className="mt-3 w-full rounded-xl border border-rule-strong px-4 py-2.5 text-sm font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand motion-safe:active:scale-[0.99]"
+            className="mt-3 w-full rounded-xl bg-rule px-4 py-2.5 text-sm font-semibold hover:bg-rule-strong hover:text-brand motion-safe:active:scale-[0.99]"
           >
             {linkAccountCtaLabel(linkAmount)}
           </button>

@@ -281,7 +281,7 @@ export default function W09Library() {
                 type="button"
                 onClick={() => void library.fetchNextPage()}
                 disabled={library.isFetchingNextPage}
-                className="mt-5 w-full rounded-xl border border-rule-strong px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
+                className="mt-5 w-full rounded-xl bg-rule px-4 py-3 text-sm font-semibold hover:bg-rule-strong hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
               >
                 {library.isFetchingNextPage ? '불러오는 중…' : '더 보기'}
               </button>
@@ -838,7 +838,7 @@ function MemberOnlyNotice({ onLogin }: { onLogin: () => void }) {
       <button
         type="button"
         onClick={onLogin}
-        className="mt-4 w-full rounded-xl border border-rule-strong px-4 py-2.5 text-sm font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand motion-safe:active:scale-[0.99]"
+        className="mt-4 w-full rounded-xl bg-rule px-4 py-2.5 text-sm font-semibold hover:bg-rule-strong hover:text-brand motion-safe:active:scale-[0.99]"
       >
         로그인하고 보관하기
       </button>
@@ -870,7 +870,7 @@ function GuestResetNotice({ onLogin }: { onLogin: () => void }) {
       <button
         type="button"
         onClick={onLogin}
-        className="mt-3 w-full rounded-xl border border-rule-strong px-4 py-2.5 text-sm font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand motion-safe:active:scale-[0.99]"
+        className="mt-3 w-full rounded-xl bg-rule px-4 py-2.5 text-sm font-semibold hover:bg-rule-strong hover:text-brand motion-safe:active:scale-[0.99]"
       >
         로그인하고 보관하기
       </button>

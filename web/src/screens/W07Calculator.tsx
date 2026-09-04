@@ -81,7 +81,7 @@ export default function W07Calculator() {
                   1단계로 나가는 길을 이미 답니다(위 «어떤 강아지인지 알 수 없어요»). */}
               <Link
                 to="/calculator"
-                className="block rounded-xl border border-rule-strong px-4 py-3 text-center text-sm font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand motion-safe:active:scale-[0.99]"
+                className="block rounded-xl bg-rule px-4 py-3 text-center text-sm font-semibold hover:bg-rule-strong hover:text-brand motion-safe:active:scale-[0.99]"
               >
                 계산기 1단계부터 하기
               </Link>

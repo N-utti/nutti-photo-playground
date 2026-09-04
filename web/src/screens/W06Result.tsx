@@ -1193,7 +1193,7 @@ function Regenerate({ job, label, hint }: { job: Job; label: string; hint?: stri
         // 스키마 조회가 **실패한** 경우도 같습니다 — 회수(404)는 위에서 이미 빠졌으니
         // 여기 남는 건 5xx·네트워크뿐이고, 그건 기다리면 풀립니다.
         disabled={createJob.isPending || schemaPending || schemaUnavailable}
-        className="mt-2 w-full rounded-xl border border-rule-strong bg-surface px-4 py-3 text-sm font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
+        className="mt-2 w-full rounded-xl bg-rule px-4 py-3 text-sm font-semibold hover:bg-rule-strong hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
       >
         {schemaPending
           ? '옵션 불러오는 중…'
