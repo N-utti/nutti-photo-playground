@@ -407,10 +407,14 @@ function Chip({
       aria-pressed={active}
       // 고른 칩은 hover 로 흔들지 않습니다 — 그건 상태 표시입니다. 안 고른 칩만
       // 반응해야 «고를 수 있는 것 / 이미 고른 것» 이 구분됩니다.
+      //
+      // 그 «반응» 에는 면도 들어갑니다 — 테두리와 글자만 바뀌던 때는 흰 알약이 그대로라
+      // 어느 칩 위에 있는지 잘 안 보였습니다. 이 화면의 다른 hover 들과 같은 짝입니다
+      // (「다시 시도」·정렬 줄 등 `hover:bg-brand-soft`). 홈 배지도 같습니다.
       className={`shrink-0 rounded-full border px-3 py-1.5 text-sm ${
         active
           ? 'border-brand bg-brand text-paper'
-          : 'border-rule bg-surface text-ink-2 hover:border-brand-2 hover:text-brand'
+          : 'border-rule bg-surface text-ink-2 hover:border-brand-2 hover:bg-brand-soft hover:text-brand'
       }`}
     >
       {children}

@@ -262,10 +262,14 @@ function FilterBadge({
       type="button"
       onClick={onClick}
       aria-pressed={active}
+      // 안 고른 배지는 hover 에서 **면까지** 바뀝니다 — 테두리와 글자만 바뀌던 때는
+      // 흰 알약이 크림 페이지 위에서 그대로라 어느 배지 위에 있는지 잘 안 보였습니다.
+      // 같은 화면의 「다시 시도」 버튼과 같은 짝입니다(brand-soft 면 · brand 글자 7.55:1).
+      // 고른 배지는 hover 로 흔들지 않습니다 — 그건 상태 표시입니다(W-09 칩과 같은 규칙).
       className={`shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
         active
           ? 'border-brand bg-brand text-paper'
-          : 'border-rule bg-surface text-ink-2 hover:border-brand-2 hover:text-brand'
+          : 'border-rule bg-surface text-ink-2 hover:border-brand-2 hover:bg-brand-soft hover:text-brand'
       }`}
     >
       {label}
