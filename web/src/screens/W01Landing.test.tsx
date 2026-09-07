@@ -21,11 +21,13 @@ import W01Landing from './W01Landing'
 /**
  * 카드를 **전체 그리드 안에서만** 셉니다.
  *
- * 진열대(화면 위 「인기 스타일로 시작하기」)와 전체 그리드는 같은 카드를 겹쳐 그립니다 —
- * 의도된 겹침이라(W01Landing.tsx `PickedShelf`) 화면 전체에서 「레고」를 찾으면 링크가 둘이고,
- * 「이름 인쇄」 배지도 3D 피규어 몫이 두 번 세어집니다. 더 나쁜 건 그게 **경합**이라는
- * 점입니다: 진열대와 카탈로그는 별개 요청이라, 화면 전체를 세면 «먼저 도착한 쪽만
- * 그려진 순간» 을 잡아 숫자가 그때그때 달라집니다. 목록을 지정하면 그 순간이 사라집니다.
+ * 화면에 카드 격자가 둘입니다 — 위 진열대(「인기 스타일로 시작하기」)와 아래 그리드.
+ * 둘은 별개 요청이라 화면 전체를 세면 «먼저 도착한 쪽만 그려진 순간» 을 잡을 수 있고,
+ * 무엇보다 «어느 격자에서 찾았는가» 가 이 화면의 계약이라(진열대에 올린 것은 그리드에서
+ * 빠집니다) 목록을 지정하지 않으면 그 규칙을 검사할 수 없습니다.
+ *
+ * 시드 정렬 상위 3(=진열대)은 3D_피규어 · 레고 · 프라모델입니다. 그래서 그리드에서
+ * 「피규어·장난감」 섹션을 확인할 때는 그다음 카드인 **인형뽑기**를 씁니다.
  */
 const styleGrid = () => screen.findByRole('list', { name: '스타일 목록' })
 
@@ -75,8 +77,8 @@ describe('W-01 홈 · 카테고리 필터 배지', () => {
     const all = within(nav).getByRole('button', { name: '전체' })
     expect(all).toHaveAttribute('aria-pressed', 'true')
 
-    // 서로 다른 섹션의 카드가 동시에 보입니다(레고=피규어·장난감).
-    expect(await within(await styleGrid()).findByRole('link', { name: /레고/ })).toBeInTheDocument()
+    // 서로 다른 섹션의 카드가 동시에 보입니다(인형뽑기=피규어·장난감).
+    expect(await within(await styleGrid()).findByRole('link', { name: /인형뽑기/ })).toBeInTheDocument()
   })
 
   it('카테고리를 누르면 그 섹션만 남는다', async () => {
@@ -84,14 +86,14 @@ describe('W-01 홈 · 카테고리 필터 배지', () => {
     renderWithProviders(<W01Landing />, { route: '/' })
 
     const nav = await screen.findByRole('navigation', { name: '스타일 카테고리' })
-    // 레고는 「피규어·장난감」 섹션 카드입니다. 다른 섹션으로 필터하면 사라져야 합니다.
-    await within(await styleGrid()).findByRole('link', { name: /레고/ })
+    // 인형뽑기는 「피규어·장난감」 섹션 카드입니다. 다른 섹션으로 필터하면 사라져야 합니다.
+    await within(await styleGrid()).findByRole('link', { name: /인형뽑기/ })
 
     const 아트 = within(nav).getByRole('button', { name: '아트' })
     await user.click(아트)
 
     expect(아트).toHaveAttribute('aria-pressed', 'true')
-    expect(within(await styleGrid()).queryByRole('link', { name: /레고/ })).not.toBeInTheDocument()
+    expect(within(await styleGrid()).queryByRole('link', { name: /인형뽑기/ })).not.toBeInTheDocument()
   })
 })
 
@@ -104,8 +106,17 @@ describe('W-01 홈 · 카드 이름 인쇄 배지', () => {
   it('플래그가 켜진 스타일에만, 그 수만큼 붙는다', async () => {
     renderWithProviders(<W01Landing />, { route: '/' })
 
-    // 시드 39종 중 `[pet name]` 을 쓰는 것은 3D_피규어·식빵 둘입니다.
-    const badges = await within(await styleGrid()).findAllByText('이름 인쇄')
+    /*
+      시드 39종 중 `[pet name]` 을 쓰는 것은 3D_피규어·식빵 둘입니다. 둘이 서로 다른
+      격자에 있으므로(3D_피규어는 진열대, 식빵은 그리드) **화면 전체**에서 셉니다 —
+      겹침이 없어진 지금은 화면 전체 개수가 곧 픽스처의 플래그 개수입니다.
+
+      그리드가 뜬 뒤에 세는 것이 중요합니다. 그리드는 진열대 응답까지 기다렸다 그려지므로
+      (W01Landing.tsx), 그리드가 있으면 진열대도 이미 자리를 잡았습니다 — 두 요청 중
+      하나만 도착한 순간을 잡는 일이 없습니다.
+    */
+    await styleGrid()
+    const badges = screen.getAllByText('이름 인쇄')
     expect(badges).toHaveLength(2)
 
     const labelled = badges.map((badge) => badge.closest('a')?.textContent ?? '')
@@ -116,8 +127,8 @@ describe('W-01 홈 · 카드 이름 인쇄 배지', () => {
   it('플래그가 꺼진 카드에는 아무것도 안 붙는다', async () => {
     renderWithProviders(<W01Landing />, { route: '/' })
 
-    const lego = await within(await styleGrid()).findByRole('link', { name: /레고/ })
-    expect(within(lego).queryByText('이름 인쇄')).not.toBeInTheDocument()
+    const card = await within(await styleGrid()).findByRole('link', { name: /인형뽑기/ })
+    expect(within(card).queryByText('이름 인쇄')).not.toBeInTheDocument()
   })
 })
 
@@ -128,9 +139,9 @@ describe('W-01 홈 · 카드 비용 표기', () => {
   it('비용이 «N 크레딧» 으로 읽히고 기호는 안 읽힌다', async () => {
     renderWithProviders(<W01Landing />, { route: '/' })
 
-    const lego = await within(await styleGrid()).findByRole('link', { name: /레고/ })
-    expect(lego).toHaveAccessibleName(/1 크레딧/)
-    expect(lego).not.toHaveAccessibleName(/◆/)
+    const card = await within(await styleGrid()).findByRole('link', { name: /인형뽑기/ })
+    expect(card).toHaveAccessibleName(/1 크레딧/)
+    expect(card).not.toHaveAccessibleName(/◆/)
   })
 })
 
@@ -143,16 +154,41 @@ describe('W-01 홈 · 카드 비용 표기', () => {
  * (mocks/handlers.ts). 시드 정렬 상위 3 은 3D_피규어 · 레고 · 프라모델입니다.
  */
 describe('W-01 홈 · 진열대(인기 스타일)', () => {
-  it('배지 아래에 세 장이 서고, 전체 그리드와 겹쳐도 각각 제 목록에 있다', async () => {
+  it('배지 아래에 세 장이 선다', async () => {
     renderWithProviders(<W01Landing />, { route: '/' })
 
     const shelf = await screen.findByRole('list', { name: '인기 스타일' })
     const picked = await within(shelf).findAllByRole('link')
     expect(picked).toHaveLength(3)
     expect(picked.map((link) => link.textContent ?? '').some((t) => t.includes('레고'))).toBe(true)
+  })
 
-    // 겹침은 의도입니다 — 진열대에 있어도 전체 그리드에서 사라지지 않아야 합니다.
-    expect(await within(await styleGrid()).findByRole('link', { name: /레고/ })).toBeInTheDocument()
+  it('진열대에 올린 세 장은 아래 그리드에서 빠진다', async () => {
+    /*
+      겹침은 우연이 아니라 필연이라 막아 두는 것입니다. 서버는 카탈로그를
+      `order_by("sort_order", "id")` 로 정렬해 주고 화면은 그 섹션들을 순서대로 이어
+      붙이는데, 진열대가 쓰는 `section=popular` 도 **같은 정렬의 상위 N** 입니다 —
+      그냥 두면 바로 위에 있는 카드 셋이 그리드 맨 앞에 그대로 또 나옵니다.
+    */
+    renderWithProviders(<W01Landing />, { route: '/' })
+
+    const grid = await styleGrid()
+    for (const name of ['3D 피규어', '레고', '프라모델']) {
+      expect(within(grid).queryByRole('link', { name: new RegExp(name) })).not.toBeInTheDocument()
+    }
+    // 빠진 것은 그 셋뿐입니다 — 그다음 카드는 그대로 있습니다.
+    expect(within(grid).getByRole('link', { name: /인형뽑기/ })).toBeInTheDocument()
+  })
+
+  it('세 장이 빠졌으므로 아래 묶음을 「전체」라 부르지 않는다', async () => {
+    // 이름과 숫자가 함께 참이어야 합니다 — 39 장을 「전체」라 불러 놓고 36 장을 그리면 둘 다 거짓입니다.
+    renderWithProviders(<W01Landing />, { route: '/' })
+
+    expect(await screen.findByRole('heading', { name: '그 밖의 스타일' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '전체 스타일' })).not.toBeInTheDocument()
+
+    const grid = await styleGrid()
+    expect(within(grid).getAllByRole('link')).toHaveLength(styleCatalog.total_count - 3)
   })
 
   it('카테고리를 고르면 접힌다 — 안 그러면 필터가 거짓말이 된다', async () => {
