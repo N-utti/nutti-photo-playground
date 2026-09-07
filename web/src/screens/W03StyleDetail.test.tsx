@@ -102,7 +102,7 @@ describe('W-03 · 이름이 들어가는 스타일 예고', () => {
 
     // 정확 일치로 봅니다 — 정규식이면 강조 span 과 그걸 감싼 p 가 함께 걸립니다.
     expect(await screen.findByText('아이 이름이 그림에 들어갑니다')).toBeInTheDocument()
-    expect(screen.getByText(/«우리 아이» 가 인쇄됩니다/)).toBeInTheDocument()
+    expect(screen.getByText(/'우리 아이'가 인쇄됩니다/)).toBeInTheDocument()
   })
 
   it('그 밖의 스타일에서는 없는 말을 하지 않는다', async () => {

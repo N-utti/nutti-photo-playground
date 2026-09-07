@@ -716,7 +716,7 @@ function SelectionBar({
         )}
         {sheetCount > 0 && (
           <p role="status" className="mt-2 text-center text-xs text-ink-3">
-            {sheetCount}장을 공유 시트로 넘겼어요 — 시트에서 「이미지 저장」을 고르면 사진 앱에
+            {sheetCount}장을 공유 시트로 넘겼어요. 시트에서 이미지 저장을 고르면 사진 앱에
             들어가요.
           </p>
         )}
@@ -740,7 +740,7 @@ function SelectionBar({
         >
           {/* 되돌릴 수 없다는 사실보다 "지금 받아 둘 수 있다"가 실제로 도움이 됩니다. */}
           <p className="mt-2 text-sm text-ink-2">
-            지운 결과는 되돌릴 수 없어요. 필요하면 먼저 «저장»으로 사진을 받아 두세요.
+            지운 결과는 되돌릴 수 없어요. 필요하면 먼저 저장 버튼으로 사진을 받아 두세요.
           </p>
           <button
             type="button"

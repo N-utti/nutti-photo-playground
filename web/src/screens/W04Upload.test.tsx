@@ -221,7 +221,7 @@ describe('W-04 · 그림에 들어가는 이름', () => {
     await uploadPhoto(container)
 
     expect(screen.queryByText(/그림에/)).not.toBeInTheDocument()
-    expect(screen.queryByText('«우리 아이»')).not.toBeInTheDocument()
+    expect(screen.queryByText(/'우리 아이'/)).not.toBeInTheDocument()
     // 평소의 저장 폼(노트2)은 그대로 있습니다 — 이 변경이 걷어낸 게 아닙니다.
     expect(screen.getByLabelText('이 강아지 저장하기')).toBeInTheDocument()
   })
@@ -253,7 +253,7 @@ describe('W-04 · 그림에 들어가는 이름', () => {
     renderUpload()
 
     expect(await screen.findByText('저장된 강아지의 이름이 그림에 들어갑니다.')).toBeInTheDocument()
-    expect(screen.queryByText('«우리 아이»')).not.toBeInTheDocument()
+    expect(screen.queryByText(/'우리 아이'/)).not.toBeInTheDocument()
     // 이미 붙어 있는 강아지에게 이름을 또 물어보지 않습니다.
     expect(screen.queryByLabelText('이름 넣고 만들기')).not.toBeInTheDocument()
   })

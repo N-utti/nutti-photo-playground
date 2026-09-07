@@ -452,7 +452,7 @@ function DeletePetDialog({ pet, onClose }: { pet: Pet; onClose: () => void }) {
     <ConfirmDialog title={`${pet.name} 프로필을 삭제할까요?`} titleId="delete-pet-title" onClose={onClose}>
       <p className="mt-2 text-sm text-ink-2">
         지금까지 만든 결과는 보관함에 그대로 남아요. 다만 보관함의 강아지 필터에서 이 이름이
-        사라져서, 그 결과들은 «전체»에서만 보이게 됩니다.
+        사라져서, 그 결과들은 전체 필터에서만 보이게 됩니다.
       </p>
       <button
         type="button"

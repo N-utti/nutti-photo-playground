@@ -194,7 +194,7 @@ function InputField({
  * "입력하세요" 같은 placeholder 는 라벨을 한 번 더 읽는 것 이상을 하지 않습니다.
  */
 function placeholderFor(field: StyleInputField, petName: string | null): string | undefined {
-  if (field.prefill === 'pet_name') return `비워 두면 «${petName ?? PET_NAME_FALLBACK}»`
-  if (field.default) return `비워 두면 «${field.default}»`
+  if (field.prefill === 'pet_name') return `비워 두면 '${petName ?? PET_NAME_FALLBACK}'`
+  if (field.default) return `비워 두면 '${field.default}'`
   return undefined
 }
