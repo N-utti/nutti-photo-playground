@@ -50,7 +50,7 @@ import {
 // 폼 자체는 W-06 «다시 만들기» 와 함께 씁니다 — 같은 칸을 같은 규칙으로 그려야 합니다.
 import { StyleInputForm } from '../app/StyleInputForm'
 import Thumbnail from '../app/Thumbnail'
-import { clearUploadDraft, readUploadDraft, writeUploadDraft } from '../api/uploadDraft'
+import { clearUploadDraft, readUploadDraft, writeUploadDraft, type UploadDraft } from '../api/uploadDraft'
 import BreedField from '../app/BreedField'
 import type {
   Pet,
@@ -76,6 +76,7 @@ function fileRejection(file: File): string | null {
 
 export default function W04Upload() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchParams] = useSearchParams()
 
   const styleIdParam = Number(searchParams.get('style_id'))
@@ -198,6 +199,24 @@ export default function W04Upload() {
   // 다른 기기에서 온 경우에도 같은 사진으로 이어집니다.
   const { data: fromJob, isPending: fromJobPending } = useJob(fromJobId)
 
+  /*
+    확인 단계는 **히스토리 한 칸**입니다.
+
+    사진을 올리면(또는 저장된 강아지를 골라 사진을 이어받으면) 같은 주소로 한 칸을
+    push 하고 그 항목에 `state.step = 'confirm'` 을 적습니다(아래 enterConfirm). 그래서
+    확인 단계에서 ← 나 브라우저 뒤로가기를 누르면 앱 밖이 아니라 **사진을 올리기 전의
+    선택 화면**으로 돌아옵니다 — 사용자에게 뒤로가기는 «직전 화면» 이어야 하고, 사진을
+    올린 순간 화면이 통째로 바뀌었으니 그게 직전 화면입니다.
+
+    반대로 처음부터 확인 단계로 **들어오는** 항목이 있습니다 — 재사용(`from_job`)과 초안
+    복원(402 왕복 · 스타일 고르고 돌아옴). 그 항목에는 되감을 선택 화면이 없으므로 뒤로가기는
+    그 전 화면(홈·크레딧)으로 나가야 합니다. 그 항목의 key 를 적어 두고(confirmEntryKey)
+    아래 효과가 그 항목에서는 사진을 걷어내지 않게 합니다.
+  */
+  const confirmEntryKey = useRef<string | null>(null)
+  const locationKey = useRef(location.key)
+  locationKey.current = location.key
+
   useEffect(() => {
     if (fromJobId) {
       const context = contextFromJob(fromJob)
@@ -224,6 +243,7 @@ export default function W04Upload() {
           것은 없고, 화면이 사실을 말할 수 있게 될 뿐입니다.
         */
         setPetId(context.petId)
+        confirmEntryKey.current = locationKey.current
         return
       }
       // 서버 답을 기다리는 동안 초안 복원으로 내려가면, 재료가 도착하기 전에 엉뚱한
@@ -240,11 +260,36 @@ export default function W04Upload() {
     if (draft && (draft.styleId === styleId || draft.styleId === null)) {
       setUpload(draft.upload)
       setPetId(draft.petId)
+      confirmEntryKey.current = locationKey.current
       // 이제 이 사진은 이 스타일의 것입니다. 다시 적어 두지 않으면 402 왕복에서
       // 또 "스타일 없는 초안"으로 남습니다.
       if (draft.styleId !== styleId) writeUploadDraft({ ...draft, styleId })
     }
   }, [styleId, fromJobId, fromJob, fromJobPending])
+
+  /**
+   * 화면 안에서 확인 단계로 넘어갑니다 — 사진을 상태·초안에 적고 히스토리 한 칸을 push.
+   * 같은 주소라도 push 되므로(react-router 는 to 가 같아도 새 항목을 만듭니다) 뒤로가기가
+   * 이 칸을 되감습니다. 기존 state 는 그대로 두고 step 만 얹습니다.
+   */
+  function enterConfirm(next: UploadResult, draft: UploadDraft) {
+    setUpload(next)
+    writeUploadDraft(draft)
+    navigate(
+      { pathname: location.pathname, search: location.search },
+      { state: { ...((location.state as object | null) ?? {}), step: 'confirm' } },
+    )
+  }
+
+  // 뒤로가기가 확인 칸을 되감아 선택 칸에 내려앉은 순간 — 사진을 걷어 선택 화면으로.
+  // 처음부터 확인 단계로 들어온 항목(confirmEntryKey)은 예외입니다(위 주석).
+  const step = (location.state as { step?: string } | null)?.step
+  useEffect(() => {
+    if (step === 'confirm' || upload === null) return
+    if (confirmEntryKey.current === location.key) return
+    pickAnother()
+    // location.key 가 바뀔 때만 — 사진 상태가 바뀔 때마다 돌면 방금 올린 사진을 걷어냅니다.
+  }, [location.key])
 
   function handleFile(file: File | undefined) {
     if (!file) return
@@ -278,8 +323,7 @@ export default function W04Upload() {
             setFileError(result.blocking_issue.message)
             return
           }
-          setUpload(result)
-          writeUploadDraft({ styleId, petId, upload: result })
+          enterConfirm(result, { styleId, petId, upload: result })
         },
       },
     )
@@ -312,8 +356,7 @@ export default function W04Upload() {
       blocking_issue: null,
       warnings: [],
     }
-    setUpload(reused)
-    writeUploadDraft({ styleId, petId: pet.id, upload: reused })
+    enterConfirm(reused, { styleId, petId: pet.id, upload: reused })
   }
 
   function pickAnother() {
@@ -411,9 +454,9 @@ export default function W04Upload() {
     // 하단 탭바가 없어졌으므로(마이페이지로 통합) pb 는 순수 여백입니다.
     <div className="screen-min-h bg-paper pb-16">
       <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 desktop:px-7 py-3 desktop:hidden">
-        {/* 확인 단계에서도 그냥 뒤로 갑니다 — 사진을 다시 고르는 길은 아래
-            «다른 사진 고르기» 입니다(ConfirmPanel). ← 가 화면 안 단계를 되감으면
-            같은 화살표가 어떤 때는 나가고 어떤 때는 안 나갑니다. */}
+        {/* ← 는 언제나 히스토리 한 칸 뒤입니다(BackButton). 확인 단계는 그 자체가 한
+            칸이라(enterConfirm) 사진을 올린 뒤의 ← 는 선택 화면으로, 선택 화면의 ← 는
+            이 화면 밖으로 갑니다 — 브라우저 뒤로가기와 똑같이. */}
         <BackButton fallback="/styles" />
         {/* 단계(선택 → 확인)에 따라 「사진 선택」「확인」으로 바뀌던 것을 화면 이름 하나로
             고정합니다. 앱바 제목은 «어느 화면인가» 이지 «어느 단계인가» 가 아니라서, 사진을
