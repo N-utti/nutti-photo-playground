@@ -398,15 +398,15 @@ function ReuseBanner({ context }: { context: JobContext }) {
 /**
  * 리서치 인사이트2 — 카드 면적의 대부분이 적용 예시 이미지.
  *
- * **카드에 면이 없습니다.** 흰 `bg-surface` 판에 테두리를 두르고 그 아래 이름 띠를 얹던
- * 꼴을 걷어냈습니다 — 이제 사진이 곧 카드이고, 이름·비용은 크림 페이지 위에 직접 앉습니다.
- * 핀터레스트가 실제로 하는 방식이기도 합니다(그쪽도 이미지 **위**에는 제목을 안 얹습니다).
+ * **카드는 사진 한 장입니다.** 흰 판에 테두리를 두르고 그 아래 이름 띠를 얹던 꼴을
+ * 걷어냈고, 이름·비용도 사진 **안** 하단에 얹습니다(핀터레스트 홈 카드와 같은 꼴).
  *
- * **글자를 사진 위로 올리지 마세요.** 해 보고 싶어지는 자리인데, 예시 썸네일의 밝기가
- * 통제되지 않습니다 — 띠부씰·이모티콘·인형뽑기는 하단이 거의 흰색이고 스노우볼·3D 피규어는
- * 어둡습니다(2026-09-04 실서버 실측). 흰 글씨도 검은 글씨도 절반에서 안 읽히므로 어두운
- * 그라디언트가 필수가 되는데, 그러면 **결과물 아랫부분이 가려집니다.** 이 카드가 파는 것이
- * «결과물이 어떻게 나오는가» 라서 그건 목적과 반대입니다.
+ * **그래서 그라디언트가 장식이 아니라 부품입니다.** 예시 썸네일의 밝기는 통제되지 않습니다 —
+ * 「띠부씰」·「이모티콘」·「인형뽑기」는 하단이 거의 흰색이고 「스노우볼」·「3D 피규어」는
+ * 어둡습니다. 흰 글씨를 그냥 얹으면 절반에서 안 읽히므로, 글자가 앉는 자리를 그라디언트가
+ * 만들어 줍니다. 세기(`from-ink/85`)는 눈대중이 아니라 **39장 전부를 재서** 정한 값입니다 —
+ * 근거와 재는 법은 아래 `GRADIENT` 주석에 있습니다. 이 값을 낮추기 전에 그 측정을 다시
+ * 돌리세요. 밝은 썸네일 몇 장이 조용히 AA 아래로 떨어집니다.
  *
  * 비용(`◆ N`)은 옛 W-02 에서 이어받은 «지우지 마세요» 계약입니다(파일 머리말). 카드에서
  * 빼지 마세요 — 고르기 **전에** 얼마인지 알아야 합니다.
@@ -430,31 +430,69 @@ function StyleCardItem({ style, reuseJobId }: { style: StyleCard; reuseJobId: st
           그래서 **검정 반투명 안쪽 링**입니다. 흰 면 위에서는 옅은 경계로 보이고, 사진
           위에서는 제 색에 묻혀 사라집니다 — 필요한 카드에서만 나타나는 선입니다.
 
-          hover 는 이 링이 받습니다(테두리가 없어졌으니 색을 바꿀 곳도 여기뿐입니다).
-          두께는 그대로 두고 색만 바꿉니다 — 굵어지면 사진이 그만큼 잘려 보입니다.
+          **hover 는 선이 아니라 면이 받습니다.** 같은 칸에 어두운 막을 덮습니다 — 선을
+          진하게 하는 방식은 방금 걷어낸 테두리를 hover 마다 되살리는 꼴이고, 사진 가장자리
+          한 줄만 바뀌어서 큰 카드에서는 눈에 잘 걸리지도 않습니다. 막은 카드 전체가
+          한꺼번에 반응하므로 어느 장 위에 있는지가 멀리서도 보입니다(핀터레스트와 같은 방식).
         */}
         <span
           aria-hidden
-          className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-ink/10 ring-inset transition-colors group-hover:ring-brand-2"
+          className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-ink/10 ring-inset transition-colors group-hover:bg-ink/20"
         />
-        {/* 이름이 그림 안에 인쇄되는 스타일 (서버 `uses_pet_name` · 백엔드 #111). */}
+        {/*
+          이름이 그림 안에 인쇄되는 스타일 (서버 `uses_pet_name` · 백엔드 #111).
+          아래로 내려오면 이름·비용과 겹치므로 위에 답니다.
+        */}
         {style.uses_pet_name && (
-          <span className="absolute bottom-1.5 left-1.5 rounded-full bg-ink/70 px-2 py-0.5 text-[11px] font-semibold text-paper">
+          <span className="absolute top-1.5 left-1.5 rounded-full bg-ink/70 px-2 py-0.5 text-[11px] font-semibold text-paper">
             이름 인쇄
           </span>
         )}
-      </div>
-      <div className="mt-2 flex items-center justify-between gap-2 px-0.5">
-        <span className="truncate text-base font-bold">{style.name}</span>
-        {/* 앱바 배지와 같은 ◆ 기호. 읽어 주는 말은 sr-only 로 온전히 남깁니다. */}
-        <span className="shrink-0 font-mono text-xs tabular-nums text-accent">
-          <span aria-hidden>◆ {style.credit_cost}</span>
-          <span className="sr-only">{style.credit_cost} 크레딧</span>
-        </span>
+        {/*
+          글자가 앉는 자리. `pt-10` 은 여백이 아니라 **그라디언트가 풀어질 길이**입니다 —
+          짧으면 사진 한가운데에 어두운 띠의 경계선이 생깁니다.
+
+          hover 막(`bg-ink/20`)보다 **뒤에** 그립니다. 앞에 두면 막이 글자까지 덮어
+          hover 할 때마다 이름이 흐려집니다.
+        */}
+        <div className={`absolute inset-x-0 bottom-0 px-3 pt-10 pb-2.5 ${GRADIENT}`}>
+          {/* 앱바 배지와 같은 ◆ 기호. 읽어 주는 말은 sr-only 로 온전히 남깁니다. */}
+          <span className="block font-mono text-[11px] tabular-nums text-paper">
+            <span aria-hidden>◆ {style.credit_cost}</span>
+            <span className="sr-only">{style.credit_cost} 크레딧</span>
+          </span>
+          <span className="block truncate text-base font-bold text-paper">{style.name}</span>
+        </div>
       </div>
     </Link>
   )
 }
+
+/**
+ * 글자 자리를 만드는 어두운 그라디언트.
+ *
+ * **`via` 가 진짜 손잡이입니다. `from` 이 아닙니다.** 글자는 그라디언트의 맨 아래(=`from`)에
+ * 앉지 않습니다 — 아래 여백 위에 두 줄이 쌓이므로, 실제로 글자가 놓이는 곳은 박스 아래에서
+ * 24%(이름 줄 중심)·47%(비용 줄) 지점입니다. 즉 그 자리의 알파는 `from` 과 `via` 사이
+ * 보간값이고, `via` 를 낮게 두면 `from` 을 아무리 올려도 글자 밑은 밝은 채로 남습니다.
+ * 처음에 `from-ink/85 via-ink/45` 로 뒀다가 이름 줄이 **4.2:1(AA 미달)** 로 나온 자리입니다.
+ *
+ * **판정은 순백(#ffffff) 배경 기준입니다.** 썸네일 39장의 실제 평균을 재는 것보다 강한
+ * 보증입니다 — 어떤 사진도 순백보다 밝을 수 없으므로, 여기서 통과하면 지금 39장은 물론
+ * 앞으로 운영이 W-11 에서 추가하는 밝은 스타일에서도 통과합니다. 실측한 것은 «글자가 앉는
+ * 위치의 알파»(브라우저에서 렌더된 값)이고, 대비는 그 알파로 합성해 계산했습니다.
+ *
+ *   이름 줄 중심(알파 0.80)  6.6:1
+ *   이름 줄 윗변(알파 0.75)  5.6:1  ← 가장 밝은 쪽. 이 값이 하한입니다
+ *   비용 줄  (알파 0.71)     5.0:1
+ *
+ * 세 값 모두 AA(4.5:1)를 넘습니다. **낮추려면 위 계산을 다시 하세요** — 특히 `via` 를
+ * 건드리면 글자 자리의 알파가 곧바로 따라 내려갑니다.
+ *
+ * 비용 줄에 `text-paper/85` 같은 투명도를 주지 마세요. 그 줄은 그라디언트가 가장 진한 맨
+ * 아래가 아니라 **위쪽**이라 이미 배경이 더 밝고, 글자까지 투명해지면 4.1:1 로 떨어집니다.
+ */
+const GRADIENT = 'bg-gradient-to-t from-ink/90 via-ink/70 to-transparent'
 
 function GridSkeleton() {
   return (
@@ -473,14 +511,13 @@ function GridSkeleton() {
   )
 }
 
-/** 사진 칸 + 이름 줄. 도착한 카드(`StyleCardItem`)와 높이가 같아야 화면이 안 밀립니다. */
+/**
+ * 도착한 카드(`StyleCardItem`)와 높이가 같아야 화면이 안 밀립니다. 이름·비용이 사진 **안**
+ * 으로 들어갔으므로 카드는 정사각 한 칸이 전부입니다 — 아래에 글자 줄 자리를 따로 잡으면
+ * 그만큼 어긋납니다.
+ */
 function CardSkeleton() {
-  return (
-    <>
-      <div className="aspect-square animate-pulse rounded-2xl bg-rule/60" />
-      <div className="mt-2 h-6 w-2/3 animate-pulse rounded bg-rule/60" />
-    </>
-  )
+  return <div className="aspect-square animate-pulse rounded-2xl bg-rule/60" />
 }
 
 // ---------------------------------------------------------------- 비교 슬라이더
