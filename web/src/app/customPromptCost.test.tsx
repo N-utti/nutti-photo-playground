@@ -92,7 +92,7 @@ describe('커스텀 프롬프트 비용 · 서버가 말한 값', () => {
     renderWithProviders(<W01Landing />, { route: '/' })
 
     expect(
-      await screen.findByRole('link', { name: '원하는 걸 직접 써서 만들기 · 3 크레딧' }),
+      await screen.findByRole('link', { name: '직접 만들기 · 3 크레딧' }),
     ).toBeInTheDocument()
   })
 
@@ -101,7 +101,7 @@ describe('커스텀 프롬프트 비용 · 서버가 말한 값', () => {
     await renderUploadWithPhoto()
 
     expect(
-      await screen.findByRole('link', { name: '원하는 걸 직접 써서 만들기 · 3 크레딧' }),
+      await screen.findByRole('link', { name: '직접 만들기 · 3 크레딧' }),
     ).toBeInTheDocument()
   })
 
@@ -129,8 +129,8 @@ describe('커스텀 프롬프트 비용 · 모를 때', () => {
     mockCreditsDown()
     renderWithProviders(<W01Landing />, { route: '/' })
 
-    const link = await screen.findByRole('link', { name: /직접 써서 만들기/ })
-    expect(link).toHaveAccessibleName('원하는 걸 직접 써서 만들기')
+    const link = await screen.findByRole('link', { name: /^직접 만들기/ })
+    expect(link).toHaveAccessibleName('직접 만들기')
     expect(link.textContent).not.toMatch(/크레딧/)
   })
 

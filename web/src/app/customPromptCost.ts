@@ -25,12 +25,13 @@ export function useCustomPromptCost(): number | null {
 }
 
 /**
- * W-02·W-04 의 W-08 진입 링크 라벨.
+ * W-08 진입 버튼 라벨(app/CustomPromptEntry.tsx — 홈·W-04 가 같은 카드를 씁니다).
  *
  * 두 화면이 같은 문장을 말해야 해서 여기서 만듭니다. 링크의 목적지가 같은데 한쪽만
  * 비용을 말하거나 두 값이 다르면, 사용자는 어느 쪽을 믿어야 할지 알 수 없습니다.
+ * 이름은 도착하는 화면(routes.tsx 「직접 만들기」)과 같습니다.
  */
 export function customPromptLinkLabel(cost: number | null): string {
-  const base = '원하는 걸 직접 써서 만들기'
+  const base = '직접 만들기'
   return cost === null ? base : `${base} · ${cost} 크레딧`
 }
