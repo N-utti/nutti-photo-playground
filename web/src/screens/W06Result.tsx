@@ -808,7 +808,7 @@ function ShareRow({ job }: { job: Job }) {
           레퍼런스(여기어때 #F5F7FA 대 흰색 = 1.07:1)와 같은 급입니다.
         */
         <p role="status" className="mt-5 rounded-xl bg-surface px-4 py-3 text-center text-sm">
-          크롬으로 넘어왔어요 — 이제 「공유」를 누르면 공유 시트가 떠요.
+          크롬으로 넘어왔어요. 이제 공유 버튼을 누르면 공유 시트가 떠요.
         </p>
       )}
       <div className="mt-5 grid grid-cols-2 gap-2">
@@ -877,7 +877,7 @@ function ShareRow({ job }: { job: Job }) {
       */}
       {handedToSheet && (
         <p role="status" className="mt-2 text-center text-xs text-ink-3">
-          사진을 공유 시트로 넘겼어요 — 시트에서 「이미지 저장」을 고르면 사진 앱에 들어가요.
+          사진을 공유 시트로 넘겼어요. 시트에서 이미지 저장을 고르면 사진 앱에 들어가요.
         </p>
       )}
       {/*
@@ -901,7 +901,7 @@ function ShareRow({ job }: { job: Job }) {
       )}
       {shareOutcome === 'failed' && (
         <p role="alert" className="mt-2 text-center text-sm text-danger">
-          공유 시트를 열지 못했어요 — 「이미지 저장」으로 저장한 뒤 올려 주세요.
+          공유 시트를 열지 못했어요. 이미지 저장으로 저장한 뒤 올려 주세요.
         </p>
       )}
 

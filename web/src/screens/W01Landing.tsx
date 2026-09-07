@@ -31,7 +31,8 @@ import { track } from '../app/analytics'
 import { AccountEntry } from '../app/AccountEntry'
 import { BrandLockup } from '../app/BrandLockup'
 import { CreditBadge } from '../app/CreditBadge'
-import { customPromptLinkLabel, useCustomPromptCost } from '../app/customPromptCost'
+import { CustomPromptEntry } from '../app/CustomPromptEntry'
+import { useCustomPromptCost } from '../app/customPromptCost'
 import { shopLink } from '../app/externalLinks'
 import { useReuseFromJob, withReuse, type JobContext } from '../app/reuseFromJob'
 import { useStyles } from '../api/queries'
@@ -167,12 +168,11 @@ export default function W01Landing() {
                   </ul>
 
                   {/* W-08 보조 진입점 — 커스텀 프롬프트는 기본 그리드에서 분리합니다. */}
-                  <Link
+                  <CustomPromptEntry
                     to={withReuse('/creative', reuse.jobId)}
-                    className="mt-6 mb-8 block rounded-2xl bg-rule px-4 py-3 text-center text-sm text-ink-2 hover:bg-rule-strong hover:text-ink"
-                  >
-                    {customPromptLinkLabel(customPromptCost)}
-                  </Link>
+                    cost={customPromptCost}
+                    className="mt-6 mb-8"
+                  />
                 </>
               )}
             </section>

@@ -206,8 +206,8 @@ export default function EarnActionList() {
           */}
           {granted.balance <= 0 && (
             <p className="mt-1 text-center text-xs text-ink-2">
-              지난 차감이 남아 있어 보유 크레딧에는 아직 반영되지 않았어요. 아래 «받은
-              내역»에서 확인할 수 있어요.
+              지난 차감이 남아 있어 보유 크레딧에는 아직 반영되지 않았어요. 아래 받은 내역
+              보기에서 확인할 수 있어요.
             </p>
           )}
         </>
@@ -230,7 +230,7 @@ export default function EarnActionList() {
           {isApiError(claim.error, 'ALREADY_CLAIMED')
             ? '이미 받은 크레딧이에요.'
             : isApiError(claim.error, 'FOLLOW_IG_NOT_OPENED')
-              ? '「팔로우하러 가기」로 누띠 인스타그램을 팔로우한 뒤, 잠시 후 받기를 눌러 주세요.'
+              ? '팔로우하러 가기 버튼으로 누띠 인스타그램을 팔로우한 뒤, 잠시 후 받기를 눌러 주세요.'
               : isApiError(claim.error, 'INSTAGRAM_ALREADY_USED')
                 ? '이미 다른 계정에서 사용한 인스타그램 아이디예요.'
             : isApiError(claim.error, 'MEMBER_ONLY')
@@ -536,7 +536,7 @@ function FollowIgCta({
           disabled={claiming || openedAt === null || waitLeft > 0 || !valid}
           title={
             openedAt === null
-              ? '먼저 「팔로우하러 가기」를 눌러 주세요'
+              ? '먼저 팔로우하러 가기를 눌러 주세요'
               : waitLeft > 0
                 ? '팔로우가 확인되기까지 잠깐 걸려요'
                 : !valid

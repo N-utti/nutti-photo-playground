@@ -23,7 +23,8 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { isApiError } from '../api/client'
 import BackButton from '../app/BackButton'
 import { CreditBadge } from '../app/CreditBadge'
-import { customPromptLinkLabel, useCustomPromptCost } from '../app/customPromptCost'
+import { CustomPromptEntry } from '../app/CustomPromptEntry'
+import { useCustomPromptCost } from '../app/customPromptCost'
 import {
   beginJobAttempt,
   clearJobAttempt,
@@ -855,6 +856,9 @@ function ConfirmPanel({
       {!blocked && styleMissing && (
         // 사진부터 올린 경로(W-01 랜딩 CTA)의 다음 한 걸음. 비활성 버튼을 두면
         // 여기가 막다른 길이 됩니다 — 사진은 초안으로 남으니 돌아오면 이어집니다.
+        // 그 사실을 버튼 밑에 캡션으로 적어 두었었는데 뺐습니다. 여기서 할 수 있는
+        // 일이 이 버튼뿐이라 걱정이 있어도 행동이 달라지지 않고, 돌아오면 사진이
+        // 그대로 있는 것으로 충분히 알게 됩니다.
         <>
           <Link
             to={withReuse('/styles', fromJobId)}
@@ -862,17 +866,14 @@ function ConfirmPanel({
           >
             스타일 고르기 →
           </Link>
-          <p className="mt-2 text-center text-xs text-ink-3">
-            고른 스타일로 돌아오면 이 사진 그대로 이어집니다
-          </p>
           {/* W-08 보조 진입점 — 사진이 이미 있으니 여기서 바로 넘어갈 수 있습니다.
-              보조로만 두는 이유는 #p08 노트1(기본 그리드와 분리). */}
-          <Link
+              보조로만 두는 이유는 #p08 노트1(기본 그리드와 분리). 이 패널은 흰
+              카드가 아니라 바탕 위라 카드가 그대로 섭니다. */}
+          <CustomPromptEntry
             to={withReuse('/creative', fromJobId)}
-            className="mt-3 block text-center text-sm text-ink-2 underline hover:text-brand"
-          >
-            {customPromptLinkLabel(customPromptCost)}
-          </Link>
+            cost={customPromptCost}
+            className="mt-4"
+          />
         </>
       )}
 

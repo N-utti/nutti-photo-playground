@@ -367,7 +367,7 @@ describe('W-06 · 저장·공유 버튼', () => {
 
       expect(
         await screen.findByText(
-          '사진을 공유 시트로 넘겼어요 — 시트에서 「이미지 저장」을 고르면 사진 앱에 들어가요.',
+          '사진을 공유 시트로 넘겼어요. 시트에서 이미지 저장을 고르면 사진 앱에 들어가요.',
         ),
       ).toBeInTheDocument()
 
@@ -553,7 +553,7 @@ describe('W-06 · 저장·공유 버튼', () => {
       await user.click(await screen.findByRole('button', { name: '공유' }))
 
       expect(await screen.findByRole('alert')).toHaveTextContent(
-        '공유 시트를 열지 못했어요 — 「이미지 저장」으로 저장한 뒤 올려 주세요.',
+        '공유 시트를 열지 못했어요. 이미지 저장으로 저장한 뒤 올려 주세요.',
       )
     } finally {
       restore()
@@ -861,7 +861,7 @@ describe('W-06 · 저장·공유 버튼', () => {
     window.history.replaceState(null, '', `/jobs/${JOB_ID}?share=1`)
     try {
       renderResult(succeededJob())
-      expect(await screen.findByText(/이제 「공유」를 누르면 공유 시트가 떠요/)).toBeInTheDocument()
+      expect(await screen.findByText(/이제 공유 버튼을 누르면 공유 시트가 떠요/)).toBeInTheDocument()
     } finally {
       window.history.replaceState(null, '', '/')
     }
