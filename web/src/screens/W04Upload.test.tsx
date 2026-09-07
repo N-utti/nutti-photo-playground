@@ -159,7 +159,7 @@ describe('W-04 · 그림에 들어가는 이름', () => {
     expect(form.compareDocumentPosition(start) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 
     // 이름 입력이 한 화면에 둘이면 어느 쪽이 그림에 들어가는지 화면이 스스로 헷갈립니다.
-    expect(screen.queryByLabelText('이 강아지 저장하기')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('내 강아지 저장하기')).not.toBeInTheDocument()
   })
 
   it('이름 없이 만들기를 누르면 요청이 안 나가고 이유를 말한다', async () => {
@@ -223,7 +223,7 @@ describe('W-04 · 그림에 들어가는 이름', () => {
     expect(screen.queryByText(/그림에/)).not.toBeInTheDocument()
     expect(screen.queryByText(/'우리 아이'/)).not.toBeInTheDocument()
     // 평소의 저장 폼(노트2)은 그대로 있습니다 — 이 변경이 걷어낸 게 아닙니다.
-    expect(screen.getByLabelText('이 강아지 저장하기')).toBeInTheDocument()
+    expect(screen.getByLabelText('내 강아지 저장하기')).toBeInTheDocument()
   })
 
   it('강아지가 붙어 있는데 이름을 아직 모르면 «우리 아이» 라고 하지 않는다', async () => {
@@ -324,7 +324,7 @@ describe('W-04 · 그림에 들어가는 이름', () => {
       const form = screen.getByLabelText('아이 이름을 넣어 주세요')
       const start = screen.getByRole('button', { name: /이대로 만들기/ })
       expect(form.compareDocumentPosition(start) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-      expect(screen.queryByLabelText('이 강아지 저장하기')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('내 강아지 저장하기')).not.toBeInTheDocument()
     })
 
     it('붙은 강아지 이름으로 `prefill` 입력 칸을 채운다', async () => {
