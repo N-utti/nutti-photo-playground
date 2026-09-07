@@ -23,6 +23,7 @@ import {
 } from '../app/externalLinks'
 import type { ClaimBody, ClaimableAction, EarnAction, EarnActionRow } from '../api/types'
 import AccountSheet from './AccountSheet'
+import { GUEST_EARN_DESCRIPTION } from '../app/CreditBadge'
 import ShopLinkSheet from './ShopLinkSheet'
 
 const ACTION_ORDER: EarnAction[] = ['order', 'link_account', 'follow_ig', 'daily']
@@ -257,7 +258,7 @@ export default function EarnActionList() {
           description={
             loginSheet === 'link'
               ? `쇼핑몰 계정 연동은 회원만 할 수 있어요. 로그인 후 연동하면 ${creditAmountPhrase(linkAmount)}을 받아요.`
-              : '크레딧 받기는 회원만 할 수 있어요. 로그인하면 지금까지 만든 결과도 그대로 이어집니다.'
+              : GUEST_EARN_DESCRIPTION
           }
         />
       )}
