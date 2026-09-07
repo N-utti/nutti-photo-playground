@@ -65,24 +65,24 @@ export default function ShareFallbackSheet({
       <div className="mt-3 space-y-2">
         {kakaoShareAvailable() && (
           <button type="button" onClick={() => void sendKakao()} className={ITEM}>
-            {kakaoFailed ? '카카오톡을 열지 못했어요 — 다시 눌러 주세요' : '카카오톡으로 보내기'}
+            {kakaoFailed ? '카카오톡을 열지 못했어요. 다시 눌러 주세요' : '카카오톡으로 보내기'}
           </button>
         )}
         {external !== null && (
           <a href={external} className={ITEM}>
-            외부 브라우저에서 이미지 열기 — 길게 눌러 저장하거나 브라우저 메뉴로 공유해요
+            외부 브라우저에서 이미지 열기. 길게 눌러 저장하거나 브라우저 메뉴로 공유해요
           </a>
         )}
         {inAppBrowser === null && (
           <a href="https://www.instagram.com/" target="_blank" rel="noreferrer" className={ITEM}>
-            인스타그램 열기 — 저장한 사진으로 올리기
+            인스타그램 열기. 저장한 사진으로 올리기
           </a>
         )}
         <button type="button" onClick={() => void copyLink()} className={ITEM}>
           {copied === 'done'
             ? '링크를 복사했어요'
             : copied === 'failed'
-              ? '복사하지 못했어요 — 아래 링크를 직접 복사해 주세요'
+              ? '복사하지 못했어요. 아래 링크를 직접 복사해 주세요'
               : '이미지 링크 복사'}
         </button>
         {copied === 'failed' && (

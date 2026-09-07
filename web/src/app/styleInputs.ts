@@ -109,7 +109,7 @@ export function fieldError(field: StyleInputField, rawValue: string | undefined)
  * 번역하는 표를 만들면 스키마가 늘 때마다 그 표가 조용히 낡습니다.
  */
 function patternHint(field: StyleInputField): string {
-  return field.help ? `형식이 맞지 않아요 — ${field.help}` : '형식이 맞지 않아요.'
+  return field.help ? `형식이 맞지 않아요. ${field.help}` : '형식이 맞지 않아요.'
 }
 
 /** 라벨별 오류. 통과한 칸은 들어 있지 않습니다. */

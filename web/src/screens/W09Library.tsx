@@ -711,7 +711,7 @@ function SelectionBar({
         )}
         {sheetExpired && (
           <p role="alert" className="mt-2 text-center text-sm text-danger">
-            공유 시트가 열리기 전에 닫혔어요 — 한 번 더 눌러 주세요.
+            공유 시트가 열리기 전에 닫혔어요. 한 번 더 눌러 주세요.
           </p>
         )}
         {sheetCount > 0 && (
@@ -722,7 +722,7 @@ function SelectionBar({
         )}
         {downloadCount > 0 && (
           <p role="status" className="mt-2 text-center text-xs text-ink-3">
-            {downloadCount}장 다운로드를 시작했어요 — 갤러리의 다운로드 앨범이나 파일 앱에서 확인해 주세요.
+            {downloadCount}장 다운로드를 시작했어요. 갤러리의 다운로드 앨범이나 파일 앱에서 확인해 주세요.
           </p>
         )}
         {failedCount > 0 && (

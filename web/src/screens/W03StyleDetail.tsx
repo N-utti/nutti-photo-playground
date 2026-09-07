@@ -331,7 +331,7 @@ function SheetBody({
       */}
       {style.uses_pet_name && (
         <p className="mt-3 rounded-xl bg-surface-2 px-3 py-2 text-sm text-ink-2">
-          <span className="font-semibold text-ink">아이 이름이 그림에 들어갑니다</span> — 저장된
+          <span className="font-semibold text-ink">아이 이름이 그림에 들어갑니다</span>. 저장된
           강아지로 만들면 그 이름이, 아니면 '{PET_NAME_FALLBACK}'가 인쇄됩니다.
         </p>
       )}
