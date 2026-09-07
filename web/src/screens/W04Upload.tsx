@@ -23,8 +23,6 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { isApiError } from '../api/client'
 import BackButton from '../app/BackButton'
 import { CreditBadge } from '../app/CreditBadge'
-import { CustomPromptEntry } from '../app/CustomPromptEntry'
-import { useCustomPromptCost } from '../app/customPromptCost'
 import {
   beginJobAttempt,
   clearJobAttempt,
@@ -805,11 +803,6 @@ function ConfirmPanel({
 }: ConfirmPanelProps) {
   const blocked = upload.blocking_issue
 
-  // 아래 W-08 링크가 말하는 비용(서버 정책값). prop 으로 받지 않는 이유는 이 화면의
-  // 앱바 배지가 이미 같은 쿼리를 구독하고 있어서입니다 — 부모를 거치면 같은 값이
-  // 두 경로로 흐르고, 한쪽만 갱신되는 날이 옵니다.
-  const customPromptCost = useCustomPromptCost()
-
   /*
     이름 안내를 띄우는 자리에서 저장 폼도 같이 받습니다 — 아래쪽 기본 저장 폼과
     **둘 다 뜨면 안 됩니다**. 두 개의 «이름» 입력이 한 화면에 있으면 어느 쪽이
@@ -859,22 +852,18 @@ function ConfirmPanel({
         // 그 사실을 버튼 밑에 캡션으로 적어 두었었는데 뺐습니다. 여기서 할 수 있는
         // 일이 이 버튼뿐이라 걱정이 있어도 행동이 달라지지 않고, 돌아오면 사진이
         // 그대로 있는 것으로 충분히 알게 됩니다.
-        <>
-          <Link
-            to={withReuse('/styles', fromJobId)}
-            className="mt-2 block w-full rounded-xl bg-brand px-4 py-3 text-center text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99]"
-          >
-            스타일 고르기 →
-          </Link>
-          {/* W-08 보조 진입점 — 사진이 이미 있으니 여기서 바로 넘어갈 수 있습니다.
-              보조로만 두는 이유는 #p08 노트1(기본 그리드와 분리). 이 패널은 흰
-              카드가 아니라 바탕 위라 카드가 그대로 섭니다. */}
-          <CustomPromptEntry
-            to={withReuse('/creative', fromJobId)}
-            cost={customPromptCost}
-            className="mt-4"
-          />
-        </>
+        //
+        // W-08(직접 만들기) 진입 카드도 여기 있었는데 뺐습니다. «마음에 드는 스타일이
+        // 없다» 는 판단은 스타일 목록을 다 본 뒤에 생기므로 그 카드는 홈 목록 끝
+        // (app/CustomPromptEntry.tsx) 하나로 충분하고, W-08 은 올린 사진을 세션 초안에서
+        // 읽어서 어디서 들어가든 사진이 따라갑니다. 이 패널의 다음 걸음은 이 버튼
+        // 하나입니다.
+        <Link
+          to={withReuse('/styles', fromJobId)}
+          className="mt-2 block w-full rounded-xl bg-brand px-4 py-3 text-center text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99]"
+        >
+          스타일 고르기 →
+        </Link>
       )}
 
       {!blocked && !styleMissing && namesTheImage && (
