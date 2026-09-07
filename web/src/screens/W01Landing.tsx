@@ -316,10 +316,9 @@ function PickedShelf({ reuseJobId }: { reuseJobId: string | null }) {
           className="mt-4 flex gap-3 desktop:grid desktop:grid-cols-3 desktop:gap-4"
         >
           {Array.from({ length: SHELF_COUNT }, (_, i) => (
-            <li
-              key={i}
-              className="aspect-square w-[60%] shrink-0 animate-pulse rounded-2xl bg-rule/60 desktop:w-auto"
-            />
+            <li key={i} className="w-[60%] shrink-0 desktop:w-auto">
+              <CardSkeleton />
+            </li>
           ))}
         </ul>
       ) : (
@@ -396,20 +395,47 @@ function ReuseBanner({ context }: { context: JobContext }) {
   )
 }
 
-/** 리서치 인사이트2 — 카드 면적의 대부분이 적용 예시 이미지. */
+/**
+ * 리서치 인사이트2 — 카드 면적의 대부분이 적용 예시 이미지.
+ *
+ * **카드에 면이 없습니다.** 흰 `bg-surface` 판에 테두리를 두르고 그 아래 이름 띠를 얹던
+ * 꼴을 걷어냈습니다 — 이제 사진이 곧 카드이고, 이름·비용은 크림 페이지 위에 직접 앉습니다.
+ * 핀터레스트가 실제로 하는 방식이기도 합니다(그쪽도 이미지 **위**에는 제목을 안 얹습니다).
+ *
+ * **글자를 사진 위로 올리지 마세요.** 해 보고 싶어지는 자리인데, 예시 썸네일의 밝기가
+ * 통제되지 않습니다 — 띠부씰·이모티콘·인형뽑기는 하단이 거의 흰색이고 스노우볼·3D 피규어는
+ * 어둡습니다(2026-09-04 실서버 실측). 흰 글씨도 검은 글씨도 절반에서 안 읽히므로 어두운
+ * 그라디언트가 필수가 되는데, 그러면 **결과물 아랫부분이 가려집니다.** 이 카드가 파는 것이
+ * «결과물이 어떻게 나오는가» 라서 그건 목적과 반대입니다.
+ *
+ * 비용(`◆ N`)은 옛 W-02 에서 이어받은 «지우지 마세요» 계약입니다(파일 머리말). 카드에서
+ * 빼지 마세요 — 고르기 **전에** 얼마인지 알아야 합니다.
+ */
 function StyleCardItem({ style, reuseJobId }: { style: StyleCard; reuseJobId: string | null }) {
   return (
-    <Link
-      to={withReuse(`/styles/${style.id}`, reuseJobId)}
-      className="group block overflow-hidden rounded-2xl border border-rule bg-surface transition-shadow hover:border-brand-2 hover:shadow-md"
-    >
-      <div className="relative overflow-hidden">
+    <Link to={withReuse(`/styles/${style.id}`, reuseJobId)} className="group block rounded-2xl">
+      <div className="relative overflow-hidden rounded-2xl bg-surface-2">
         <Thumbnail
           src={style.thumbnail_url}
           alt={style.name}
           loading="lazy"
           decoding="async"
-          className="aspect-square w-full bg-surface-2 object-cover motion-safe:transition-transform motion-safe:duration-200 motion-safe:group-hover:scale-[1.04]"
+          className="aspect-square w-full object-cover motion-safe:transition-transform motion-safe:duration-200 motion-safe:group-hover:scale-[1.04]"
+        />
+        {/*
+          테두리를 지우면 **흰 배경 썸네일이 크림 페이지에 녹습니다** — 띠부씰·이모티콘이
+          그렇습니다(흰색은 `paper` 위 1.04:1). 그렇다고 `rule` 로 테두리를 다시 두르면
+          사진 카드 전부에 선이 생겨 방금 걷어낸 것이 돌아옵니다.
+
+          그래서 **검정 반투명 안쪽 링**입니다. 흰 면 위에서는 옅은 경계로 보이고, 사진
+          위에서는 제 색에 묻혀 사라집니다 — 필요한 카드에서만 나타나는 선입니다.
+
+          hover 는 이 링이 받습니다(테두리가 없어졌으니 색을 바꿀 곳도 여기뿐입니다).
+          두께는 그대로 두고 색만 바꿉니다 — 굵어지면 사진이 그만큼 잘려 보입니다.
+        */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-ink/10 ring-inset transition-colors group-hover:ring-brand-2"
         />
         {/* 이름이 그림 안에 인쇄되는 스타일 (서버 `uses_pet_name` · 백엔드 #111). */}
         {style.uses_pet_name && (
@@ -418,7 +444,7 @@ function StyleCardItem({ style, reuseJobId }: { style: StyleCard; reuseJobId: st
           </span>
         )}
       </div>
-      <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+      <div className="mt-2 flex items-center justify-between gap-2 px-0.5">
         <span className="truncate text-base font-bold">{style.name}</span>
         {/* 앱바 배지와 같은 ◆ 기호. 읽어 주는 말은 sr-only 로 온전히 남깁니다. */}
         <span className="shrink-0 font-mono text-xs tabular-nums text-accent">
@@ -436,9 +462,23 @@ function GridSkeleton() {
       <div className="h-6 w-24 rounded bg-rule" />
       <ul className="mt-3 grid grid-cols-2 gap-3 desktop:grid-cols-4">
         {Array.from({ length: 8 }, (_, i) => (
-          <li key={i} className="aspect-square animate-pulse rounded-xl bg-rule/60" />
+          // 이름 줄까지 자리를 잡아 둡니다 — 사진 칸만 그려 두면 카드가 도착하는 순간
+          // 줄 높이만큼 늘어나 보던 자리가 아래로 밀립니다(`CardSkeleton` 과 같은 꼴).
+          <li key={i}>
+            <CardSkeleton />
+          </li>
         ))}
       </ul>
+    </>
+  )
+}
+
+/** 사진 칸 + 이름 줄. 도착한 카드(`StyleCardItem`)와 높이가 같아야 화면이 안 밀립니다. */
+function CardSkeleton() {
+  return (
+    <>
+      <div className="aspect-square animate-pulse rounded-2xl bg-rule/60" />
+      <div className="mt-2 h-6 w-2/3 animate-pulse rounded bg-rule/60" />
     </>
   )
 }
