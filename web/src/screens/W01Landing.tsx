@@ -62,35 +62,16 @@ export default function W01Landing() {
 
   const [filter, setFilter] = useState<Filter>(null)
 
-  /*
-    진열대에 올릴 세 장. **여기서 한 번만 부르고 진열대에 넘깁니다** — 아래 그리드가 그
-    셋을 빼야 하는데, 진열대가 따로 물어보면 «올린 것» 과 «뺀 것» 이 어긋날 수 있습니다.
-  */
-  const shelf = useStyles({ section: 'popular', limit: SHELF_COUNT })
-  const picked = useMemo(() => shelf.data?.sections[0]?.styles ?? [], [shelf.data])
-
   // catalog 를 dep 으로 둡니다 — `catalog?.sections ?? []` 를 매 렌더 새로 만들면
   // 아래 두 useMemo 가 그 새 배열 때문에 매번 다시 도므로(참조가 바뀜) 메모가 무의미해집니다.
   const sections = useMemo(() => catalog?.sections ?? [], [catalog])
   const sectionNames = useMemo(() => sections.map((s) => s.name), [sections])
 
-  /*
-    전체 = 모든 섹션의 스타일을 한 그리드로. 카테고리 = 그 섹션만.
-
-    **「전체」일 때는 진열대의 세 장을 뺍니다.** 안 빼면 바로 위에 있는 카드가 그리드
-    맨 앞에 그대로 또 나옵니다 — 우연이 아니라 필연입니다. 서버는 카탈로그를
-    `order_by("sort_order", "id")` 로 정렬해 섹션별로 묶어 주고(app/routers/styles.py)
-    이 화면은 그 섹션들을 순서대로 이어 붙이는데, 진열대가 쓰는 `section=popular` 도
-    **같은 `sort_order` 의 상위 N** 입니다. 같은 자를 두 번 대는 셈입니다.
-
-    카테고리를 고른 동안에는 진열대가 접히므로(아래 렌더) 빼지 않습니다 — 그때 빼면
-    고른 카테고리에서 스타일이 이유 없이 사라집니다.
-  */
-  const pickedIds = useMemo(() => new Set(picked.map((style) => style.id)), [picked])
+  // 전체 = 모든 섹션의 스타일을 한 그리드로. 카테고리 = 그 섹션만.
   const visible = useMemo<StyleCard[]>(() => {
-    if (filter !== null) return sections.find((s) => s.name === filter)?.styles ?? []
-    return sections.flatMap((s) => s.styles).filter((style) => !pickedIds.has(style.id))
-  }, [sections, filter, pickedIds])
+    if (filter === null) return sections.flatMap((s) => s.styles)
+    return sections.find((s) => s.name === filter)?.styles ?? []
+  }, [sections, filter])
 
   return (
     <>
@@ -145,23 +126,11 @@ export default function W01Landing() {
 
             {/* 「전체」일 때만 섭니다 — 카테고리를 골랐는데 그 위에 다른 카테고리 카드가
                 남아 있으면 방금 건 필터가 거짓말이 됩니다. */}
-            {!isError && filter === null && (
-              <PickedShelf
-                picked={picked}
-                isPending={shelf.isPending}
-                reuseJobId={reuse.jobId}
-              />
-            )}
+            {!isError && filter === null && <PickedShelf reuseJobId={reuse.jobId} />}
 
             {/* 그리드 */}
             <section className="pt-6">
-              {/*
-                진열대 응답도 기다립니다. 카탈로그만 보고 먼저 그리면 39 장을 펼쳤다가
-                잠시 뒤 세 장이 빠지면서 격자가 통째로 밀립니다 — 이미 보고 있던 사람의
-                눈앞에서 카드가 자리를 옮기는 종류의 흔들림입니다. 두 요청은 나란히
-                나가므로 기다리는 시간은 느린 쪽 하나뿐입니다.
-              */}
-              {isPending || shelf.isPending ? (
+              {isPending ? (
                 <GridSkeleton />
               ) : isError ? (
                 <div className="mx-auto max-w-md py-16 text-center">
@@ -177,21 +146,15 @@ export default function W01Landing() {
                 </div>
               ) : (
                 <>
-                  {/*
-                    진열대가 세 장을 가져갔으면 여기 남은 것은 «전체» 가 아니므로 그렇게
-                    부르지 않습니다. 숫자와 이름이 함께 참이어야 합니다 — 39 장을 「전체」라
-                    불러 놓고 36 장을 그리면 둘 다 거짓이 됩니다. 진열대가 접혀 있으면
-                    (응답이 비었거나 카테고리를 고른 중) 다시 「전체 스타일」입니다.
-                  */}
                   <div className="flex items-baseline gap-2">
-                    <h2 className="text-lg font-bold">
-                      {filter ?? (pickedIds.size > 0 ? '그 밖의 스타일' : '전체 스타일')}
-                    </h2>
+                    <h2 className="text-lg font-bold">{filter ?? '전체 스타일'}</h2>
                     <span className="font-mono text-xs text-ink-3">{visible.length}</span>
                   </div>
-                  {/* 모바일 2열 / 데스크톱 4열. 목록에 이름을 붙인 이유는 이 화면에 카드
-                      격자가 둘이기 때문입니다(위 진열대) — 이름이 있어야 «어느 격자에서
-                      찾은 레고인가» 를 갈라 셀 수 있습니다(테스트·보조기기 둘 다). */}
+                  {/* 모바일 2열 / 데스크톱 4열.
+                      이름을 붙인 이유는 위 진열대(`PickedShelf`)와 **같은 카드가 겹치기**
+                      때문입니다 — 겹침 자체는 의도지만(아래 PickedShelf), 그러면 화면에
+                      같은 이름의 링크가 둘이 됩니다. 목록에 이름이 있어야 «전체에서 찾은
+                      레고» 와 «진열대의 레고» 를 갈라 셀 수 있습니다(테스트·보조기기 둘 다). */}
                   <ul
                     aria-label="스타일 목록"
                     className="mt-4 grid grid-cols-2 gap-3 desktop:grid-cols-4 desktop:gap-4"
@@ -329,21 +292,16 @@ const SHELF_COUNT = 3
  * 그 함정을 주석으로 못박아 뒀습니다(mocks/handlers.ts `popular`) — 실서버에서 다른
  * 스타일이 오는데 목에서는 아무 문제가 안 보이는 종류의 차이입니다.
  *
- * **여기 올린 세 장은 아래 그리드에서 빠집니다.** 한때는 겹쳐 두고 카드 크기로 갈랐는데,
- * 이름을 사진 안으로 넣으면서 두 격자의 카드가 같은 꼴이 되자 그 구분이 무너졌습니다 —
- * 바로 아래에 같은 카드 셋이 그대로 또 나오는 게 보였습니다. 빼는 쪽은 부모가 합니다
- * (`pickedIds`) — 그래서 이 컴포넌트가 데이터를 직접 묻지 않고 **받아서** 그립니다.
- * 양쪽이 따로 물으면 «올린 것» 과 «뺀 것» 이 어긋날 수 있습니다.
+ * **아래 전체 그리드와 카드가 겹칩니다. 의도입니다.** 빼면 「전체 스타일 39」가 36 이
+ * 되어 이름과 숫자가 둘 다 거짓이 되고, 그 세 개를 찾던 사람이 전체에서 못 찾습니다.
+ * 대신 **크기로** 갈랐습니다 — 진열대는 모바일에서 가로로 흐르는 큰 카드(폭 60%, 다음
+ * 장이 잘려 보여 «옆에 더 있다» 가 읽힙니다), 데스크톱에서는 3열이라 전체 그리드(4열)보다
+ * 큽니다. 같은 격자에 같은 카드를 두 번 그리면 그건 구분이 아니라 버그로 보입니다.
  */
-function PickedShelf({
-  picked,
-  isPending,
-  reuseJobId,
-}: {
-  picked: StyleCard[]
-  isPending: boolean
-  reuseJobId: string | null
-}) {
+function PickedShelf({ reuseJobId }: { reuseJobId: string | null }) {
+  const { data, isPending } = useStyles({ section: 'popular', limit: SHELF_COUNT })
+  const picked = data?.sections[0]?.styles ?? []
+
   // 실패하거나 비어 있으면 진열대 자체를 접습니다 — 홈의 주인공은 아래 그리드라,
   // 빈 선반이나 오류 문구를 세워 두는 것보다 없는 편이 낫습니다. 다만 **도착 전에는**
   // 접지 않습니다. 뒤늦게 끼어들면 이미 그리드를 보던 사람의 화면이 아래로 밀립니다.

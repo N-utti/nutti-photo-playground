@@ -186,6 +186,20 @@ const SEED_SECTIONS: { name: string; codes: string[] }[] = [
 */
 const CODES_BY_FILENAME = SEED_SECTIONS.flatMap((section) => section.codes).sort()
 
+/**
+ * 목이 `?section=popular` 로 돌려주는 세 장 (W-01 진열대).
+ *
+ * **서로 다른 섹션에서 골랐습니다.** 실서버의 `popular` 은 `sort_order` 상위 N 이고 그
+ * 순서는 운영이 W-11 에서 정하므로, 상위가 한 섹션에 몰려 있으리라는 보장이 없습니다.
+ * 목이 카탈로그 앞에서 그냥 잘라 쓰던 때는 그 세 장이 첫 섹션(피규어·장난감)에서만
+ * 나왔고, 그래서 홈에서 진열대와 그리드 맨 앞이 판박이가 되는 것도 «인기를 서버에 따로
+ * 물었는가» 를 검사하지 못하는 것도 목 위에서는 안 보였습니다.
+ *
+ * 실서버에서 이 셋을 앞에 세우려면 여기가 아니라 **운영이 W-11 에서 `sort_order` 를**
+ * 조정해야 합니다. 이 상수는 목에만 영향을 줍니다.
+ */
+export const POPULAR_CODES = ['거울셀카', '색연필드로잉', '우리아이라떼아트'] as const
+
 export const styleCatalog: StyleCatalog = (() => {
   const sections = SEED_SECTIONS.map(({ name, codes }) => {
     const styles: StyleCard[] = codes.map((code) => ({
