@@ -780,8 +780,15 @@ function SavedPets({
         </li>
       </ul>
       {selectedPet && !selectedPet.latest_upload_id && (
+        /*
+          칩을 눌렀는데 확인 단계로 안 넘어간 이유를 먼저 말합니다 — 이 강아지에 다시
+          쓸 사진이 없습니다(보관 기간이 지나 서버가 `latest_upload_id` 를 비웠습니다,
+          api/types.ts Pet). 예전 문구 「이 강아지로 저장됩니다 — 사진은 새로 올려 주세요」
+          는 결과만 말하고 «왜 아무 일도 안 생겼는가» 를 빼먹어서, 칩이 고장 난 것처럼
+          읽혔습니다. 이유 → 할 일 → 그 결과 순서입니다.
+        */
         <p className="mt-2 text-xs text-ink-3">
-          이 강아지로 저장됩니다 — 사진은 새로 올려 주세요.
+          저장해 둔 사진의 보관 기간이 지났어요. 새 사진을 올려주세요.
         </p>
       )}
     </section>
