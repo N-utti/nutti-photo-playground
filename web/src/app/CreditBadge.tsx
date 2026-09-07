@@ -24,10 +24,33 @@
  * 할 수 있는 게 없었고, 크레딧 받는 길은 아바타 → 마이페이지 → 「크레딧 받기」로 세 번
  * 눌러야 나왔습니다. 잔액을 보여 주는 자리에서 잔액을 늘리는 자리로 가는 게 가장
  * 짧습니다.
+ *
+ * **게스트가 누르면 화면을 옮기지 않고 로그인 시트를 띄웁니다.** 크레딧 받기의 네 줄은
+ * 게스트에게 전부 `login_required` 로 내려와서(EarnActionList), 게스트를 그 화면으로
+ * 보내 봐야 «로그인» 버튼 네 개가 나란히 선 화면을 보고 그중 하나를 다시 눌러야
+ * 합니다. 잔액을 늘리려면 먼저 회원이어야 한다는 게 사실이므로, 그 사실을 한 번의
+ * 탭으로 바로 말합니다. 시트 문구도 그 줄들이 쓰는 것과 같은 문장입니다 — 같은
+ * 이유로 뜬 창이 다른 말을 하면 안 됩니다.
+ *
+ * `/me` 가 아직 안 왔으면 회원으로 간주해 링크로 둡니다. 게스트로 판명나기 전에
+ * 눌러도 크레딧 화면에는 로그인 CTA 가 있어 막다른 길은 아니고, 반대로 회원에게
+ * 로그인 창을 띄우는 쪽이 더 나쁩니다(AccountEntry 는 같은 이유로 아예 안 그립니다만,
+ * 잔액은 게스트·회원 누구에게나 보여야 해서 여기서는 비워 둘 수 없습니다).
  */
 
+import { useState } from 'react'
 import { Link, useLocation } from 'react-router'
-import { useCredits } from '../api/queries'
+import { useCredits, useMe } from '../api/queries'
+import AccountSheet from '../screens/AccountSheet'
+
+/**
+ * 게스트에게 띄우는 시트의 문구 — EarnActionList 의 «earn» 갈래와 같은 문장이어야
+ * 합니다. 배지에서 뜬 창과 획득 줄에서 뜬 창은 같은 이유로 뜬 같은 창입니다.
+ *
+ * 한 문장입니다. «회원만 할 수 있어요 + 로그인하면 결과가 이어집니다» 두 문장으로
+ * 쓰다가 줄였습니다 — 시트 머리(로고) 아래 짧게 «왜 떴는가» 만 남기는 편이 읽힙니다.
+ */
+export const GUEST_EARN_DESCRIPTION = '크레딧을 받으려면 로그인하세요.'
 
 /**
  * 알약의 생김새 — 링크일 때와 아닐 때가 **같은 것으로 보여야** 해서 한 곳에 둡니다.
@@ -64,6 +87,9 @@ const PRESSABLE =
 
 export function CreditBadge({ showUnit = false }: { showUnit?: boolean }) {
   const { data, isPending, isError } = useCredits()
+  const { data: me } = useMe()
+  const guest = me?.kind === 'guest'
+  const [loginSheet, setLoginSheet] = useState(false)
   const known = !isPending && !isError && data !== undefined
   const balance = known ? Math.max(0, data.balance) : null
 
@@ -97,11 +123,36 @@ export function CreditBadge({ showUnit = false }: { showUnit?: boolean }) {
       </span>
       {/* 링크일 때는 **어디로 가는지**까지가 이름입니다. 값만 읽어 주면 스크린리더에는
           «링크, 보유 크레딧 7개» 로 들리고, 그건 눌러서 무슨 일이 나는지 안 말합니다. */}
-      <span className="sr-only">{here ? label : `${label}, 크레딧 받기`}</span>
+      <span className="sr-only">
+        {here ? label : guest ? `${label}, 로그인하고 크레딧 받기` : `${label}, 크레딧 받기`}
+      </span>
     </>
   )
 
   if (here) return <span className={`${PILL} ${tone}`}>{face}</span>
+
+  /*
+    링크와 버튼의 생김새는 같습니다 — 게스트와 회원이 같은 자리에서 같은 알약을 봅니다.
+    다른 건 눌렀을 때뿐입니다. 시트는 이 컴포넌트가 직접 들고 있습니다. AccountEntry
+    의 «로그인» 버튼도 자기 시트를 따로 들고 있어서, 둘이 한 앱바에 나란히 서도
+    서로의 상태를 모릅니다 — 한 번에 하나만 열리므로 겹칠 일은 없습니다.
+  */
+  const pressable = `${PILL} ${tone} ${PRESSABLE} ${
+    balance === null ? 'hover:bg-rule hover:text-ink-2' : 'hover:bg-accent-soft-deep'
+  }`
+
+  if (guest) {
+    return (
+      <>
+        <button type="button" onClick={() => setLoginSheet(true)} className={pressable}>
+          {face}
+        </button>
+        {loginSheet && (
+          <AccountSheet onClose={() => setLoginSheet(false)} description={GUEST_EARN_DESCRIPTION} />
+        )}
+      </>
+    )
+  }
 
   return (
     <Link
@@ -117,11 +168,7 @@ export function CreditBadge({ showUnit = false }: { showUnit?: boolean }) {
         하한(4.91:1)이라 면만 진하게 하면 AA 아래로 떨어집니다(index.css 「글자」).
         `rule` 위의 `ink-2` 는 5.65:1 로 오히려 또렷해집니다.
       */
-      className={`${PILL} ${tone} ${PRESSABLE} ${
-        balance === null
-          ? 'hover:bg-rule hover:text-ink-2'
-          : 'hover:bg-accent-soft-deep'
-      }`}
+      className={pressable}
     >
       {face}
     </Link>

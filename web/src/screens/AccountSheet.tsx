@@ -257,7 +257,12 @@ export default function AccountSheet({
               세로 여백이었고, 패딩을 키우면 옆구리까지 같이 벌어집니다.
             */}
             <BrandLockup decorative className="mt-10 justify-center text-2xl" />
-            {description && <p className="mt-3 text-center text-sm text-ink-2">{description}</p>}
+            {/* `whitespace-pre-line` — 문구 속 줄바꿈을 그대로 그립니다. 진입점이 «이유 문장 +
+                결과 문장» 두 문장을 줄을 바꿔 넘기는데, 그걸 접으면 둘째 문장이 시트 폭에서
+                어중간한 곳에서 꺾입니다(app/CreditBadge.tsx GUEST_EARN_DESCRIPTION). */}
+            {description && (
+              <p className="mt-3 text-center text-sm whitespace-pre-line text-ink-2">{description}</p>
+            )}
 
             {/*
               누른 쪽만 «진행 중»으로 보여야 합니다. 두 버튼이 `authorize` 라는 mutation
