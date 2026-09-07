@@ -3,9 +3,76 @@
 import { defineConfig, type Plugin } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import { rm } from 'node:fs/promises'
+import { readFile, rm } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+/**
+ * 목이 쓰는 스타일 썸네일의 주소 앞머리.
+ *
+ * **`src/mocks/fixtures.ts` 의 `seedThumbnail()` 과 같은 값이어야 합니다.** 한쪽은
+ * 브라우저에서 도는 목이고 다른 쪽은 Node 에서 도는 dev 서버라 상수를 나눠 가질 수가
+ * 없습니다 — 둘 중 하나를 고치면 다른 쪽도 고치세요. 어긋나면 이미지가 통째로 404 입니다.
+ */
+const SEED_THUMBNAIL_BASE = '/seed-thumbnails'
+
+/**
+ * **개발 서버에서만** `seeds/thumbnails/{code}.jpg` 를 서빙합니다.
+ *
+ * 목은 지금까지 회색 SVG 자리표시자를 그렸습니다. 그래서 로컬에서는 «사진이 주인공인
+ * 화면» 을 한 번도 실제로 못 봅니다 — 카드 레이아웃·대비·잘림 같은 판단이 전부 회색
+ * 네모 위에서 이뤄집니다. 실제로 그 차이가 사고로 이어진 적이 있습니다: 카드 테두리를
+ * 걷어내도 되는지가 **썸네일 배경색에 달려 있었는데**(흰 배경인 「띠부씰」·「이모티콘」은
+ * 크림 페이지에 녹습니다) 회색 자리표시자만 보고는 알 수 없었습니다.
+ *
+ * 시드가 실서버에 올리는 바로 그 파일들입니다(`scripts/seed_styles.py` → `example_keys`).
+ * `web/public/` 로 복사하지 않는 이유는 5.7MB 를 repo 에 **두 벌** 두게 되고, 그 복사본이
+ * 시드가 바뀌는 날 조용히 낡기 때문입니다. 여기서 원본을 그대로 읽습니다.
+ *
+ * `apply: 'serve'` 이므로 빌드 산출물에는 아무 영향이 없습니다 — 애초에 목이 꺼진
+ * 빌드에서는 이 주소를 부르는 코드 자체가 실리지 않습니다(`mocks/browser.ts` 주석).
+ */
+function seedThumbnails(): Plugin {
+  const dir = fileURLToPath(new URL('../seeds/thumbnails/', import.meta.url))
+  return {
+    name: 'seed-thumbnails',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use(SEED_THUMBNAIL_BASE, (req, res, next) => {
+        /*
+          스타일 코드가 한글이라 주소는 퍼센트 인코딩돼 옵니다. 다만 **깨진 인코딩도
+          들어옵니다** — `decodeURIComponent` 는 그럴 때 예외를 던지고, 미들웨어에서 던지면
+          dev 서버가 500 을 뱉습니다(잘못된 주소는 그냥 못 찾은 것이어야 합니다).
+        */
+        let requested: string
+        try {
+          requested = decodeURIComponent((req.url ?? '').split('?')[0]).replace(/^\//, '')
+        } catch {
+          return next()
+        }
+        // 파일명 하나만 받습니다 — `basename` 과 다르면 경로가 섞여 있다는 뜻이라 거절합니다.
+        const name = path.basename(requested)
+        if (!name || name !== requested || !name.endsWith('.jpg')) return next()
+
+        readFile(path.join(dir, name)).then(
+          (buffer) => {
+            res.setHeader('Content-Type', 'image/jpeg')
+            res.end(buffer)
+          },
+          () => {
+            /*
+              **404 를 여기서 직접 냅니다.** `next()` 로 흘리면 SPA fallback 이 index.html 을
+              200 으로 돌려주고, 그러면 «상태코드는 200 인데 그림은 안 뜨는» 상태가 됩니다 —
+              그물에 걸리지 않는 종류의 실패라 브라우저 검증이 조용히 거짓이 됩니다.
+            */
+            res.statusCode = 404
+            res.end()
+          },
+        )
+      })
+    },
+  }
+}
 
 /**
  * MSW 의 서비스워커 스크립트를 목이 꺼진 빌드 산출물에서 지웁니다.
@@ -42,7 +109,7 @@ function dropMockServiceWorker(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), dropMockServiceWorker()],
+  plugins: [react(), tailwindcss(), dropMockServiceWorker(), seedThumbnails()],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
