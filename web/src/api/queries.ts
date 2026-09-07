@@ -98,6 +98,12 @@ export function useLocalAuth() {
  * 돌아오는 401 은 새 게스트를 지우면 안 되는 401 이고, 그건 api/client.ts
  * `dropSessionIfCurrent` 가 막습니다 — 여기서 `ensureSession()` 을 빼거나 순서를
  * 뒤집으면 그 보호도 함께 무너집니다.
+ *
+ * `clearSessionStatus()` 는 만료 배너를 내립니다. 액세스가 만료된 채로 로그아웃하면
+ * client.ts 가 먼저 리프레시를 회전시키는데 그 회전이 401 이면 «로그인이 만료됐어요»
+ * 가 올라옵니다 — 스스로 끝낸 세션에 만료를 통보하는 꼴이라 새 게스트로 선 시점에
+ * 내립니다. 화면 쪽 콜백이 아니라 여기인 이유: 로그아웃 버튼은 회원 전용 섹션에 있어
+ * 캐시가 무효화되는 순간 내려가고, 그러면 `mutate()` 에 넘긴 콜백은 버려집니다.
  */
 export function useLogout() {
   const client = useQueryClient()
@@ -107,6 +113,7 @@ export function useLogout() {
       await ensureSession()
     },
     onSuccess: () => client.invalidateQueries(),
+    onSettled: () => clearSessionStatus(),
   })
 }
 
@@ -131,7 +138,7 @@ export function useLogout() {
  * `clearSessionStatus()` 는 만료 배너를 내립니다. 탈퇴 시점에 서버가 토큰을 전부
  * 무효화하므로 그 직후 날아가던 요청이 401 로 떨어지면 «로그인이 만료됐어요» 가
  * 올라오는데, 사용자가 스스로 끝낸 계정을 두고 만료를 통보하는 꼴입니다
- * (W12MyPage 의 로그아웃이 같은 이유로 같은 일을 합니다).
+ * (`useLogout` 이 같은 이유로 같은 일을 합니다).
  */
 export function useWithdraw() {
   const client = useQueryClient()

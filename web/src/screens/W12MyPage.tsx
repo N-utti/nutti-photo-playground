@@ -41,7 +41,6 @@ import FloatingField from '../app/FloatingField'
 import { creditAmountPhrase, linkAccountCtaLabel, useEarnAmount } from '../app/earnAmount'
 import { amountTone, reasonLabel, shortDate, signedAmount } from '../app/ledgerFormat'
 import { memberInitial, memberLabel, PROVIDER_LABEL } from '../app/memberIdentity'
-import { clearSessionStatus } from '../app/sessionStatus'
 import { initialOf } from '../app/initials'
 import Thumbnail from '../app/Thumbnail'
 import AccountSheet from './AccountSheet'
@@ -529,19 +528,17 @@ function DangerSection() {
     로그아웃은 확인 창 없이 바로 랜딩으로 갑니다. 되돌릴 수 없는 동작이 아니라서
     (결과·크레딧은 계정에 그대로, 다시 로그인하면 이어짐) 한 겹 더 묻지 않습니다.
 
-    `onSettled` 인 이유: 새 게스트 발급(`ensureSession`)이 실패해도 사용자에게 알릴
-    말이 없습니다 — 로컬 토큰은 이미 지워졌고 다음 요청이 다시 게스트를 세웁니다.
-    `clearSessionStatus()` 는 로그아웃 중 리프레시 회전이 401 로 끝나며 올라온
-    «로그인이 만료됐어요» 배너를 내립니다 — 스스로 끝낸 세션에 만료를 통보하는 꼴이라서.
+    이동을 mutation 콜백에 걸지 않고 **누르는 즉시** 합니다. `useLogout` 은 성공하면
+    캐시 전부를 무효화하고 그 재조회가 끝나기를 기다리는데, 계정 조회가 먼저 돌아오는
+    순간 이 섹션(회원 전용)이 내려갑니다. 그러면 `mutate()` 에 넘긴 콜백은 버려지고
+    (react-query 규칙) 사용자는 게스트가 된 마이페이지에 그대로 남습니다 — 실제로
+    그랬습니다. 새 게스트 발급이 실패해도 알릴 말이 없으니(로컬 토큰은 이미 지워졌고
+    다음 요청이 다시 게스트를 세웁니다) 결과를 기다릴 이유도 없습니다.
     `replace` 는 뒤로가기로 «회원» 전제의 이 화면에 돌아오지 않게 합니다.
   */
   function handleLogout() {
-    logout.mutate(undefined, {
-      onSettled: () => {
-        clearSessionStatus()
-        navigate('/', { replace: true })
-      },
-    })
+    logout.mutate()
+    navigate('/', { replace: true })
   }
 
   return (
