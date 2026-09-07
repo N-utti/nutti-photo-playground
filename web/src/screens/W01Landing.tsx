@@ -323,10 +323,17 @@ function PickedShelf({ reuseJobId }: { reuseJobId: string | null }) {
         </ul>
       ) : (
         /* 가장자리까지 흘리려고 `main` 의 좌우 여백(px-5)을 되돌렸다가 안쪽으로 다시 줍니다 —
-           카드가 화면 끝에서 잘려야 «가로로 더 있다» 가 보입니다. 데스크톱은 격자라 원복. */
+           카드가 화면 끝에서 잘려야 «가로로 더 있다» 가 보입니다. 데스크톱은 격자라 원복.
+
+           `scroll-px-5` 를 빼면 그 여백이 **첫 화면에서만** 사라집니다. 스냅은 스크롤
+           패딩이 없으면 패딩 박스 왼쪽을 기준으로 삼아서, 첫 카드를 거기 붙이려고 브라우저가
+           스스로 `scrollLeft` 를 20px 밀어 둡니다 — px-5 와 정확히 상쇄되어 카드가 화면
+           왼쪽 끝에 딱 붙습니다. 위 제목(h2)은 20px 에 있으니 둘이 어긋나 보입니다.
+           스크롤 패딩을 같은 20px 로 맞추면 스냅 기준이 안쪽으로 들어와 `scrollLeft` 가
+           0 에서 시작합니다. 손으로 스크롤한 뒤에도 각 카드가 20px 에 멈춥니다. */
         <ul
           aria-label="인기 스타일"
-          className="mt-4 -mx-5 flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-1 desktop:mx-0 desktop:grid desktop:grid-cols-3 desktop:gap-4 desktop:overflow-visible desktop:px-0"
+          className="mt-4 -mx-5 flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-1 scroll-px-5 desktop:mx-0 desktop:grid desktop:grid-cols-3 desktop:gap-4 desktop:overflow-visible desktop:px-0"
         >
           {picked.map((style) => (
             <li key={style.id} className="w-[60%] shrink-0 snap-start desktop:w-auto">
