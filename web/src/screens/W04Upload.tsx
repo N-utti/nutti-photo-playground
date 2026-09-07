@@ -532,12 +532,16 @@ function StyleContext({
     // 말하지 않습니다. 업로드 전에는 경고가 아니라 순서 안내입니다 — 랜딩의 주
     // CTA(FR-W01-02)가 스타일 없이 이 화면으로 보내므로, 도착하자마자 경고를
     // 띄우면 정상 경로를 실수처럼 보이게 만듭니다.
+    //
+    // 링크 하나뿐입니다. 예전엔 「스타일은 사진을 올린 뒤에 골라도 됩니다 · 먼저
+    // 고르기」 두 토막이었는데, 앞 문장은 «지금 안 골라도 된다» 는 설명이고 그건
+    // 화면이 이미 사진부터 받고 있다는 것으로 보입니다. 설명을 빼면 할 수 있는
+    // 일 하나만 남습니다 — 순서를 바꾸고 싶은 사람에게 문 하나.
     if (afterUpload) return null
     return (
-      <div className="mb-4 flex items-center justify-between gap-2 text-sm text-ink-3">
-        <span className="truncate">스타일은 사진을 올린 뒤에 골라도 됩니다</span>
-        <Link to={withReuse('/styles', fromJobId)} className="shrink-0 underline hover:text-brand">
-          먼저 고르기
+      <div className="mb-4 text-sm text-ink-3">
+        <Link to={withReuse('/styles', fromJobId)} className="underline hover:text-brand">
+          스타일 먼저 고르기
         </Link>
       </div>
     )
