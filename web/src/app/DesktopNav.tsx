@@ -19,7 +19,7 @@
  * 에서는 앱바의 h1 이 그 자리를 맡습니다. 한 화면에 h1 하나입니다.
  *
  * 로고 링크 **밖**에 둡니다. 이름까지 눌러서 홈으로 가면 «누른 게 뭔지» 가 흐려집니다.
- * 구분 기호 `/` 는 장식이라 읽지 않습니다 — 읽히면 «누띠 놀이터 슬래시 크레딧 받기».
+ * 사이의 세로 선은 장식이라 읽지 않습니다(`aria-hidden`).
  *
  * 그 전에는 **로고 | 크레딧 · 계정** 뿐이었습니다. 가운데 탭 목록(홈·만들기·보관함)과 누띠샵을
  * 걷어냈습니다 — 홈은 로고가 겸하고(원페이지 갤러리), 만들기는 스타일을 눌러 들어가며,
@@ -120,16 +120,21 @@ export default function DesktopNav() {
         </Link>
 
         {/*
-          로고와 같은 줄, 같은 크기, 보통 굵기의 `ink-2` — 로고보다 한 단 뒤로 물러서
-          «어디의 무엇» 으로 읽힙니다. 왼쪽은 `-ml-3` 으로 당겨 로고와 한 덩어리가 되게
-          합니다(GNB 의 `gap-6` 은 오른쪽 배지 묶음과의 간격입니다).
+          구분은 글자 `/` 가 아니라 **1px 세로 선**입니다(Linear 문서 헤더 실측: 로고
+          높이와 같은 20px 선, 양쪽 12px, 낮은 대비의 선 색, 제목은 로고와 같은 색의
+          중간 굵기). `/` 는 GitHub 처럼 «경로의 다음 칸» 으로 읽히고, 글자라 굵고
+          짧아서 로고와 이름 사이에 얹힌 얼룩처럼 보였습니다. 선은 높이를 로고 글자
+          (`text-base`, 16px)에 맞추고 색은 `rule-strong` — 앱의 다른 구분선과 같은 색.
+
+          왼쪽은 `-ml-3` 으로 당겨 선 양쪽이 12px 씩 같게 합니다(GNB 의 `gap-6` 은
+          오른쪽 배지 묶음과의 간격입니다). 이름은 `ink` 중간 굵기 — 흐리게 하지
+          않습니다. 로고가 갈색이라 검정 이름은 색으로 이미 구분되고, 흐리면 «비활성»
+          으로 읽힙니다.
         */}
         {title && (
-          <div className="-ml-3 flex items-center gap-2 text-base text-ink-2">
-            <span aria-hidden className="text-rule-strong">
-              /
-            </span>
-            <h1 className="font-medium">{title}</h1>
+          <div className="-ml-3 flex items-center gap-3 text-base">
+            <span aria-hidden className="h-4 w-px bg-rule-strong" />
+            <h1 className="font-medium text-ink">{title}</h1>
           </div>
         )}
 
