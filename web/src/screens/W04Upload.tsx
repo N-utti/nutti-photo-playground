@@ -1079,7 +1079,7 @@ function PetNameNotice({
           onSaved={onPetSaved}
           variant="inline"
           title="아이 이름을 넣어 주세요"
-          hint="이 스타일은 그림에 이름이 인쇄돼요. 저장하면 다음에 올 때 이 사진으로 바로 시작할 수 있어요."
+          hint="이 스타일은 그림에 이름이 인쇄돼요. 저장하면 다음번에 이 사진으로 바로 시작할 수 있어요."
         />
       )}
     </section>
@@ -1091,8 +1091,8 @@ function SavePetForm({
   uploadId,
   onSaved,
   variant = 'standalone',
-  title = '이 강아지 저장하기',
-  hint = '다음에 올 때 이 사진으로 바로 시작할 수 있어요.',
+  title = '내 강아지 저장하기',
+  hint = '다음번에 이 사진으로 바로 시작할 수 있어요.',
 }: {
   uploadId: string
   onSaved: (petId: string) => void
