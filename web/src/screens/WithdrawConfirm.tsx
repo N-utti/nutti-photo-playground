@@ -60,15 +60,24 @@ export default function WithdrawConfirm({ onClose }: { onClose: () => void }) {
         type="button"
         disabled={withdraw.isPending}
         onClick={() =>
-          withdraw.mutate(undefined, {
-            /*
-              랜딩으로 보냅니다(이슈 #123 3번). `replace` 인 이유는 뒤로가기로 마이페이지에
-              돌아오면 그 화면이 «회원» 을 전제로 그려지기 때문입니다 — 지금은 게스트라
-              GuestPanel 이 뜨겠지만, 방금 지운 계정의 화면으로 되돌아가는 동선 자체를
-              남기지 않습니다.
-            */
-            onSuccess: () => navigate('/', { replace: true }),
-          })
+          /*
+            랜딩으로 보냅니다(이슈 #123 3번). `replace` 인 이유는 뒤로가기로 마이페이지에
+            돌아오면 그 화면이 «회원» 을 전제로 그려지기 때문입니다 — 지금은 게스트라
+            GuestPanel 이 뜨겠지만, 방금 지운 계정의 화면으로 되돌아가는 동선 자체를
+            남기지 않습니다.
+
+            `mutate(…, { onSuccess })` 가 아니라 `mutateAsync().then` 인 이유: 성공하면
+            `useWithdraw` 가 캐시를 비우고, 그 순간 마이페이지가 로딩 골격으로 바뀌며 이
+            창(회원 섹션 안)이 내려갑니다. react-query 는 내려간 컴포넌트의 `mutate` 콜백을
+            버리므로 이동이 거기 걸려 있으면 사라질 수 있습니다 — 로그아웃이 실제로 그랬습니다
+            (PR #303). 지금은 캐시 비우기가 동기라 순서상 살아남지만, 훅에 `await` 하나만
+            들어가도 깨지는 구조라 promise 로 뺍니다. 실패는 `withdraw.isError` 가 아래에서
+            그리므로 여기서는 삼킵니다.
+          */
+          withdraw.mutateAsync().then(
+            () => navigate('/', { replace: true }),
+            () => {},
+          )
         }
         className="mt-4 w-full rounded-xl bg-danger px-4 py-3 text-sm font-semibold text-paper hover:brightness-110 motion-safe:active:scale-[0.99] disabled:opacity-50"
       >
