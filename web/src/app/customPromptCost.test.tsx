@@ -1,5 +1,5 @@
 /**
- * 커스텀 프롬프트 비용을 말하는 **세 화면이 같은 값을 말하는지** (app/customPromptCost.ts).
+ * 커스텀 프롬프트 비용을 말하는 **화면들이 같은 값을 말하는지** (app/customPromptCost.ts).
  *
  * 막으려는 결함은 화면 하나짜리가 아닙니다. 이 숫자는 W-02 카탈로그 하단 링크 · W-04
  * 업로드 후 링크 · W-08 만들기 버튼의 **문장 안에** 들어 있었고, 값의 출처가 프론트
@@ -9,21 +9,23 @@
  * 없었습니다(이슈 #149 → PR #151 이 `GET /v1/credits` 에 노출).
  *
  * 그래서 여기서 보는 것은 «2 가 어디에도 안 박혀 있는가» 입니다. 서버가 3 이라고 하면
- * 세 화면 전부 3 이라고 말해야 하고, 아직 모르면 **아무 숫자도 말하지 않아야** 합니다.
- * 화면 파일 셋 중 하나만 고치는 실수가 정확히 이 파일에서 걸립니다.
+ * 화면 전부 3 이라고 말해야 하고, 아직 모르면 **아무 숫자도 말하지 않아야** 합니다.
+ * 화면 파일 중 하나만 고치는 실수가 정확히 이 파일에서 걸립니다.
+ *
+ * 지금 남은 자리는 둘입니다 — 홈 스타일 목록 끝 카드(app/CustomPromptEntry.tsx)와 W-08
+ * 만들기 버튼. W-04 업로드 후 링크는 뺐습니다(홈 카드 하나로 충분하고, W-08 은 사진을
+ * 세션 초안에서 읽어 어디서 들어가든 따라갑니다).
  */
 
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
-import { Route, Routes } from 'react-router'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { renderWithProviders } from '../test/render'
 import { server } from '../test/server'
 import { writeUploadDraft } from '../api/uploadDraft'
 import { initialCredits } from '../mocks/fixtures'
 import W01Landing from '../screens/W01Landing'
-import W04Upload from '../screens/W04Upload'
 import W08Creative from '../screens/W08Creative'
 
 /** 목을 화면 없이 직접 부를 때의 오리진 (test/mockReset.test.ts 와 같은 이유). */
@@ -61,27 +63,6 @@ function withPhoto() {
   })
 }
 
-/**
- * W-04 의 링크는 **스타일을 아직 안 고른** 확인 단계에만 뜹니다(사진부터 올린 경로).
- * 그래서 `style_id` 없이 렌더하고 사진을 실제로 올려야 그 자리에 도달합니다.
- */
-async function renderUploadWithPhoto() {
-  const { container } = renderWithProviders(
-    <Routes>
-      <Route path="/upload" element={<W04Upload />} />
-    </Routes>,
-    { route: '/upload' },
-  )
-  const input = container.querySelector('input[type="file"]')
-  expect(input).not.toBeNull()
-  await userEvent.upload(
-    input as HTMLInputElement,
-    new File(['x'], 'dog.jpg', { type: 'image/jpeg' }),
-  )
-  // 목이 품질 체크 체감으로 700ms 를 씁니다(mocks/handlers.ts).
-  await screen.findByRole('link', { name: /스타일 고르기/ }, { timeout: 5000 })
-}
-
 beforeEach(() => {
   sessionStorage.clear()
 })
@@ -90,15 +71,6 @@ describe('커스텀 프롬프트 비용 · 서버가 말한 값', () => {
   it('홈 갤러리 링크가 서버 값을 그대로 적는다', async () => {
     mockCost(3)
     renderWithProviders(<W01Landing />, { route: '/' })
-
-    expect(
-      await screen.findByRole('link', { name: '직접 만들기 · 3 크레딧' }),
-    ).toBeInTheDocument()
-  })
-
-  it('W-04 링크가 서버 값을 그대로 적는다', async () => {
-    mockCost(3)
-    await renderUploadWithPhoto()
 
     expect(
       await screen.findByRole('link', { name: '직접 만들기 · 3 크레딧' }),
@@ -120,7 +92,7 @@ describe('커스텀 프롬프트 비용 · 서버가 말한 값', () => {
 })
 
 describe('커스텀 프롬프트 비용 · 모를 때', () => {
-  it('홈·W-04 링크는 모르는 동안 숫자를 지어내지 않는다', async () => {
+  it('홈 링크는 모르는 동안 숫자를 지어내지 않는다', async () => {
     /*
       로딩 중에 2 를 그려 두면 화면이 먼저 단정하고 나중에 정정합니다. 그 사이에
       누른 사람은 자기가 본 적 없는 값으로 결제합니다 — 비용이 빠진 라벨은 «모른다»
