@@ -96,6 +96,7 @@ describe('W-10 · 연동 흐름의 금액은 한 출처에서 나온다', () => 
     await user.click(await screen.findByRole('button', { name: '연동하기' }))
 
     expect(
+      // 문구 속 줄바꿈은 testing-library 가 공백 하나로 접어 비교합니다.
       screen.getByText('쇼핑몰 계정 연동은 회원만 할 수 있어요. 로그인 후 연동하면 +5 크레딧을 받아요.'),
     ).toBeInTheDocument()
   })

@@ -257,7 +257,7 @@ export default function EarnActionList() {
           */
           description={
             loginSheet === 'link'
-              ? `쇼핑몰 계정 연동은 회원만 할 수 있어요. 로그인 후 연동하면 ${creditAmountPhrase(linkAmount)}을 받아요.`
+              ? `쇼핑몰 계정 연동은 회원만 할 수 있어요.\n로그인 후 연동하면 ${creditAmountPhrase(linkAmount)}을 받아요.`
               : GUEST_EARN_DESCRIPTION
           }
         />

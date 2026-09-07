@@ -119,7 +119,8 @@ describe('크레딧 배지', () => {
     const dialog = await screen.findByRole('dialog', { name: '누띠 놀이터 계정으로 이어서' })
     expect(dialog).toBeInTheDocument()
     // 획득 줄에서 뜬 시트와 같은 이유로 뜬 같은 창 — 같은 말을 해야 합니다.
-    expect(screen.getByText(GUEST_EARN_DESCRIPTION)).toBeInTheDocument()
+    // testing-library 는 노드 텍스트의 공백을 접어 비교하므로 문구 속 줄바꿈도 접어 넘깁니다.
+    expect(screen.getByText(GUEST_EARN_DESCRIPTION.replace('\n', ' '))).toBeInTheDocument()
     expect(window.location.pathname).not.toBe('/credits')
   })
 
