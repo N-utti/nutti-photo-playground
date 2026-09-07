@@ -15,7 +15,6 @@ import { useLocation } from 'react-router'
 import { ApiError, isApiError } from '../api/client'
 import { useAuthorizeRedirect, useLocalAuth } from '../api/queries'
 import { rememberAuthReturn } from '../app/authReturn'
-import { authWelcomeBalance, authWelcomeMessage } from '../app/authWelcome'
 import { BrandLockup } from '../app/BrandLockup'
 import FloatingField from '../app/FloatingField'
 import { formatRetryAfter } from '../app/retryAfter'
@@ -165,8 +164,6 @@ export default function AccountSheet({
   // 세 화면 모두에서 가려진 배경 버튼에 키보드가 닿습니다.
   const dialogRef = useModalDialog<HTMLDivElement>(onClose)
 
-  const done = localAuth.data
-
   function startSocial(provider: SocialProvider) {
     // 프로바이더로 나갔다가 /auth/callback 으로 돌아오는 전체 페이지 이동이라,
     // 지금 화면 주소를 남겨 두지 않으면 돌아올 곳을 잃습니다.
@@ -187,7 +184,12 @@ export default function AccountSheet({
       setFormError(`비밀번호는 ${PASSWORD_MIN}~${PASSWORD_MAX}자로 입력해 주세요.`)
       return
     }
-    localAuth.mutate({ mode, email: trimmed, password })
+    /*
+      성공하면 시트가 그냥 닫힙니다. 예전엔 「로그인됐어요 · 보유 크레딧 N개」 단계가
+      한 번 더 있었는데, 뒤 화면의 계정 자리와 크레딧 배지가 이미 같은 말을 하고 있어서
+      «계속하기» 한 번이 순수한 추가 클릭이었습니다.
+    */
+    localAuth.mutate({ mode, email: trimmed, password }, { onSuccess: onClose })
   }
 
   return (
@@ -206,276 +208,253 @@ export default function AccountSheet({
         tabIndex={-1}
         className="relative max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-surface p-5 outline-none desktop:max-w-sm desktop:rounded-2xl"
       >
-        {done ? (
-          <>
-            <h2 id="account-sheet-title" className="text-lg font-bold">
-              로그인됐어요
-            </h2>
-            {/*
-              문구는 소셜 로그인 모달과 한 벌입니다(app/authWelcome.ts). 같은 사건에
-              대한 같은 알림인데 여기만 손대면 앱이 두 가지로 말하게 됩니다.
-            */}
-            <p className="mt-1 text-sm text-ink-2">{authWelcomeMessage(done.merged)}</p>
-            <p className="mt-1 text-sm text-ink-2">{authWelcomeBalance(done.credit_balance)}</p>
+        {/*
+          **「누띠」는 쇼핑몰 이름입니다.** 여기 뜨는 계정은 놀이터의 것이고 둘은
+          별개인데(마이페이지의 「쇼핑몰 연동」이 그 증거입니다), 이름이 「누띠」에서
+          끊기면 시트가 쇼핑몰 로그인으로 읽힙니다. 그래서 읽어 주는 이름도 앱바·랜딩과
+          같은 「누띠 놀이터」까지 갑니다.
+        */}
+        <h2 id="account-sheet-title" className="sr-only">
+          누띠 놀이터 계정으로 이어서
+        </h2>
+        {/*
+          머리는 랜딩·GNB 와 **같은 잠금 문구**입니다(app/BrandLockup.tsx). 예전엔 여기만
+          워드마크 혼자 섰고, 바로 그 자리 주석이 «앱바에선 옆에 「놀이터」가 붙어 한
+          덩어리지만, 여기서는 혼자 섭니다» 라고 적혀 있었습니다.
+
+          앱바가 쓰는 `text-base` 보다 키운 이유는 여기가 시트의 유일한 머리이기
+          때문입니다(마크 14px → 21px). 크기는 한 값으로만 정합니다 — 마크와 「놀이터」의
+          비율은 잠금 문구가 스스로 지킵니다.
+
+          위아래 여백은 **로고를 머리로 세우려고** 넉넉히 줍니다. `mt-10` 은 시트 안쪽
+          여백(`p-5` = 20px)에 40px 을 더해 60px 을 만듭니다 — 예전 28px(`mt-2`)에서는
+          워드마크가 둥근 상단 모서리에 붙어 갑갑했습니다. 아래로는 버튼 묶음의 `mt-8` 이
+          32px 을 냅니다. **12px 이 아니라 32px 이어야 하는 이유**는 버튼끼리의 간격이
+          `space-y-3`(12px)이기 때문입니다 — 로고 아래가 그와 같으면 로고가 머리가 아니라
+          «버튼 목록의 첫 칸» 처럼 읽힙니다. 위(60px)를 아래(32px)보다 크게 둬서 로고가
+          위로 떠 있지 않고 시트 머리로 앉게 합니다.
+
+          **카드 패딩(`p-5`)은 건드리지 않습니다.** 갑갑함의 원인은 좌우가 아니라 로고의
+          세로 여백이었고, 패딩을 키우면 옆구리까지 같이 벌어집니다.
+        */}
+        <BrandLockup decorative className="mt-10 justify-center text-2xl" />
+        {/* `whitespace-pre-line` — 문구 속 줄바꿈을 그대로 그립니다. 진입점이 «이유 문장 +
+            결과 문장» 두 문장을 줄을 바꿔 넘기는데, 그걸 접으면 둘째 문장이 시트 폭에서
+            어중간한 곳에서 꺾입니다(app/CreditBadge.tsx GUEST_EARN_DESCRIPTION). */}
+        {description && (
+          <p className="mt-3 text-center text-sm whitespace-pre-line text-ink-2">{description}</p>
+        )}
+
+        {/*
+          누른 쪽만 «진행 중»으로 보여야 합니다. 두 버튼이 `authorize` 라는 mutation
+          하나를 공유하므로 `isPending` 은 카카오를 눌러도 네이버 자리에서 true 입니다 —
+          예전엔 그걸 `disabled:opacity-50` 으로 받아서 **안 누른 쪽까지 같이 흐려졌고**,
+          폰에서는 두 개가 같이 눌린 것처럼 보였습니다. 어느 쪽을 눌렀는지는 mutation 의
+          `variables`(= 넘긴 provider)가 알고 있으니 그걸로 가릅니다.
+
+          `disabled` 는 둘 다 그대로 둡니다 — 프로바이더로 나가는 중에 다른 쪽을 눌러
+          OAuth 를 두 번 시작하는 것은 막아야 합니다. 못 누르는 티를 색으로 내지 않을
+          뿐이고, 어차피 1초 안에 페이지가 넘어갑니다.
+        */}
+        {/*
+          버튼 높이 52px = `py-3.5`(14px) 두 번 + `text-base` 의 행간 24px.
+
+          44px 이었습니다. WCAG 의 탭 타깃 **하한**이지 목표가 아니고, 무엇보다 같은
+          앱의 주 버튼(W-01 「사진 올리고 무료로 1장 만들기」)이 이미 52px 이라 로그인만
+          작을 근거가 없었습니다. 레이블도 그 버튼과 같은 16px 로 맞춥니다.
+        */}
+        <div className="mt-8 space-y-3">
+          {SOCIAL.map((social) => {
+            const busy = authorize.isPending && authorize.variables === social.provider
+            return (
+              <button
+                key={social.provider}
+                type="button"
+                disabled={authorize.isPending}
+                aria-busy={busy}
+                onClick={() => startSocial(social.provider)}
+                className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-base font-semibold ${busy ? 'opacity-50' : ''} ${social.className}`}
+              >
+                {/*
+                  `gap-2` = 8px 입니다. 네이버가 가운데 정렬일 때 규정한 그 값이고
+                  (카카오는 간격을 수치로 묶지 않습니다), 두 버튼을 같은 간격으로
+                  둡니다.
+
+                  심볼은 «이동 중…» 일 때도 남깁니다 — 같은 버튼이 상태만 바뀐
+                  것인데 로고가 사라지면 다른 버튼으로 갈아탄 것처럼 보입니다.
+
+                  `alt=""` 는 장식이라는 뜻입니다. 바로 옆 레이블이 이미 «카카오»·
+                  «네이버» 라고 말하므로, 대체 텍스트를 넣으면 스크린리더가 회사
+                  이름을 두 번 읽습니다.
+
+                  **버튼을 52px 로 키우면서도 심볼은 그대로 뒀습니다.** 키우고 싶은
+                  쪽이 자연스럽지만 카카오 심볼이 래스터(36×34 PNG)라 그럴 수 없습니다 —
+                  18px 로 두면 2배 화면에서 36 device px, 즉 원본과 1:1 입니다. 21px 로
+                  올리면 42px 을 36px 에서 늘리는 셈이라 흐려집니다. 네이버는 벡터라
+                  키울 수 있지만 혼자 키우면 위쪽 주석의 잉크 면적 균형(18 대 16)이
+                  깨져서 네이버만 커 보입니다. 둘 다 각 사 가이드의 하한 이상입니다.
+                */}
+                <img
+                  src={social.symbol}
+                  alt=""
+                  aria-hidden
+                  className={`shrink-0 ${social.symbolClass}`}
+                />
+                {busy ? '이동 중…' : social.label}
+              </button>
+            )
+          })}
+
+          {/*
+            이메일도 **같은 스택의 버튼 한 개**입니다 — 여기어때 로그인 화면과 같은
+            구성이고, 시트가 던지는 질문을 «수단을 고르세요» 하나로 만듭니다.
+
+            누르면 이 버튼이 사라지고 그 자리에 폼이 섭니다. 사라지는 트리거에
+            `aria-expanded` 를 달지 않는 이유는 그 값이 **항상 false 로만 읽히기**
+            때문입니다(펼친 순간 버튼이 없어짐). 대신 펼쳐진 첫 칸으로 포커스를
+            옮겨(`autoFocus`) 스크린리더가 새로 생긴 것을 읽게 합니다.
+
+            세로 여백만 `py-3.5`(14px)가 아니라 **13px** 입니다. 이 버튼에는 테두리가
+            있어서 위아래 1px 씩이 높이에 더해지고, 그대로 두면 소셜 둘은 52px 인데
+            이것만 54px 이 됩니다. 13 + 24(행간) + 13 + 2(테두리) = 52 로 맞춥니다.
+          */}
+          {!emailOpen && (
             <button
               type="button"
-              onClick={onClose}
-              className="mt-4 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99]"
+              onClick={() => setEmailOpen(true)}
+              className="w-full rounded-xl border border-rule-strong px-4 py-[13px] text-base font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand motion-safe:active:scale-[0.99]"
             >
-              계속하기
+              이메일로 계속하기
             </button>
-          </>
-        ) : (
+          )}
+        </div>
+
+        {authorize.isError && (
+          <p role="alert" className="mt-2 text-center text-sm text-danger">
+            {isApiError(authorize.error, 'ALREADY_MEMBER')
+              ? '이미 로그인되어 있어요.'
+              : '로그인 화면을 열지 못했어요. 잠시 뒤 다시 시도해 주세요.'}
+          </p>
+        )}
+
+        {emailOpen && (
           <>
-            {/*
-              **「누띠」는 쇼핑몰 이름입니다.** 여기 뜨는 계정은 놀이터의 것이고 둘은
-              별개인데(마이페이지의 「쇼핑몰 연동」이 그 증거입니다), 이름이 「누띠」에서
-              끊기면 시트가 쇼핑몰 로그인으로 읽힙니다. 그래서 읽어 주는 이름도 앱바·랜딩과
-              같은 「누띠 놀이터」까지 갑니다.
-            */}
-            <h2 id="account-sheet-title" className="sr-only">
-              누띠 놀이터 계정으로 이어서
-            </h2>
-            {/*
-              머리는 랜딩·GNB 와 **같은 잠금 문구**입니다(app/BrandLockup.tsx). 예전엔 여기만
-              워드마크 혼자 섰고, 바로 그 자리 주석이 «앱바에선 옆에 「놀이터」가 붙어 한
-              덩어리지만, 여기서는 혼자 섭니다» 라고 적혀 있었습니다.
-
-              앱바가 쓰는 `text-base` 보다 키운 이유는 여기가 시트의 유일한 머리이기
-              때문입니다(마크 14px → 21px). 크기는 한 값으로만 정합니다 — 마크와 「놀이터」의
-              비율은 잠금 문구가 스스로 지킵니다.
-
-              위아래 여백은 **로고를 머리로 세우려고** 넉넉히 줍니다. `mt-10` 은 시트 안쪽
-              여백(`p-5` = 20px)에 40px 을 더해 60px 을 만듭니다 — 예전 28px(`mt-2`)에서는
-              워드마크가 둥근 상단 모서리에 붙어 갑갑했습니다. 아래로는 버튼 묶음의 `mt-8` 이
-              32px 을 냅니다. **12px 이 아니라 32px 이어야 하는 이유**는 버튼끼리의 간격이
-              `space-y-3`(12px)이기 때문입니다 — 로고 아래가 그와 같으면 로고가 머리가 아니라
-              «버튼 목록의 첫 칸» 처럼 읽힙니다. 위(60px)를 아래(32px)보다 크게 둬서 로고가
-              위로 떠 있지 않고 시트 머리로 앉게 합니다.
-
-              **카드 패딩(`p-5`)은 건드리지 않습니다.** 갑갑함의 원인은 좌우가 아니라 로고의
-              세로 여백이었고, 패딩을 키우면 옆구리까지 같이 벌어집니다.
-            */}
-            <BrandLockup decorative className="mt-10 justify-center text-2xl" />
-            {/* `whitespace-pre-line` — 문구 속 줄바꿈을 그대로 그립니다. 진입점이 «이유 문장 +
-                결과 문장» 두 문장을 줄을 바꿔 넘기는데, 그걸 접으면 둘째 문장이 시트 폭에서
-                어중간한 곳에서 꺾입니다(app/CreditBadge.tsx GUEST_EARN_DESCRIPTION). */}
-            {description && (
-              <p className="mt-3 text-center text-sm whitespace-pre-line text-ink-2">{description}</p>
-            )}
-
-            {/*
-              누른 쪽만 «진행 중»으로 보여야 합니다. 두 버튼이 `authorize` 라는 mutation
-              하나를 공유하므로 `isPending` 은 카카오를 눌러도 네이버 자리에서 true 입니다 —
-              예전엔 그걸 `disabled:opacity-50` 으로 받아서 **안 누른 쪽까지 같이 흐려졌고**,
-              폰에서는 두 개가 같이 눌린 것처럼 보였습니다. 어느 쪽을 눌렀는지는 mutation 의
-              `variables`(= 넘긴 provider)가 알고 있으니 그걸로 가릅니다.
-
-              `disabled` 는 둘 다 그대로 둡니다 — 프로바이더로 나가는 중에 다른 쪽을 눌러
-              OAuth 를 두 번 시작하는 것은 막아야 합니다. 못 누르는 티를 색으로 내지 않을
-              뿐이고, 어차피 1초 안에 페이지가 넘어갑니다.
-            */}
-            {/*
-              버튼 높이 52px = `py-3.5`(14px) 두 번 + `text-base` 의 행간 24px.
-
-              44px 이었습니다. WCAG 의 탭 타깃 **하한**이지 목표가 아니고, 무엇보다 같은
-              앱의 주 버튼(W-01 「사진 올리고 무료로 1장 만들기」)이 이미 52px 이라 로그인만
-              작을 근거가 없었습니다. 레이블도 그 버튼과 같은 16px 로 맞춥니다.
-            */}
-            <div className="mt-8 space-y-3">
-              {SOCIAL.map((social) => {
-                const busy = authorize.isPending && authorize.variables === social.provider
-                return (
-                  <button
-                    key={social.provider}
-                    type="button"
-                    disabled={authorize.isPending}
-                    aria-busy={busy}
-                    onClick={() => startSocial(social.provider)}
-                    className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-base font-semibold ${busy ? 'opacity-50' : ''} ${social.className}`}
-                  >
-                    {/*
-                      `gap-2` = 8px 입니다. 네이버가 가운데 정렬일 때 규정한 그 값이고
-                      (카카오는 간격을 수치로 묶지 않습니다), 두 버튼을 같은 간격으로
-                      둡니다.
-
-                      심볼은 «이동 중…» 일 때도 남깁니다 — 같은 버튼이 상태만 바뀐
-                      것인데 로고가 사라지면 다른 버튼으로 갈아탄 것처럼 보입니다.
-
-                      `alt=""` 는 장식이라는 뜻입니다. 바로 옆 레이블이 이미 «카카오»·
-                      «네이버» 라고 말하므로, 대체 텍스트를 넣으면 스크린리더가 회사
-                      이름을 두 번 읽습니다.
-
-                      **버튼을 52px 로 키우면서도 심볼은 그대로 뒀습니다.** 키우고 싶은
-                      쪽이 자연스럽지만 카카오 심볼이 래스터(36×34 PNG)라 그럴 수 없습니다 —
-                      18px 로 두면 2배 화면에서 36 device px, 즉 원본과 1:1 입니다. 21px 로
-                      올리면 42px 을 36px 에서 늘리는 셈이라 흐려집니다. 네이버는 벡터라
-                      키울 수 있지만 혼자 키우면 위쪽 주석의 잉크 면적 균형(18 대 16)이
-                      깨져서 네이버만 커 보입니다. 둘 다 각 사 가이드의 하한 이상입니다.
-                    */}
-                    <img
-                      src={social.symbol}
-                      alt=""
-                      aria-hidden
-                      className={`shrink-0 ${social.symbolClass}`}
-                    />
-                    {busy ? '이동 중…' : social.label}
-                  </button>
-                )
-              })}
-
-              {/*
-                이메일도 **같은 스택의 버튼 한 개**입니다 — 여기어때 로그인 화면과 같은
-                구성이고, 시트가 던지는 질문을 «수단을 고르세요» 하나로 만듭니다.
-
-                누르면 이 버튼이 사라지고 그 자리에 폼이 섭니다. 사라지는 트리거에
-                `aria-expanded` 를 달지 않는 이유는 그 값이 **항상 false 로만 읽히기**
-                때문입니다(펼친 순간 버튼이 없어짐). 대신 펼쳐진 첫 칸으로 포커스를
-                옮겨(`autoFocus`) 스크린리더가 새로 생긴 것을 읽게 합니다.
-
-                세로 여백만 `py-3.5`(14px)가 아니라 **13px** 입니다. 이 버튼에는 테두리가
-                있어서 위아래 1px 씩이 높이에 더해지고, 그대로 두면 소셜 둘은 52px 인데
-                이것만 54px 이 됩니다. 13 + 24(행간) + 13 + 2(테두리) = 52 로 맞춥니다.
-              */}
-              {!emailOpen && (
-                <button
-                  type="button"
-                  onClick={() => setEmailOpen(true)}
-                  className="w-full rounded-xl border border-rule-strong px-4 py-[13px] text-base font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand motion-safe:active:scale-[0.99]"
-                >
-                  이메일로 계속하기
-                </button>
-              )}
+            <div className="my-4 flex items-center gap-3 text-xs text-ink-3">
+              <span className="h-px flex-1 bg-rule" />
+              또는 이메일로
+              <span className="h-px flex-1 bg-rule" />
             </div>
 
-            {authorize.isError && (
+            {/* 탭이 아니라 한 폼 + 모드 전환입니다 — 입력한 이메일을 유지한 채 넘어갑니다. */}
+            <div role="tablist" aria-label="이메일 로그인 방식" className="flex gap-1 text-sm">
+              {(['login', 'register'] as const).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === value}
+                  onClick={() => {
+                    setMode(value)
+                    setFormError(null)
+                    localAuth.reset()
+                  }}
+                  className={`flex-1 rounded-xl px-3 py-2 font-semibold ${
+                    mode === value
+                      ? 'bg-brand text-paper'
+                      : 'border border-rule text-ink-2 hover:border-brand-2 hover:text-brand'
+                  }`}
+                >
+                  {value === 'login' ? '로그인' : '가입'}
+                </button>
+              ))}
+            </div>
+
+            {/*
+              **쇼핑몰 비밀번호를 넣게 되는 자리는 여기뿐입니다.**
+
+              소셜 둘은 계정이 자동으로 갈려서 오해해도 손해가 없습니다 — 카카오로
+              들어오면 그냥 놀이터 계정이 생깁니다. 이메일은 다릅니다. 누띠 쇼핑몰
+              회원이 자기 쇼핑몰 아이디·비밀번호를 넣으면 「로그인하지 못했어요」만
+              뜨고, 그 사람은 자기가 **틀린 비밀번호를 쳤다** 고 생각하지 다른 서비스에
+              로그인하려 했다고는 생각하지 않습니다.
+
+              그래서 시트 머리(늘 보이는 자리)가 아니라 폼을 펼쳤을 때만 답니다.
+              #257 이 걷어낸 것은 진입점 네 곳에서 글자만 다르게 반복되던 **값어치
+              설명**이었고, 이건 그게 아니라 «이 칸에 무엇을 넣는가» 입니다.
+            */}
+            <p className="mt-3 text-sm text-ink-3">누띠 쇼핑몰 계정과는 별개예요.</p>
+
+            <form onSubmit={submit} className="mt-3 space-y-2">
+              <FloatingField
+                label="이메일"
+                type="email"
+                /*
+              펼쳐지면서 마운트되는 칸이라 `autoFocus` 가 «펼친 순간» 과 정확히
+              같습니다. 시트는 이미 열려 있었고 사용자가 방금 「이메일로 계속하기」를
+              눌렀으므로, 포커스를 빼앗는 게 아니라 누른 결과로 데려가는 것입니다.
+            */
+                autoFocus
+                value={email}
+                onChange={(event) => setEmail(event.currentTarget.value)}
+                placeholder="example@email.com"
+                autoComplete="email"
+                maxLength={EMAIL_MAX}
+                required
+              />
+              <FloatingField
+                /*
+              가입일 때만 길이를 라벨에 답니다. 로그인 칸에 «8자 이상» 이 붙으면
+              이미 만든 비밀번호에 대한 조건처럼 읽혀서 거짓말이 됩니다.
+            */
+                label={mode === 'register' ? `비밀번호 (${PASSWORD_MIN}자 이상)` : '비밀번호'}
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.currentTarget.value)}
+                autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+                maxLength={PASSWORD_MAX}
+                required
+              />
+
+              {/*
+            이슈 #17 — MVP 에는 비밀번호 재설정도 이메일 인증도 없습니다. 가입 이메일의
+            소유를 증명할 방법이 없어 **분실 시 계정과 누적 크레딧을 되찾을 수단이
+            아예 없습니다**. 가입 버튼 위에 두는 이유: 누른 뒤에 알리면 고지가 아닙니다.
+          */}
+              {mode === 'register' && (
+                <p className="rounded-xl bg-surface-2 px-3 py-2 text-xs text-ink-2">
+                  지금은 비밀번호 찾기를 제공하지 않아요. 비밀번호를 잊으면 계정과 크레딧을
+                  되찾을 수 없으니 꼭 기억해 주세요.
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={localAuth.isPending}
+                className="w-full rounded-xl bg-brand px-4 py-3.5 text-base font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99] disabled:opacity-50"
+              >
+                {localAuth.isPending
+                  ? '처리 중…'
+                  : mode === 'register'
+                    ? '가입하고 시작하기'
+                    : '로그인'}
+              </button>
+            </form>
+
+            {(formError || localAuth.isError) && (
               <p role="alert" className="mt-2 text-center text-sm text-danger">
-                {isApiError(authorize.error, 'ALREADY_MEMBER')
-                  ? '이미 로그인되어 있어요.'
-                  : '로그인 화면을 열지 못했어요. 잠시 뒤 다시 시도해 주세요.'}
+                {formError ?? authErrorMessage(localAuth.error, mode)}
               </p>
             )}
-
-            {emailOpen && (
-              <>
-                <div className="my-4 flex items-center gap-3 text-xs text-ink-3">
-                  <span className="h-px flex-1 bg-rule" />
-                  또는 이메일로
-                  <span className="h-px flex-1 bg-rule" />
-                </div>
-
-                {/* 탭이 아니라 한 폼 + 모드 전환입니다 — 입력한 이메일을 유지한 채 넘어갑니다. */}
-                <div role="tablist" aria-label="이메일 로그인 방식" className="flex gap-1 text-sm">
-                  {(['login', 'register'] as const).map((value) => (
-                    <button
-                      key={value}
-                      type="button"
-                      role="tab"
-                      aria-selected={mode === value}
-                      onClick={() => {
-                        setMode(value)
-                        setFormError(null)
-                        localAuth.reset()
-                      }}
-                      className={`flex-1 rounded-xl px-3 py-2 font-semibold ${
-                        mode === value
-                          ? 'bg-brand text-paper'
-                          : 'border border-rule text-ink-2 hover:border-brand-2 hover:text-brand'
-                      }`}
-                    >
-                      {value === 'login' ? '로그인' : '가입'}
-                    </button>
-                  ))}
-                </div>
-
-                {/*
-                  **쇼핑몰 비밀번호를 넣게 되는 자리는 여기뿐입니다.**
-
-                  소셜 둘은 계정이 자동으로 갈려서 오해해도 손해가 없습니다 — 카카오로
-                  들어오면 그냥 놀이터 계정이 생깁니다. 이메일은 다릅니다. 누띠 쇼핑몰
-                  회원이 자기 쇼핑몰 아이디·비밀번호를 넣으면 「로그인하지 못했어요」만
-                  뜨고, 그 사람은 자기가 **틀린 비밀번호를 쳤다** 고 생각하지 다른 서비스에
-                  로그인하려 했다고는 생각하지 않습니다.
-
-                  그래서 시트 머리(늘 보이는 자리)가 아니라 폼을 펼쳤을 때만 답니다.
-                  #257 이 걷어낸 것은 진입점 네 곳에서 글자만 다르게 반복되던 **값어치
-                  설명**이었고, 이건 그게 아니라 «이 칸에 무엇을 넣는가» 입니다.
-                */}
-                <p className="mt-3 text-sm text-ink-3">누띠 쇼핑몰 계정과는 별개예요.</p>
-
-                <form onSubmit={submit} className="mt-3 space-y-2">
-                  <FloatingField
-                    label="이메일"
-                    type="email"
-                    /*
-                  펼쳐지면서 마운트되는 칸이라 `autoFocus` 가 «펼친 순간» 과 정확히
-                  같습니다. 시트는 이미 열려 있었고 사용자가 방금 「이메일로 계속하기」를
-                  눌렀으므로, 포커스를 빼앗는 게 아니라 누른 결과로 데려가는 것입니다.
-                */
-                    autoFocus
-                    value={email}
-                    onChange={(event) => setEmail(event.currentTarget.value)}
-                    placeholder="example@email.com"
-                    autoComplete="email"
-                    maxLength={EMAIL_MAX}
-                    required
-                  />
-                  <FloatingField
-                    /*
-                  가입일 때만 길이를 라벨에 답니다. 로그인 칸에 «8자 이상» 이 붙으면
-                  이미 만든 비밀번호에 대한 조건처럼 읽혀서 거짓말이 됩니다.
-                */
-                    label={mode === 'register' ? `비밀번호 (${PASSWORD_MIN}자 이상)` : '비밀번호'}
-                    type="password"
-                    value={password}
-                    onChange={(event) => setPassword(event.currentTarget.value)}
-                    autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
-                    maxLength={PASSWORD_MAX}
-                    required
-                  />
-
-                  {/*
-                이슈 #17 — MVP 에는 비밀번호 재설정도 이메일 인증도 없습니다. 가입 이메일의
-                소유를 증명할 방법이 없어 **분실 시 계정과 누적 크레딧을 되찾을 수단이
-                아예 없습니다**. 가입 버튼 위에 두는 이유: 누른 뒤에 알리면 고지가 아닙니다.
-              */}
-                  {mode === 'register' && (
-                    <p className="rounded-xl bg-surface-2 px-3 py-2 text-xs text-ink-2">
-                      지금은 비밀번호 찾기를 제공하지 않아요. 비밀번호를 잊으면 계정과 크레딧을
-                      되찾을 수 없으니 꼭 기억해 주세요.
-                    </p>
-                  )}
-
-                  <button
-                    type="submit"
-                    disabled={localAuth.isPending}
-                    className="w-full rounded-xl bg-brand px-4 py-3.5 text-base font-semibold text-paper hover:bg-brand-deep motion-safe:active:scale-[0.99] disabled:opacity-50"
-                  >
-                    {localAuth.isPending
-                      ? '처리 중…'
-                      : mode === 'register'
-                        ? '가입하고 시작하기'
-                        : '로그인'}
-                  </button>
-                </form>
-
-                {(formError || localAuth.isError) && (
-                  <p role="alert" className="mt-2 text-center text-sm text-danger">
-                    {formError ?? authErrorMessage(localAuth.error, mode)}
-                  </p>
-                )}
-              </>
-            )}
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="mt-2 w-full py-2 text-sm text-ink-3 hover:text-ink"
-            >
-              나중에 하기
-            </button>
           </>
         )}
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-2 w-full py-2 text-sm text-ink-3 hover:text-ink"
+        >
+          나중에 하기
+        </button>
       </div>
     </div>
   )

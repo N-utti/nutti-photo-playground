@@ -13,13 +13,20 @@
  * 하고, 확인하고 나면 다음 시도까지 15분을 기다려야 합니다.
  */
 
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, delay, http } from 'msw'
 import { describe, expect, it, vi } from 'vitest'
+import { useCredits } from '../api/queries'
 import { renderWithProviders } from '../test/render'
 import { server } from '../test/server'
 import AccountSheet from './AccountSheet'
+
+/** 뒤 화면의 크레딧 배지 자리 — 로그인 뒤 잔액이 어디서 오는지 보여 주는 최소 조각. */
+function Balance() {
+  const { data } = useCredits()
+  return <p>잔액 {data?.balance ?? '?'}</p>
+}
 
 /**
  * 이메일 폼을 펼칩니다.
@@ -314,28 +321,42 @@ describe('AccountSheet · 병합하면 게스트 크레딧이 사라진다', () 
 
       목을 그대로 지나갑니다(`server.use` 로 응답을 지어내지 않음). 지어내면 화면이
       숫자를 그리는지만 확인되고, 정작 「목이 그 상태를 만들 수 있는가」는 그대로 남습니다.
+
+      시트는 성공하면 그냥 닫히므로(「로그인됐어요」 단계가 없습니다) 잔액은 뒤 화면의
+      크레딧 조회로 봅니다 — 실제 앱에서 사용자가 보는 자리도 그 배지입니다.
     */
     const user = userEvent.setup()
-    renderWithProviders(<AccountSheet onClose={vi.fn()} />)
+    const onClose = vi.fn()
+    renderWithProviders(
+      <>
+        <Balance />
+        <AccountSheet onClose={onClose} />
+      </>,
+    )
 
     await submitForm(user, { password: 'nutti1234' })
 
-    expect(await screen.findByText('로그인됐어요')).toBeInTheDocument()
+    await waitFor(() => expect(onClose).toHaveBeenCalled())
     // 게스트 기본 잔액은 11 입니다(fixtures `initialCredits`). 병합이면 그 값이 아니어야 합니다.
-    expect(screen.getByText('보유 크레딧 3개')).toBeInTheDocument()
-    expect(screen.queryByText('보유 크레딧 11개')).not.toBeInTheDocument()
+    expect(await screen.findByText('잔액 3')).toBeInTheDocument()
   })
 
   it('가입은 승격이라 게스트 잔액이 그대로 따라온다', async () => {
     // 같은 행이 회원이 되는 것이라 크레딧이 살아남습니다 — 위와 갈리는 유일한 지점입니다.
     const user = userEvent.setup()
-    renderWithProviders(<AccountSheet onClose={vi.fn()} />)
+    const onClose = vi.fn()
+    renderWithProviders(
+      <>
+        <Balance />
+        <AccountSheet onClose={onClose} />
+      </>,
+    )
 
     await openEmail(user)
     await user.click(screen.getByRole('tab', { name: '가입' }))
     await submitForm(user, { email: 'new@nutti.co.kr' })
 
-    expect(await screen.findByText('로그인됐어요')).toBeInTheDocument()
-    expect(screen.getByText('보유 크레딧 11개')).toBeInTheDocument()
+    await waitFor(() => expect(onClose).toHaveBeenCalled())
+    expect(await screen.findByText('잔액 11')).toBeInTheDocument()
   })
 })
