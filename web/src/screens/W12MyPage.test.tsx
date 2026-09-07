@@ -18,27 +18,25 @@
 
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { HttpResponse, http } from 'msw'
+import { HttpResponse, delay, http } from 'msw'
 import { Route, Routes } from 'react-router'
 import { describe, expect, it } from 'vitest'
 import { renderWithProviders } from '../test/render'
 import { server } from '../test/server'
 import W12MyPage from './W12MyPage'
 
+const MEMBER = {
+  member_id: '8f14e457-4d09-41c2-9d70-1a2b3c4d5e6f',
+  kind: 'member',
+  email: 'kong@nutti.co.kr',
+  nickname: '콩이엄마',
+  providers: ['kakao'],
+  cafe24_linked: false,
+  credit_balance: 11,
+}
+
 function asMember() {
-  server.use(
-    http.get('*/v1/auth/me', () =>
-      HttpResponse.json({
-        member_id: '8f14e457-4d09-41c2-9d70-1a2b3c4d5e6f',
-        kind: 'member',
-        email: 'kong@nutti.co.kr',
-        nickname: '콩이엄마',
-        providers: ['kakao'],
-        cafe24_linked: false,
-        credit_balance: 11,
-      }),
-    ),
-  )
+  server.use(http.get('*/v1/auth/me', () => HttpResponse.json(MEMBER)))
 }
 
 /**
@@ -155,7 +153,25 @@ describe('W-12 · 로그아웃', () => {
       로그아웃은 되돌릴 수 없는 동작이 아니라(결과·크레딧은 계정에 그대로) 한 번 더
       묻지 않습니다. 확인 창이 다시 생기면 이 검사가 «랜딩에 도착하지 않음» 으로 잡습니다.
     */
-    asMember()
+    /*
+      회원 응답은 **한 번만** 덮어씁니다(`once`). 로그아웃이 캐시를 무효화하면 `/auth/me`
+      가 다시 읽히는데, 그때는 목의 실제 상태(새 게스트)가 와야 합니다 — 영구히 회원으로
+      덮어 두면 로그아웃 섹션이 화면에 그대로 남아, 섹션이 사라진 뒤에도 이동이 되는지를
+      이 검사가 못 봅니다. 실제로 그 경로에서 이동이 빠져 있었습니다.
+    */
+    server.use(
+      http.get('*/v1/auth/me', () => HttpResponse.json(MEMBER), { once: true }),
+      /*
+        강아지 목록은 느리게. 로그아웃은 캐시 전부를 무효화하고 그 재조회가 **다 끝나기를
+        기다리는데**, 계정 조회가 먼저 돌아와 회원 섹션이 사라진 뒤에도 느린 조회 하나가
+        남아 있는 게 실제 서버의 흔한 순서입니다. 그 사이 로그아웃 버튼이 있던 컴포넌트가
+        내려가면 mutate() 에 넘긴 콜백은 버려집니다(react-query 규칙).
+      */
+      http.get('*/v1/pets', async () => {
+        await delay(300)
+        return HttpResponse.json({ items: [] })
+      }),
+    )
     const user = userEvent.setup()
     renderWithProviders(
       <Routes>
