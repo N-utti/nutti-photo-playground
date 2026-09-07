@@ -144,4 +144,29 @@ describe.each(CASES)('$name', (testCase) => {
     // 잠금이 남으면 시트를 닫은 뒤 화면 전체가 스크롤되지 않습니다.
     expect(document.body.style.overflow).not.toBe('hidden')
   })
+
+  it('잠글 때 사라지는 스크롤바 폭만큼 오른쪽을 메워 화면이 움찔하지 않는다', async () => {
+    /*
+      jsdom 은 레이아웃이 없어 clientWidth 가 0 입니다. 실제 브라우저처럼 «창 1024px 에
+      스크롤바 17px» 인 상태를 흉내 냅니다. 훅은 잠그기 전에 이 차이를 재야 합니다 —
+      숨긴 뒤에는 스크롤바가 없어 차이가 0 이 됩니다.
+    */
+    const root = document.documentElement
+    const original = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth')
+    Object.defineProperty(root, 'clientWidth', { configurable: true, value: window.innerWidth - 17 })
+    try {
+      const { view } = await openSheet(testCase)
+
+      expect(document.body.style.paddingRight).toBe('17px')
+
+      view.unmount()
+
+      // 여백이 남으면 시트를 닫은 뒤 화면이 반대로 움찔합니다.
+      expect(document.body.style.paddingRight).toBe('')
+    } finally {
+      // @ts-expect-error — 인스턴스에 덮어쓴 것을 걷어 프로토타입의 getter 로 되돌립니다.
+      delete root.clientWidth
+      if (original) Object.defineProperty(HTMLElement.prototype, 'clientWidth', original)
+    }
+  })
 })
