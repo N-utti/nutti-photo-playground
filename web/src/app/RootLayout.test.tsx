@@ -14,7 +14,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, waitFor } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import RootLayout from './RootLayout'
 
 const SITE_NAME = '누띠 사진 놀이터'
@@ -42,11 +42,12 @@ function renderAt(initialEntry: string) {
     { initialEntries: [initialEntry] },
   )
 
-  return render(
+  render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <RouterProvider router={router} />
     </QueryClientProvider>,
   )
+  return router
 }
 
 describe('document.title', () => {
@@ -80,5 +81,42 @@ describe('document.title', () => {
     await waitFor(() => expect(document.title).toBe(`스타일 · ${SITE_NAME}`))
 
     expect(document.title).not.toBe(library)
+  })
+})
+
+describe('화면이 바뀌면 스크롤을 맨 위로 (ScrollToTop)', () => {
+  // jsdom 은 scrollTo 를 구현하지 않습니다 — 불렸는지만 봅니다.
+  const scrollTo = vi.fn()
+  window.scrollTo = scrollTo
+  afterEach(() => scrollTo.mockClear())
+
+  it('다른 화면으로 가면 맨 위로 올린다 — 로그아웃 뒤 홈이 중간부터 보이던 것', async () => {
+    const router = renderAt('/library')
+    await waitFor(() => expect(document.title).toContain('보관함'))
+
+    await router.navigate('/', { replace: true })
+
+    await waitFor(() => expect(scrollTo).toHaveBeenCalledWith(0, 0))
+  })
+
+  it('홈 위에 스타일 시트를 열고 닫을 때는 그리드 자리를 지킨다', async () => {
+    const router = renderAt('/')
+    await waitFor(() => expect(document.title).toBe(SITE_NAME))
+
+    await router.navigate('/styles/3')
+    await router.navigate('/')
+
+    expect(scrollTo).not.toHaveBeenCalled()
+  })
+
+  it('뒤로가기는 브라우저의 자리 복원에 맡긴다', async () => {
+    const router = renderAt('/')
+    await router.navigate('/library')
+    await waitFor(() => expect(scrollTo).toHaveBeenCalledTimes(1))
+
+    await router.navigate(-1)
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/'))
+    expect(scrollTo).toHaveBeenCalledTimes(1)
   })
 })

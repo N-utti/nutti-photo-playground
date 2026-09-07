@@ -11,8 +11,8 @@
  * 카드이고, 왜 그렇게 바뀌었는지는 app/SessionNotice.tsx 앞머리에 있습니다.
  */
 
-import { useEffect } from 'react'
-import { Outlet } from 'react-router'
+import { useEffect, useRef } from 'react'
+import { Outlet, useLocation, useNavigationType } from 'react-router'
 import { useRouteTitle } from './routeTitle'
 import DesktopNav from './DesktopNav'
 import JobStatusBar from './JobStatusBar'
@@ -24,6 +24,7 @@ export default function RootLayout() {
   return (
     <>
       <DocumentTitle />
+      <ScrollToTop />
       {/* 그리는 것이 없습니다 — 회원 세션이 끊긴 순간 게스트로 내려앉히는 배선입니다.
           여기 있는 이유는 위 둘과 같습니다: 어느 화면에서든 끊길 수 있습니다. */}
       <SessionRecovery />
@@ -80,6 +81,40 @@ function DocumentTitle() {
   useEffect(() => {
     document.title = label ? `${label} · ${SITE_NAME}` : SITE_NAME
   }, [label])
+
+  return null
+}
+
+/** 홈과 그 위에 뜨는 W-03 스타일 시트 — 주소는 둘이지만 사용자에게는 한 화면입니다. */
+function isCatalog(pathname: string): boolean {
+  return pathname === '/' || pathname.startsWith('/styles/')
+}
+
+/**
+ * 화면이 바뀌면 맨 위에서 시작합니다.
+ *
+ * SPA 는 주소가 바뀌어도 문서가 그대로라 스크롤이 남습니다 — 마이페이지를 끝까지 내려
+ * 로그아웃하면 홈이 **중간부터** 보였습니다. 브라우저가 페이지를 새로 열 때 하는 일을
+ * 여기서 대신합니다.
+ *
+ * 두 경우는 건드리지 않습니다:
+ *   - 뒤로/앞으로(POP) — 브라우저가 떠났던 자리를 스스로 되돌립니다. 위로 덮어쓰면
+ *     긴 목록에서 돌아온 사람이 처음부터 다시 내려야 합니다
+ *   - 홈 ↔ 스타일 시트 — 시트는 홈의 자식 라우트라 뒤 그리드가 살아 있고(app/routes.tsx),
+ *     카드를 눌러 열고 닫는 동안 그 자리를 지키는 게 그 배치의 이유입니다
+ */
+function ScrollToTop() {
+  const { pathname } = useLocation()
+  const navigationType = useNavigationType()
+  const previous = useRef(pathname)
+
+  useEffect(() => {
+    const from = previous.current
+    previous.current = pathname
+    if (from === pathname || navigationType === 'POP') return
+    if (isCatalog(from) && isCatalog(pathname)) return
+    window.scrollTo(0, 0)
+  }, [pathname, navigationType])
 
   return null
 }
