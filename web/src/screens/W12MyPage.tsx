@@ -54,7 +54,7 @@ export default function W12MyPage() {
 
   return (
     <div className="screen-min-h bg-paper pb-16">
-      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 desktop:px-7 py-3 desktop:static desktop:border-0 desktop:bg-transparent">
+      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-rule bg-surface px-5 desktop:px-7 py-3 desktop:hidden">
         <BackButton fallback={back} />
         <h1 className="text-base font-bold">마이페이지</h1>
       </header>
