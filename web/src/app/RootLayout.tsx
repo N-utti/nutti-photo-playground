@@ -14,7 +14,6 @@
 import { useEffect } from 'react'
 import { Outlet } from 'react-router'
 import { useRouteTitle } from './routeTitle'
-import AuthWelcomeDialog from './AuthWelcomeDialog'
 import DesktopNav from './DesktopNav'
 import JobStatusBar from './JobStatusBar'
 import SessionNotice from './SessionNotice'
@@ -38,12 +37,6 @@ export default function RootLayout() {
       {/* 화면 위에 떠 있는 것이라 흐름의 마지막에 둡니다 — 같은 z 인 탭바와 만나도
           이쪽이 위입니다. 붙이고 뗄 조건은 전부 그 안에 있습니다. */}
       <FloatingStatus />
-      {/*
-        소셜 로그인 복귀 알림(app/AuthWelcomeDialog.tsx). 여기 있는 이유는 위 둘과
-        같습니다 — 로그인을 누른 화면이 랜딩·결과·크레딧 어디든 될 수 있어서, 붙일
-        화면을 고르는 판단이 있으면 언젠가 한 곳이 빠집니다.
-      */}
-      <AuthWelcomeDialog />
     </>
   )
 }

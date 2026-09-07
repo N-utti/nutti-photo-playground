@@ -10,18 +10,18 @@
  * 2단계(ShopLinkSheet)라 페이지 이동이 없습니다.
  *
  * **성공은 여기서 그리지 않습니다.** 이 화면이 실제로 그리는 건 «확인 중» 과 실패
- * 셋뿐이고, 로그인이 확정되면 곧바로 로그인 직전 화면으로 되돌린 뒤 알림만 그 위에
- * 모달로 띄웁니다(app/authWelcome.ts 에 이유가 있습니다).
+ * 셋뿐이고, 로그인이 확정되면 곧바로 로그인 직전 화면으로 되돌립니다. 「로그인됐어요」
+ * 알림은 두지 않습니다 — 돌아간 화면의 계정 자리와 크레딧 배지가 이미 바뀌어 있고,
+ * 사용자가 연 적 없는 모달이 하던 일 위에 얹히는 쪽이 더 방해였습니다.
  */
 
-import { startTransition, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { isApiError } from '../api/client'
 import { auth } from '../api/endpoints'
 import { adoptMemberSession } from '../api/queries'
 import { takeAuthReturn } from '../app/authReturn'
-import { announceAuthWelcome } from '../app/authWelcome'
 import type { SocialProvider } from '../api/types'
 
 type Provider = SocialProvider
@@ -33,12 +33,6 @@ const PROVIDER_LABEL: Record<Provider, string> = {
   naver: '네이버',
 }
 
-interface CallbackOutcome {
-  merged: boolean
-  creditBalance: number
-  returnTo: string
-}
-
 /**
  * state 는 **일회성 nonce** 라 같은 값으로 두 번 부르면 두 번째는 무조건 401 입니다
  * (app/routers/auth.py — nonce 선소비 커밋). StrictMode 의 이중 마운트가 정확히 그
@@ -47,26 +41,22 @@ interface CallbackOutcome {
  * 실패한 약속도 지우지 않습니다 — 재시도해도 소비된 nonce 라 결과가 같고, 같은 401 을
  * 한 번 더 만들 뿐입니다. 회복 경로는 재시도가 아니라 "처음부터 다시 로그인"입니다.
  */
-const inFlight = new Map<string, Promise<CallbackOutcome>>()
+const inFlight = new Map<string, Promise<string>>()
 
 function runCallback(
   provider: Provider,
   code: string,
   state: string,
   client: QueryClient,
-): Promise<CallbackOutcome> {
+): Promise<string> {
   const key = `${provider}:${state}`
   const existing = inFlight.get(key)
   if (existing) return existing
 
-  const promise = (async (): Promise<CallbackOutcome> => {
+  const promise = (async (): Promise<string> => {
     const memberSession = await auth.socialCallback(provider, code, state)
     await adoptMemberSession(client, memberSession)
-    return {
-      merged: memberSession.merged,
-      creditBalance: memberSession.credit_balance,
-      returnTo: takeAuthReturn('/'),
-    }
+    return takeAuthReturn('/')
   })()
 
   inFlight.set(key, promise)
@@ -90,22 +80,11 @@ export default function AuthCallback() {
     if (!provider || denied || !code || !state) return
     let alive = true
     runCallback(provider, code, state, client).then(
-      (result) => {
+      (returnTo) => {
         if (!alive) return
-        /*
-          둘을 `startTransition` 으로 묶습니다. 사용자에게는 «복귀 화면 + 그 위의 알림»
-          이 하나의 장면이지만, 알림은 평범한 setState 고 라우터 이동은 그렇지 않아서
-          그냥 나란히 부르면 **커밋이 갈립니다** — 아직 «확인 중…» 스피너가 떠 있는
-          위에 모달이 먼저 뜨고 뒤 화면이 나중에 갈리는 순간이 실제로 나옵니다.
-          한 전환 안에 넣으면 같은 커밋에 들어가 한 번만 움직입니다.
-
-          이동은 `replace` 입니다 — 콜백 주소를 히스토리에 남기면 뒤로가기가 이미 소비된
-          nonce 로 되돌아가 «로그인 정보가 만료됐어요» 를 띄웁니다.
-        */
-        startTransition(() => {
-          announceAuthWelcome({ merged: result.merged, creditBalance: result.creditBalance })
-          navigate(result.returnTo, { replace: true })
-        })
+        // `replace` 입니다 — 콜백 주소를 히스토리에 남기면 뒤로가기가 이미 소비된
+        // nonce 로 되돌아가 «로그인 정보가 만료됐어요» 를 띄웁니다.
+        navigate(returnTo, { replace: true })
       },
       (cause) => alive && setError(cause),
     )

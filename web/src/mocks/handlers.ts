@@ -1259,11 +1259,10 @@ export const handlers = [
     }
     /*
       기본은 **승격**(merged: false) 입니다 — 목에는 «이미 있는 회원» 이 없으니까요.
-      그런데 그 탓에 소셜 복귀 알림(app/AuthWelcomeDialog.tsx)의 두 문장 중 병합 쪽이
-      브라우저에서 한 번도 뜨지 않았습니다. 이메일 로그인은 `/auth/login` 이 늘
-      `merged: true` 라 시트에서 그 문장을 볼 수 있는데, 같은 문구를 쓰는 소셜 경로만
-      도달 불가였던 것입니다. `auth:merge` 가 그 갈래를 밟게 해 줍니다 — 잔액도 함께
-      `MERGED_ACCOUNT_BALANCE` 로 갈리므로 «게스트 크레딧은 안 따라온다» 까지 보입니다.
+      그런데 그 탓에 소셜 경로의 병합 갈래가 브라우저에서 한 번도 밟히지 않았습니다.
+      이메일 로그인은 `/auth/login` 이 늘 `merged: true` 인데, 소셜만 도달 불가였던
+      것입니다. `auth:merge` 가 그 갈래를 밟게 해 줍니다 — 잔액이 `MERGED_ACCOUNT_BALANCE`
+      로 갈리므로 복귀 화면의 크레딧 배지에서 «게스트 크레딧은 안 따라온다» 가 보입니다.
     */
     const merged = scenario() === 'auth:merge'
     return HttpResponse.json(promoteToMember({ provider, nickname: '콩이엄마', merged }))
