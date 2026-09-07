@@ -14,12 +14,13 @@
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
-import { Route, Routes } from 'react-router'
+import { Route, Routes, useNavigate } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { renderWithProviders } from '../test/render'
 import { server } from '../test/server'
 import type { StyleDetail } from '../api/types'
 import W04Upload from './W04Upload'
+import { readUploadDraft } from '../api/uploadDraft'
 
 /**
  * 스타일 상세만 덮어씁니다 — 업로드·펫·크레딧은 기본 목 그대로 답합니다.
@@ -436,5 +437,72 @@ describe('W-04 · 견종 선택', () => {
     // 목록 밖 값이라 «직접 입력» 이 열린 채로 그 값이 들어 있습니다.
     expect(screen.getByLabelText('견종')).toHaveValue('__custom__')
     expect(screen.getByLabelText('견종 직접 입력')).toHaveValue('시고르자브종')
+  })
+})
+
+describe('W-04 · 확인 단계는 히스토리 한 칸', () => {
+  /*
+    사용자에게 뒤로가기는 «직전 화면» 이어야 합니다. 사진을 올리면 화면이 통째로
+    바뀌는데(선택 → 확인), 거기서 ← 나 브라우저 뒤로가기를 누르면 앱 밖으로 나가는
+    게 아니라 사진을 올리기 전 선택 화면이 나와야 합니다. 그래서 확인 단계로 넘어갈 때
+    같은 주소로 한 칸을 push 합니다(W04Upload enterConfirm).
+
+    브라우저 뒤로가기는 메모리 라우터에서 `navigate(-1)` 입니다 — 화면 옆에 그걸 부르는
+    버튼을 하나 붙여 흉내 냅니다(BackButton 은 window.history 의 idx 를 보므로 여기서는
+    폴백으로 빠집니다).
+  */
+  function BrowserBack() {
+    const navigate = useNavigate()
+    return (
+      <button type="button" onClick={() => navigate(-1)}>
+        브라우저 뒤로가기
+      </button>
+    )
+  }
+
+  function renderWithBack(query = '') {
+    return renderWithProviders(
+      <Routes>
+        <Route
+          path="/upload"
+          element={
+            <>
+              <W04Upload />
+              <BrowserBack />
+            </>
+          }
+        />
+      </Routes>,
+      { route: `/upload?style_id=7${query}` },
+    )
+  }
+
+  it('사진을 올린 뒤 뒤로가기는 사진을 올리기 전 선택 화면이다', async () => {
+    mockStyle()
+    const { container } = renderWithBack()
+    await uploadPhoto(container)
+    expect(readUploadDraft()).not.toBeNull()
+
+    await userEvent.click(screen.getByRole('button', { name: '브라우저 뒤로가기' }))
+
+    // 확인 단계의 것들이 사라지고 선택 화면의 업로드 자리가 돌아옵니다.
+    expect(await screen.findByText('탭해서 사진 올리기')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /이대로 만들기/ })).not.toBeInTheDocument()
+    // 되감은 사진은 초안에서도 걷어냅니다 — 남기면 다음 방문에 되살아납니다.
+    expect(readUploadDraft()).toBeNull()
+  })
+
+  it('재사용으로 처음부터 확인 단계에 들어온 항목은 되감을 선택 화면이 없다', async () => {
+    /*
+      `from_job` 진입은 사진을 이어받은 채 시작합니다. 그 항목에는 «사진 올리기 전» 이
+      없으므로 이 화면 안에서 사진을 걷어낼 일이 없어야 합니다 — 걷어내면 결과 화면에서
+      «이 사진으로 다른 스타일» 을 누른 사람이 빈 업로드 화면을 봅니다.
+    */
+    mockStyle()
+    mockReuseJob(null)
+    renderWithBack(`&from_job=${REUSE_JOB_ID}`)
+
+    expect(await screen.findByRole('button', { name: /이대로 만들기/ })).toBeInTheDocument()
+    expect(screen.queryByText('탭해서 사진 올리기')).not.toBeInTheDocument()
   })
 })
