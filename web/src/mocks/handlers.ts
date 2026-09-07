@@ -40,6 +40,7 @@ import {
   libraryItems,
   petList,
   placeholderImage,
+  POPULAR_CODES,
   styleCatalog,
   styleCatalogNoImages,
   styleDetailFor,
@@ -1421,8 +1422,18 @@ export const handlers = [
         인기 카드가 **한 섹션 안에서만** 뽑히므로, 실서버에서 다른 스타일이 오는데도
         목에서는 아무 문제가 안 보입니다. `count` 도 자른 뒤 길이여야 화면의
         "N개"가 실제로 그린 카드 수와 맞습니다.
+
+        **카탈로그 앞에서 자르지 않고 아래 목록을 씁니다.** `slice(0, n)` 이던 때는
+        목의 인기 세 장이 마침 카탈로그 첫 세 장과 같았고, 그래서 두 가지가 가려졌습니다:
+        (1) 홈에서 진열대와 그리드 맨 앞이 판박이로 보였고, (2) «인기를 서버에 따로
+        물었는가» 를 검사할 방법이 없었습니다 — 카탈로그를 잘라 쓰는 구현도 똑같이
+        그려졌으니까요. 실서버의 정렬 상위는 섹션에 흩어져 있는 것이 정상이므로,
+        목도 서로 다른 섹션에서 골라 그 조건을 재현합니다.
       */
-      const top = catalog.sections.flatMap((s) => s.styles).slice(0, limit ?? 12)
+      const all = catalog.sections.flatMap((s) => s.styles)
+      const top = POPULAR_CODES.map((code) => all.find((s) => s.code === code))
+        .filter((style): style is NonNullable<typeof style> => style !== undefined)
+        .slice(0, limit ?? 12)
       return HttpResponse.json({
         sections: [{ name: '인기', count: top.length, styles: top }],
         total_count: catalog.total_count,

@@ -11,21 +11,21 @@
 
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
-import { styleCatalog } from '../mocks/fixtures'
+import { POPULAR_CODES, styleCatalog } from '../mocks/fixtures'
 import { renderWithProviders } from '../test/render'
-import { server } from '../test/server'
 import W01Landing from './W01Landing'
 
 /**
  * 카드를 **전체 그리드 안에서만** 셉니다.
  *
- * 진열대(화면 위 「인기 스타일로 시작하기」)와 전체 그리드는 같은 카드를 겹쳐 그립니다 —
- * 의도된 겹침이라(W01Landing.tsx `PickedShelf`) 화면 전체에서 「레고」를 찾으면 링크가 둘이고,
- * 「이름 인쇄」 배지도 3D 피규어 몫이 두 번 세어집니다. 더 나쁜 건 그게 **경합**이라는
- * 점입니다: 진열대와 카탈로그는 별개 요청이라, 화면 전체를 세면 «먼저 도착한 쪽만
- * 그려진 순간» 을 잡아 숫자가 그때그때 달라집니다. 목록을 지정하면 그 순간이 사라집니다.
+ * 진열대(화면 위 「인기 스타일로 시작하기」)에 걸린 스타일은 아래 그리드에도 그대로
+ * 있습니다 — 「전체 스타일」이 말 그대로 전부여야 하기 때문입니다. 그래서 화면 전체에서
+ * 「거울셀카」를 찾으면 링크가 둘입니다.
+ *
+ * 더 나쁜 건 그게 **경합**이라는 점입니다: 진열대와 카탈로그는 별개 요청이라, 화면 전체를
+ * 세면 «먼저 도착한 쪽만 그려진 순간» 을 잡아 숫자가 그때그때 달라집니다. 목록을 지정하면
+ * 그 순간이 사라집니다.
  */
 const styleGrid = () => screen.findByRole('list', { name: '스타일 목록' })
 
@@ -139,20 +139,31 @@ describe('W-01 홈 · 카드 비용 표기', () => {
  *
  * 여기서 지키는 것은 문구가 아니라 **어디서 온 데이터인가** 입니다. 이미 받아 둔
  * 카탈로그의 앞 세 개를 잘라 쓰면 그건 «첫 번째 섹션의 상위» 라서 실서버가 주는 «전체의
- * 상위» 와 다릅니다 — 목이 그 차이를 재현하도록 `section=popular` 을 따로 다룹니다
- * (mocks/handlers.ts). 시드 정렬 상위 3 은 3D_피규어 · 레고 · 프라모델입니다.
+ * 상위» 와 다릅니다 — 목이 그 차이를 재현하도록 `section=popular` 을 따로 다루고,
+ * 돌려주는 세 장(`POPULAR_CODES`)도 **서로 다른 섹션에서** 고릅니다.
  */
 describe('W-01 홈 · 진열대(인기 스타일)', () => {
-  it('배지 아래에 세 장이 서고, 전체 그리드와 겹쳐도 각각 제 목록에 있다', async () => {
+  it('배지 아래에 서버가 준 세 장이 선다', async () => {
     renderWithProviders(<W01Landing />, { route: '/' })
 
     const shelf = await screen.findByRole('list', { name: '인기 스타일' })
     const picked = await within(shelf).findAllByRole('link')
-    expect(picked).toHaveLength(3)
-    expect(picked.map((link) => link.textContent ?? '').some((t) => t.includes('레고'))).toBe(true)
+    expect(picked).toHaveLength(POPULAR_CODES.length)
 
-    // 겹침은 의도입니다 — 진열대에 있어도 전체 그리드에서 사라지지 않아야 합니다.
-    expect(await within(await styleGrid()).findByRole('link', { name: /레고/ })).toBeInTheDocument()
+    const labels = picked.map((link) => link.textContent ?? '')
+    for (const code of POPULAR_CODES) {
+      expect(labels.some((label) => label.includes(code.replace(/_/g, ' ')))).toBe(true)
+    }
+  })
+
+  it('진열대에 올라간 카드도 전체 그리드에서 사라지지 않는다', async () => {
+    // 「전체 스타일 39」는 말 그대로 전부입니다 — 진열대에 걸렸다고 목록에서 빼면
+    // 그 스타일을 찾던 사람이 «전체» 에서 못 찾습니다.
+    renderWithProviders(<W01Landing />, { route: '/' })
+
+    const grid = await styleGrid()
+    expect(within(grid).getAllByRole('link')).toHaveLength(styleCatalog.total_count)
+    expect(within(grid).getByRole('link', { name: /거울셀카/ })).toBeInTheDocument()
   })
 
   it('카테고리를 고르면 접힌다 — 안 그러면 필터가 거짓말이 된다', async () => {
@@ -176,35 +187,25 @@ describe('W-01 홈 · 진열대(인기 스타일)', () => {
 
   it('카탈로그를 자른 게 아니라 서버에 따로 물은 결과를 그린다', async () => {
     /*
-      이 한 건이 없으면 위 테스트들은 **잘라 쓰는 구현도 통과시킵니다.** 목의 기본
-      `popular` 응답이 마침 카탈로그 앞 3개와 같아서(둘 다 시드 정렬 상위) 화면이
-      구별되지 않기 때문입니다. 그래서 `section=popular` 응답만 카탈로그 **뒤쪽**으로
-      바꿔 둘을 갈라 세웁니다 — 진열대가 카탈로그를 자르고 있으면 여기서 빨간불이 뜹니다.
+      **이 한 건이 «잘라 쓰는 구현» 을 막습니다.** 진열대가 받아 둔 카탈로그의 앞 세 개를
+      slice 해서 쓰면 첫 섹션(피규어·장난감)의 3D 피규어·레고·프라모델이 나옵니다. 목이
+      돌려주는 인기 세 장은 서로 다른 섹션에서 골랐으므로(`POPULAR_CODES`) 두 구현이
+      화면에서 갈립니다 — 목을 덮어쓰지 않고도 검사할 수 있는 이유입니다.
 
-      실서버에서 둘이 갈리는 조건은 «정렬 상위가 여러 섹션에 흩어져 있을 때» 입니다.
-      지금 시드는 섹션이 통째로 이어 붙어 있어 그 조건을 못 만듭니다.
+      실서버에서 둘이 갈리는 조건이 바로 이것입니다: 정렬 상위가 여러 섹션에 흩어져
+      있을 때. 목이 그 조건을 재현하지 않으면 여기서만 통과하고 실서버에서 다른 카드가
+      뜹니다.
     */
-    const tail = styleCatalog.sections[styleCatalog.sections.length - 1].styles.slice(0, 3)
-    server.use(
-      http.get('*/v1/styles', ({ request }) => {
-        // 카탈로그 요청은 건드리지 않습니다 — 아무것도 반환하지 않으면 원래 핸들러로 넘어갑니다.
-        if (new URL(request.url).searchParams.get('section') !== 'popular') return
-        return HttpResponse.json({
-          sections: [{ name: '인기', count: tail.length, styles: tail }],
-          total_count: styleCatalog.total_count,
-        })
-      }),
-    )
-
     renderWithProviders(<W01Landing />, { route: '/' })
 
     const shelf = await screen.findByRole('list', { name: '인기 스타일' })
     const names = within(shelf)
       .getAllByRole('link')
       .map((link) => link.textContent ?? '')
-    expect(names.some((name) => name.includes(tail[0].name))).toBe(true)
-    // 카탈로그 앞쪽(피규어·장난감)은 진열대에 없어야 합니다.
-    expect(names.some((name) => name.includes('레고'))).toBe(false)
+    // 카탈로그 앞 세 개(첫 섹션 = 피규어·장난감)는 진열대에 없어야 합니다.
+    for (const sliced of ['3D 피규어', '레고', '프라모델']) {
+      expect(names.some((name) => name.includes(sliced))).toBe(false)
+    }
   })
 
   it('재사용 흐름에서는 진열대 카드도 from_job 을 이어받는다', async () => {

@@ -51,6 +51,25 @@ const BREED_CODES = new Set(['3D_피규어'])
  * 크기가 인자인 이유는 **비율이 화면을 가르기 때문**입니다 — 아래 두 상수 참고.
  * 기본값 정사각은 «비율이 상관없는 자리»(썸네일·예시)에만 씁니다.
  */
+/**
+ * 스타일 썸네일·예시의 주소. 시드가 실서버에 올리는 **그 사진**을 가리킵니다
+ * (`seeds/thumbnails/{code}.jpg` → `scripts/seed_styles.py` 가 `example_keys` 로 올림).
+ *
+ * 회색 자리표시자 대신 진짜 사진을 쓰는 이유는 로컬에서 «사진이 주인공인 화면» 을
+ * 실제로 봐야 하기 때문입니다 — 카드에서 테두리를 걷어내도 되는지가 썸네일 배경색에
+ * 달려 있었는데(흰 배경인 「띠부씰」·「이모티콘」은 크림 페이지에 녹습니다) 회색 네모만
+ * 보고는 알 수 없었습니다.
+ *
+ * 이 주소를 실제 파일로 바꿔 주는 것은 **dev 서버 플러그인**입니다(`vite.config.ts` 의
+ * `seedThumbnails`). 앞머리 문자열이 양쪽에 하나씩 있으니 한쪽을 고치면 다른 쪽도
+ * 고치세요 — 어긋나면 이미지가 통째로 404 입니다.
+ *
+ * 테스트(jsdom)는 이미지를 아예 안 불러오므로 여기서 무엇을 주든 영향이 없습니다.
+ */
+export function seedThumbnail(code: string): string {
+  return `/seed-thumbnails/${encodeURIComponent(code)}.jpg`
+}
+
 export function placeholderImage(
   label: string,
   tone = '#E1E2DC',
@@ -167,6 +186,20 @@ const SEED_SECTIONS: { name: string; codes: string[] }[] = [
 */
 const CODES_BY_FILENAME = SEED_SECTIONS.flatMap((section) => section.codes).sort()
 
+/**
+ * 목이 `?section=popular` 로 돌려주는 세 장 (W-01 진열대).
+ *
+ * **서로 다른 섹션에서 골랐습니다.** 실서버의 `popular` 은 `sort_order` 상위 N 이고 그
+ * 순서는 운영이 W-11 에서 정하므로, 상위가 한 섹션에 몰려 있으리라는 보장이 없습니다.
+ * 목이 카탈로그 앞에서 그냥 잘라 쓰던 때는 그 세 장이 첫 섹션(피규어·장난감)에서만
+ * 나왔고, 그래서 홈에서 진열대와 그리드 맨 앞이 판박이가 되는 것도 «인기를 서버에 따로
+ * 물었는가» 를 검사하지 못하는 것도 목 위에서는 안 보였습니다.
+ *
+ * 실서버에서 이 셋을 앞에 세우려면 여기가 아니라 **운영이 W-11 에서 `sort_order` 를**
+ * 조정해야 합니다. 이 상수는 목에만 영향을 줍니다.
+ */
+export const POPULAR_CODES = ['거울셀카', '색연필드로잉', '우리아이라떼아트'] as const
+
 export const styleCatalog: StyleCatalog = (() => {
   const sections = SEED_SECTIONS.map(({ name, codes }) => {
     const styles: StyleCard[] = codes.map((code) => ({
@@ -186,8 +219,11 @@ export const styleCatalog: StyleCatalog = (() => {
         주면 **목이 실서버보다 나쁜 상태**를 그리게 됩니다 — 예전과 정반대 방향의 거짓말.
         썸네일이 없는 상태는 계약상 아직 가능하므로(예시 이미지 없는 스타일) 시나리오
         `styles:no-images` 로 남겨 둡니다.
+
+        주소는 그 시드 파일을 그대로 가리킵니다(위 `seedThumbnail`) — 회색 자리표시자를
+        쓰던 때는 로컬에서 실서버와 **다른 그림**을 보며 레이아웃을 판단했습니다.
       */
-      thumbnail_url: placeholderImage(code.replace(/_/g, ' ')),
+      thumbnail_url: seedThumbnail(code),
       credit_cost: 1, // 시드는 전 스타일 1 로 넣습니다(운영이 DB 에서 조정).
       uses_pet_name: PET_NAME_CODES.has(code),
       uses_breed: BREED_CODES.has(code),
@@ -256,12 +292,14 @@ export function styleDetailFor(
         ? []
         : images === 'rich'
           ? [
-              placeholderImage(card.name),
+              // 첫 장은 카드 썸네일과 **같은 파일**이어야 합니다(위 규칙). 시드에는 스타일당
+              // 한 장뿐이라 나머지 다섯은 자리표시자로 «여러 장인 상태» 를 만듭니다.
+              seedThumbnail(card.code),
               ...Array.from({ length: 5 }, (_, i) =>
                 placeholderImage(`${card.name} 예시 ${i + 2}`),
               ),
             ]
-          : [placeholderImage(card.name)],
+          : [seedThumbnail(card.code)],
     /*
       시드는 `fit_tags` 를 안 건드립니다(모델 기본값 `[]`). PR #141 이 채운 건 썸네일
       뿐이라 **이건 여전히 빈 배열입니다** — 2026-08-24 실측으로 확인했습니다. 채우는
