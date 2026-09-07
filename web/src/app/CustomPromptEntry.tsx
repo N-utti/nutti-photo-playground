@@ -9,11 +9,15 @@
  * 프롬프트 목록 끝에 두는 블록(「원하는 프롬프트가 없나요? / 직접 만들어보세요 /
  * 직접 만들기」)과 같은 꼴입니다: 질문 · 한 줄 설명 · 버튼.
  *
- * 설명 줄은 W-08 입력창의 예시(「눈 오는 날 산책」)를 그대로 씁니다 — «글을 적는다»
- * 는 걸 예시 하나로 보여 주는 게 「문장으로」「프롬프트로」 같은 말보다 빠릅니다.
- * 390px 에서 한 줄에 들어가는 길이로 둡니다 — 「…한 줄만 적으면 그대로 만들어요」는
- * 마지막 한 글자가 다음 줄로 떨어졌습니다. 예시를 「」로 감싸지 않습니다 — UI 문구에
- * 「」·«» 는 쓰지 않습니다(사용자: «너무 AI 스럽다»). 조사 없이 «같은» 으로 잇습니다.
+ * 설명 줄은 **얼마나 적은 노력으로 무엇이 되는가** 를 말합니다 — 「한 줄이면 우리
+ * 강아지가 무엇이든 돼요」. 앞은 «한 줄» 이라는 값싼 입력, 뒤는 히어로의 「레고로,
+ * 초상화로, 프라모델로」 를 받는 «무엇이든». 예전엔 입력 예시(「눈 오는 날 산책 같은 한
+ * 줄이면 돼요」)로 «글을 적는다» 는 것만 말했는데, 그건 방법이지 이유가 아닙니다 —
+ * 사용자가 원한 건 «간단한 한 줄로 내 강아지를 변신시킬 수 있다» 는 느낌이었습니다.
+ * 예시는 W-08 입력창의 placeholder 가 이미 보여 줍니다.
+ *
+ * 390px 에서 한 줄에 들어가는 길이(19자)로 둡니다 — 21자짜리는 마지막 한 글자가 다음
+ * 줄로 떨어졌습니다. UI 문구에 「」·«» 는 쓰지 않습니다(사용자: «너무 AI 스럽다»).
  * 버튼 이름은 도착하는 화면 이름(routes.tsx 「직접 만들기」)과 같습니다.
  *
  * 비용은 버튼 안에만 적습니다(customPromptLinkLabel) — 모르는 동안은 숫자를 안 적는
@@ -35,7 +39,7 @@ export function CustomPromptEntry({
   return (
     <div className={`rounded-2xl bg-surface px-4 py-5 text-center ${className}`}>
       <p className="text-base font-semibold">원하는 스타일이 없나요?</p>
-      <p className="mt-1 text-sm text-ink-3">눈 오는 날 산책 같은 한 줄이면 돼요</p>
+      <p className="mt-1 text-sm text-ink-3">한 줄이면 우리 강아지가 무엇이든 돼요</p>
       <Link
         to={to}
         className="mt-3 inline-block rounded-full border border-rule-strong px-4 py-2 text-sm font-semibold hover:border-brand-2 hover:bg-brand-soft hover:text-brand motion-safe:active:scale-[0.99]"
