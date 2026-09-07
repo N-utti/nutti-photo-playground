@@ -97,12 +97,26 @@ export function useModalDialog<T extends HTMLElement>(onClose: () => void) {
     document.addEventListener('keydown', onKeyDown)
 
     // 뒤 화면이 같이 스크롤되면 «내가 뭘 움직인 거지» 가 됩니다(W-03 과 같은 처리).
+    //
+    // 잠그면 세로 스크롤바가 사라지고 그 폭(Windows 클래식 스크롤바 15~17px)만큼
+    // 본문이 넓어져서, 가운데 정렬된 화면 전체가 시트가 뜨는 순간 오른쪽으로 움찔하고
+    // 닫히면 되돌아옵니다. 사라진 폭을 body 오른쪽 여백으로 메워 폭을 그대로 둡니다.
+    // 스크롤바가 없거나(짧은 화면 · 오버레이 스크롤바) 폭이 0 이면 아무것도 안 합니다.
+    // jsdom 은 clientWidth 가 0 이라 innerWidth 전부가 스크롤바로 계산되는데, 실제
+    // 브라우저에서는 0 일 수 없으므로 그 경우도 건너뜁니다.
+    //
+    // **잠그기 전에** 재야 합니다 — 숨긴 뒤에는 clientWidth 가 이미 innerWidth 입니다.
+    const root = document.documentElement
+    const gutter = root.clientWidth > 0 ? window.innerWidth - root.clientWidth : 0
     const previousOverflow = document.body.style.overflow
+    const previousPaddingRight = document.body.style.paddingRight
+    if (gutter > 0) document.body.style.paddingRight = `${gutter}px`
     document.body.style.overflow = 'hidden'
 
     return () => {
       document.removeEventListener('keydown', onKeyDown)
       document.body.style.overflow = previousOverflow
+      document.body.style.paddingRight = previousPaddingRight
       // 이미 사라진 노드로는 못 돌아갑니다(로그인 후 화면이 바뀐 경우).
       if (restoreTo?.isConnected) restoreTo.focus()
     }
