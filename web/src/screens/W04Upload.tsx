@@ -745,7 +745,7 @@ function SavedPets({
                 type="button"
                 aria-pressed={selected}
                 aria-label={
-                  pet.latest_upload_id ? `${pet.name} — 최근 사진으로 바로 만들기` : pet.name
+                  pet.latest_upload_id ? `${pet.name}, 최근 사진으로 바로 만들기` : pet.name
                 }
                 onClick={() => onSelectPet(pet)}
                 className="group flex w-14 flex-col items-center gap-1"

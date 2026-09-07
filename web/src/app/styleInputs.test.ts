@@ -123,7 +123,7 @@ describe('fieldError', () => {
       괜찮다고 해 놓고 서버만 400 을 내는, 왕복 뒤에 뒤집히는 종류가 됩니다.
     */
     expect(fieldError(SERIAL, '0103')).toBeNull()
-    expect(fieldError(SERIAL, '01034')).toBe('형식이 맞지 않아요 — 생년월일 월일 4자리')
+    expect(fieldError(SERIAL, '01034')).toBe('형식이 맞지 않아요. 생년월일 월일 4자리')
     expect(fieldError(SERIAL, '엉뚱')).not.toBeNull()
   })
 

@@ -497,7 +497,7 @@ describe('W-06 · 저장·공유 버튼', () => {
       await user.click(await screen.findByRole('button', { name: '공유' }))
 
       expect(await screen.findByRole('alert')).toHaveTextContent(
-        '공유 시트가 열리기 전에 닫혔어요 — 한 번 더 눌러 주세요.',
+        '공유 시트가 열리기 전에 닫혔어요. 한 번 더 눌러 주세요.',
       )
       expect(imageFetches()).toBe(1)
 

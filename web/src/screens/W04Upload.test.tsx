@@ -268,7 +268,7 @@ describe('W-04 · 그림에 들어가는 이름', () => {
       그 사진은 이미 이 강아지에 붙어 있으므로(`source_image.pet_profile_id`)
       워커가 넣을 이름도 «콩이» 입니다 — 화면이 «우리 아이» 라고 하면 거짓말입니다.
     */
-    const chip = await screen.findByRole('button', { name: '콩이 — 최근 사진으로 바로 만들기' })
+    const chip = await screen.findByRole('button', { name: '콩이, 최근 사진으로 바로 만들기' })
     await userEvent.click(chip)
 
     /*
@@ -420,7 +420,7 @@ describe('W-04 · 견종 선택', () => {
     renderUpload()
 
     await userEvent.click(
-      await screen.findByRole('button', { name: '콩이 — 최근 사진으로 바로 만들기' }),
+      await screen.findByRole('button', { name: '콩이, 최근 사진으로 바로 만들기' }),
     )
 
     await screen.findByRole('button', { name: /이대로 만들기/ }, { timeout: 5000 })

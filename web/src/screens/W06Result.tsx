@@ -285,7 +285,7 @@ function ResultPanel({ job }: { job: Job }) {
       <Regenerate
         job={job}
         label="다시 만들기"
-        hint="결과는 매번 달라져요 — 마음에 안 들면 다시 만들어 보세요"
+        hint="결과는 매번 달라져요. 마음에 안 들면 다시 만들어 보세요"
       />
 
       {/* 출구 2 — 계산기(W-07 배선). */}
@@ -523,7 +523,7 @@ function ResultUnavailable({ sourceUrl, onRetry }: { sourceUrl: string; onRetry:
       <div role="status" className="mt-3 rounded-xl border border-warn/30 bg-warn-soft px-3 py-3">
         <p className="text-sm font-semibold text-warn">결과 이미지를 불러오지 못했어요</p>
         <p className="mt-0.5 text-sm text-ink-2">
-          만들기는 끝났어요 — 아래 버튼으로 다시 불러와 보세요.
+          만들기는 끝났어요. 아래 버튼으로 다시 불러와 보세요.
         </p>
         <button
           type="button"
@@ -847,7 +847,7 @@ function ShareRow({ job }: { job: Job }) {
         <p className="mt-2 text-center text-xs text-ink-3">
           {shareSheetAvailable
             ? '이미지를 저장했어요'
-            : '이미지를 저장했어요 — 인스타그램에서 올려 주세요'}
+            : '이미지를 저장했어요. 인스타그램에서 올려 주세요'}
         </p>
       )}
       {/*
@@ -886,7 +886,7 @@ function ShareRow({ job }: { job: Job }) {
       */}
       {downloadStarted && (
         <p role="status" className="mt-2 text-center text-xs text-ink-3">
-          다운로드를 시작했어요 — 갤러리의 다운로드 앨범이나 파일 앱에서 확인해 주세요.
+          다운로드를 시작했어요. 갤러리의 다운로드 앨범이나 파일 앱에서 확인해 주세요.
         </p>
       )}
       {/*
@@ -896,7 +896,7 @@ function ShareRow({ job }: { job: Job }) {
       */}
       {shareOutcome === 'expired' && (
         <p role="alert" className="mt-2 text-center text-sm text-danger">
-          공유 시트가 열리기 전에 닫혔어요 — 한 번 더 눌러 주세요.
+          공유 시트가 열리기 전에 닫혔어요. 한 번 더 눌러 주세요.
         </p>
       )}
       {shareOutcome === 'failed' && (

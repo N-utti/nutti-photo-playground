@@ -624,7 +624,7 @@ function BeforeAfterSlider() {
     >
       <img
         src={HERO_AFTER}
-        alt="변환 결과 예시 — 같은 흰 포메라니안이 파란 하늘을 나는 모습으로 바뀐 사진"
+        alt="변환 결과 예시. 같은 흰 포메라니안이 파란 하늘을 나는 모습으로 바뀐 사진"
         draggable={false}
         className="absolute inset-0 size-full object-cover"
       />
@@ -632,7 +632,7 @@ function BeforeAfterSlider() {
       <div className="absolute inset-0" style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}>
         <img
           src={HERO_BEFORE}
-          alt="원본 사진 예시 — 침대 위에 엎드린 흰 포메라니안 사진"
+          alt="원본 사진 예시. 침대 위에 엎드린 흰 포메라니안 사진"
           draggable={false}
           className="size-full object-cover"
         />

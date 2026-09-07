@@ -385,7 +385,7 @@ function keepsSessionOn401(path: string): boolean {
 function assertNotAdminPath(path: string): void {
   if (path !== '/admin' && !path.startsWith('/admin/')) return
   throw new Error(
-    `사용자 세션 클라이언트로 ${path} 를 부를 수 없습니다 — admin 토큰은 사용자 토큰과 ` +
+    `사용자 세션 클라이언트로 ${path} 를 부를 수 없습니다. admin 토큰은 사용자 토큰과 ` +
       '상호 배타라 401 이 사용자를 로그아웃시킵니다. W-11 콘솔은 별도 클라이언트를 씁니다 ' +
       '(web/README.md 의 W-11 운영 콘솔 절).',
   )
