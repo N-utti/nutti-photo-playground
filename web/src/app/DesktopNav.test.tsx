@@ -70,8 +70,10 @@ describe('데스크톱 GNB · 최소 내비', () => {
     // 이름은 로고 링크 밖입니다 — 이름을 눌러 홈으로 가면 «누른 게 뭔지» 가 흐려집니다.
     const home = screen.getAllByRole('link').find((a) => a.getAttribute('href') === '/')
     expect(home).not.toHaveTextContent('크레딧 받기')
-    // 구분 기호는 장식입니다 — 읽히면 «누띠 놀이터 슬래시 크레딧 받기».
-    expect(screen.getByText('/')).toHaveAttribute('aria-hidden')
+    // 로고와 이름 사이의 세로 선은 장식입니다 — 접근성 트리에 아무것도 남기지 않습니다.
+    const divider = screen.getByRole('heading', { level: 1 }).previousElementSibling
+    expect(divider).toHaveAttribute('aria-hidden')
+    expect(divider).toBeEmptyDOMElement()
   })
 
   it('홈에서는 로고 혼자 선다 — 스타일 시트가 위에 떠도 마찬가지', () => {
