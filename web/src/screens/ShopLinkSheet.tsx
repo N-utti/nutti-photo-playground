@@ -244,13 +244,17 @@ export default function ShopLinkSheet({ onClose }: { onClose: () => void }) {
             <h2 id="shop-link-sheet-title" className="text-lg font-bold">
               쇼핑몰 계정 연동
             </h2>
-            <p className="mt-1 text-sm text-ink-2">
-              {sent
-                ? '쇼핑몰에 등록된 휴대폰으로 인증번호를 보냈어요. 5분 안에 입력해 주세요.'
-                : mode === 'cellphone'
-                  ? '누띠 쇼핑몰에 가입할 때 쓴 휴대폰 번호를 입력하면 그 번호로 인증번호를 보내 드려요. 카카오·네이버로 가입했어도 번호만 있으면 돼요.'
-                  : '누띠 쇼핑몰 아이디를 입력하면 가입 때 등록한 휴대폰으로 인증번호를 보내 드려요.'}
-            </p>
+            {/*
+              보내기 전에는 설명이 없습니다. 입력칸 라벨(「쇼핑몰 가입 휴대폰 번호」 · 「쇼핑몰
+              아이디」)과 버튼(「인증번호 받기」)이 할 일을 다 말하고 있어서, 그걸 문장으로
+              한 번 더 읽어 주던 문단은 같은 정보의 세 번째 반복이었습니다. 보낸 뒤의 한 줄만
+              남깁니다 — 어디로 갔는지와 5분 제한은 입력칸이 말해 주지 않습니다.
+            */}
+            {sent && (
+              <p className="mt-1 text-sm text-ink-2">
+                쇼핑몰에 등록된 휴대폰으로 인증번호를 보냈어요. 5분 안에 입력해 주세요.
+              </p>
+            )}
 
             {sent ? (
               <form onSubmit={submitVerify} className="mt-4 space-y-2">
