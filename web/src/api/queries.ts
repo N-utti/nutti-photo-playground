@@ -131,7 +131,7 @@ export function useLogout() {
  * `clearSessionStatus()` 는 만료 배너를 내립니다. 탈퇴 시점에 서버가 토큰을 전부
  * 무효화하므로 그 직후 날아가던 요청이 401 로 떨어지면 «로그인이 만료됐어요» 가
  * 올라오는데, 사용자가 스스로 끝낸 계정을 두고 만료를 통보하는 꼴입니다
- * (LogoutConfirm 이 같은 이유로 같은 일을 합니다).
+ * (W12MyPage 의 로그아웃이 같은 이유로 같은 일을 합니다).
  */
 export function useWithdraw() {
   const client = useQueryClient()

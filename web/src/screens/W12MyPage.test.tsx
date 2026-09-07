@@ -149,6 +149,28 @@ describe('W-12 · 받은 내역 미리보기', () => {
   })
 })
 
+describe('W-12 · 로그아웃', () => {
+  it('확인 창 없이 바로 랜딩으로 간다', async () => {
+    /*
+      로그아웃은 되돌릴 수 없는 동작이 아니라(결과·크레딧은 계정에 그대로) 한 번 더
+      묻지 않습니다. 확인 창이 다시 생기면 이 검사가 «랜딩에 도착하지 않음» 으로 잡습니다.
+    */
+    asMember()
+    const user = userEvent.setup()
+    renderWithProviders(
+      <Routes>
+        <Route path="/me" element={<W12MyPage />} />
+        <Route path="/" element={<h1>랜딩</h1>} />
+      </Routes>,
+      { route: '/me' },
+    )
+
+    await user.click(await screen.findByRole('button', { name: '로그아웃' }))
+
+    expect(await screen.findByRole('heading', { name: '랜딩' })).toBeInTheDocument()
+  })
+})
+
 describe('W-12 · 게스트', () => {
   it('게스트에게는 관리 대신 로그인 한 걸음을 제안한다', async () => {
     /*

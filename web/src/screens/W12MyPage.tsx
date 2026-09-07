@@ -23,11 +23,12 @@
  */
 
 import { useState } from 'react'
-import { Link, useLocation } from 'react-router'
+import { Link, useLocation, useNavigate } from 'react-router'
 import {
   useCredits,
   useDeletePet,
   useLedger,
+  useLogout,
   useMe,
   usePets,
   useRenamePet,
@@ -40,10 +41,10 @@ import FloatingField from '../app/FloatingField'
 import { creditAmountPhrase, linkAccountCtaLabel, useEarnAmount } from '../app/earnAmount'
 import { amountTone, reasonLabel, shortDate, signedAmount } from '../app/ledgerFormat'
 import { memberInitial, memberLabel, PROVIDER_LABEL } from '../app/memberIdentity'
+import { clearSessionStatus } from '../app/sessionStatus'
 import { initialOf } from '../app/initials'
 import Thumbnail from '../app/Thumbnail'
 import AccountSheet from './AccountSheet'
-import LogoutConfirm from './LogoutConfirm'
 import ShopLinkSheet from './ShopLinkSheet'
 import WithdrawConfirm from './WithdrawConfirm'
 import type { Me, Pet } from '../api/types'
@@ -520,15 +521,36 @@ function ShopLinkSection({ me }: { me: Me }) {
 // ---------------------------------------------------------------- E · 로그아웃 · 탈퇴
 
 function DangerSection() {
-  const [logoutConfirm, setLogoutConfirm] = useState(false)
+  const navigate = useNavigate()
+  const logout = useLogout()
   const [withdrawConfirm, setWithdrawConfirm] = useState(false)
+
+  /*
+    로그아웃은 확인 창 없이 바로 랜딩으로 갑니다. 되돌릴 수 없는 동작이 아니라서
+    (결과·크레딧은 계정에 그대로, 다시 로그인하면 이어짐) 한 겹 더 묻지 않습니다.
+
+    `onSettled` 인 이유: 새 게스트 발급(`ensureSession`)이 실패해도 사용자에게 알릴
+    말이 없습니다 — 로컬 토큰은 이미 지워졌고 다음 요청이 다시 게스트를 세웁니다.
+    `clearSessionStatus()` 는 로그아웃 중 리프레시 회전이 401 로 끝나며 올라온
+    «로그인이 만료됐어요» 배너를 내립니다 — 스스로 끝낸 세션에 만료를 통보하는 꼴이라서.
+    `replace` 는 뒤로가기로 «회원» 전제의 이 화면에 돌아오지 않게 합니다.
+  */
+  function handleLogout() {
+    logout.mutate(undefined, {
+      onSettled: () => {
+        clearSessionStatus()
+        navigate('/', { replace: true })
+      },
+    })
+  }
 
   return (
     <section className="rounded-xl bg-surface px-4 py-2">
       <button
         type="button"
-        onClick={() => setLogoutConfirm(true)}
-        className="w-full py-3 text-left text-sm hover:text-brand"
+        disabled={logout.isPending}
+        onClick={handleLogout}
+        className="w-full py-3 text-left text-sm hover:text-brand disabled:opacity-50"
       >
         로그아웃
       </button>
@@ -549,7 +571,6 @@ function DangerSection() {
         회원 탈퇴
       </button>
 
-      {logoutConfirm && <LogoutConfirm onClose={() => setLogoutConfirm(false)} />}
       {withdrawConfirm && <WithdrawConfirm onClose={() => setWithdrawConfirm(false)} />}
     </section>
   )
