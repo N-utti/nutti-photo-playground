@@ -12,7 +12,8 @@
  */
 
 import { useEffect } from 'react'
-import { Outlet, useMatches } from 'react-router'
+import { Outlet } from 'react-router'
+import { useRouteTitle } from './routeTitle'
 import AuthWelcomeDialog from './AuthWelcomeDialog'
 import DesktopNav from './DesktopNav'
 import JobStatusBar from './JobStatusBar'
@@ -67,9 +68,6 @@ function FloatingStatus() {
 
 const SITE_NAME = '누띠 사진 놀이터'
 
-/** 라우트가 `handle.title` 로 선언한 이름 (routes.tsx). */
-type TitleHandle = { title?: string }
-
 /**
  * 주소가 바뀌면 `document.title` 도 바꿉니다.
  *
@@ -83,13 +81,8 @@ type TitleHandle = { title?: string }
  * 흩뿌리면 새 화면에서 빠뜨리기 쉽고, 빠뜨려도 티가 안 납니다.
  */
 function DocumentTitle() {
-  const matches = useMatches()
-  // 가장 깊은 매치부터 거슬러 올라가 첫 title 을 씁니다 — W-03 시트처럼 자식이
-  // 제목을 안 가진 경우 부모(카탈로그)의 제목이 그대로 남습니다.
-  const label = [...matches]
-    .reverse()
-    .map((match) => (match.handle as TitleHandle | undefined)?.title)
-    .find((title): title is string => Boolean(title))
+  // 데스크톱 GNB 가 로고 옆에 내거는 이름과 같은 값입니다(app/routeTitle.ts).
+  const label = useRouteTitle()
 
   useEffect(() => {
     document.title = label ? `${label} · ${SITE_NAME}` : SITE_NAME
