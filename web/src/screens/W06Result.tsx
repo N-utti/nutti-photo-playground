@@ -17,7 +17,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
-import { ApiError, isApiError } from '../api/client'
+import { ApiError, isApiError, sourceBlocked } from '../api/client'
 import { calculatorHeadline, estimateSummary } from '../api/calculatorLink'
 import { track } from '../app/analytics'
 import { beginJobAttempt, clearJobAttempt, resumeJobAttempt } from '../api/idempotency'
@@ -69,7 +69,7 @@ import {
   restoredInputValues,
 } from '../app/styleInputs'
 import Thumbnail from '../app/Thumbnail'
-import type { Job, JobErrorCode, ShareResult } from '../api/types'
+import type { Job, JobErrorCode, ShareResult, UploadIssue } from '../api/types'
 import AccountSheet from './AccountSheet'
 import InsufficientCreditOverlay from './InsufficientCreditOverlay'
 import JobUnavailable from './JobUnavailable'
@@ -959,6 +959,15 @@ function Regenerate({ job, label, hint }: { job: Job; label: string; hint?: stri
   const [insufficient, setInsufficient] = useState<{ required: number; balance: number } | null>(
     null,
   )
+  /*
+    이 사진이 **지금 정책에** 막힌 경우 (백엔드 PR #263 · FR-EDGE-08 개정).
+
+    업로드 때는 통과했지만(비전 검사 전 사진, 또는 그 뒤 바뀐 `no_dog_policy`) 재생성
+    요청이 400 `source_blocked` 로 돌아옵니다. 402 처럼 «받아 오면 풀리는» 실패가
+    아니라 이 사진으로는 끝난 것이라, 버튼을 살려 두면 눌러도 같은 400 만 돌아오는
+    막다른 길이 됩니다. 버튼을 내리고 다른 사진으로 가는 길을 둡니다.
+  */
+  const [blocked, setBlocked] = useState<UploadIssue | null>(null)
 
   /*
     스타일 입력 스키마 (이슈 #114 → #127 착지).
@@ -1139,6 +1148,11 @@ function Regenerate({ job, label, hint }: { job: Job; label: string; hint?: stri
           navigate(`/jobs/${job_id}/waiting`)
         },
         onError: (error) => {
+          const issue = sourceBlocked(error)
+          if (issue) {
+            setBlocked(issue)
+            return
+          }
           if (isApiError(error, 'INSUFFICIENT_CREDIT')) {
             const detail = error.detail as { required?: number; balance?: number } | undefined
             setInsufficient({ required: detail?.required ?? cost, balance: detail?.balance ?? 0 })
@@ -1233,17 +1247,30 @@ function Regenerate({ job, label, hint }: { job: Job; label: string; hint?: stri
         // 캐시에 있어 안 보이고, 링크로 처음 연 결과에서만 한 왕복 동안 보입니다.
         // 스키마 조회가 **실패한** 경우도 같습니다 — 회수(404)는 위에서 이미 빠졌으니
         // 여기 남는 건 5xx·네트워크뿐이고, 그건 기다리면 풀립니다.
-        disabled={createJob.isPending || schemaPending || schemaUnavailable}
+        disabled={createJob.isPending || schemaPending || schemaUnavailable || blocked !== null}
         className="mt-2 w-full rounded-xl bg-rule px-4 py-3 text-sm font-semibold hover:bg-rule-strong hover:text-brand motion-safe:active:scale-[0.99] disabled:opacity-50"
       >
-        {schemaPending
-          ? '옵션 불러오는 중…'
-          : schemaUnavailable
-            ? '옵션을 불러오지 못했어요'
-            : createJob.isPending
-              ? '보내는 중…'
-              : `${label} · ${cost} 크레딧`}
+        {blocked
+          ? '이 사진으로는 만들 수 없어요'
+          : schemaPending
+            ? '옵션 불러오는 중…'
+            : schemaUnavailable
+              ? '옵션을 불러오지 못했어요'
+              : createJob.isPending
+                ? '보내는 중…'
+                : `${label} · ${cost} 크레딧`}
       </button>
+
+      {blocked && (
+        <>
+          <p role="alert" className="mt-2 text-center text-sm text-danger">
+            {blocked.message}
+          </p>
+          <Link to="/upload" className="mt-1 block text-center text-sm font-semibold underline">
+            다른 사진으로 만들기
+          </Link>
+        </>
+      )}
 
       {schemaUnavailable && (
         <p className="mt-1 text-center text-xs text-ink-3">
@@ -1271,7 +1298,7 @@ function Regenerate({ job, label, hint }: { job: Job; label: string; hint?: stri
         다시» 가 답입니다. 스타일 회수라면 새로고침 뒤에는 위 `styleRetired` 갈래가
         받습니다 — 이 줄은 화면을 열어 둔 사이에 회수된 경우의 첫 클릭용입니다.
       */}
-      {createJob.error && !isApiError(createJob.error, 'INSUFFICIENT_CREDIT') && (
+      {createJob.error && !isApiError(createJob.error, 'INSUFFICIENT_CREDIT') && !blocked && (
         <p role="alert" className="mt-2 text-center text-sm text-danger">
           {isApiError(createJob.error, 'NOT_FOUND')
             ? '이 스타일이나 사진을 더 이상 쓸 수 없어요. 카탈로그에서 다시 골라 주세요.'

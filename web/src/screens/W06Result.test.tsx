@@ -1181,6 +1181,39 @@ describe('W-06 · 회수된 스타일', () => {
     )
     expect(screen.queryByText(/Job, upload, or style not found/)).not.toBeInTheDocument()
   })
+
+  it('사진이 지금 정책에 막혔으면 버튼을 내리고 다른 사진으로 안내한다 — 눌러도 같은 400 인 막다른 길을 안 만든다', async () => {
+    /*
+      백엔드 PR #263 — 업로드는 통과했던 사진이 재생성 시점에 400 `source_blocked` 로
+      막힙니다(비전 검사 전 사진, 또는 그 뒤 바뀐 no_dog_policy). 그 PR 이 프론트에서
+      고친 건 W-04 재사용 경로뿐이라, 정작 제목이 겨눈 보관함 「다시 만들기」는 서버
+      문구만 뜨고 버튼이 살아 있었습니다. 402 와 달리 받아 와도 안 풀리는 실패라
+      버튼을 내리고 나가는 길(/upload)을 둡니다. 크레딧은 차감 전이라 안 나갑니다.
+    */
+    mockStyleAlive()
+    const message = '강아지를 찾지 못했어요. 강아지가 잘 보이는 사진을 골라주세요.'
+    server.use(
+      http.post('*/v1/jobs', () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'VALIDATION_ERROR',
+              message,
+              detail: { reason: 'source_blocked', code: 'NOT_A_DOG', message },
+            },
+          },
+          { status: 400 },
+        ),
+      ),
+    )
+    renderResult(succeededJob())
+
+    await userEvent.click(await screen.findByRole('button', { name: /다시 만들기/ }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(message)
+    expect(screen.getByRole('button', { name: '이 사진으로는 만들 수 없어요' })).toBeDisabled()
+    expect(screen.getByRole('link', { name: '다른 사진으로 만들기' })).toHaveAttribute('href', '/upload')
+  })
 })
 
 /**
