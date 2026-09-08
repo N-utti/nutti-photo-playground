@@ -566,7 +566,8 @@ describe('W-06 · 저장·공유 버튼', () => {
       «인스타그램 열기» 링크였는데, 카톡 웹뷰에서 그걸 본 사용자가 «공유가 왜 없냐» 로
       읽었습니다(2026-09-03). 버튼은 어디서나 같고 갈리는 건 누른 뒤입니다 — OS 시트가
       없으면 인스타 열기·링크 복사를 담은 자체 시트(인앱 웹뷰에서만 외부 브라우저 열기가
-      더해짐). 카톡 보내기는 앱 키 없는 sharer 주소가 401 이라 없습니다.
+      더해짐). 카톡 보내기는 SDK 키(`VITE_KAKAO_JS_KEY`)가 있을 때만 그리는 버튼이라
+      테스트 환경(키 없음)에서는 없습니다.
     */
     const user = userEvent.setup()
     mockShare()
@@ -576,8 +577,8 @@ describe('W-06 · 저장·공유 버튼', () => {
     await user.click(await screen.findByRole('button', { name: '공유' }))
 
     expect(await screen.findByRole('dialog', { name: '공유' })).toBeInTheDocument()
-    // 카카오톡 보내기는 없습니다 — SDK 없는 sharer 주소는 앱 키 없이 401(2026-09-03 실측).
-    expect(screen.queryByRole('link', { name: /카카오톡/ })).not.toBeInTheDocument()
+    // 카카오톡 보내기는 버튼이고, 키 없는 환경에서는 안 그립니다(app/kakaoShare.ts).
+    expect(screen.queryByRole('button', { name: /카카오톡/ })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: /인스타그램 열기/ })).toHaveAttribute(
       'href',
       'https://www.instagram.com/',
