@@ -372,7 +372,9 @@ export const uploadNoDog: UploadResult = {
   image_url: placeholderImage('업로드 원본', undefined, SOURCE_SIZE),
   blocking_issue: null,
   warnings: [
-    { code: 'NOT_A_DOG', message: '강아지를 찾지 못했어요', detail: { issues: ['no_subject'] } },
+    // 서버 경고 분기(app/routers/uploads.py, `no_dog_policy=warn`) 그대로 — 차단 문구
+    // 「강아지를 찾지 못했어요…」와 첫 문장이 겹치면 두 시나리오가 브라우저에서 구분이 안 됩니다.
+    { code: 'NOT_A_DOG', message: '강아지가 잘 보이지 않아요', detail: null },
   ],
 }
 
@@ -382,7 +384,7 @@ export const uploadMultiSubject: UploadResult = {
   image_url: placeholderImage('업로드 원본', undefined, SOURCE_SIZE),
   blocking_issue: null,
   warnings: [
-    { code: 'MULTI_SUBJECT', message: '강아지가 두 마리 보여요', detail: { count: 2 } },
+    { code: 'MULTI_SUBJECT', message: '여러 마리가 함께 보여요', detail: null },
   ],
 }
 

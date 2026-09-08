@@ -80,7 +80,7 @@ localhost:8000/openapi.json` 의 `paths['/v1/auth/me']` 키로 확인됩니다).
 ```js
 localStorage.setItem('nutti.mock.scenario', 'job:normal')   // 예전 기본값(1.5초 큐 + 12초 생성) — W-05 를 밟는 유일한 «정상» 경로
 localStorage.setItem('nutti.mock.scenario', 'upload:warn')  // 품질 경고(비차단)
-localStorage.setItem('nutti.mock.scenario', 'upload:nodog') // 강아지 미검출 경고(FR-EDGE-08)
+localStorage.setItem('nutti.mock.scenario', 'upload:nodog') // 강아지 미검출 — policy=warn 인 서버(FR-EDGE-08)
 localStorage.setItem('nutti.mock.scenario', 'upload:nodog-block') // 강아지 미검출 — policy=block, 기본값(FR-EDGE-08 개정 · 백엔드 PR #262)
 localStorage.setItem('nutti.mock.scenario', 'upload:multi') // 여러 마리(FR-EDGE-09)
 localStorage.setItem('nutti.mock.scenario', 'upload:face')  // 사람 얼굴 — policy=warn (FR-EDGE-06)

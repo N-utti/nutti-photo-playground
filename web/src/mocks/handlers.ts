@@ -7,8 +7,8 @@
  * 같은 Idempotency-Key 가 같은 job 을 돌려줍니다.
  *
  * 시나리오 강제: localStorage 에 `nutti.mock.scenario` 를 넣으면 해당 케이스로 고정됩니다.
- *   upload:warn | upload:nodog | upload:multi | upload:face | upload:face-block | upload:block
- *   job:normal | job:fail | job:safety | job:retries | job:unknown-error | job:flaky | job:slow | job:queued
+ *   upload:warn | upload:nodog | upload:nodog-block | upload:multi | upload:face | upload:face-block | upload:block
+ *   job:normal | job:fail | job:safety | job:retries | job:unknown-error | job:flaky | job:slow | job:queued | job:source-blocked
  *   credit:empty | credit:clawback | credit:custom-cost-3
  *   styles:no-images | styles:rich
  *   session:expired | guest:ratelimited | session:lost | auth:statefail | auth:merge | cafe24:linked
