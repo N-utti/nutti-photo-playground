@@ -200,7 +200,8 @@ describe('W-08 · 직접 만들기', () => {
     await user.click(await screen.findByRole('button', { name: '만들기 · 2 크레딧' }))
 
     await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument())
-    expect(screen.getByRole('dialog')).toHaveTextContent('3 크레딧이 필요한데')
+    // 픽스처 잔액(11)이 3 을 넘으므로 «필요하고» 갈래입니다 — 보는 건 숫자 3 뿐입니다.
+    expect(screen.getByRole('dialog')).toHaveTextContent(/3 크레딧이 필요하/)
     expect(await screen.findByRole('button', { name: '만들기 · 3 크레딧' })).toBeInTheDocument()
   })
 })

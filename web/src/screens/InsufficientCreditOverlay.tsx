@@ -70,8 +70,14 @@ export default function InsufficientCreditOverlay({
         <h2 id="credit-overlay-title" className="text-lg font-bold">
           {enough ? '이제 만들 수 있어요' : '크레딧이 부족해요'}
         </h2>
+        {/*
+          «필요한데» 는 «있어요» 와 맞서는 접속사라 모자랄 때의 문장입니다. 받아서 채운
+          뒤에도 그대로 두면 「1 크레딧이 필요한데 지금 1 크레딧이 있어요」 — 제목은
+          «이제 만들 수 있어요» 인데 본문은 아직 부족하다는 투로 읽힙니다.
+        */}
         <p className="mt-1 text-sm text-ink-2">
-          {required} 크레딧이 필요한데 지금 {Math.max(0, current)} 크레딧이 있어요.
+          {required} 크레딧이 {enough ? '필요하고' : '필요한데'} 지금 {Math.max(0, current)} 크레딧이
+          있어요.
         </p>
 
         <div className="mt-4">
