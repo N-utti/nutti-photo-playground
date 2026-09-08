@@ -5,7 +5,7 @@
  * 게스트 토큰 재발급이 전부 이 파일에 모여 있어야 규약이 한 군데서 관리됩니다.
  */
 
-import type { ApiErrorBody, ErrorCode, GuestSession, MemberRefresh } from './types'
+import type { ApiErrorBody, ErrorCode, GuestSession, MemberRefresh, UploadIssue } from './types'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/v1'
 const TOKEN_STORAGE_KEY = 'nutti.session.token'
@@ -52,6 +52,19 @@ export class NetworkError extends Error {
 
 export function isApiError(e: unknown, code?: ErrorCode): e is ApiError {
   return e instanceof ApiError && (code === undefined || e.code === code)
+}
+
+/**
+ * `POST /v1/jobs` 400 `detail.reason === 'source_blocked'` — 사진이 업로드 검사가 아니라
+ * 생성 시점에 막힌 경우(비전 켜기 전 사진, 또는 그 사이 바뀐 정책 — 백엔드 PR #263).
+ * 서버가 업로드 차단과 같은 `code`/`message` 를 detail 에 실어 줍니다. W-04(사진 재사용)와
+ * W-06(다시 만들기) 둘 다 같은 400 을 만나므로 파서는 여기 하나입니다.
+ */
+export function sourceBlocked(error: unknown): UploadIssue | null {
+  if (!isApiError(error, 'VALIDATION_ERROR')) return null
+  const detail = error.detail as { reason?: string; code?: string; message?: string } | undefined
+  if (detail?.reason !== 'source_blocked' || !detail.code || !detail.message) return null
+  return { code: detail.code as UploadIssue['code'], message: detail.message }
 }
 
 // ---------------------------------------------------------------- 세션 저장소

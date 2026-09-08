@@ -20,7 +20,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
-import { isApiError } from '../api/client'
+import { isApiError, sourceBlocked } from '../api/client'
 import BackButton from '../app/BackButton'
 import { CreditBadge } from '../app/CreditBadge'
 import {
@@ -1013,18 +1013,6 @@ function ConfirmPanel({
       )}
     </>
   )
-}
-
-/**
- * `POST /v1/jobs` 400 `detail.reason === 'source_blocked'` — 사진이 업로드 검사가 아니라
- * 재생성 시점에 막힌 경우(비전 켜기 전 사진, 또는 그 사이 바뀐 정책). 서버가 업로드와
- * 같은 `code`/`message` 를 detail 에 실어 줍니다.
- */
-function sourceBlocked(error: unknown): NonNullable<UploadResult['blocking_issue']> | null {
-  if (!isApiError(error, 'VALIDATION_ERROR')) return null
-  const detail = error.detail as { reason?: string; code?: string; message?: string } | undefined
-  if (detail?.reason !== 'source_blocked' || !detail.code || !detail.message) return null
-  return { code: detail.code as UploadIssue['code'], message: detail.message }
 }
 
 function WarningCard({ warning }: { warning: UploadIssue }) {

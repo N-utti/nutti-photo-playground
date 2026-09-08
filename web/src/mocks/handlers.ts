@@ -1568,6 +1568,19 @@ export const handlers = [
       return apiError(404, 'NOT_FOUND', '스타일을 찾을 수 없습니다')
     }
     /*
+      사진이 **생성 시점에** 막히는 경우 (백엔드 PR #263 · `no_dog_policy`).
+
+      업로드는 통과했는데(비전 검사 전 사진, 또는 그 뒤 바뀐 정책) 재생성이 400 으로
+      돌아오는 갈래입니다 — 보관함 「다시 만들기」와 W-04 사진 재사용이 만나는 그 응답.
+      서버는 업로드 차단과 같은 `code`/`message` 를 detail 에 싣고, 차감보다 앞이라
+      크레딧은 나가지 않습니다. 시나리오로만 켭니다: 목의 업로드는 언제나 비전 검사를
+      «한» 것이라 평소엔 이 400 이 나올 수 없습니다.
+    */
+    if (scenario() === 'job:source-blocked') {
+      const issue = uploadNoDogBlocked.blocking_issue!
+      return apiError(400, 'VALIDATION_ERROR', issue.message, { reason: 'source_blocked', ...issue })
+    }
+    /*
       비용은 **스타일마다 다릅니다**(§3 `credit_cost`) — 여기서 1 로 고정하면 목이
       계약을 대변하지 않습니다. W-03·W-04 는 `credit_cost` 를 그대로 버튼에 박으므로
       (노트4) 2 크레딧이라고 말해 놓고 1 만 빠지는 화면이 됩니다.

@@ -81,6 +81,7 @@ localhost:8000/openapi.json` 의 `paths['/v1/auth/me']` 키로 확인됩니다).
 localStorage.setItem('nutti.mock.scenario', 'job:normal')   // 예전 기본값(1.5초 큐 + 12초 생성) — W-05 를 밟는 유일한 «정상» 경로
 localStorage.setItem('nutti.mock.scenario', 'upload:warn')  // 품질 경고(비차단)
 localStorage.setItem('nutti.mock.scenario', 'upload:nodog') // 강아지 미검출 경고(FR-EDGE-08)
+localStorage.setItem('nutti.mock.scenario', 'upload:nodog-block') // 강아지 미검출 — policy=block, 기본값(FR-EDGE-08 개정 · 백엔드 PR #262)
 localStorage.setItem('nutti.mock.scenario', 'upload:multi') // 여러 마리(FR-EDGE-09)
 localStorage.setItem('nutti.mock.scenario', 'upload:face')  // 사람 얼굴 — policy=warn (FR-EDGE-06)
 localStorage.setItem('nutti.mock.scenario', 'upload:face-block') // 사람 얼굴 — policy=block (FR-EDGE-06)
@@ -91,6 +92,7 @@ localStorage.setItem('nutti.mock.scenario', 'job:retries')  // MAX_RETRIES_EXCEE
 localStorage.setItem('nutti.mock.scenario', 'job:flaky')    // 생성 중 3~18초 503 → W-05가 화면을 헐지 않고 자력 복구
 localStorage.setItem('nutti.mock.scenario', 'job:slow')     // 150초 job → 90초에서 W-05 지연 안내로 전환(FR-EDGE-02 · NFR-PERF-01)
 localStorage.setItem('nutti.mock.scenario', 'job:queued')   // 워커가 안 집는 job — started_at=null 인 큐 대기(PR #60)
+localStorage.setItem('nutti.mock.scenario', 'job:source-blocked') // 사진이 생성 시점에 막힘(400 source_blocked, 백엔드 PR #263) — W-06 「다시 만들기」·W-04 사진 재사용이 버튼을 내리고 다른 사진으로 안내. 크레딧은 안 나감
 localStorage.setItem('nutti.mock.scenario', 'credit:empty') // 잔액 0에서 시작 → 402 → 시트에서 받고 재시도
 localStorage.setItem('nutti.mock.scenario', 'credit:clawback') // 주문 취소 회수로 잔액이 **음수**(-9) — FR-EDGE-05 · ADR-02. 표시는 0인데 판정은 원값이라, 크레딧을 받아도 숫자가 안 움직이고 만들기도 계속 막힘
 localStorage.setItem('nutti.mock.scenario', 'credit:custom-cost-3') // 커스텀 비용이 2가 아닌 서버(app_setting, 이슈 #149) — W-02·W-04 링크와 W-08 버튼이 요청 전에 «3 크레딧»을 말하고, 잔액 1이라 402까지 이어짐
