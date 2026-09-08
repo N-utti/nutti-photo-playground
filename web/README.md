@@ -107,7 +107,7 @@ localStorage.setItem('nutti.mock.scenario', 'refresh:429')     // 만료 + 회�
 localStorage.setItem('nutti.mock.scenario', 'session:lost')    // 재발급으로 안 풀리는 401 — **로그인한 뒤에** 켜야 재현됨(회원 토큰에만 걸립니다). 배너 없이 게스트로 내려앉는 게 정답
 localStorage.setItem('nutti.mock.scenario', 'guest:ratelimited') // 게스트 발급 429 (이슈 #15)
 localStorage.setItem('nutti.mock.scenario', 'auth:statefail')  // 소셜 콜백 state 검증 실패(401)
-localStorage.setItem('nutti.mock.scenario', 'auth:merge')      // 소셜 로그인이 **기존 계정으로 병합**(merged: true) — 복귀 알림이 「옮겼어요」로 갈리고 잔액도 게스트 것이 아닌 그 계정 값(3). 기본 목은 승격뿐이라 이 문장이 브라우저에서 안 떴습니다
+localStorage.setItem('nutti.mock.scenario', 'auth:merge')      // 소셜 로그인이 **기존 계정으로 병합**(merged: true) — 돌아온 화면의 크레딧 배지가 게스트 잔액이 아니라 그 계정 값(3)을 답니다. 복귀 알림은 없어졌으므로(PR #302) 이 갈래가 보이는 곳은 배지뿐이고, 기본 목은 승격뿐이라 켜지 않으면 «게스트 크레딧은 안 따라온다» 가 브라우저에서 안 보입니다
 localStorage.setItem('nutti.mock.scenario', 'cafe24:linked')   // 카페24 연동 409 CAFE24_ALREADY_LINKED
 localStorage.removeItem('nutti.mock.scenario')              // 정상
 ```
@@ -197,7 +197,7 @@ job 째로 **404** 인 경우(«삭제한 결과입니다»)는 지운 게 이 �
 | `screens/W10Credits.test.tsx` | 못 불러온 잔액을 0으로 적어 "크레딧이 없다"고 단정하는 것(ADR-02) |
 | `screens/W12MyPage.test.tsx` | 히스토리 `state.from`을 믿고 「뒤로」가 **외부 사이트**로 나가는 것 · 부가 정보 실패에 계정 경고를 띄우는 것 |
 | `screens/AccountSheet.test.tsx` | 429에 "잠시 뒤"로 뭉개 사용자가 30초마다 다시 누르게 하는 것 · 모드를 바꿔도 앞의 오류가 남는 것 |
-| `screens/AuthCallback.test.tsx` | 콜백이 두 번 나가 **방금 받은 코드**가 만료됐다고 하는 것(1회용 nonce) · 로그인에 성공한 사람을 **실패 화면과 같은 껍데기** 앞에 세워 두고 「계속하기」를 한 번 더 누르게 하는 것 |
+| `screens/AuthCallback.test.tsx` | 콜백이 두 번 나가 **방금 받은 코드**가 만료됐다고 하는 것(1회용 nonce) · 로그인에 성공한 사람 앞에 성공 카드나 「로그인됐어요」 창을 **다시** 띄우는 것 — 콜백은 로그인 직전 화면으로 되돌리기만 해야 합니다 |
 
 ### 시트를 새로 만들 때
 
