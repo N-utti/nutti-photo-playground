@@ -44,7 +44,16 @@ export const W11Console = () => (
     id="W-11"
     title="프롬프트 운영 콘솔 (관리자)"
     phase="Phase 5 · 인증 경계가 달라 번들 분리 예정"
-    endpoints={['GET /v1/admin/styles', 'GET /v1/admin/custom-prompts/top', 'GET /v1/admin/settings']}
+    endpoints={[
+      'GET /v1/admin/styles',
+      'GET /v1/admin/custom-prompts/top',
+      'GET /v1/admin/settings',
+      // 회원·잡·행동 이벤트·크레딧 원장 조회 — 백엔드 PR #264 (docs/05 에는 아직 없음)
+      'GET /v1/admin/members',
+      'GET /v1/admin/jobs',
+      'GET /v1/admin/events',
+      'GET /v1/admin/ledger',
+    ]}
   />
 )
 

@@ -1140,9 +1140,12 @@ export const handlers = [
       return apiError(401, 'UNAUTHORIZED', '코드가 유효하지 않습니다')
     }
     state.handoffUsed.add(code)
+    // 서버는 회원이어도 리프레시 토큰을 **안** 줍니다(`HandoffSession.refresh_token: null`,
+    // 백엔드 PR #258). 그래서 크롬으로 넘어온 회원은 액세스 1시간이 끝나면 조용히
+    // 게스트로 내려앉습니다 — 목이 살아 있는 값을 주면 그 갈래를 로컬에서 영영 못 밟습니다.
     return HttpResponse.json({
       token: `mock-${state.me.kind}-jwt.${crypto.randomUUID()}`,
-      refresh_token: state.me.kind === 'member' ? state.refreshToken : null,
+      refresh_token: null,
       member_id: state.me.member_id,
       kind: state.me.kind,
     })
