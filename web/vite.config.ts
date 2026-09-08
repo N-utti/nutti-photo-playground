@@ -167,12 +167,11 @@ export default defineConfig({
      */
     proxy: {
       '/v1': {
-        // ponytail: 8010 임시 — 8000=lead-crawler·8001=sns-api 점유(2026-08-19), 커밋 금지
-        target: 'http://127.0.0.1:8010',
+        target: 'http://localhost:8000',
         changeOrigin: true,
       },
       '/media': {
-        target: 'http://127.0.0.1:8010',
+        target: 'http://localhost:8000',
         changeOrigin: true,
       },
     },
