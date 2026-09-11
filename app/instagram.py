@@ -199,17 +199,25 @@ async def issue_code(igsid: str, username: str | None) -> InstagramDmCode:
     return await InstagramDmCode.create(code=code, igsid=igsid, ig_username=username, follow_verified_at=now)
 
 
+_replied_comment_ids: set[str] = set()
+
+
 async def handle_comment(value: dict) -> None:
     """`comments` 웹훅 — 키워드 댓글에 비공개 답장으로 안내. 실패는 로그(웹훅은 이미 200 응답)."""
     comment_id = value.get("id")
     author = (value.get("from") or {}).get("id")
     if not _is_graph_id(comment_id) or not _is_graph_id(author) or not keyword_matches(value.get("text", "")):
         return
+    if comment_id in _replied_comment_ids:  # 웹훅(앱 역할 계정)과 폴링이 같은 댓글을 둘 다 가져온다
+        return
     try:
         token = await get_token()
         if author == token.ig_user_id:  # 우리 계정이 단 댓글(답글)
             return
         await send_private_reply(comment_id, REPLY_TO_COMMENT)
+        _replied_comment_ids.add(comment_id)
+        if len(_replied_comment_ids) > 10_000:
+            _replied_comment_ids.clear()  # ponytail: 프로세스 메모리 — 재시작 뒤 중복은 Meta 가 「댓글당 비공개 답장 1회」로 막는다
     except (httpx.HTTPError, RuntimeError, KeyError, ValueError) as exc:
         logger.warning("instagram comment reply failed comment=%s: %s", comment_id, _describe(exc))
 
@@ -257,7 +265,7 @@ def _throttled(igsid: str) -> bool:
 # 워터마크(마지막으로 처리한 댓글 시각)는 app_setting 에 — 재배포해도 같은 댓글에 두 번 답장하지 않는다.
 
 POLL_WATERMARK_KEY = "instagram_comments_polled_at"
-POLL_MEDIA_LIMIT = 10  # ponytail: 최근 게시물 10개만(캠페인 게시물은 최신). 옛 게시물 댓글이 필요하면 올린다 — 호출 수 = 게시물 수 + 1
+POLL_MEDIA_PAGES = 4  # 게시물 50개씩 최대 4페이지(200개). 실측: 캠페인 댓글이 26번째 글에 달렸다 — 「최근 10개」로는 놓친다
 POLL_COMMENT_LIMIT = 50  # Graph 상한. 최신순이라 1분 사이 50개 넘게 달리면 뒤쪽은 놓친다
 
 
@@ -270,25 +278,32 @@ def _parse_graph_time(value: object) -> datetime | None:
 
 
 async def fetch_recent_comments(token: InstagramToken) -> list[dict]:
-    """최근 게시물의 최상위 댓글 — [{id, text, timestamp, from:{id,username}}]. 대댓글(replies)은 안 본다."""
+    """게시물 전체(최대 200개) 중 댓글이 있는 것만 골라 최상위 댓글을 모은다 — [{id, text, timestamp, from:{id,username}}].
+    호출 수 = 목록 페이지 수 + 댓글 있는 게시물 수. 대댓글(replies)은 안 본다.
+    ponytail: 댓글 있는 게시물이 수백 개로 늘면 comments_count 를 기억해 바뀐 것만 읽는다."""
     headers = _auth(token)
     comments: list[dict] = []
     async with httpx.AsyncClient(timeout=20) as client:
-        media = await client.get(
-            f"{GRAPH}/{token.ig_user_id}/media", params={"fields": "id", "limit": POLL_MEDIA_LIMIT}, headers=headers
-        )
-        media.raise_for_status()
-        for item in media.json().get("data", []):
-            media_id = item.get("id")
-            if not _is_graph_id(media_id):
-                continue
-            response = await client.get(
-                f"{GRAPH}/{media_id}/comments",
-                params={"fields": "id,text,timestamp,from", "limit": POLL_COMMENT_LIMIT},
-                headers=headers,
-            )
-            response.raise_for_status()
-            comments.extend(response.json().get("data", []))
+        url: str | None = f"{GRAPH}/{token.ig_user_id}/media"
+        params: dict | None = {"fields": "id,comments_count", "limit": 50}
+        for _ in range(POLL_MEDIA_PAGES):
+            if not url:
+                break
+            media = await client.get(url, params=params, headers=headers)
+            media.raise_for_status()
+            body = media.json()
+            for item in body.get("data", []):
+                media_id = item.get("id")
+                if not item.get("comments_count") or not _is_graph_id(media_id):
+                    continue
+                response = await client.get(
+                    f"{GRAPH}/{media_id}/comments",
+                    params={"fields": "id,text,timestamp,from", "limit": POLL_COMMENT_LIMIT},
+                    headers=headers,
+                )
+                response.raise_for_status()
+                comments.extend(response.json().get("data", []))
+            url, params = body.get("paging", {}).get("next"), None  # next 는 완전한 URL(토큰 없음 — 헤더로 보낸다)
     return comments
 
 

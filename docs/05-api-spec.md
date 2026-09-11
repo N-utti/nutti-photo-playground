@@ -781,7 +781,7 @@ Meta 앱(Instagram API with Instagram Login)의 Webhooks에 등록하는 URL. �
 - 구독 확인: `GET`에 `hub.mode=subscribe&hub.verify_token=…&hub.challenge=…` → 토큰 일치 시 challenge 그대로(200 text), 아니면 403.
 - 인증: `X-Hub-Signature-256: sha256=<HMAC-SHA256(원문, 앱 시크릿)>` 검증 → 불일치·미설정 401. `object != "instagram"`은 200 `{"accepted": false}`.
 - 응답은 즉시 200, 처리(Graph 호출)는 BackgroundTasks — 실패는 로그만(Meta 재시도·구독 해제 회피).
-- 운영 요건·Meta 앱 생성·검수는 `deploy/README.md` §5-2. **검수 통과 전엔 `comments` 웹훅이 오지 않는다(Advanced Access 필수)** → api 가 `INSTAGRAM_COMMENT_POLL_SECONDS`(기본 60초)마다 최근 게시물 10개의 댓글을 Graph 로 읽어 1번과 같은 비공개 답장을 보낸다(2026-09-11, `app.instagram.poll_comments`). 워터마크는 `app_setting.instagram_comments_polled_at`(마지막 처리 댓글 시각) — 재배포에도 같은 댓글에 두 번 답장하지 않고, 처음 켠 시점 이전 댓글은 무시. 검수 통과 후 0 으로 끈다.
+- 운영 요건·Meta 앱 생성·검수는 `deploy/README.md` §5-2. **검수 통과 전엔 `comments` 웹훅이 오지 않는다(Advanced Access 필수)** → api 가 `INSTAGRAM_COMMENT_POLL_SECONDS`(기본 60초)마다 댓글이 있는 게시물(최대 200개 중)의 댓글을 Graph 로 읽어 1번과 같은 비공개 답장을 보낸다(2026-09-11, `app.instagram.poll_comments`). 워터마크는 `app_setting.instagram_comments_polled_at`(마지막 처리 댓글 시각) — 재배포에도 같은 댓글에 두 번 답장하지 않고, 처음 켠 시점 이전 댓글은 무시. 검수 통과 후 0 으로 끈다.
 
 #### `POST /v1/credits/redeem-instagram` — DM으로 받은 코드 소진(회원 전용)
 
