@@ -53,6 +53,8 @@ class Settings(BaseSettings):
     instagram_webhook_verify_token: str = ""  # Meta 콘솔 Webhooks "확인 토큰"과 동일 값
     instagram_comment_keywords: str = "놀이터"  # 쉼표 구분, 비우면 모든 댓글에 반응
     instagram_landing_url: str = "https://play.nutti.co.kr"
+    # comments 웹훅은 Advanced Access(앱 검수) 필수 → 검수 전엔 내 게시물 댓글을 이 주기로 읽어 답장(0 = 끔, 웹훅만)
+    instagram_comment_poll_seconds: int = 60
 
     kakao_rest_api_key: str = ""
     kakao_redirect_uri: str = ""
