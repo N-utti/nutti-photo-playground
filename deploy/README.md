@@ -125,6 +125,13 @@ crontab -e
 - `.env`를 바꾸고 `up -d`하면 **postgres도 env_file을 공유해 재생성**된다(데이터는 `pgdata` 볼륨이라 보존, 수 초 다운). DB 무중단이 필요해지면 postgres 비밀번호를 별도 env로 분리.
 - 배포 후 로컬 PC에서 `play`가 TLS 오류를 내면 로컬 DNS 캐시(옛 카페24 와일드카드 IP) — `ipconfig /flushdns`.
 
+## 버전·릴리스 (2026-09-11 MVP 종료 이후)
+
+- **SemVer.** MVP = `v1.0.0`. 이후 프로덕션에 올리는 머지마다 태그 — `fix:`만 있으면 patch, `feat:`가 있으면 minor, 계약(API·DB)이 깨지면 major.
+- 단일 출처는 `pyproject.toml` `[project].version` — `GET /healthz` 가 그 값을 돌려주므로 배포 뒤 `curl -s https://api.nutti.co.kr/healthz` 로 무엇이 떠 있는지 확인한다. `web/package.json` `version` 도 같은 숫자로 맞춘다(프론트는 번들 해시가 실제 식별자).
+- 절차: 버전 올리는 커밋(pyproject + package.json)을 그 배포의 마지막 PR 에 실어 머지 → `git tag -a vX.Y.Z <merge-sha> -m "vX.Y.Z"` → `git push origin vX.Y.Z` → `gh release create vX.Y.Z --generate-notes`(직전 태그 이후 머지된 PR 목록이 릴리스 노트가 된다) → 배포 → healthz 확인.
+- 롤백은 `git checkout vX.Y.Z` 후 같은 배포 명령. 마이그레이션이 낀 버전은 downgrade 를 먼저 확인한다.
+
 ## 재배포
 
 ```bash

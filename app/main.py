@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import tomllib
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -17,6 +18,10 @@ from app.routers import admin, auth, credits, events, jobs, library, pets, resul
 from app.settings import settings
 
 logger = logging.getLogger(__name__)
+
+# 버전의 단일 출처는 pyproject.toml(이미지에 함께 복사됨). 배포 뒤 `GET /healthz` 로 무엇이 떠 있는지 확인한다(deploy/README «버전·릴리스»).
+with open(os.path.join(os.path.dirname(os.path.dirname(__file__)), "pyproject.toml"), "rb") as _f:
+    APP_VERSION: str = tomllib.load(_f)["project"]["version"]
 
 
 @asynccontextmanager
@@ -39,7 +44,7 @@ async def lifespan(app: FastAPI):
     await Tortoise.close_connections()
 
 
-app = FastAPI(title="Nutti Photo Playground API", lifespan=lifespan)
+app = FastAPI(title="Nutti Photo Playground API", version=APP_VERSION, lifespan=lifespan)
 if not settings.r2_endpoint_url:
     os.makedirs("var/media", exist_ok=True)
     app.mount("/media", StaticFiles(directory="var/media"), name="media")
@@ -93,7 +98,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 
 @app.get("/healthz")
 async def healthz() -> dict:
-    return {"status": "ok"}
+    return {"status": "ok", "version": APP_VERSION}
 
 
 for router in (
