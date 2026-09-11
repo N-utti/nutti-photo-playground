@@ -1,6 +1,6 @@
 [project]
 name = "nutti-playground"
-version = "1.0.0"
+version = "1.1.0"
 description = "누띠 강아지 사진 놀이터 — 백엔드 (FastAPI + Tortoise ORM)"
 requires-python = ">=3.13,<3.14"
 dependencies = [
