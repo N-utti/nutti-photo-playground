@@ -45,7 +45,7 @@ def test_healthz_ok():
     with TestClient(app) as client:
         resp = client.get("/healthz")
     assert resp.status_code == 200
-    assert resp.json() == {"status": "ok"}
+    assert resp.json() == {"status": "ok", "version": main_module.APP_VERSION}  # 배포 뒤 무엇이 떠 있는지 healthz 로 본다
 
 
 def test_cors_preflight_allows_idempotency_key():
