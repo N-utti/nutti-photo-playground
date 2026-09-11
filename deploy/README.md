@@ -102,7 +102,7 @@ crontab -e
 
 ### 5-2. 인스타 댓글→DM 퍼널 (Meta 앱)
 
-배경: 인스타는 팔로우 여부를 제3자에게 안 준다 — 예외는 메시징 API 프로필의 `is_user_follow_business`(DM 보낸 사용자만). 05 §3 `webhooks/instagram` 참고. Threads 봇 앱(`sns-comment-boooot`)은 권한 체계가 달라 재사용 불가 — **같은 비즈니스(비즈니스 인증 승계) 아래 새 앱**을 만든다.
+배경: 인스타는 팔로우 여부를 제3자에게 안 준다 — 예외는 메시징 API 프로필의 `is_user_follow_business`(DM 보낸 사용자만). 05 §3 `webhooks/instagram` 참고. **기존 앱 `sns-comment-boooot`(앱 ID 1031303652600125, 비즈니스 Snscommentb0t)에 이미 「Instagram API with Instagram Login」 이용 사례가 붙어 있다** — Instagram 앱 ID `27614528674876388`. 2026-09-11 이 앱으로 권한 3개·Webhooks·비즈니스 로그인 리디렉션·@nutti_official 테스터 초대까지 마침(예전 「재사용 불가」 메모는 오판이었음). 아래 1~2는 이미 끝난 상태의 기록.
 
 1. developers.facebook.com → 내 앱 → 앱 만들기(비즈니스 포트폴리오: Nutti) → 제품 추가 **Instagram** → "Instagram API setup with Instagram login".
 2. Instagram 비즈니스 로그인 설정: 리디렉션 URI `https://play.nutti.co.kr/auth/callback/instagram`. 앱 ID/시크릿 → `.env` `INSTAGRAM_APP_ID` / `INSTAGRAM_APP_SECRET`.
