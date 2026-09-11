@@ -11,6 +11,7 @@
 토큰은 장기 토큰 60일 — 만료 7일 전부터 refresh. 모든 외부 호출 실패는 로그만 남기고 삼킨다(웹훅 응답은 항상 200).
 """
 
+import asyncio
 import hashlib
 import hmac
 import logging
@@ -20,7 +21,7 @@ from datetime import datetime, timedelta, timezone
 
 import httpx
 
-from app.models import InstagramDmCode, InstagramToken
+from app.models import AppSetting, InstagramDmCode, InstagramToken
 from app.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -248,3 +249,77 @@ def _throttled(igsid: str) -> bool:
         for key in sorted(_last_dm_at, key=_last_dm_at.get)[:5_000]:
             _last_dm_at.pop(key, None)
     return False
+
+
+# ---------------------------------------------------------------- 댓글 폴링 (검수 전 대체 트리거)
+# `comments` 웹훅은 Advanced Access(앱 검수) 없이는 오지 않는다. 내 계정 게시물의 댓글 읽기·비공개 답장은
+# Standard Access 로 되므로, 검수 전엔 최근 게시물 댓글을 주기적으로 읽어 handle_comment 에 넘긴다.
+# 워터마크(마지막으로 처리한 댓글 시각)는 app_setting 에 — 재배포해도 같은 댓글에 두 번 답장하지 않는다.
+
+POLL_WATERMARK_KEY = "instagram_comments_polled_at"
+POLL_MEDIA_LIMIT = 10  # ponytail: 최근 게시물 10개만(캠페인 게시물은 최신). 옛 게시물 댓글이 필요하면 올린다 — 호출 수 = 게시물 수 + 1
+POLL_COMMENT_LIMIT = 50  # Graph 상한. 최신순이라 1분 사이 50개 넘게 달리면 뒤쪽은 놓친다
+
+
+def _parse_graph_time(value: object) -> datetime | None:
+    """Graph 의 `2026-09-11T03:04:05+0000` — ISO 8601 이지만 콜론 없는 오프셋이라 fromisoformat 이 못 읽는다."""
+    try:
+        return datetime.strptime(str(value), "%Y-%m-%dT%H:%M:%S%z")
+    except ValueError:
+        return None
+
+
+async def fetch_recent_comments(token: InstagramToken) -> list[dict]:
+    """최근 게시물의 최상위 댓글 — [{id, text, timestamp, from:{id,username}}]. 대댓글(replies)은 안 본다."""
+    headers = _auth(token)
+    comments: list[dict] = []
+    async with httpx.AsyncClient(timeout=20) as client:
+        media = await client.get(
+            f"{GRAPH}/{token.ig_user_id}/media", params={"fields": "id", "limit": POLL_MEDIA_LIMIT}, headers=headers
+        )
+        media.raise_for_status()
+        for item in media.json().get("data", []):
+            media_id = item.get("id")
+            if not _is_graph_id(media_id):
+                continue
+            response = await client.get(
+                f"{GRAPH}/{media_id}/comments",
+                params={"fields": "id,text,timestamp,from", "limit": POLL_COMMENT_LIMIT},
+                headers=headers,
+            )
+            response.raise_for_status()
+            comments.extend(response.json().get("data", []))
+    return comments
+
+
+async def poll_comments(now: datetime | None = None) -> int:
+    """워터마크 이후 댓글만 오래된 순으로 handle_comment. 처음 켜지면 워터마크만 찍는다(옛 댓글엔 답장 안 함). 반환: 처리 건수."""
+    token = await get_token()  # 토큰이 없으면 RuntimeError — 호출자가 조용히 넘긴다
+    now = now or datetime.now(timezone.utc)
+    setting = await AppSetting.get_or_none(key=POLL_WATERMARK_KEY)
+    if setting is None:
+        await AppSetting.create(key=POLL_WATERMARK_KEY, value={"at": now.isoformat()})  # JSONField — 문자열은 JSON 텍스트로 파싱되므로 객체로
+        return 0
+    watermark = datetime.fromisoformat(setting.value["at"])
+    fresh = []
+    for comment in await fetch_recent_comments(token):
+        created = _parse_graph_time(comment.get("timestamp"))
+        if created is not None and created > watermark:
+            fresh.append((created, comment))
+    fresh.sort(key=lambda pair: pair[0])
+    for created, comment in fresh:
+        await handle_comment(comment)
+        setting.value = {"at": created.isoformat()}  # 건별로 전진 — 중간에 죽어도 이미 답장한 댓글은 다시 안 본다
+        await setting.save(update_fields=["value", "updated_at"])
+    return len(fresh)
+
+
+async def run_comment_poll_loop() -> None:
+    while True:
+        try:
+            await poll_comments()
+        except RuntimeError as exc:  # 토큰 미발급(scripts/instagram_token.py 전) — 발급되면 다음 주기부터 돈다
+            logger.debug("instagram comment poll skipped: %s", exc)
+        except Exception as exc:
+            logger.warning("instagram comment poll failed: %s", _describe(exc))
+        await asyncio.sleep(settings.instagram_comment_poll_seconds)

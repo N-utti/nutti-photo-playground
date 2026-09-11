@@ -108,8 +108,9 @@ crontab -e
 2. Instagram 비즈니스 로그인 설정: 리디렉션 URI `https://play.nutti.co.kr/auth/callback/instagram`. 앱 ID/시크릿 → `.env` `INSTAGRAM_APP_ID` / `INSTAGRAM_APP_SECRET`.
 3. `@nutti_official`이 **프로페셔널 계정**인지 확인 → 앱 역할 › **Instagram 테스터**에 추가(인스타 앱 › 설정 › 앱과 웹사이트 › 테스터 초대 수락). 검수 전엔 테스터 계정의 댓글/DM만 웹훅이 온다.
 4. 토큰: `docker compose … run --rm api python scripts/instagram_token.py` → URL을 `@nutti_official` 로그인 상태에서 열어 승인 → 리다이렉트 URL의 `code=…#_`를 `scripts/instagram_token.py <code>`로 교환(장기 60일, 만료 7일 전 자동 갱신).
-5. Webhooks: 콜백 URL `https://api.nutti.co.kr/v1/webhooks/instagram`, 확인 토큰 = `.env` `INSTAGRAM_WEBHOOK_VERIFY_TOKEN`(임의 문자열) → 구독 필드 **`comments`, `messages`**. 콘솔 [테스트] 전송으로 api 로그 200 확인.
-6. 앱 검수: 이용사례에 `instagram_business_basic` · `instagram_business_manage_comments` · `instagram_business_manage_messages` → 스크린캐스트(댓글 → 비공개 답장 → 「완료」 답장 → 코드 DM → 놀이터 로그인 → 크레딧)와 영어 자막, 개인정보처리방침 URL(`nutti.co.kr/privacy.html`) 재사용. Threads 반려 교훈: **엔드투엔드 한 테이크**.
+5. Webhooks: 콜백 URL `https://api.nutti.co.kr/v1/webhooks/instagram`, 확인 토큰 = `.env` `INSTAGRAM_WEBHOOK_VERIFY_TOKEN`(임의 문자열) → 구독 필드 **`comments`, `messages`**. 콘솔 [테스트] 전송으로 api 로그 200 확인. 앱을 **Live 모드**로 전환(웹훅은 Live 에서만 온다 — 전환 자체엔 검수 불필요).
+   - **검수 전**: `comments` 웹훅은 Advanced Access 가 있어야 와서 실제로는 안 온다. 대신 api 가 `INSTAGRAM_COMMENT_POLL_SECONDS`(기본 60초)마다 최근 게시물 10개의 댓글을 읽어 같은 비공개 답장을 보낸다(내 계정 읽기·DM 은 Standard Access 로 충분). 켠 시점 이후 댓글만 본다(워터마크 `app_setting.instagram_comments_polled_at`). `messages` 웹훅은 검수 없이 온다.
+6. 앱 검수(검수 통과 후 `INSTAGRAM_COMMENT_POLL_SECONDS=0` 으로 폴링을 끄고 웹훅만 쓴다): 이용사례에 `instagram_business_basic` · `instagram_business_manage_comments` · `instagram_business_manage_messages` → 스크린캐스트(댓글 → 비공개 답장 → 「완료」 답장 → 코드 DM → 놀이터 로그인 → 크레딧)와 영어 자막, 개인정보처리방침 URL(`nutti.co.kr/privacy.html`) 재사용. Threads 반려 교훈: **엔드투엔드 한 테이크**.
 7. 문구·키워드는 `app/instagram.py` 상수와 `INSTAGRAM_COMMENT_KEYWORDS`. 비공개 답장은 댓글 후 7일 내 1회, 이후 DM은 사용자 마지막 메시지 후 24시간 내.
 
 ## 6. 배포 후 스모크

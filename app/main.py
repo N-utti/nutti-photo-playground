@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from tortoise import Tortoise
 
+from app import instagram
 from app.monitor import run_monitor_loop
 from app.routers import admin, auth, credits, events, jobs, library, pets, results, styles, uploads, webhooks
 from app.settings import settings
@@ -27,10 +28,14 @@ async def lifespan(app: FastAPI):
     )
     logger.info("trust_proxy=%s guest_rate_limit_per_hour=%s", settings.trust_proxy, settings.guest_rate_limit_per_hour)
     # 운영 감시(app/monitor.py) — 웹훅이 없어도 돌며 로그에 남긴다. 테스트 앱은 lifespan 을 타지 않는다.
-    monitor = asyncio.create_task(run_monitor_loop()) if settings.monitor_enabled else None
+    tasks = []
+    if settings.monitor_enabled:
+        tasks.append(asyncio.create_task(run_monitor_loop()))
+    if settings.instagram_comment_poll_seconds > 0:  # 검수 전 댓글 트리거(app/instagram.py 댓글 폴링)
+        tasks.append(asyncio.create_task(instagram.run_comment_poll_loop()))
     yield
-    if monitor is not None:
-        monitor.cancel()
+    for task in tasks:
+        task.cancel()
     await Tortoise.close_connections()
 
 

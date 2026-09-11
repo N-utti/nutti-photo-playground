@@ -246,3 +246,47 @@ def test_non_numeric_ids_are_dropped_before_any_graph_call(client: TestClient, g
     client.post("/v1/webhooks/instagram", content=raw2, headers=headers2)
 
     assert graph["private"] == [] and graph["dm"] == []
+
+
+# ---------------------------------------------------------------- 댓글 폴링 (검수 전 comments 웹훅 대체)
+
+
+def _polled(client: TestClient, graph: dict, comments: list[dict], monkeypatch: pytest.MonkeyPatch, now: datetime) -> int:
+    async def fetch_recent_comments(token: InstagramToken) -> list[dict]:
+        return comments
+
+    monkeypatch.setattr(instagram, "fetch_recent_comments", fetch_recent_comments)
+    return client.portal.call(lambda: instagram.poll_comments(now))
+
+
+def _graph_comment(comment_id: str, text: str, at: datetime, author: str = "555") -> dict:
+    return {"id": comment_id, "text": text, "timestamp": at.strftime("%Y-%m-%dT%H:%M:%S+0000"), "from": {"id": author, "username": "someone"}}
+
+
+def test_poll_replies_once_to_new_keyword_comments_only(client: TestClient, graph: dict, monkeypatch: pytest.MonkeyPatch):
+    t0 = datetime(2026, 9, 11, 3, 0, 0, tzinfo=timezone.utc)
+    old = _graph_comment("2001", "놀이터", t0 - timedelta(hours=1))
+    # 첫 폴링: 워터마크만 찍고 옛 댓글엔 답장하지 않는다
+    assert _polled(client, graph, [old], monkeypatch, t0) == 0
+    assert graph["private"] == []
+
+    fresh = [
+        _graph_comment("2003", "놀이터 주세요", t0 + timedelta(seconds=40)),  # Graph 는 최신순으로 준다
+        _graph_comment("2002", "귀엽다", t0 + timedelta(seconds=20)),
+        _graph_comment("2004", "놀이터", t0 + timedelta(seconds=50), author=OUR_IG_ID),  # 우리 답글
+        old,
+    ]
+    assert _polled(client, graph, fresh, monkeypatch, t0 + timedelta(minutes=1)) == 3
+    assert [c for c, _ in graph["private"]] == ["2003"]
+
+    # 같은 목록을 다시 받아도(재배포·재폴링) 두 번 답장하지 않고, 그 뒤 댓글만 처리한다
+    later = _graph_comment("2005", "놀이터!", t0 + timedelta(seconds=90))
+    assert _polled(client, graph, [later, *fresh], monkeypatch, t0 + timedelta(minutes=2)) == 1
+    assert [c for c, _ in graph["private"]] == ["2003", "2005"]
+
+
+def test_poll_without_token_raises_and_touches_nothing(client: TestClient, graph: dict, monkeypatch: pytest.MonkeyPatch):
+    client.portal.call(lambda: InstagramToken.all().delete())
+    with pytest.raises(RuntimeError):
+        client.portal.call(lambda: instagram.poll_comments(datetime.now(timezone.utc)))
+    assert graph["private"] == []

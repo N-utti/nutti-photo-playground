@@ -15,3 +15,4 @@ def _monitor_off(monkeypatch: pytest.MonkeyPatch):
     from app.settings import settings
 
     monkeypatch.setattr(settings, "monitor_enabled", False)
+    monkeypatch.setattr(settings, "instagram_comment_poll_seconds", 0)  # 댓글 폴링 루프(app/instagram.py)도 같은 이유
