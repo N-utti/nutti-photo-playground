@@ -15,7 +15,7 @@ import { isApiError } from '../api/client'
 import { track } from '../app/analytics'
 import { creditAmountPhrase } from '../app/earnAmount'
 import { useClaimCredit, useCredits, useMe, useRedeemInstagramCode } from '../api/queries'
-import { clearInstagramCode, peekInstagramCode } from '../app/instagramCode'
+import { clearInstagramCode } from '../app/instagramCode'
 import {
   NUTTI_INSTAGRAM_HANDLE,
   NUTTI_INSTAGRAM_URL,
@@ -105,22 +105,7 @@ export default function EarnActionList() {
     })
   }
 
-  /*
-    DM 링크(`?ig=`)로 들어와 로그인까지 마친 사람 — 팔로우 행이 아직 available 이면 자동으로 넣어 줍니다.
-    게스트는 회원 전용이라 기다리고(로그인 시트에서 로그인하면 캐시 무효화 → 이 effect 가 다시 돕니다),
-    이미 done 이면 코드만 지웁니다(같은 인스타 계정이라 어차피 409).
-  */
-  const followRow = credits?.earn_actions.find((row) => row.action === 'follow_ig')
-  const storedCode = peekInstagramCode()
-  useEffect(() => {
-    if (!storedCode || me?.kind !== 'member' || !followRow || redeem.isPending || redeem.isSuccess || redeem.isError) return
-    if (followRow.status !== 'available') {
-      clearInstagramCode()
-      return
-    }
-    handleRedeem(storedCode)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 코드·회원·행 상태가 갖춰진 순간 한 번
-  }, [storedCode, me?.kind, followRow?.status])
+  // DM 링크 코드의 자동 소진은 어느 화면에서든 돌아야 해서 app/InstagramCodeRedeem.tsx(RootLayout)로 옮겼습니다.
 
   if (isPending) {
     return (

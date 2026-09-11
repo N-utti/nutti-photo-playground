@@ -15,6 +15,7 @@ import { useEffect, useRef } from 'react'
 import { Outlet, useLocation, useNavigationType } from 'react-router'
 import { useRouteTitle } from './routeTitle'
 import DesktopNav from './DesktopNav'
+import InstagramCodeRedeem from './InstagramCodeRedeem'
 import JobStatusBar from './JobStatusBar'
 import SessionNotice from './SessionNotice'
 import SessionRecovery from './sessionRecovery'
@@ -28,6 +29,9 @@ export default function RootLayout() {
       {/* 그리는 것이 없습니다 — 회원 세션이 끊긴 순간 게스트로 내려앉히는 배선입니다.
           여기 있는 이유는 위 둘과 같습니다: 어느 화면에서든 끊길 수 있습니다. */}
       <SessionRecovery />
+      {/* 역시 그리지 않습니다 — 인스타 DM 링크로 들어온 사람이 로그인하면 어느 화면에서든
+          팔로우 크레딧을 넣는 배선입니다(app/InstagramCodeRedeem.tsx). */}
+      <InstagramCodeRedeem />
       {/*
         데스크톱 상단 GNB (app/DesktopNav.tsx). 모바일 하단 탭바와 달리 화면이 직접
         붙이지 않고 여기서 한 번에 깝니다 — 붙일 화면을 고르는 판단 자체가 없어야

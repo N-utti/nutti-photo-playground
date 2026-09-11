@@ -20,7 +20,6 @@ import userEvent from '@testing-library/user-event'
 import { HttpResponse, delay, http } from 'msw'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { renderWithProviders } from '../test/render'
-import { peekInstagramCode } from '../app/instagramCode'
 import { mockAsMember } from '../mocks/handlers'
 import { server } from '../test/server'
 import EarnActionList from './EarnActionList'
@@ -498,32 +497,6 @@ function guestMe() {
   })
 
 describe('EarnActionList · 인스타 DM 코드', () => {
-  it('DM 링크로 들어온 코드는 로그인한 회원이 W-10을 열면 자동으로 소진된다', async () => {
-    /*
-      `?ig=` 는 부팅 시 localStorage 에 들어가고(app/instagramCode.ts), 링크를 누른 사람은 대개
-      게스트라 그 자리에서는 못 씁니다. 로그인 뒤 여기서 자동으로 넣어 주지 않으면 «링크 눌렀는데
-      아무 일도 없네» 가 됩니다. 성공하면 코드를 지워 새로고침 때 409 를 맞지 않습니다.
-    */
-    asMember()
-    localStorage.setItem('nutti.instagram.code', 'K7M2P9QX')
-    const sent: unknown[] = []
-    server.use(
-      http.post('*/v1/credits/redeem-instagram', async ({ request }) => {
-        sent.push(await request.json())
-        return HttpResponse.json({ balance: 13, amount_granted: 2 })
-      }),
-    )
-    try {
-      renderWithProviders(<EarnActionList />)
-
-      expect(await screen.findByText(/\+2 크레딧을 받았어요/)).toBeInTheDocument()
-      expect(sent).toEqual([{ code: 'K7M2P9QX' }])
-      expect(peekInstagramCode()).toBeNull()
-    } finally {
-      localStorage.removeItem('nutti.instagram.code')
-    }
-  })
-
   it('코드를 손으로 넣어도 되고, 틀린 코드는 그렇다고 말한다', async () => {
     asMember()
     server.use(
