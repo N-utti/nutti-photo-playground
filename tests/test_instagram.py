@@ -290,3 +290,14 @@ def test_poll_without_token_raises_and_touches_nothing(client: TestClient, graph
     with pytest.raises(RuntimeError):
         client.portal.call(lambda: instagram.poll_comments(datetime.now(timezone.utc)))
     assert graph["private"] == []
+
+
+def test_comment_seen_by_webhook_and_poll_gets_one_private_reply(client: TestClient, graph: dict, monkeypatch: pytest.MonkeyPatch):
+    """앱 역할 계정의 댓글은 웹훅으로도 오고 폴링에도 잡힌다 — 비공개 답장은 한 번만."""
+    instagram._replied_comment_ids.clear()
+    raw, headers = _signed(_comment_event("놀이터", comment_id="3001"))
+    assert client.post("/v1/webhooks/instagram", content=raw, headers=headers).status_code == 200
+    t0 = datetime(2026, 9, 11, 6, 0, 0, tzinfo=timezone.utc)
+    assert _polled(client, graph, [], monkeypatch, t0) == 0  # 워터마크
+    assert _polled(client, graph, [_graph_comment("3001", "놀이터", t0 + timedelta(seconds=30))], monkeypatch, t0 + timedelta(minutes=1)) == 1
+    assert [c for c, _ in graph["private"]] == ["3001"]
