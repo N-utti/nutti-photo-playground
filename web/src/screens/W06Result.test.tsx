@@ -1040,6 +1040,18 @@ describe('W-06 · 지워진 결과', () => {
     expect(await screen.findByRole('button', { name: /다시 만들기/ })).toBeInTheDocument()
   })
 
+  it('쇼핑몰 배너는 상품 썸네일을 단다 — 링크 이름은 그대로 (FR-W06-06)', async () => {
+    mockStyleDetail()
+    renderResult(succeededJob())
+
+    const banner = await screen.findByRole('link', { name: /누띠 수제간식 보러가기/ })
+    const img = banner.querySelector('img')
+    expect(img).toHaveAttribute('src', '/shop/pork-stick.webp')
+    // 장식입니다 — 상품명을 alt 로 실으면 링크 이름이 «포크스틱 누띠 수제간식…» 이 됩니다.
+    expect(img).toHaveAttribute('alt', '')
+    expect(banner).toHaveTextContent('5만원 이상 무료배송')
+  })
+
   it('출구 셋(공유·계산기·쇼핑몰)을 늘어놓지 않는다', async () => {
     /*
       그 배치는 «감정 최고점에 모은다» 는 근거 위에 서 있습니다(FR-W06-08 · 노트6).

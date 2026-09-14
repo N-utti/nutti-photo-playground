@@ -80,8 +80,15 @@ import JobUnavailable from './JobUnavailable'
  */
 const SHOP_BANNER = {
   url: shopLink('w06_result'),
+  /*
+    상품 썸네일(FR-W06-06 · 이슈 #319). 쇼핑몰 메인 첫 자리의 포크스틱(상품 84) — 출처·가공은
+    public/shop/NOTICE.md. 상품명은 싣지 않습니다: 쇼핑몰 상품명에 「콜라겐·칼슘·다이어트」류가
+    섞여 있어 그대로 옮기면 FR-W06-11 에 걸리고, 링크는 상품이 아니라 쇼핑몰 메인이라
+    그림은 «어떤 가게인지» 를 보여 주는 장식입니다(alt 빈 문자열).
+  */
+  image: '/shop/pork-stick.webp',
   title: '누띠 수제간식 보러가기',
-  note: '5만원 이상 무료배송',
+  note: '5만원 이상 무료배송', // 2026-09-14 nutti.co.kr 실측 「5만 원 이상 구매 시 무료배송」
 }
 
 /**
@@ -319,7 +326,16 @@ function ResultPanel({ job }: { job: Job }) {
         */
         className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-brand-2 bg-brand-soft px-3 py-3 hover:border-brand"
       >
-        <span>
+        <img
+          src={SHOP_BANNER.image}
+          alt=""
+          width={56}
+          height={56}
+          loading="lazy"
+          decoding="async"
+          className="size-14 shrink-0 rounded-lg object-cover"
+        />
+        <span className="min-w-0 flex-1">
           <span className="block text-sm font-semibold">{SHOP_BANNER.title}</span>
           {/* `ink-3` 가 아니라 `ink-2` 입니다. 갈색 면 위에서 ink-3 는 4.09:1 로
               AA 아래이고, 같은 모양의 W-02 재사용 배너는 이미 ink-2 를 씁니다. */}
