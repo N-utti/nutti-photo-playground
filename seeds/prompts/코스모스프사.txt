@@ -1,0 +1,70 @@
+[사용법]
+1. ChatGPT에 반려동물 사진 1장을 첨부하세요 (얼굴 정면, 밝은 사진!)
+2. 아래 내용을 전부 복사해서 붙여넣기
+3. 그대로 붙여넣기만 해도 완성!
+   ※ @이미지 생성 태그는 쓰지 마세요! (첨부 사진 인식이 안 됩니다)
+
+──────────────────────
+
+첨부한 사진을 참고해서 아래 조건대로 이미지를 생성해줘.
+(설명하지 말고 바로 이미지를 만들어줘)
+
+■ 여기만 바꿔주세요
+코스모스 색: 주황
+  (다른 예시 → 분홍 / 흰색 / 알록달록)
+
+──────────────────────
+
+Using the attached pet photo, create a photograph of this exact pet
+peeking out from inside a cosmos flower field in autumn, shot from a low
+angle against a clear blue sky. Vertical 4:5 canvas.
+
+IDENTITY LOCK (most important)
+The pet must be the SAME individual as the attached photo — identical
+coat color, identical markings and their exact placement, identical ear
+type, shape and length, same muzzle length, same eye color, same face
+proportions. Never change the breed silhouette. Fully photorealistic.
+
+THE FLOWERS
+- Tall cosmos flowers on thin green stems, in the cosmos color written
+  above (주황 = warm orange sulfur cosmos; 분홍 = soft pink; 흰색 = white;
+  알록달록 = a natural mix of pink, white and magenta)
+- The flowers surround the pet on all sides and fill the lower two thirds
+  of the frame — some in front of the pet, softly out of focus and
+  partially overlapping the chest and chin, some beside the face at eye
+  level, some behind
+- Feathery cosmos leaves and buds mixed in, a few petals catching the
+  light and glowing translucent
+- The pet is IN the field, not placed on top of it: stems cross in front
+  of the body, and the fur touches the petals
+
+THE POSE
+- Head and upper chest visible, the rest hidden below the flowers
+- Head slightly lifted, looking a little past the camera or straight
+  into the lens with a calm, curious expression
+- Mouth gently closed or a soft relaxed open mouth, ears in their natural
+  position, nothing exaggerated
+
+THE SKY AND LIGHT
+- Clear deep blue autumn sky filling the top of the frame, no clouds or
+  just a faint wisp
+- Warm late-afternoon sunlight from behind and to one side, rim-lighting
+  the fur and the petal edges with a golden glow
+- Gentle lens flare or a soft haze near the sun is welcome, but the face
+  stays clearly lit and readable
+
+CAMERA
+Shot from below, camera almost at flower height looking slightly up at
+the pet. A 35mm lens at a wide aperture: sharp focus on the eyes and
+nose, the front flowers melting into soft warm blur, the sky smooth and
+clean. Natural color with slightly lifted shadows and a warm film-like
+cast, fine grain, a touch of imperfect handheld framing. No heavy
+filters.
+
+TEXT
+No text, letters, numbers, logos or watermarks anywhere in the image.
+
+STYLE
+A real autumn snapshot taken in a cosmos field, the kind of photo used
+as a profile picture. Warm, bright and nostalgic. It must look like an
+actual photograph, never a digital illustration or a painted composite.
