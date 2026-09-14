@@ -107,7 +107,7 @@ describe('W-04 · 스타일별 입력 폼', () => {
   })
 
   it('스키마가 없는 스타일에서는 폼을 아예 그리지 않는다', async () => {
-    // 39종 중 14종이 빈 배열입니다 — 그쪽은 기존 플로우가 한 글자도 달라지면 안 됩니다.
+    // 40종 중 15종이 빈 배열입니다 — 그쪽은 기존 플로우가 한 글자도 달라지면 안 됩니다.
     mockStyle([])
     const { container } = renderUpload()
     await uploadPhoto(container)

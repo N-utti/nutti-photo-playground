@@ -115,5 +115,9 @@
   "프라모델": [
     {"label": "런너 색상", "type": "choice", "allow_custom": true, "default": "크림 아이보리",
      "options": [{"value": "크림 아이보리"}, {"value": "파스텔 핑크"}, {"value": "민트"}, {"value": "라벤더"}, {"value": "소다 블루"}]}
+  ],
+  "코스모스프사": [
+    {"label": "코스모스 색", "type": "choice", "allow_custom": false, "default": "주황",
+     "options": [{"value": "주황"}, {"value": "분홍"}, {"value": "흰색"}, {"value": "알록달록"}]}
   ]
 }
