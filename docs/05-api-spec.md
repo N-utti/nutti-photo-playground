@@ -775,7 +775,7 @@ Android 인앱 웹뷰(카카오톡·인스타그램·네이버앱)에는 OS 공�
 
 Meta 앱(Instagram API with Instagram Login)의 Webhooks에 등록하는 URL. 팔로우 여부를 제3자가 알 수 있는 **유일한 공식 경로**는 메시징 API의 사용자 프로필 `is_user_follow_business`이고, 이 값은 그 사용자가 **우리 계정에 DM을 보낸 뒤**에만 조회된다. 그래서:
 
-1. `comments` 이벤트: 게시물 댓글에 키워드(`INSTAGRAM_COMMENT_KEYWORDS`, 기본 `놀이터`)가 있으면 그 댓글에 **비공개 답장**(댓글 후 7일 내 1회) — "팔로우 후 「완료」라고 답장".
+1. `comments` 이벤트: 게시물 댓글에 키워드(`INSTAGRAM_COMMENT_KEYWORDS`, 기본 `놀이터`)가 있으면 그 댓글에 **비공개 답장**(댓글 후 7일 내 1회) — "팔로우 후 「완료」라고 답장". 비공개 답장이 요청함에 묻히지 않도록 같은 댓글에 **공개 대댓글** "메시지함(DM)을 확인해 주세요"도 단다(2026-09-14, `POST /{comment_id}/replies`).
 2. `messages` 이벤트: 답장한 사용자의 프로필 조회 → 팔로우 O면 **1회용 코드(8자, 30일)** + `{INSTAGRAM_LANDING_URL}/?ig=<code>` DM, 팔로우 X면 재안내 DM. 같은 사용자의 미사용 코드는 하나만(웹훅 재전송·재답장에 재발급 없음). 우리 계정의 메아리(`is_echo`)·우리 댓글은 무시.
 3. 놀이터에서 `POST /v1/credits/redeem-instagram`으로 소진(아래).
 
