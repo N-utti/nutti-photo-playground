@@ -104,7 +104,7 @@ describe('W-01 홈 · 카드 이름 인쇄 배지', () => {
   it('플래그가 켜진 스타일에만, 그 수만큼 붙는다', async () => {
     renderWithProviders(<W01Landing />, { route: '/' })
 
-    // 시드 39종 중 `[pet name]` 을 쓰는 것은 3D_피규어·식빵 둘입니다.
+    // 시드 40종 중 `[pet name]` 을 쓰는 것은 3D_피규어·식빵 둘입니다.
     const badges = await within(await styleGrid()).findAllByText('이름 인쇄')
     expect(badges).toHaveLength(2)
 

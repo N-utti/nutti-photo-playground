@@ -63,7 +63,7 @@ const cards = styleCatalog.sections.flatMap((section) => section.styles)
 describe('목 픽스처 · 백엔드 시드 대조', () => {
   /*
     프롬프트를 한 장도 못 읽었다면 아래 비교들은 «빈 배열 vs 빈 배열» 이 되어
-    아무것도 검증하지 않은 채 통과합니다 — 39종이 잡혔는지 먼저 확인합니다.
+    아무것도 검증하지 않은 채 통과합니다 — 40종이 잡혔는지 먼저 확인합니다.
   */
   it('시드 프롬프트와 스타일 카드를 실제로 읽었다', () => {
     expect(PROMPT_FILES.length).toBeGreaterThan(30)
