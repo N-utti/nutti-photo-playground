@@ -900,8 +900,12 @@ async def redeem_handoff(body: HandoffRedeemRequest, request: Request) -> Handof
     if member.kind == MemberKind.MEMBER:
         logger.info("auth handoff redeemed: member=%s ip=%s", member.id, client_ip)  # L2 — 회원 세션 이동 흔적
     else:
+        now = datetime.now(timezone.utc)
+        # 발급 뒤 120초 사이에 만료된 게스트는 되살리지 않는다 — purge 가 이미 자산을 지웠을 수 있다.
+        if member.guest_expires_at is not None and member.guest_expires_at < now:
+            raise unauthorized("TOKEN_EXPIRED")
         # 새 30일 토큰을 주면서 자산 보존 기한도 같이 민다 — 안 그러면 토큰은 살고 purge 가 이미지를 지운다.
-        member.guest_expires_at = datetime.now(timezone.utc) + timedelta(seconds=settings.jwt_guest_expires_in)
+        member.guest_expires_at = now + timedelta(seconds=settings.jwt_guest_expires_in)
         await member.save(update_fields=["guest_expires_at"])
     return HandoffRedeemResponse(
         token=create_token(member.id, member.kind.value, member.token_version),

@@ -1312,3 +1312,14 @@ def test_handoff_redeem_extends_guest_asset_retention(client: TestClient):
     after = client.portal.call(_member, guest["member_id"]).guest_expires_at
     assert after >= before - timedelta(seconds=5)
     assert after > datetime.now(timezone.utc) + timedelta(days=29)
+
+
+def test_handoff_redeem_does_not_revive_expired_guest(client: TestClient):
+    """발급→소진 사이(120초)에 만료된 게스트는 핸드오프로도 못 살아난다 — purge 가 자산을 지웠을 수 있다."""
+    guest = client.post("/v1/auth/guest").json()
+    code = client.post("/v1/auth/handoff", headers={"Authorization": f"Bearer {guest['token']}"}).json()["code"]
+    client.portal.call(_expire_guest, guest["member_id"])
+
+    response = client.post("/v1/auth/handoff/redeem", json={"code": code})
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "TOKEN_EXPIRED"

@@ -193,7 +193,7 @@ async def get_current_member(authorization: str | None = Header(None, alias="Aut
     if (
         member.kind == MemberKind.GUEST
         and member.guest_expires_at is not None
-        and member.guest_expires_at <= datetime.now(timezone.utc)
+        and member.guest_expires_at < datetime.now(timezone.utc)  # purge 와 같은 경계(<)
     ):
         raise unauthorized("TOKEN_EXPIRED")
     return member
