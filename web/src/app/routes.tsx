@@ -166,4 +166,15 @@ export function warmScreens(): void {
   else setTimeout(warm, 2_000)
 }
 
-export const router = createBrowserRouter(routes)
+/**
+ * 부팅 관문이 주소를 다 정리한 **뒤에** 부릅니다(main.tsx).
+ *
+ * `createBrowserRouter` 는 부르는 순간의 주소를 자기 위치로 삼고, 그 뒤 `history.replaceState`
+ * 로 바꾼 주소는 모릅니다(popstate 만 듣습니다). 예전엔 이걸 모듈 상수로 두어 import 시점에
+ * 만들어졌고, 그러면 `?ig=`·`?handoff=` 를 걷어 낸 뒤에도 `useLocation().search` 에는 그
+ * 파라미터가 남아 — 로그인 복귀 주소(app/authReturn.ts)에 실려 돌아온 뒤 주소창에 다시
+ * 붙었습니다. 코드는 다음 새로고침에 재소진을 시도했고, handoff 는 자격증명이 주소에 남았습니다.
+ */
+export function createAppRouter() {
+  return createBrowserRouter(routes)
+}

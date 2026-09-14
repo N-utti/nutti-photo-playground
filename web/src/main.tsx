@@ -6,7 +6,7 @@ import { ApiError, ensureSession, openWhenSessionReady } from './api/client'
 import { startAnalytics } from './app/analytics'
 import { redeemHandoff, takeHandoffCode } from './app/handoff'
 import { captureInstagramCode } from './app/instagramCode'
-import { router, warmScreens } from './app/routes'
+import { createAppRouter, warmScreens } from './app/routes'
 import './index.css'
 
 const queryClient = new QueryClient({
@@ -51,6 +51,10 @@ async function bootstrap() {
   // 인스타 DM 링크(`?ig=`)로 들어온 코드는 세션보다 먼저 집어 둡니다 — 게스트 발급이 주소를 건드리지 않아도
   // 순서를 고정해 두면 나중에 부팅 순서가 바뀌어도 코드를 잃지 않습니다.
   captureInstagramCode()
+
+  // 라우터는 위 둘이 주소를 걷어 낸 **뒤에** 만듭니다 — 먼저 만들면 걷어 낸 파라미터가
+  // 라우터 위치에 남아 로그인 복귀 주소로 되살아납니다(app/routes.tsx `createAppRouter`).
+  const router = createAppRouter()
 
   /*
     **기다리지 않고** 렌더합니다.

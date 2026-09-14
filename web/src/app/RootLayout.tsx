@@ -15,7 +15,8 @@ import { useEffect, useRef } from 'react'
 import { Outlet, useLocation, useNavigationType } from 'react-router'
 import { useRouteTitle } from './routeTitle'
 import DesktopNav from './DesktopNav'
-import InstagramCodeRedeem from './InstagramCodeRedeem'
+import InstagramRedeemNotice from './InstagramCodeRedeem'
+import { useInstagramCodeRedeem } from './instagramCode'
 import JobStatusBar from './JobStatusBar'
 import SessionNotice from './SessionNotice'
 import SessionRecovery from './sessionRecovery'
@@ -29,9 +30,6 @@ export default function RootLayout() {
       {/* 그리는 것이 없습니다 — 회원 세션이 끊긴 순간 게스트로 내려앉히는 배선입니다.
           여기 있는 이유는 위 둘과 같습니다: 어느 화면에서든 끊길 수 있습니다. */}
       <SessionRecovery />
-      {/* 역시 그리지 않습니다 — 인스타 DM 링크로 들어온 사람이 로그인하면 어느 화면에서든
-          팔로우 크레딧을 넣는 배선입니다(app/InstagramCodeRedeem.tsx). */}
-      <InstagramCodeRedeem />
       {/*
         데스크톱 상단 GNB (app/DesktopNav.tsx). 모바일 하단 탭바와 달리 화면이 직접
         붙이지 않고 여기서 한 번에 깝니다 — 붙일 화면을 고르는 판단 자체가 없어야
@@ -56,12 +54,19 @@ export default function RootLayout() {
  * 훅이 이 안에 있는 것도 의도입니다. RootLayout 본체에서 부르면 세션 상태가 바뀔
  * 때마다 `<Outlet />` 이 통째로 다시 그려집니다.
  */
-function FloatingStatus() {
+export function FloatingStatus() {
   const notice = useSessionNotice()
+  // 인스타 DM 코드 자동 소진도 여기서 돕니다(app/InstagramCodeRedeem.tsx) — 어느 화면에서든
+  // 돌아야 하는 건 위 둘과 같고, 실패했을 때 말할 자리가 바로 이 카드 자리이기 때문입니다.
+  const redeem = useInstagramCodeRedeem()
 
   // key 로 안내 종류를 물립니다 — 종류가 바뀌면 «닫음» 도 같이 초기화돼야 합니다.
   // 발급 제한을 닫아 둔 채 로그인이 끊기면 그 소식까지 함께 삼켜집니다.
-  return notice ? <SessionNotice key={notice} notice={notice} /> : <JobStatusBar />
+  if (notice) return <SessionNotice key={notice} notice={notice} />
+  // 세션 안내보다 뒤, job 바보다 앞 — 닫으면(reset) job 바가 돌아옵니다. 로그인 직후 몇 초의
+  // 일이라 그 사이 job 진행률이 가려지는 건 감수합니다.
+  if (redeem.isError) return <InstagramRedeemNotice error={redeem.error} onClose={redeem.reset} />
+  return <JobStatusBar />
 }
 
 const SITE_NAME = '누띠 사진 놀이터'
