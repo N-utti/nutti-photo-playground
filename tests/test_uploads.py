@@ -12,7 +12,7 @@ from tortoise import Tortoise
 
 from app import storage
 from app.main import app
-from app.models import AppSetting, Member, PetProfile, SourceImage
+from app.models import AppSetting, PetProfile, SourceImage
 from app.routers import auth as auth_router
 from app.routers import uploads as uploads_router
 from app.settings import settings
@@ -102,12 +102,6 @@ async def _set_policy(policy: str, key: str = "human_face_policy") -> None:
         "UPDATE app_setting SET value = ? WHERE key = ?",
         [json.dumps(policy), key],
     )
-
-
-async def _expiry_values(upload_id: str, member_id: str):
-    source = await SourceImage.get(id=upload_id)
-    member = await Member.get(id=member_id)
-    return source.expires_at, member.guest_expires_at
 
 
 def test_normal_upload_saves_image(
@@ -290,20 +284,3 @@ def test_missing_openai_key_skips_vision_without_not_a_dog_warning(
     assert "NOT_A_DOG" not in {warning["code"] for warning in response.json()["warnings"]}
     source = client.portal.call(_source, response.json()["upload_id"])
     assert source.quality_check["vision_checked"] is False
-
-
-def test_guest_expiry_is_copied_to_source_image(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-):
-    _mock_vision(monkeypatch, _vision())
-    session = _guest(client)
-
-    response = client.post("/v1/uploads", headers=_headers(session), files=_files())
-
-    source_expiry, guest_expiry = client.portal.call(
-        _expiry_values,
-        response.json()["upload_id"],
-        session["member_id"],
-    )
-    assert response.status_code == 200
-    assert source_expiry == guest_expiry

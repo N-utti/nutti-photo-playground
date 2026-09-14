@@ -28,6 +28,7 @@ _AMOUNT_DEFAULTS = {
     "link_account_amount": 3,
     "follow_ig_amount": 2,
     "daily_free_amount": 1,
+    "guest_trial_amount": 1,
 }
 _JOB_REASONS = {
     CreditReason.GENERATION_CHARGE,

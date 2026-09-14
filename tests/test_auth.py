@@ -18,6 +18,7 @@ from app.auth import hash_password, verify_password
 from app.credits import grant_credits
 from app.main import app
 from app.models import (
+    AppSetting,
     CreditLedger,
     CreditReason,
     CustomPromptLog,
@@ -1275,3 +1276,12 @@ def test_handoff_code_expires(client: TestClient, monkeypatch):
         "/v1/auth/handoff", headers={"Authorization": f"Bearer {guest['token']}"}
     ).json()["code"]
     assert client.post("/v1/auth/handoff/redeem", json={"code": code}).status_code == 401
+
+
+def test_guest_trial_amount_comes_from_app_setting(client: TestClient):
+    """체험 크레딧은 콘솔 설정 guest_trial_amount — 배포 없이 조정."""
+    client.portal.call(lambda: AppSetting.create(key="guest_trial_amount", value=2))
+    guest = client.post("/v1/auth/guest").json()
+    member, ledger = client.portal.call(_member_and_ledger, guest["member_id"])
+    assert member.credit_balance == 2
+    assert ledger[0].amount == 2

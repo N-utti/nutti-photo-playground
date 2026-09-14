@@ -47,6 +47,7 @@ from app.models import (
     PetProfile,
     SourceImage,
 )
+from app.routers import credits as credits_router
 from app.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -455,7 +456,7 @@ async def issue_guest_token(request: Request) -> GuestTokenResponse:
         )
         await grant_credits(
             member.id,
-            1,
+            (await credits_router._amounts())["guest_trial_amount"],
             CreditReason.GUEST_TRIAL,
             "guest_trial",
             connection=connection,

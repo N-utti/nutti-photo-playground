@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from app.auth import get_current_member
 from app.common import not_found, unauthorized, validation_error
-from app.models import AppSetting, Member, MemberKind, PetProfile, SourceImage
+from app.models import AppSetting, Member, PetProfile, SourceImage
 from app.settings import settings
 from app.storage import load_bytes, public_url, save_bytes
 
@@ -266,7 +266,6 @@ async def upload_photo(
         width=image.width,
         height=image.height,
         quality_check=quality_check,
-        expires_at=member.guest_expires_at if member.kind == MemberKind.GUEST else None,
     )
     return {
         "upload_id": str(source.id),

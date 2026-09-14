@@ -327,7 +327,7 @@ export interface Pet extends PetSummary {
    * 이 펫에 연결된 가장 최근 `source_image` id (이슈 #9 A안, §3).
    * 값이 있으면 W-04 에서 **업로드 단계를 건너뛰고** 그대로 `POST /v1/jobs` 의
    * `upload_id` 로 씁니다(FR-W04-02). 연결된 업로드가 만료·삭제됐으면 `null`
-   * (서버가 `expires_at` 을 지난 업로드를 null 로 떨굽니다 — app/routers/pets.py:75).
+   * (게스트 만료는 인증 단계에서 401 로 끝나므로 여기서 따로 거르지 않습니다 — 2026-09-14).
    *
    * PR #49 로 백엔드 구현이 착지해 옵셔널을 뗐습니다.
    */
