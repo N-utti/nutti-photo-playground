@@ -49,7 +49,13 @@ const EARN_COPY: Record<EarnAction, { title: string; note: string }> = {
   order: { title: '누띠 주문하기', note: '주문 1건당 · 자동 확인, 취소하면 회수' },
   link_account: { title: '쇼핑몰 계정 연동', note: '최초 1회' },
   follow_ig: { title: '인스타 팔로우', note: NUTTI_INSTAGRAM_HANDLE },
-  daily: { title: '오늘의 무료', note: '매일 자정 충전' },
+  /*
+    「충전」이 아닙니다 — 자정에 되살아나는 건 **받을 자격**이고, 크레딧은 「받기」를 눌러야
+    들어옵니다(백엔드 credits.py 가 한국 날짜로 중복만 막습니다 · #324 정오표 E-08). 자동
+    지급이라 말해 두면 «안 눌렀는데 왜 안 늘지» 가 됩니다. 절차는 CTA(받기 / 내일 다시)가
+    이미 말하므로 여기서는 횟수만.
+  */
+  daily: { title: '오늘의 무료', note: '하루 1번' },
 }
 
 /** 이 경로만 `POST /v1/credits/claim` 대상입니다(§2 W-10). */

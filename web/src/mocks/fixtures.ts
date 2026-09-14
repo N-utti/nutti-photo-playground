@@ -497,7 +497,9 @@ export const initialCredits: Credits = {
     // 목 위에서 한 번도 밟아 볼 수 없습니다. 연동 콜백이 done 으로 바꿔 줍니다.
     { action: 'link_account', amount: 3, status: 'available', cta: '연동하기' },
     { action: 'follow_ig', amount: 2, status: 'available', cta: '받기' },
-    { action: 'daily', amount: 1, status: 'tomorrow', cta: '내일 다시' },
+    // 위 link_account 와 같은 이유 — tomorrow 로 두면 「받기」 클릭(자정 배치가 아니라 클릭식,
+    // #324 정오표 E-08)을 목 위에서 한 번도 못 밟습니다. 클레임 뒤 핸들러가 tomorrow 로 바꿉니다.
+    { action: 'daily', amount: 1, status: 'available', cta: '받기' },
   ],
 }
 

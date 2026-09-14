@@ -21,6 +21,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { isApiError, sourceBlocked } from '../api/client'
+import { track } from '../app/analytics'
 import BackButton from '../app/BackButton'
 import { CreditBadge } from '../app/CreditBadge'
 import {
@@ -323,6 +324,9 @@ export default function W04Upload() {
             setFileError(result.blocking_issue.message)
             return
           }
+          // FR-W01-06 업로드 완료율의 분자(이슈 #323) — 분모 `landing_cta_click` 은 W-01 에서.
+          // 차단(blocking_issue)은 완료가 아니라 위에서 돌아간 뒤에 셉니다.
+          track({ event_type: 'upload_done', properties: { style_id: styleId } })
           enterConfirm(result, { styleId, petId, upload: result })
         },
       },

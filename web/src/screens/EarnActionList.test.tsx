@@ -15,7 +15,7 @@
  * (PR #58 · 이슈 #52). 목이 그 상태를 만들어 주므로 여기서 밟을 수 있습니다.
  */
 
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, delay, http } from 'msw'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -166,7 +166,7 @@ describe('EarnActionList', () => {
 
   it('오늘 몫을 이미 받았으면 받기 버튼을 내린다', async () => {
     /*
-      시드 기본값이 `daily: tomorrow` 입니다 — «오늘 몫은 이미 받은 상태». 여기에
+      `asMember()` 의 목록이 `daily: tomorrow` 입니다 — «오늘 몫은 이미 받은 상태». 여기에
       「받기」가 남아 있으면 누를 때마다 409 를 맞습니다.
 
       회원으로 봐야 하는 이유: 게스트에게는 이 줄도 `login_required` 라 「로그인」이
@@ -177,6 +177,21 @@ describe('EarnActionList', () => {
 
     await screen.findByText('오늘의 무료')
     expect(screen.getByText('내일 다시')).toBeInTheDocument()
+  })
+
+  it('매일 크레딧은 자동 충전이 아니라 받기 클릭이다 — 안내가 자정 충전을 약속하지 않는다', async () => {
+    /*
+      #324 정오표 E-08. 자정에 되살아나는 건 받을 자격이고 크레딧은 「받기」를 눌러야
+      들어옵니다. 시드 기본값이 `daily: available` 이라 그 클릭 경로가 여기서 밟힙니다.
+    */
+    mockAsMember()
+    renderWithProviders(<EarnActionList />)
+
+    const daily = (await screen.findByText('오늘의 무료')).closest('div')!.parentElement!
+    expect(daily).toHaveTextContent('하루 1번')
+    expect(screen.queryByText(/자정/)).toBeNull()
+    await userEvent.click(within(daily).getByRole('button', { name: '받기' }))
+    expect(await within(daily).findByText('내일 다시')).toBeInTheDocument()
   })
 
   it('받았는데 잔액이 여전히 음수면 숫자가 왜 안 움직이는지 말한다 (FR-EDGE-05)', async () => {
