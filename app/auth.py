@@ -10,7 +10,7 @@ import jwt
 from fastapi import Header, HTTPException
 
 from app.common import unauthorized
-from app.models import AdminUser, Member
+from app.models import AdminUser, Member, MemberKind
 from app.settings import settings
 
 
@@ -188,6 +188,14 @@ async def get_current_member(authorization: str | None = Header(None, alias="Aut
         or payload.get("ver", 0) != member.token_version
     ):
         raise unauthorized()
+    # 게스트 자산 보존 기한(guest_expires_at)이 지나면 토큰이 살아 있어도 끝 — purge 가 자산을 지운 뒤
+    # 토큰만 유효한 「이미지 깨진 세션」을 막는다. 프론트는 TOKEN_EXPIRED 면 게스트를 재발급한다.
+    if (
+        member.kind == MemberKind.GUEST
+        and member.guest_expires_at is not None
+        and member.guest_expires_at < datetime.now(timezone.utc)  # purge 와 같은 경계(<)
+    ):
+        raise unauthorized("TOKEN_EXPIRED")
     return member
 
 

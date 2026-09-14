@@ -1275,3 +1275,51 @@ def test_handoff_code_expires(client: TestClient, monkeypatch):
         "/v1/auth/handoff", headers={"Authorization": f"Bearer {guest['token']}"}
     ).json()["code"]
     assert client.post("/v1/auth/handoff/redeem", json={"code": code}).status_code == 401
+
+
+async def _expire_guest(member_id: str):
+    await Member.filter(id=member_id).update(
+        guest_expires_at=datetime.now(timezone.utc) - timedelta(seconds=1)
+    )
+
+
+def test_expired_guest_is_401_token_expired_even_with_live_jwt(client: TestClient):
+    """guest_expires_at 이 지나면 JWT 가 아직 살아 있어도 TOKEN_EXPIRED — purge 가 자산을 지운 뒤 토큰만 유효한 세션을 막는다."""
+    guest = client.post("/v1/auth/guest").json()
+    headers = {"Authorization": f"Bearer {guest['token']}"}
+    assert client.get("/v1/auth/me", headers=headers).status_code == 200
+
+    client.portal.call(_expire_guest, guest["member_id"])
+
+    response = client.get("/v1/auth/me", headers=headers)
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "TOKEN_EXPIRED"
+
+
+def test_handoff_redeem_extends_guest_asset_retention(client: TestClient):
+    """핸드오프로 새 30일 토큰을 받으면 guest_expires_at 도 같이 밀린다 — 토큰 수명과 자산 보존 기한 정렬."""
+    guest = client.post("/v1/auth/guest").json()
+    before = client.portal.call(_member, guest["member_id"]).guest_expires_at
+    client.portal.call(
+        lambda: Member.filter(id=guest["member_id"]).update(
+            guest_expires_at=datetime.now(timezone.utc) + timedelta(days=3)
+        )
+    )
+
+    code = client.post("/v1/auth/handoff", headers={"Authorization": f"Bearer {guest['token']}"}).json()["code"]
+    assert client.post("/v1/auth/handoff/redeem", json={"code": code}).status_code == 200
+
+    after = client.portal.call(_member, guest["member_id"]).guest_expires_at
+    assert after >= before - timedelta(seconds=5)
+    assert after > datetime.now(timezone.utc) + timedelta(days=29)
+
+
+def test_handoff_redeem_does_not_revive_expired_guest(client: TestClient):
+    """발급→소진 사이(120초)에 만료된 게스트는 핸드오프로도 못 살아난다 — purge 가 자산을 지웠을 수 있다."""
+    guest = client.post("/v1/auth/guest").json()
+    code = client.post("/v1/auth/handoff", headers={"Authorization": f"Bearer {guest['token']}"}).json()["code"]
+    client.portal.call(_expire_guest, guest["member_id"])
+
+    response = client.post("/v1/auth/handoff/redeem", json={"code": code})
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "TOKEN_EXPIRED"
