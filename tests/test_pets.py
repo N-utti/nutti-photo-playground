@@ -66,7 +66,6 @@ async def _latest_upload_fixtures(member_id: str):
         pet_profile=current_pet,
         storage_key=f"uploads/{uuid.uuid4()}",
         quality_check={},
-        expires_at=now + timedelta(days=1),
     )
     expired_old = await SourceImage.create(
         member_id=member_id,
@@ -79,7 +78,6 @@ async def _latest_upload_fixtures(member_id: str):
         pet_profile=expired_pet,
         storage_key=f"uploads/{uuid.uuid4()}",
         quality_check={},
-        expires_at=now - timedelta(days=1),
     )
     timestamps = {
         current_old.id: now - timedelta(days=4),
@@ -89,7 +87,7 @@ async def _latest_upload_fixtures(member_id: str):
     }
     for source_id, created_at in timestamps.items():
         await SourceImage.filter(id=source_id).update(created_at=created_at)
-    return str(current_pet.id), str(current_latest.id), str(expired_pet.id)
+    return str(current_pet.id), str(current_latest.id), str(expired_pet.id), str(expired_latest.id)
 
 
 def test_pet_crud_links_upload_and_returns_thumbnail(
@@ -186,7 +184,7 @@ def test_other_member_cannot_use_upload_or_modify_pet(client: TestClient):
 
 def test_latest_upload_uses_newest_and_expired_newest_returns_null(client: TestClient):
     session = _guest(client)
-    current_pet_id, current_upload_id, expired_pet_id = client.portal.call(
+    current_pet_id, current_upload_id, expired_pet_id, expired_upload_id = client.portal.call(
         _latest_upload_fixtures,
         session["member_id"],
     )
@@ -196,7 +194,8 @@ def test_latest_upload_uses_newest_and_expired_newest_returns_null(client: TestC
     assert response.status_code == 200
     items = {item["id"]: item for item in response.json()["items"]}
     assert items[current_pet_id]["latest_upload_id"] == current_upload_id
-    assert items[expired_pet_id]["latest_upload_id"] is None
+    # 게스트 만료는 인증 단계에서 401 이라 여기서 따로 거르지 않는다(2026-09-14, source_image.expires_at 삭제)
+    assert items[expired_pet_id]["latest_upload_id"] == expired_upload_id
     assert items[current_pet_id]["thumbnail_url"] is None
     assert items[expired_pet_id]["thumbnail_url"] is None
 

@@ -149,7 +149,6 @@ class SourceImage(Model):
     height = fields.IntField(null=True)
     quality_check = fields.JSONField()
     breed_estimate = fields.JSONField(null=True)
-    expires_at = fields.DatetimeField(null=True)
     deleted_at = fields.DatetimeField(null=True)
     purged_at = fields.DatetimeField(null=True)
     created_at = fields.DatetimeField(auto_now_add=True)

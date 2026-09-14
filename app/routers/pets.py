@@ -1,5 +1,4 @@
 import uuid
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, ConfigDict, Field
@@ -73,15 +72,10 @@ async def list_pets(member: Member = Depends(get_current_member)):
     for upload in uploads:
         latest_by_pet.setdefault(upload.pet_profile_id, upload)
 
-    now = datetime.now(timezone.utc)
     items = []
     for pet in pets:
         latest = latest_by_pet.get(pet.id)
-        latest_upload_id = (
-            str(latest.id)
-            if latest is not None and (latest.expires_at is None or latest.expires_at >= now)
-            else None
-        )
+        latest_upload_id = str(latest.id) if latest is not None else None
         items.append({**_pet_response(pet), "latest_upload_id": latest_upload_id})
     return {"items": items}
 

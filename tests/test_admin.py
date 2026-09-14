@@ -930,6 +930,7 @@ _SETTING_KEYS = [
     "custom_prompt_credit_cost",
     "daily_free_amount",
     "follow_ig_amount",
+    "guest_trial_amount",
     "human_face_policy",
     "link_account_amount",
     "no_dog_policy",
