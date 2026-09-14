@@ -450,7 +450,7 @@ async def issue_guest_token(request: Request) -> GuestTokenResponse:
     async with in_transaction() as connection:
         member = await Member.create(
             kind=MemberKind.GUEST,
-            guest_expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+            guest_expires_at=datetime.now(timezone.utc) + timedelta(seconds=settings.jwt_guest_expires_in),
             using_db=connection,
         )
         await grant_credits(
@@ -899,6 +899,10 @@ async def redeem_handoff(body: HandoffRedeemRequest, request: Request) -> Handof
         raise unauthorized()
     if member.kind == MemberKind.MEMBER:
         logger.info("auth handoff redeemed: member=%s ip=%s", member.id, client_ip)  # L2 — 회원 세션 이동 흔적
+    else:
+        # 새 30일 토큰을 주면서 자산 보존 기한도 같이 민다 — 안 그러면 토큰은 살고 purge 가 이미지를 지운다.
+        member.guest_expires_at = datetime.now(timezone.utc) + timedelta(seconds=settings.jwt_guest_expires_in)
+        await member.save(update_fields=["guest_expires_at"])
     return HandoffRedeemResponse(
         token=create_token(member.id, member.kind.value, member.token_version),
         member_id=str(member.id),
