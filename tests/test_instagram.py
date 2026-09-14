@@ -38,10 +38,13 @@ def client(monkeypatch: pytest.MonkeyPatch):
 @pytest.fixture
 def graph(monkeypatch: pytest.MonkeyPatch) -> dict:
     """Graph 호출 대역 — 보낸 DM·비공개 답장을 잡아 두고, 프로필의 팔로우 여부는 테스트가 정한다."""
-    calls: dict = {"private": [], "dm": [], "follows": {}}
+    calls: dict = {"private": [], "public": [], "dm": [], "follows": {}}
 
     async def send_private_reply(comment_id: str, text: str) -> None:
         calls["private"].append((comment_id, text))
+
+    async def reply_to_comment(comment_id: str, text: str) -> None:
+        calls["public"].append((comment_id, text))
 
     async def send_message(igsid: str, text: str) -> None:
         calls["dm"].append((igsid, text))
@@ -50,6 +53,7 @@ def graph(monkeypatch: pytest.MonkeyPatch) -> dict:
         return {"username": f"user_{igsid}", "is_user_follow_business": calls["follows"].get(igsid, False)}
 
     monkeypatch.setattr(instagram, "send_private_reply", send_private_reply)
+    monkeypatch.setattr(instagram, "reply_to_comment", reply_to_comment)
     monkeypatch.setattr(instagram, "send_message", send_message)
     monkeypatch.setattr(instagram, "get_user_profile", get_user_profile)
     instagram._last_dm_at.clear()
@@ -151,6 +155,7 @@ def test_keyword_comment_gets_private_reply_but_others_do_not(client: TestClient
 
     assert [c for c, _ in graph["private"]] == ["1001"]
     assert "팔로우" in graph["private"][0][1]
+    assert [c for c, _ in graph["public"]] == ["1001"] and "메시지함" in graph["public"][0][1]  # 공개 대댓글도 키워드 댓글에만
 
 
 # ---------------------------------------------------------------- DM → 팔로우 확인 → 코드

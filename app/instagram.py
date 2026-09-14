@@ -3,7 +3,7 @@
 인스타그램은 "A가 B를 팔로우하는지"를 제3자에게 알려 주지 않는다 — 단 하나의 예외가 **메시징 API의 사용자 프로필**
 (`is_user_follow_business`)이고, 이 값은 그 사용자가 우리 계정에 **DM을 보낸 뒤**에만 조회된다. 그래서 흐름이 이렇다:
 
-  게시물 댓글(키워드) → 비공개 답장 DM("팔로우 후 「완료」 답장") → 사용자가 답장 → 프로필 조회 →
+  게시물 댓글(키워드) → 비공개 답장 DM("팔로우 후 「완료」 답장") + 공개 대댓글("메시지함 확인") → 사용자가 답장 → 프로필 조회 →
   팔로우 O: 1회용 코드 + 놀이터 링크 DM → 놀이터 로그인 시 코드 소진 → follow_ig 크레딧
   팔로우 X: "팔로우 후 다시 답장" DM
 
@@ -36,6 +36,7 @@ REPLY_TO_COMMENT = (
     "안녕하세요, 누띠예요 🐾 @nutti_official 팔로우 후 이 대화에 「완료」라고 답장해 주시면 "
     "놀이터 링크와 크레딧 코드를 보내드릴게요!"
 )
+PUBLIC_REPLY_TO_COMMENT = "메시지함(DM)을 확인해 주세요 📩"  # 비공개 답장은 요청함에 묻히기 쉬워 공개 대댓글로도 알린다
 NOT_FOLLOWING = "아직 팔로우가 확인되지 않아요 🥲 @nutti_official 팔로우 후 「완료」라고 다시 답장해 주세요."
 FOLLOW_OK = (
     "팔로우 감사해요! 🎁 아래 링크로 들어와 로그인하면 팔로우 크레딧이 자동으로 들어가요.\n{link}\n(코드: {code})"
@@ -164,6 +165,14 @@ async def send_private_reply(comment_id: str, text: str) -> None:
     await _send({"recipient": {"comment_id": comment_id}, "message": {"text": text}})
 
 
+async def reply_to_comment(comment_id: str, text: str) -> None:
+    """댓글에 공개 대댓글 — 비공개 답장과 달리 횟수 제한 없음(scope instagram_business_manage_comments)."""
+    token = await get_token()
+    async with httpx.AsyncClient(timeout=15) as client:
+        response = await client.post(f"{GRAPH}/{comment_id}/replies", headers=_auth(token), data={"message": text})
+        response.raise_for_status()
+
+
 async def send_message(igsid: str, text: str) -> None:
     """DM — 사용자의 마지막 메시지 후 24시간 내."""
     await _send({"recipient": {"id": igsid}, "message": {"text": text}})
@@ -218,6 +227,7 @@ async def handle_comment(value: dict) -> None:
         _replied_comment_ids.add(comment_id)
         if len(_replied_comment_ids) > 10_000:
             _replied_comment_ids.clear()  # ponytail: 프로세스 메모리 — 재시작 뒤 중복은 Meta 가 「댓글당 비공개 답장 1회」로 막는다
+        await reply_to_comment(comment_id, PUBLIC_REPLY_TO_COMMENT)  # DM 보낸 뒤에만 — 실패해도 DM 은 이미 갔다
     except (httpx.HTTPError, RuntimeError, KeyError, ValueError) as exc:
         logger.warning("instagram comment reply failed comment=%s: %s", comment_id, _describe(exc))
 
