@@ -86,7 +86,7 @@ async def test_seed_from_dir_creates_records_and_is_idempotent(tmp_path: Path):
     assert styles["레고"].progress_message == "레고 블록을 쌓는 중…"
     assert styles["미등록_스타일"].progress_message is None
     assert styles["미등록_스타일"].section == "일상 유머"
-    assert styles["미등록_스타일"].sort_order == 39
+    assert styles["미등록_스타일"].sort_order == len(seed_styles._SORT_ORDER_BY_CODE)
     assert all(version.version == 1 for version in versions)
     assert all(version.model_config == {} for version in versions)
     assert all(version.traffic_weight == 100 for version in versions)
