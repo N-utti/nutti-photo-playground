@@ -124,6 +124,28 @@ describe('W-04 · 차단된 사진', () => {
   })
 })
 
+describe('W-04 · 업로드 완료 이벤트 (FR-W01-06 · 이슈 #323)', () => {
+  beforeEach(() => sessionStorage.clear())
+
+  it('확인 단계에 들어가면 upload_done 을 스타일과 함께 보낸다', async () => {
+    const sent: unknown[] = []
+    server.use(
+      http.post('*/v1/events', async ({ request }) => {
+        sent.push(await request.json())
+        return new HttpResponse(null, { status: 204 })
+      }),
+    )
+    mockStyle()
+    const { container } = renderUpload()
+    await screen.findByText('탭해서 사진 올리기')
+    await uploadPhoto(container)
+
+    await waitFor(() =>
+      expect(sent).toContainEqual({ event_type: 'upload_done', properties: { style_id: 7 } }),
+    )
+  })
+})
+
 describe('W-04 · 그림에 들어가는 이름', () => {
   /*
     업로드 초안은 sessionStorage 에 남습니다(api/uploadDraft.ts) — 402 왕복에서 사진을

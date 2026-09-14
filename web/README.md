@@ -300,8 +300,12 @@ src/
 
 로그인 진입점은 W-01 헤더 · W-06 저장 · W-10 연동 세 곳이고 전부 `screens/AccountSheet.tsx`
 한 벌을 씁니다. OAuth 복귀 지점은 `/auth/callback/:provider` (`screens/AuthCallback.tsx`) —
-**프로바이더 콘솔의 redirect_uri 가 이 주소**라 경로를 바꾸면 카카오·네이버·카페24 설정도
-같이 바꿔야 합니다.
+**프로바이더 콘솔의 redirect_uri 가 이 주소**라 경로를 바꾸면 카카오·네이버 설정도 같이
+바꿔야 합니다. 카페24 는 여기로 오지 않습니다(OAuth 가 아니라 SMS 2단계, `ShopLinkSheet`).
+Meta 개발자 콘솔도 같은 경로(`/auth/callback/instagram`)를 인스타 비즈니스 로그인 redirect 로
+등록해 뒀는데(백엔드 PR #314, `deploy/README` 5-2), 그건 운영자가 토큰을 발급받는 1회성
+흐름이라 사용자 경로가 아닙니다 — 이 화면은 그 프로바이더를 모르고 「알 수 없는 로그인
+경로예요」를 그립니다.
 
 **그 복귀 지점은 화면을 그리지 않습니다.** 로그인이 확정되면 곧바로 로그인을 누른 화면으로
 되돌립니다(`app/authReturn.ts`). 콜백 화면에 남는 건 «확인 중» 스피너와 실패 넷뿐입니다.
@@ -413,7 +417,7 @@ Router 가 그 API 를 씁니다. 여기서 또 보내면 화면 하나가 **두
 | # | 등록처 | 값 | 안 하면 |
 |---|---|---|---|
 | 1 | GA4 관리자 → 도메인 구성 | `play.nutti.co.kr` + `nutti.co.kr` | 도메인 넘을 때 세션이 끊김 (위 절차) |
-| 2 | 카카오·네이버·카페24 개발자 콘솔 → redirect_uri | `https://play.nutti.co.kr/auth/callback/{provider}` | **로그인이 콜백에서 실패** — 프로바이더가 되돌려 보낼 주소를 모릅니다 |
+| 2 | 카카오·네이버 개발자 콘솔 → redirect_uri (Meta 콘솔도 같은 경로, 운영자 토큰 발급용) | `https://play.nutti.co.kr/auth/callback/{provider}` | **로그인이 콜백에서 실패** — 프로바이더가 되돌려 보낼 주소를 모릅니다 |
 | 3 | 백엔드 `CORS_ALLOWED_ORIGINS` | `https://play.nutti.co.kr` | API 호출이 전부 CORS 차단 (이슈 #3) |
 | 4 | 카카오 개발자 콘솔 → [플랫폼 키] JavaScript SDK 도메인 + [제품 링크 관리] 웹 도메인 | `https://play.nutti.co.kr` | 「카카오톡으로 보내기」가 카드를 거절당함 (PR #254 · `app/kakaoShare.ts`) |
 
@@ -423,7 +427,7 @@ false 라 항목 자체를 안 그립니다. 2026-09-03 등록 시 `http://local
 넣었으니 **배포 뒤에는 그 항목을 콘솔에서 빼야** 아무 로컬에서나 이 키로 카드를 못 보냅니다.
 
 2번의 경로는 **프론트 라우트**입니다(`screens/AuthCallback.tsx`, `app/routes.tsx`의
-`/auth/callback/:provider`) — 그래서 **이 경로를 바꾸면 콘솔 세 곳도 같이 바꿔야 합니다.**
+`/auth/callback/:provider`) — 그래서 **이 경로를 바꾸면 그 콘솔들도 같이 바꿔야 합니다.**
 프로바이더는 등록된 값과 **정확히** 일치해야 받아 주므로 후행 슬래시·`http`/`https` 까지
 그대로여야 합니다.
 
@@ -461,7 +465,7 @@ false 라 항목 자체를 안 그립니다. 2026-09-03 등록 시 `http://local
 있던 근거는 잃지 않게 여기 옮겨 둡니다 — **정적 호스팅으로 되돌아간다면 다시 만들어야 합니다**:
 
 > 라우팅이 전부 클라이언트(react-router)라 `/styles/101`·`/jobs/{id}` 같은 경로는 그 이름의
-> 파일이 없어 404 가 납니다. 특히 `/auth/callback/{provider}` 는 카카오·네이버·카페24가
+> 파일이 없어 404 가 납니다. 특히 `/auth/callback/{provider}` 는 카카오·네이버가
 > **직접 보내는** 주소라 우회로가 없습니다 — fallback 이 없으면 로그인이 배포 직후 100%
 > 깨집니다. 그리고 **200(rewrite)이어야 하고 302 가 아닙니다**: 리다이렉트로 처리하면 주소창이
 > `/` 로 바뀌면서 OAuth 콜백의 `code`·`state` 쿼리가 사라집니다.
