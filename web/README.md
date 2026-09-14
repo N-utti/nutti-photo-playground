@@ -267,6 +267,7 @@ src/
     guestSession.ts 게스트 세션 초기화 감지 → 복원 실패 안내 분기 (이슈 #5)
     sessionStatus.ts  세션이 평소와 다른 상태 셋. 「끊김」은 복구 신호, 나머지 둘만 안내
     sessionRecovery.tsx  회원 세션이 끊기면 **말없이** 게스트로 내려앉힘 + 캐시 리셋
+    InstagramCodeRedeem.tsx  인스타 DM 링크 코드(`?ig=`)를 로그인 뒤 어느 화면에서든 자동 소진, 실패만 아래 카드로
     SessionNotice.tsx  앱이 스스로 못 고치는 둘(발급 429 · 갱신 429)만 화면 아래 카드로
     authReturn.ts   OAuth 왕복 동안 복귀 주소 보관 (sessionStorage, 내부 경로만)
     retryAfter.ts   429 Retry-After → 사람이 읽는 문구 (게스트 발급·로그인 공용)

@@ -15,7 +15,7 @@ import { isApiError } from '../api/client'
 import { track } from '../app/analytics'
 import { creditAmountPhrase } from '../app/earnAmount'
 import { useClaimCredit, useCredits, useMe, useRedeemInstagramCode } from '../api/queries'
-import { clearInstagramCode } from '../app/instagramCode'
+import { clearInstagramCode, redeemErrorMessage } from '../app/instagramCode'
 import {
   NUTTI_INSTAGRAM_HANDLE,
   NUTTI_INSTAGRAM_URL,
@@ -200,13 +200,7 @@ export default function EarnActionList() {
 
       {redeem.isError && (
         <p role="alert" className="mt-2 text-center text-sm text-danger">
-          {isApiError(redeem.error, 'INSTAGRAM_CODE_INVALID')
-            ? '코드가 올바르지 않거나 만료됐어요. 인스타 DM의 코드를 다시 확인해 주세요.'
-            : isApiError(redeem.error, 'INSTAGRAM_ALREADY_USED')
-              ? '이 인스타그램 계정으로는 이미 크레딧을 받았어요.'
-              : isApiError(redeem.error, 'ALREADY_CLAIMED')
-                ? '이미 받은 크레딧이에요.'
-                : redeem.error.message}
+          {redeemErrorMessage(redeem.error)}
         </p>
       )}
 
