@@ -5,6 +5,12 @@
 - 스펙 문서: [`docs/wireframe-spec-v0.5.html`](docs/wireframe-spec-v0.5.html) — 브라우저로 열어서 보세요
 - 개발 문서 세트: [`docs/README.md`](docs/README.md) — PRD·요구사항·유스케이스·ERD·API 명세·아키텍처·결정 로그
 
+## 🎬 시연 영상
+
+[![누띠 사진 놀이터 시연 영상](docs/media/playground-demo.jpg)](https://github.com/N-utti/nutti-photo-playground/releases/download/demo-2026-09/playground-demo.mp4)
+
+쇼핑몰 AI 추천 → 사진 업로드 → 스타일 선택 → 생성 결과 → 크레딧 흐름을 돌린 2분 45초 영상. 720p, 클릭하면 재생·내려받기. (Release `demo-2026-09` 자산)
+
 ## 아키텍처
 
 FastAPI + Tortoise ORM 이 API 와 워커를 같은 코드베이스에 두고, PostgreSQL 이 데이터와 작업 큐를 겸한다. 이미지 원본·결과는 오브젝트 스토리지, 쇼핑몰 연동은 카페24 Admin API. 프론트는 `web/`.
