@@ -7,7 +7,7 @@
 
 ## 🎬 시연 영상
 
-[![누띠 사진 놀이터 시연 영상](docs/media/playground-demo.jpg)](https://github.com/N-utti/nutti-photo-playground/releases/download/demo-2026-09/playground-demo.mp4)
+[![누띠 사진 놀이터 시연 영상](docs/media/playground-demo.jpg)](https://github.com/user-attachments/assets/89f18615-71c4-4989-a9f2-8237948cebb4)
 
 쇼핑몰 AI 추천 → 사진 업로드 → 스타일 선택 → 생성 결과 → 크레딧 흐름을 돌린 2분 45초 영상. 720p, 클릭하면 재생·내려받기. (Release `demo-2026-09` 자산)
 
