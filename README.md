@@ -1,12 +1,44 @@
 # 누띠 강아지 사진 놀이터
 
-강아지 사진을 AI로 변환해 주는 서비스의 **와이어프레임 스펙 저장소**입니다.
-구현 코드는 아직 없고, 기획·설계 문서만 담고 있습니다.
+> **상태: 드랍 · 서버 내림** — 개발 완료 후 운영했으나 트래픽이 없어 내렸다. 2인 팀(백엔드·PO 정성운 / 프론트 진수연)
+>
+> 포트폴리오: [AX(AI 활용)](https://wjdtjddns98.github.io/) · [개발자](https://wjdtjddns98.github.io/dev/)
 
-- 스펙 문서: [`docs/wireframe-spec-v0.5.html`](docs/wireframe-spec-v0.5.html) — 브라우저로 열어서 보세요
-- 개발 문서 세트: [`docs/README.md`](docs/README.md) — PRD·요구사항·유스케이스·ERD·API 명세·아키텍처·결정 로그(SSOT는 위 와이어프레임 HTML)
-- 버전: v0.5 · 기준일 2026-08-03
-- 구성: 11 plates (사용자 10 / 운영 1) · 결정 7건 · 열린 질문 6건(스펙 표기 "8 decided"는 오기 — [07-decisions.md](docs/07-decisions.md) 정오표 E-03 참고)
+강아지 사진을 AI 로 변환해 주고, 변환에 쓰는 크레딧은 쇼핑몰 주문·계정 연동 같은 **행동의 보상**으로만 준다. 수제간식 쇼핑몰 [nutti.co.kr](https://nutti.co.kr) 의 홍보 자산.
+
+## 왜 만들었나 → 무엇이 됐나
+
+- **문제** — 쇼핑몰 유입 경로가 SNS·간식 계산기뿐이었다. 결과물이 사용자 손으로 퍼지는 자산이 하나 필요했다.
+- **결과** — 업로드 → 스타일 → 결과 3단계 서비스를 만들어 운영했다. 7일간 실생성 72건. 유입이 더 늘지 않아 서버를 내렸다.
+
+| 지표 | 값 |
+| --- | --- |
+| 이미지 1장 단가 | $0.211 → $0.053 |
+| 처리량 | 약 280장/h |
+| 생성 p95 | 59초 |
+| 테스트 | 229 |
+| 운영 7일 실생성 | 72건 |
+
+## 역할
+
+- **정성운** — 백엔드 전부(FastAPI · 작업 큐 · 크레딧 원장 · 카페24 연동 · 인증), PO(스펙·결정 로그).
+- **진수연** — 프론트(`web/`).
+
+## 핵심 설계 결정
+
+1. **큐는 Postgres 로** — `SELECT … FOR UPDATE SKIP LOCKED` 워커. 별도 브로커 없이 생성 작업을 정확히 한 워커가 집는다.
+2. **크레딧은 append-only 원장** — 잔액 컬럼을 고치지 않고 거래를 쌓는다. 생성 실패는 원장에 환불 거래가 자동으로 붙는다.
+3. **회원 DB 를 만들지 않는다** — 카페24 Admin API(OAuth)로 쇼핑몰 회원·주문을 읽고, 본인 확인은 SMS OTP. 주문 1건이 크레딧 지급으로 이어진다.
+4. **인증은 작은 것부터 막는다** — OAuth `nonce`, 로그인 락아웃, `token_version` 으로 세션 일괄 무효화.
+5. **단가는 모델·해상도로 줄였다** — $0.211 → $0.053. 1요청 1장(2026-08-04 결정)으로 원가를 1/4 로.
+
+## 아키텍처
+
+FastAPI + Tortoise ORM 이 API 와 워커를 같은 코드베이스에 두고, PostgreSQL 이 데이터와 작업 큐를 겸한다. 이미지 원본·결과는 오브젝트 스토리지, 쇼핑몰 연동은 카페24 Admin API. 프론트는 `web/`.
+
+## 기술 스택
+
+Python 3.13 · FastAPI · Tortoise ORM + aerich · PostgreSQL · 카페24 Admin API · uv
 
 ---
 
@@ -118,7 +150,7 @@ Pawtograph · PixPawAI · Pawcaso · DreamPets · EaseMate를 훑어 얻은 결�
 
 ## 백엔드 실행
 
-스캐폴딩 단계(FastAPI + Tortoise ORM, `app/`) — 상세 스펙은 [`docs/04-erd.md`](docs/04-erd.md)·[`docs/05-api-spec.md`](docs/05-api-spec.md)·[`docs/06-architecture-deployment.md`](docs/06-architecture-deployment.md) 참고.
+FastAPI + Tortoise ORM(`app/`) — 상세 스펙은 [`docs/04-erd.md`](docs/04-erd.md)·[`docs/05-api-spec.md`](docs/05-api-spec.md)·[`docs/06-architecture-deployment.md`](docs/06-architecture-deployment.md) 참고.
 
 ```bash
 uv sync                              # 의존성 설치(Python 3.13 고정, .python-version 참고)
@@ -128,7 +160,7 @@ uv run aerich init-db                # 최초 1회: migrations/ 생성 + 스키�
 uv run uvicorn app.main:app --reload # API 서버 (localhost:8000, /healthz로 확인)
 ```
 
-검증: `uv run pytest` — sqlite in-memory로 13개 모델 스키마 생성 + `/healthz` + 라우터 등록을 확인하는 스모크 테스트(`tests/test_smoke.py`)만 있습니다. 워커는 `uv run python -m app.worker`.
+검증: `uv run pytest`. 워커는 `uv run python -m app.worker`.
 
 ## 브랜드 팩트
 
